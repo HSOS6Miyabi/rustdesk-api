@@ -81,7 +81,7 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		if err != nil { return err }
 		if !fresh { return nil }
 		previous := &model.AuditConn{}
-		err := tx.Where("peer_id = ? AND conn_id = ?", event.PeerId, event.ConnId).Order("id DESC").First(previous).Error
+		err = tx.Where("peer_id = ? AND conn_id = ?", event.PeerId, event.ConnId).Order("id DESC").First(previous).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return err }
 
 		// Resolve both participants only after the source device becomes known.
