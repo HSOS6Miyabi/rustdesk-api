@@ -56,6 +56,24 @@ function serve(req, res) {
     });
     if(route==="/shared_devices/sources")return answer(res, {sources:[]});
     if(route==="/shared_devices/list")return answer(res, {list:[],total:0});
+    if(route==="/device_policy/list")return answer(res,{list:[
+      {id:21,name:"办公设备",id_whitelist:"desk-*",ip_whitelist:"192.0.2.0/24",enable_webrtc:false,trust_duration_days:30}
+    ],total:1});
+    if(route==="/device_policy/assignment/list")return answer(res,{list:[
+      {id:7,device_id:"desk-001",policy_id:21}
+    ],total:1});
+    if(route==="/my/audit_alarm/list")return answer(res,{list:[
+      {id:5,typ:10,peer_id:"desk-001",conn_id:12,info:'{"id":"visitor"}'}
+    ],total:1});
+    if(route==="/audit_alarm/list")return answer(res,{list:[
+      {id:5,typ:10,peer_id:"desk-001",to_user_id:3,conn_id:12}
+    ],total:1});
+    if(route==="/audit_operation/list")return answer(res,{list:[
+      {id:6,account:"admin",method:"POST",path:"/api/admin/group/create",client_ip:"192.0.2.1",success:true}
+    ],total:1});
+    if(route==="/audit/retention")return answer(res,{
+      connection_days:90,file_days:30,alarm_days:180,login_days:90,operation_days:180
+    });
     if(route==="/login-options")return answer(res, {ops:[],need_captcha:false,disable_pwd:false});
     return answer(res, {list:[],total:0});
   }
@@ -178,5 +196,64 @@ test("tablet: shared device and audit pages are accessible without horizontal ov
     }));
     assert.ok(width.document<=width.viewport+2,
       "tablet document has unexpected horizontal overflow: "+JSON.stringify(width));
+  }finally{await context.close();}
+});
+
+test("administrator: security policies, alarms and operation logs render correctly",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="policies"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备安全策略");
+    await page.getByText("办公设备",{exact:true}).waitFor();
+    assert.match(await page.locator(".content").innerText(),/192.0.2.0\/24/);
+    await page.locator('nav.side-scroll button[data-view="policyAssignments"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备策略分配");
+    await page.getByText("desk-001",{exact:true}).waitFor();
+    await page.locator('nav.side-scroll button[data-view="alarms"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="安全告警");
+    await page.getByText("设备 ID 白名单拒绝 (10)").first().waitFor();
+    await page.locator('nav.side-scroll button[data-view="operations"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="管理操作记录");
+    await page.getByText("/api/admin/group/create",{exact:true}).first().waitFor();
+  }finally{await context.close();}
+});
+
+test("mobile: device policy editor and retention form remain usable",async()=>{
+  const {context,page}=await pageForViewport(375,812,true);
+  try{
+    const openMenu=async()=>{
+      await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator("aside.sidebar.open").waitFor();
+    };
+    await openMenu();
+    await page.locator('nav.side-scroll button[data-view="policies"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备安全策略");
+    await page.locator('button[data-action="create"]').click();
+    const drawer=page.locator("section.drawer");
+    await drawer.waitFor({state:"visible"});
+    const editorBounds=await drawer.boundingBox();
+    assert.ok(editorBounds&&editorBounds.width<=377,"device policy editor exceeds phone width");
+    assert.match(await drawer.innerText(),/设备 ID 白名单/);
+    assert.match(await drawer.innerText(),/可信设备有效期/);
+    await page.locator('button[data-action="close-modal"]').last().click();
+    await openMenu();
+    await page.locator('nav.side-scroll button[data-view="retention"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="日志保留设置");
+    await page.locator('#retention-form input[name="connection_days"]').waitFor({state:"visible"});
+    assert.equal(await page.locator('#retention-form input[name="connection_days"]').inputValue(),"90");
+    const dims=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
+    assert.ok(dims.scroll<=dims.width+2,"mobile retention form has horizontal overflow: "+JSON.stringify(dims));
+  }finally{await context.close();}
+});
+
+test("ordinary users see their security alarms but cannot access global security management",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    for(const view of ["alarms","operations","policies","policyAssignments","retention"]){
+      assert.equal(await page.locator('nav.side-scroll button[data-view="'+view+'"]').count(),0);
+    }
+    await page.locator('nav.side-scroll button[data-view="myalarms"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的安全告警");
+    await page.getByText("设备 ID 白名单拒绝 (10)").first().waitFor();
   }finally{await context.close();}
 });
