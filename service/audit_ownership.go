@@ -200,7 +200,7 @@ func participantFromIndex(peers map[string]model.Peer, users map[uint]string, id
 
 func auditPersonalScope(tx *gorm.DB, userId uint) *gorm.DB {
 	return tx.Where(
-		"(from_user_id = ? OR to_user_id = ? OR from_peer IN (SELECT id FROM peers WHERE user_id = ?) OR peer_id IN (SELECT id FROM peers WHERE user_id = ?))",
+		"(from_user_id = ? OR to_user_id = ? OR (from_user_id = 0 AND from_peer IN (SELECT id FROM peers WHERE user_id = ?)) OR (to_user_id = 0 AND peer_id IN (SELECT id FROM peers WHERE user_id = ?)))",
 		userId, userId, userId, userId,
 	)
 }
