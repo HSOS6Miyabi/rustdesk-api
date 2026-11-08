@@ -246,7 +246,9 @@ export default class Connection {
       return true;
     }finally{
       ws.close();
-      if(!connected){transport.close();if(this._ws===transport)this._ws=undefined;}
+      pc.onicecandidate=null;
+      transport.close();
+      if(this._ws===transport)this._ws=undefined;
     }
   }
 
