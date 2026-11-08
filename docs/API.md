@@ -70,6 +70,40 @@ HTTP 响应中的 `code: 0` 表示操作成功。管理员接口统一以 `/api/
 
 `action` 支持 `add`、`remove`、`replace`。用户会保留主要分组；需要移除主要分组成员时，系统会将其移动到默认分组。
 
+## 个人群组管理
+
+个人群组与管理员群组使用独立接口。所有个人群组接口都要求已登录，且在服务端检查当前用户是否是群组所有者。
+
+- `GET /api/admin/my/group/list`：列出自己创建的群组。
+- `GET /api/admin/my/group/detail/{id}`：查询自己的群组详情。
+- `POST /api/admin/my/group/create`：创建群组，如 `{"name":"家庭设备","type":3}`。
+- `POST /api/admin/my/group/update`：修改自己创建的群组，如 `{"id":7,"name":"家庭设备","type":3}`。
+- `POST /api/admin/my/group/delete`：删除自己创建的群组，如 `{"id":7}`。
+- `GET /api/admin/my/group/members?group_id=7`：查看群组成员。
+- `POST /api/admin/my/group/members/batch`：批量添加、移除或替换群组成员，参数与管理员接口相同。
+- `GET /api/admin/my/group/anchors?group_id=7`：查看公共成员。
+- `POST /api/admin/my/group/anchors`：替换公共成员。
+- `GET /api/admin/my/group/user/lookup?username=alice`：通过完整用户名查找用户，返回可用于添加群组成员的基本信息。
+
+普通用户只能操作自己创建的群组。创建者必须保留群组成员身份，普通用户不得通过这些接口修改管理员的成员关系。管理员仍使用 `/api/admin/group` 系列接口管理所有群组。
+
+## 我的审计记录
+
+`GET /api/admin/my/audit_conn/list?page=1&page_size=20`
+
+返回当前用户参与的连接日志，包含：
+
+- `from_peer`、`from_device_name`、`from_user_id`、`from_account`：连接方的设备和账户信息。
+- `peer_id`、`to_device_name`、`to_user_id`、`to_account`：被连接方的设备和账户信息。
+- `direction`：`outgoing` 表示本人主动发起连接，`incoming` 表示其他设备连接本人的设备，`both` 表示双方设备均属于本人。
+- `from_name`、`ip`、`created_at`、`close_time`：连接方的设备登录用户名、来源 IP、开始与结束时间。
+
+`GET /api/admin/my/audit_file/list?page=1&page_size=20`
+
+返回当前用户设备参与的文件传输记录，包含连接双方设备与账户信息、文件路径、时间和 `direction`。
+
+对于已经存在的历史记录，系统会利用保存的设备 ID 获取当前仍可识别的账户和设备名称。后续产生的新记录会在创建时保存双方已知的信息，并在收到补充事件时更新记录。个人接口只允许查询与当前用户或其设备有关的记录；管理员可以继续通过 `/api/admin/audit_conn/list` 和 `/api/admin/audit_file/list` 查询全部记录。
+
 ## OIDC 自动入组
 
 创建或更新身份认证服务时，设置 `auto_group_ids`，例如 `"2,3"`。此字段与现有 `oauth_type`、`issuer`、`client_id` 等字段一起提交到 `/api/admin/oauth/create` 或 `/api/admin/oauth/update`。

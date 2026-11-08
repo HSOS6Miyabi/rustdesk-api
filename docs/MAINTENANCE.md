@@ -18,12 +18,13 @@ API 原作者：lejianwen。服务端同步官方 RustDesk Server 的更新，�
 go test ./... -count=1
 go build -o /tmp/rustdesk-api ./cmd/apimain.go
 node --check resources/admin/app.js
+node --test resources/admin/app.test.cjs
 node --check resources/web2/app.js
 ```
 
 Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。GitHub Actions 会为测试启动 Redis 服务。
 
-需要重点检查的行为包括：公共锚点组管理员的客户端可见范围、联系人单向共享、同一设备的共享来源合并、群组成员批量更新、OIDC 自动入组、地址簿分类数据保留，以及服务器指令超时。
+需要重点检查的行为包括：公共锚点组管理员的客户端可见范围、联系人单向共享、同一设备的共享来源合并、群组成员批量更新、个人群组的所有权校验、个人连接及文件传输日志的访问范围、连接双方的设备信息、OIDC 自动入组、地址簿分类数据保留，以及服务器指令超时。
 
 ## 发布
 
