@@ -44,6 +44,9 @@ function serve(req, res) {
       list:[{id:2,from_peer:"123456",from_account:"owner",
         peer_id:"654321",to_account:"alice",path:"/files/report.pdf",direction:"outgoing"}],total:1
     });
+    if(route==="/api_token/list")return answer(res,{list:[],total:0});
+    if(route==="/api_token/create")return answer(res,{id:8,prefix:"rdapi_example",token:"rdapi_example-secret-value"});
+    if(route==="/api_token/delete")return answer(res,{});
     if(route==="/session/list")return answer(res, {list:[
       {id:4,device_id:"support-123456",conn_id:41,last_seen_at:1710000000}
     ],total:1});
@@ -274,5 +277,23 @@ test("administrator can request disconnection of a reported remote session",asyn
     await page.getByText(/结束连接请求已提交/).first().waitFor();
     await page.locator('nav.side-scroll button[data-view="disconnectHistory"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="结束连接记录");
+  }finally{await context.close();}
+});
+
+test("administrator can create an API token and view it once",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="apiTokens"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="API 管理令牌");
+    await page.locator('button[data-action="create"]').click();
+    const editor=page.locator('#edit-form');
+    await editor.waitFor();
+    await editor.locator('input[name="name"]').fill("My deployment token");
+    await editor.locator('input[name="permissions"]').fill("devices.deploy");
+    await page.locator('button[form="edit-form"]').click();
+    await page.locator('#api-token-secret').waitFor({state:"visible"});
+    assert.equal(await page.locator('#api-token-secret').inputValue(),"rdapi_example-secret-value");
+    await page.locator('button[data-action="close-modal"]').last().click();
+    assert.equal(await page.locator('#api-token-secret').count(),0);
   }finally{await context.close();}
 });

@@ -195,3 +195,14 @@ test("active session actions appear only in administrator console", async () => 
   await admin.open("activeSessions");
   assert.ok(admin.calls.some(call => call.endpoint === "/session/list"));
 });
+
+test("API management tokens are only shown to administrators", async () => {
+  const owner = createConsole();
+  await owner.settle();
+  assert.doesNotMatch(owner.root.innerHTML, /API 管理令牌/);
+  const admin = createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML, /API 管理令牌/);
+  await admin.open("apiTokens");
+  assert.ok(admin.calls.some(call => call.endpoint === "/api_token/list"));
+});
