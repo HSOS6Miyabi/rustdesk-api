@@ -214,3 +214,89 @@ RustDesk 1.5.x 客户端会向 `POST /api/heartbeat` 发送设备 ID、设备 UU
 `modified_at` 是示例值，实际由服务器生成。没有变更时返回空对象。管理员撤销策略分配后，客户端在下一次心跳中清除之前下发的设置。
 
 官方 RustDesk 客户端通过本地配置控制 `enable-webrtc`。策略中保存的同名设置提供管理参考，无法通过心跳直接改变官方客户端的本地 WebRTC 开关。
+
+## 官方客户端设备部署和分配
+
+两个接口都使用 `Authorization: Bearer <TOKEN>`。TOKEN 可以是普通登录令牌，也可以是具有对应权限的独立 API 管理令牌。
+
+**设备分配**：`POST /api/devices/cli`
+
+```json
+{
+  "id": "desk-123456",
+  "uuid": "已登记设备的 UUID",
+  "user_name": "alice",
+  "device_group_name": "办公设备",
+  "strategy_name": "办公策略",
+  "note": "前台电脑",
+  "address_book_name": "办公室",
+  "address_book_alias": "前台"
+}
+```
+
+还支持 `address_book_tag`、`address_book_password`、`address_book_note`、`device_username` 和 `device_name`。UUID 必须与已登记的设备一致。普通用户只能修改自己的设备，管理员可以分配设备所有者。成功返回 HTTP 200。
+
+**设备登记**：`POST /api/devices/deploy`
+
+```json
+{"id":"desk-123456","uuid":"Base64 UUID","pk":"Base64 公钥"}
+```
+
+启用可选设备登记后，接口会验证设备身份并记录部署许可。响应 `result` 的值包括 `OK`、`INVALID_INPUT` 和 `ID_TAKEN`。默认未启用严格登记时返回 `NOT_ENABLED`。
+
+## 独立 API 管理令牌
+
+管理员在控制台“API 管理令牌”页面创建令牌，令牌原文仅显示一次。
+
+- `GET /api/admin/api_token/list?page=1&page_size=20`：查看令牌名称、前缀、权限、有效期和最近使用时间。
+- `POST /api/admin/api_token/create`：创建令牌。
+- `POST /api/admin/api_token/delete`：撤销令牌，正文例如 `{"id":3}`。
+
+创建示例：
+
+```json
+{
+  "name": "自动部署电脑",
+  "permissions": "devices.assign,devices.deploy",
+  "expires_in_days": 365
+}
+```
+
+`user_id` 可选，默认使用当前管理员账户。允许的操作是 `devices.assign` 和 `devices.deploy`，可只指定其中一项。有效天数为 `0` 时长期有效；有效天数最大为 3650。接口返回令牌原文后，数据库只保存摘要。撤销、过期或所属账户停用后，令牌立即失效。
+
+## 用户和设备组策略
+
+管理员继续使用原有 `/api/admin/device_policy` 系列接口，并新增：
+
+- `GET /api/admin/device_policy/user_assignment/list`
+- `POST /api/admin/device_policy/user_assignment/create`
+- `POST /api/admin/device_policy/user_assignment/update`
+- `POST /api/admin/device_policy/user_assignment/delete`
+- `GET /api/admin/device_policy/group_assignment/list`
+- `POST /api/admin/device_policy/group_assignment/create`
+- `POST /api/admin/device_policy/group_assignment/update`
+- `POST /api/admin/device_policy/group_assignment/delete`
+
+按用户分配：`{"user_id":5,"policy_id":2}`。按设备组分配：`{"group_id":3,"policy_id":2}`。更新或删除时传入记录的 `id`。
+
+策略优先顺序为：设备直接分配、所属用户、设备组。策略 `status:1` 表示启用，`status:2` 表示停用。停用高优先级策略后自动查找下一层有效策略。
+
+`GET /api/device-policy/current?device_id=desk-123456` 现在还返回 `source` 和 `policy_id`，便于查看配置来源。客户端心跳仍使用原生 `modified_at`、`strategy.config_options` 格式。
+
+## 活动远程连接与结束会话
+
+管理员可以查看设备最近报告的活动连接：
+
+- `GET /api/admin/session/list?page=1&page_size=20`：查看活动连接、设备 ID、连接编号和最后一次心跳。
+- `POST /api/admin/session/disconnect`：请求结束某个连接。
+- `GET /api/admin/session/disconnect/list`：查看结束连接请求及执行状态。
+
+结束连接示例：
+
+```json
+{"device_id":"desk-123456","conn_id":41}
+```
+
+设备通过 `POST /api/heartbeat` 上传 `conns` 数组。API 在下一次心跳中通过原生 `disconnect` 数组发送结束指令。
+
+处理状态有 `pending`（等待通知）、`delivered`（已经通知）、`completed`（之后的心跳已确认连接消失）和 `expired`（请求过期）。客户端停止通信时，系统会保留真实的最后处理状态。

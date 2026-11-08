@@ -25,3 +25,19 @@ Server 启用 `REQUIRE_DEVICE_DEPLOYMENT=Y` 后，在处理 `RegisterPk` 时调�
 ## 连接登录
 
 `MUST_LOGIN=Y` 时，`hbbs` 必须设置 `RUSTDESK_API_JWT_KEY`，并校验 `PunchHoleRequest` 与 `RequestRelay` 的令牌。默认 `MUST_LOGIN=N` 保留原有连接方式。
+
+## 三级策略
+
+API 数据库保留原来的设备直接分配表，新增用户与设备组分配表。客户端心跳时按设备、用户、设备组的顺序选择有效策略。停用或删除高优先级策略后可以使用下一级策略，没有适用策略时返回空设置以清除以前下发的管理配置。
+
+## 活动连接与结束指令
+
+客户端 `/api/heartbeat` 请求上报 `id`、`uuid`、`conns` 和 `modified_at`。服务端验证设备 ID 和 UUID 后，更新活动连接记录。
+
+管理员请求结束连接时，API 确认目标连接近期存在，再保存具有有效期的结束请求。客户端下一次心跳收到 `disconnect: [连接编号]`。客户端此后停止上报该连接编号时，API 将请求标记为已经完成。
+
+## 管理令牌
+
+管理令牌与普通 RustDesk 登录令牌分别保存。API 令牌格式为 `rdapi_` 加随机字符，数据库仅保存 SHA-256 摘要。管理令牌仅允许访问带有相应操作权限的 `/api/devices/cli` 和 `/api/devices/deploy`。其余客户端接口继续使用普通登录令牌。
+
+管理令牌创建后只显示一次；删除操作保留撤销记录。过期、撤销和停用所属账户后，令牌不再有效。

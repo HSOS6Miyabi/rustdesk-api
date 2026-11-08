@@ -1,3 +1,13 @@
+> **Maintained fork:** This repository is developed together with
+> [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server).
+> Development changes are maintained in `development/m1-device-management` and
+> reviewed through a draft pull request. Routine commits and tag pushes never
+> publish a Release or distribution Docker image. An approved milestone must
+> be published manually from a `v*` tag with `milestone_release` enabled.
+> See [feature status](docs/FEATURE_MATRIX.md),
+> [implementation records](docs/IMPLEMENTATION_LEDGER.md), and
+> [handoff instructions](docs/HANDOFF.md) for this fork's current behavior.
+
 # RustDesk API
 
 This project implements the RustDesk API using Go, and includes both a web UI and web client. RustDesk is a remote

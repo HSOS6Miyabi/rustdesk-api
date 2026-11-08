@@ -39,3 +39,22 @@ python3 scripts/test_webrtc_rendezvous.py
 7. 断开 API：严格设备登记被拒绝，其他未启用该功能的服务保持原有行为。
 
 GitHub Actions：API [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)，Server [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。运行结果以实际检查记录为准。
+
+## 三级策略和活动连接
+
+API 新增以下测试：
+
+```bash
+go test ./service -run 'TestDevicePolicyAssignmentPriorityAndFallback|TestDevicePolicyTargetReassignmentAndCleanup' -count=1
+go test ./http/controller/api -run 'TestActiveSessionsAndHeartbeatDisconnect' -count=1
+go test ./service -run 'TestSessionManagementRejectsStaleAndInvalidRequests' -count=1
+```
+
+## API 令牌
+
+```bash
+go test ./service -run 'TestAPITokenIssuancePermissionsAndRevocation|TestAPITokenDisabledAccountCannotUseToken' -count=1
+go test ./http/controller/api -run 'TestOfficialDeviceCLIWithScopedAPIToken' -count=1
+```
+
+管理控制台浏览器测试包含设备分组策略、活动连接及令牌创建。测试人员还应在正式发布前使用官方 RustDesk 客户端实际执行 `--assign` 和 `--deploy`。

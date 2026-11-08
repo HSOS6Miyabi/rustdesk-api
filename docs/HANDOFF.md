@@ -34,3 +34,25 @@
 ## 发布限制
 
 不要在开发过程中创建 `v*` 标签并勾选 `milestone_release` 执行发布工作流。只有里程碑功能完成、两个仓库测试成功且对应版本明确后，才进行正式发布。
+
+## 当前已经提交的主要模块
+
+| 位置 | 作用 |
+| --- | --- |
+| `model/device_policy_target.go`、`service/device_policy_target.go` | 设备、用户和设备组策略优先级 |
+| `http/controller/admin/device_policy.go` | 策略分配、启停和生效策略查询 |
+| `model/device_session.go`、`service/session_management.go` | 活动连接、结束请求、客户端心跳 |
+| `http/controller/admin/device_session.go` | 管理员查看活动连接并请求结束 |
+| `model/api_token.go`、`service/api_token.go` | 管理令牌、有效期和权限 |
+| `http/middleware/device_command_auth.go` | 官方设备命令的登录令牌及管理令牌验证 |
+| `http/controller/admin/api_token.go` | 创建、列出和撤销管理令牌 |
+| `resources/admin/app.js` | 本轮新增的管理页面 |
+
+## 已通过的分项测试
+
+- [设备命令和部署](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42519664684)
+- [三级策略分配](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42520109512)
+- [活动连接管理](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42520568742)
+- [Server 设备注册](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42519807127)
+
+每次继续开发前，请查看草稿 PR #6 和 #4 的最新提交与检查结果，不要假设之前的运行结果适用于后来修改的代码。

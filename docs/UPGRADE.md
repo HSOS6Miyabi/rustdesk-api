@@ -48,3 +48,17 @@ export RUSTDESK_API_INTERNAL_URL="http://127.0.0.1:21114/internal/v1/device/auth
 ## 发布
 
 普通提交和版本标签不会自动创建 Release。完成里程碑后在标签上手动运行 GitHub Actions，并明确启用 `milestone_release`。
+
+## 新增管理数据
+
+新版本通过 GORM 自动建立以下表：
+
+- `device_policy_user_assignments`：用户策略分配。
+- `device_policy_group_assignments`：设备组策略分配。
+- `device_active_connections`：最近上报的活动连接。
+- `device_disconnect_requests`：管理员发出的结束连接请求及处理状态。
+- `api_tokens`：独立管理令牌及撤销记录。
+
+`device_policies.status` 用于启用或停用策略。历史策略默认启用，原有直接设备分配保持有效。
+
+普通账户会话令牌和 API 管理令牌分别保存。升级后可在“API 管理令牌”页面按需创建新的自动化令牌。已有账户登录方式不改变。

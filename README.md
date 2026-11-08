@@ -73,10 +73,20 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 构建、测试及发布
 
-提交代码后，GitHub Actions 会检查 JavaScript 语法、运行 Go 测试，并编译程序。推送 `v*` 版本标签时，自动创建 GitHub Release，提供 Linux amd64、Linux arm64、Windows amd64 压缩包。主分支或版本标签还会构建 amd64、arm64 的 GHCR Docker 镜像。
+提交代码和提交拉取请求时，GitHub Actions 会检查 Go、JavaScript 和浏览器功能。日常提交与推送标签不会自动发布。完成里程碑后，使用 `v*` 标签手动启动工作流并明确选择 `milestone_release`，才会创建 GitHub Release 和发行版 Docker 镜像。
 
 查看 [维护说明](docs/MAINTENANCE.md) 了解测试和升级过程。
 
 ## 许可证
 
 沿用上游仓库的许可证及第三方组件各自的许可证。WebClient v2 复用本仓库已有的开源网页连接代码。
+
+## 开发分支中的扩展功能
+
+当前开发分支增加了官方客户端 `--assign`、`--deploy` 接口、可选设备登记管理、设备与用户及设备组三级策略、活动连接管理和独立 API 管理令牌。这些功能仍处于里程碑开发阶段，正式版本保持原来的发布方式和版本编号。
+
+- [功能完成情况](docs/FEATURE_MATRIX.md)
+- [API 使用说明](docs/API.md)
+- [实施台账](docs/IMPLEMENTATION_LEDGER.md)
+- [接手开发指南](docs/HANDOFF.md)
+- [测试与升级说明](docs/TESTING.md)

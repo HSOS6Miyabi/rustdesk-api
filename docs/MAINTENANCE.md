@@ -29,7 +29,7 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 
 ## 发布
 
-推送版本标签，例如 `v3.0.0` 后，GitHub Actions 在 Go 测试、前端交互测试及 WebClient 连接组件构建通过后，发布可执行程序压缩包到 GitHub Release。主分支和版本标签还会构建 Docker 镜像，分别提供 amd64 与 arm64 架构。
+普通提交与标签推送只用于验证。达到里程碑并完成所需测试后，从 `v*` 标签手动启动 GitHub Actions，并明确启用 `milestone_release`，才创建 GitHub Release 和 amd64、arm64 Docker 镜像。
 
 发布前检查配置文件中的端口及 JWT 密钥设置，并备份正式环境数据库。
 
@@ -53,7 +53,7 @@ cargo test --locked
 cargo build --locked --release
 ```
 
-GitHub Actions 在发布前执行 Go、JavaScript、浏览器和 Rust 测试，构建跨架构程序及 Docker 镜像，并更新 GHCR 的 `latest` 标签。组合服务端镜像应选用已经发布的 API 版本。
+GitHub Actions 在里程碑发布前检查 Go、JavaScript、浏览器和 Rust 功能，正式发布时才构建发行镜像并更新 GHCR 的 `latest` 标签。组合服务端镜像应选用已经发布的 API 版本。
 
 浏览器界面和 WebRTC 通信需要使用 Chromium。安装测试工具后执行：
 
