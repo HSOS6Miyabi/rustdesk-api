@@ -1,0 +1,93 @@
+name: Verify and release RustDesk API
+
+on:
+  push:
+    branches:
+      - master
+      - feature/modern-console-2026
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify JavaScript syntax
+        run: |
+          test -s resources/admin/index.html
+          test -s resources/admin/app.js
+          node --check resources/admin/app.js
+      - name: Go tests
+        run: go test ./... -count=1
+      - name: Build executable
+        run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
+
+  build:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+          - runner: ubuntu-24.04
+            goos: linux
+            goarch: arm64
+          - runner: windows-2022
+            goos: windows
+            goarch: amd64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install Linux ARM64 compiler
+        if: matrix.goarch == 'arm64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Compile Linux
+        if: matrix.goos == 'linux'
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '1'
+        run: |
+          if [ "$GOARCH" = "arm64" ]; then export CC=aarch64-linux-gnu-gcc; fi
+          mkdir -p dist/package/data dist/package/runtime
+          go build -trimpath -ldflags="-s -w" -o dist/package/apimain ./cmd/apimain.go
+          cp -r conf docs resources dist/package/
+          cd dist
+          tar -czf rustdesk-api-${{ github.ref_name }}-${GOOS}-${GOARCH}.tar.gz package
+      - name: Compile Windows
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '1'
+        run: |
+          New-Item -ItemType Directory -Force dist/package/data, dist/package/runtime | Out-Null
+          go build -trimpath -ldflags="-s -w" -o dist/package/apimain.exe ./cmd/apimain.go
+          Copy-Item -Recurse conf, docs, resources dist/package/
+          Compress-Archive -Path dist/package -DestinationPath "dist/rustdesk-api-${{ github.ref_name }}-windows-amd64.zip"
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/rustdesk-api-*
