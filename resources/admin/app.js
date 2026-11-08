@@ -18,12 +18,16 @@
     oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的分组 ID（逗号分隔）"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
     server: {name:"服务器管理",icon:"terminal",section:"系统管理",admin:true},
-    myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["created_at","时间"]]},
-    mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
+    mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    myalarms: {name:"我的安全告警",icon:"shield",section:"我的审计记录",endpoint:"my/audit_alarm",readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["conn_id","连接编号"],["info","告警详情"],["created_at","时间"]]},
+    alarms: {name:"安全告警",icon:"shield",section:"系统管理",endpoint:"audit_alarm",admin:true,readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["from_user_id","发起方用户 ID"],["to_user_id","接收方用户 ID"],["conn_id","连接编号"],["source_ip","来源 IP"],["info","告警详情"],["created_at","时间"]]},
+    operations: {name:"管理操作记录",icon:"clock",section:"系统管理",endpoint:"audit_operation",admin:true,readonly:true,columns:[["id","编号"],["account","操作账户"],["method","请求方法"],["path","操作内容"],["client_ip","来源 IP"],["success","结果"],["created_at","时间"]]},
+    retention: {name:"日志保留设置",icon:"settings",section:"系统管理",admin:true},
     myloginlogs: {name:"我的登录记录",icon:"clock",section:"我的审计记录",endpoint:"my/login_log",readonly:true,columns:[["id","编号"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
-    connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["created_at","时间"]]},
-    transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
+    transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
   };
@@ -64,6 +68,10 @@
     if(k==="sources"&&Array.isArray(v))return v.map(x=>'<span class="pill '+(x.type==="contact"?"good":"")+'" style="margin:2px">'+esc(x.type==="contact"?"联系人："+x.name:"群组："+x.name)+'</span>').join("");
     if(k==="type"&&(v===1||v===2||v===3))return ["","普通组","共享组","公共锚点组"][v];
     if(k==="direction")return v==="outgoing"?"我发起的连接":v==="incoming"?"连接我的设备":v==="both"?"双方均为我的设备":"—";
+    if(k==="primary_auth")return (["未报告","点击授权","临时密码","永久密码","切换控制方向"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
+    if(k==="two_factor")return (["未报告","TOTP 动态验证码","可信设备"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
+    if(k==="typ")return ({0:"IP 白名单拒绝",1:"密码尝试次数过多",2:"短时间连续登录失败",6:"IPv6 地址段登录尝试过多",7:"系统账户登录暂缓",8:"系统账户登录并发限制",9:"会话权限违规",10:"设备 ID 白名单拒绝"}[Number(v)]||"其他告警")+" ("+esc(txt(v))+")";
+    if(k==="success")return v?'<span class="pill good">成功</span>':'<span class="pill warn">失败</span>';
     if(k==="is_admin")return v?"管理员":"普通用户";
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
     if(k==="created_at"||k==="last_online_time"||k==="expire")return date(v);
@@ -74,7 +82,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -208,6 +216,8 @@
         const result=await request("/shared_devices/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
+      }else if(k==="retention"){
+        state.retention=await request("/audit/retention");
       }else if(k==="server"){
         const out=await Promise.allSettled([request("/config/server"),request("/rustdesk/cmdList")]);
         state.server=out[0].status==="fulfilled"?out[0].value:{};
@@ -267,7 +277,9 @@
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
     const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
-    return pageHeading(isBook?"地址簿":p.name,description,add)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
+    const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">下载 CSV（最多 10000 条）</button>':"";
+    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -295,6 +307,31 @@
     return pageHeading("服务器管理","查看网络配置并向自托管 RustDesk 服务发送管理指令。")+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><h2 class="panel-title">连接参数</h2></div><div class="tips">'+details+'</div></section><section class="panel"><div class="panel-header"><h2 class="panel-title">管理指令</h2></div><form id="command-form" class="tips"><div class="field"><label for="cmd">选择指令</label><select id="cmd" name="command" required>'+opts+'</select></div><div class="field" style="margin-top:16px"><label for="cmd-arg">参数（可选）</label><input id="cmd-arg" name="option" placeholder="按指令说明填写"></div><button type="submit" class="btn btn-primary" style="margin-top:15px">执行指令</button><pre id="command-output" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></form></section></div>';
   }
+  function retentionPage(){
+    const data=state.retention||{};
+    const fields=[["connection_days","远程连接记录"],["file_days","文件传输记录"],["alarm_days","安全告警"],["login_days","用户登录记录"],["operation_days","管理操作记录"]];
+    const inputs=fields.map(([key,label])=>
+      '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??0)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
+    ).join("");
+    return pageHeading("日志保留设置","按日志类型设置自动清理期限。新安装默认永久保留，最长可设置 3650 天。")+
+      '<section class="panel" style="max-width:860px"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="form-grid">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
+  }
+  async function exportAudit(kind){
+    try{
+      const result=await fetch(API+"/audit/export?kind="+encodeURIComponent(kind),{
+        method:"GET",headers:{"api-token":state.token,"Accept":"text/csv"},
+        cache:"no-store",credentials:"same-origin"
+      });
+      if(!result.ok)throw Error("导出失败，HTTP "+result.status);
+      const blob=await result.blob(),url=URL.createObjectURL(blob);
+      try{
+        const link=document.createElement("a");
+        link.href=url;link.download=kind+".csv";
+        document.body.append(link);link.click();link.remove();
+      }finally{URL.revokeObjectURL(url);}
+      toast("已生成 CSV 文件");
+    }catch(err){toast(err.message,true);}
+  }
   function profile(){
     return pageHeading("个人设置","查看当前账户并修改登录密码。")+
       '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>';
@@ -304,6 +341,7 @@
     if(state.page==="contacts")return contacts();
     if(state.page==="shared")return shared();
     if(state.page==="server")return server();
+    if(state.page==="retention")return retentionPage();
     if(state.page==="profile")return profile();
     return genericList();
   }
@@ -444,6 +482,7 @@
     if(a==="close-modal"){state.modal=null;render();return;}
     if(a==="logout"){await logout();return;}
     if(a==="webclient"){window.location.assign("/webclient2/");return;}
+    if(a==="audit-export"){await exportAudit(el.dataset.id);return;}
     if(a==="captcha"){await captcha();render();return;}
     if(a==="oidc"){await oidc(el.dataset.id);return;}
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
@@ -481,8 +520,15 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form"].includes(f.id))return;
     event.preventDefault();
+    if(f.id==="retention-form"){
+      const values=Object.fromEntries(new FormData(f).entries());
+      for(const key of Object.keys(values))values[key]=Number(values[key]);
+      try{state.retention=await request("/audit/retention","POST",values);toast("日志保留设置已保存");render();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
     if(f.id==="login-form")await handleLogin(f);
     if(f.id==="edit-form")await saveEditor(f);
     if(f.id==="reset-password-form"){
