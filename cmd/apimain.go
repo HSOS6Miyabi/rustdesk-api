@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 270
+const DatabaseVersion = 271
 
 // @title 管理系统API
 // @version 1.0
@@ -211,6 +211,7 @@ func InitGlobal() {
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
+	service.StartAuditMaintenance()
 }
 
 func DatabaseAutoUpdate() {
@@ -307,6 +308,8 @@ func Migrate(version uint) {
 		&model.AuditFile{},
 		&model.AuditAlarm{},
 		&model.AuditEventNonce{},
+		&model.AuditOperation{},
+		&model.AuditRetentionPolicy{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},

@@ -25,7 +25,7 @@ func Init(g *gin.Engine) {
 
 	ConfigBind(adg)
 
-	adg.Use(middleware.BackendUserAuth())
+	adg.Use(middleware.BackendUserAuth(),middleware.RecordOperations())
 	//FileBind(adg)
 	UserBind(adg)
 	GroupBind(adg)
@@ -54,6 +54,7 @@ func Init(g *gin.Engine) {
 	SharedDevicesBind(adg)
 	PersonalGroupBind(adg)
 	MyAuditBind(adg)
+	AuditManagementBind(adg)
 	//访问静态文件
 	//g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/upload"))
 }
@@ -363,4 +364,15 @@ func MyAuditBind(rg *gin.RouterGroup) {
 	audit := &admin.MyAudit{}
 	rg.GET("/my/audit_conn/list", audit.Connections)
 	rg.GET("/my/audit_file/list", audit.Files)
+}
+
+func AuditManagementBind(rg *gin.RouterGroup) {
+	handler:=&admin.AuditManagement{}
+	rg.GET("/my/audit_alarm/list",handler.MyAlarms)
+	adm:=rg.Group("/audit").Use(middleware.AdminPrivilege())
+	adm.GET("/alarms",handler.Alarms)
+	adm.GET("/operations",handler.Operations)
+	adm.GET("/retention",handler.Retention)
+	adm.POST("/retention",handler.SaveRetention)
+	adm.GET("/export",handler.Export)
 }
