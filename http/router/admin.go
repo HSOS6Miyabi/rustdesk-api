@@ -52,6 +52,8 @@ func Init(g *gin.Engine) {
 	DeviceGroupBind(adg)
 	ContactBind(adg)
 	SharedDevicesBind(adg)
+	PersonalGroupBind(adg)
+	MyAuditBind(adg)
 	//访问静态文件
 	//g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/upload"))
 }
@@ -340,4 +342,25 @@ func ContactBind(rg *gin.RouterGroup) {
 func SharedDevicesBind(rg *gin.RouterGroup) {
 	rg.GET("/shared_devices/list", (&admin.SharedDevices{}).List)
 	rg.GET("/shared_devices/sources", (&admin.SharedDevices{}).Sources)
+}
+
+func PersonalGroupBind(rg *gin.RouterGroup) {
+	owner := &admin.MyGroup{}
+	r := rg.Group("/my/group")
+	r.GET("/list", owner.List)
+	r.GET("/detail/:id", owner.Detail)
+	r.POST("/create", owner.Create)
+	r.POST("/update", owner.Update)
+	r.POST("/delete", owner.Delete)
+	r.GET("/members", owner.Members)
+	r.POST("/members/batch", owner.BatchMembers)
+	r.GET("/anchors", owner.Anchors)
+	r.POST("/anchors", owner.SetAnchors)
+	r.GET("/user/lookup", owner.UserLookup)
+}
+
+func MyAuditBind(rg *gin.RouterGroup) {
+	audit := &admin.MyAudit{}
+	rg.GET("/my/audit_conn/list", audit.Connections)
+	rg.GET("/my/audit_file/list", audit.Files)
 }

@@ -23,6 +23,7 @@ type AuditConn struct {
 	Type      int    `json:"type" gorm:"default:0;not null;"`
 	Uuid      string `json:"uuid" gorm:"default:'';not null;"`
 	CloseTime int64  `json:"close_time" gorm:"default:0;not null;"`
+	Direction string `json:"direction,omitempty" gorm:"-"`
 	TimeModel
 }
 
@@ -48,6 +49,7 @@ type AuditFile struct {
 	FromAccount string `json:"from_account" gorm:"default:'';not null;"`
 	ToAccount string `json:"to_account" gorm:"default:'';not null;"`
 	FromDeviceName string `json:"from_device_name" gorm:"default:'';not null;"`
+	Direction string `json:"direction,omitempty" gorm:"-"`
 	ToDeviceName string `json:"to_device_name" gorm:"default:'';not null;"`
 	TimeModel
 }
