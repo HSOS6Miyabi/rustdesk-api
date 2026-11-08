@@ -12,7 +12,7 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 	if err:=DB.AutoMigrate(
 		&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},&model.Tag{},
-		&model.UserToken{},&model.ShareRecord{},
+		&model.UserToken{},&model.ShareRecord{},&model.APIToken{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
 		cleanup()

@@ -317,6 +317,7 @@ func Migrate(version uint) {
 		&model.DeviceDeployment{},
 		&model.DeviceActiveConnection{},
 		&model.DeviceDisconnectRequest{},
+		&model.APIToken{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},

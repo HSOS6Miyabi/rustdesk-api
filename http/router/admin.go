@@ -34,6 +34,7 @@ func Init(g *gin.Engine) {
 	PeerBind(adg)
 	admin.DeviceDeploymentBind(adg)
 	DeviceSessionsBind(adg)
+	APITokenBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)
@@ -409,4 +410,12 @@ func DeviceSessionsBind(rg *gin.RouterGroup) {
 	r.GET("/list",handler.List)
 	r.POST("/disconnect",handler.Disconnect)
 	r.GET("/disconnect/list",handler.Requests)
+}
+
+func APITokenBind(rg *gin.RouterGroup){
+	handler:=&admin.APITokens{}
+	r:=rg.Group("/api_token").Use(middleware.AdminPrivilege())
+	r.GET("/list",handler.List)
+	r.POST("/create",handler.Create)
+	r.POST("/delete",handler.Delete)
 }

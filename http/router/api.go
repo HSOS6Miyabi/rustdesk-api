@@ -77,9 +77,9 @@ func ApiInit(g *gin.Engine) {
 		frg.POST("/audit/alarm", au.AuditAlarm)
 	}
 
+	frg.POST("/devices/cli", middleware.DeviceCommandAuth("devices.assign"), (&api.DeviceCommands{}).Assign)
+	frg.POST("/devices/deploy", middleware.DeviceCommandAuth("devices.deploy"), (&api.DeviceCommands{}).Deploy)
 	frg.Use(middleware.RustAuth())
-	frg.POST("/devices/cli", (&api.DeviceCommands{}).Assign)
-	frg.POST("/devices/deploy", (&api.DeviceCommands{}).Deploy)
 	{
 		u := &api.User{}
 		frg.GET("/user/info", u.Info)

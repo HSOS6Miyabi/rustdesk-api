@@ -253,7 +253,7 @@ func (us *UserService) Delete(u *model.User) error {
 		for _, row := range []interface{}{
 			&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
 			&model.AddressBookCollectionRule{},&model.Tag{},
-			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},
+			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},&model.APIToken{},
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}
