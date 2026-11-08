@@ -55,6 +55,7 @@ func Init(g *gin.Engine) {
 	PersonalGroupBind(adg)
 	MyAuditBind(adg)
 	AuditManagementBind(adg)
+	DevicePolicyBind(adg)
 	//访问静态文件
 	//g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/upload"))
 }
@@ -377,4 +378,17 @@ func AuditManagementBind(rg *gin.RouterGroup) {
 	adm.GET("/retention",handler.Retention)
 	adm.POST("/retention",handler.SaveRetention)
 	adm.GET("/export",handler.Export)
+}
+
+func DevicePolicyBind(rg *gin.RouterGroup) {
+	handler:=&admin.DevicePolicy{}
+	adm:=rg.Group("/device_policy").Use(middleware.AdminPrivilege())
+	adm.GET("/list",handler.List)
+	adm.POST("/create",handler.Create)
+	adm.POST("/update",handler.Update)
+	adm.POST("/delete",handler.Delete)
+	adm.GET("/assignment/list",handler.AssignmentList)
+	adm.POST("/assignment/create",handler.AssignmentCreate)
+	adm.POST("/assignment/update",handler.AssignmentUpdate)
+	adm.POST("/assignment/delete",handler.AssignmentDelete)
 }

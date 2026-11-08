@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 271
+const DatabaseVersion = 272
 
 // @title 管理系统API
 // @version 1.0
@@ -310,6 +310,8 @@ func Migrate(version uint) {
 		&model.AuditEventNonce{},
 		&model.AuditOperation{},
 		&model.AuditRetentionPolicy{},
+		&model.DevicePolicy{},
+		&model.DevicePolicyAssignment{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},

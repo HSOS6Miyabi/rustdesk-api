@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/lejianwen/rustdesk-api/v2/docs/api"
 	"github.com/lejianwen/rustdesk-api/v2/global"
+	"github.com/lejianwen/rustdesk-api/v2/http/controller/admin"
 	"github.com/lejianwen/rustdesk-api/v2/http/controller/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
 	swaggerFiles "github.com/swaggo/files"
@@ -100,6 +101,7 @@ func ApiInit(g *gin.Engine) {
 		frg.POST("/ab", ab.UpAb)
 	}
 
+	frg.GET("/device-policy/current", (&admin.DevicePolicy{}).Current)
 	PersonalRoutes(frg)
 	//访问静态文件
 	g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/public/upload"))
