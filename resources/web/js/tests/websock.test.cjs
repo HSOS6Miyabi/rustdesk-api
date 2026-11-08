@@ -125,3 +125,16 @@ test("WebSocket closes when unsolicited messages exceed the queue limit",async()
   assert.equal(ws._websocket.readyState,3);
   await assert.rejects(ws.next(100),/not open/i);
 });
+
+
+test("WebSocket keeps idle desktop sessions alive until a message arrives",async()=>{
+  const fixture=createFixture();
+  const ws=await fixture.open();
+  const pending=ws.next();
+  const initial=fixture.scheduled();
+  await new Promise(resolve=>setTimeout(resolve,45));
+  assert.equal(fixture.scheduled(),initial,"idle sessions must not schedule repeated receive polls");
+  ws._websocket.emit([77]);
+  assert.equal((await pending).code,77);
+  ws.close();
+});

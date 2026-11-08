@@ -101,7 +101,7 @@ export default class Connection {
       token: sessionStorage.getItem("rustdesk.console.token") || undefined,
     });
     ws.sendRendezvous({ punch_hole_request });
-    const msg = (await ws.next()) as rendezvous.RendezvousMessage;
+    const msg = (await ws.next(12000)) as rendezvous.RendezvousMessage;
     ws.close();
     console.log(new Date() + ": Got relay response", msg);
     const phr = msg.punch_hole_response;
@@ -212,7 +212,7 @@ export default class Connection {
         let message:ExtendedRendezvous;
         try{message=await ws.next(500) as ExtendedRendezvous}
         catch(error){
-          if(String(error).includes("Timeout"))continue;
+          if(/timed out|timeout/i.test(String(error)))continue;
           throw error;
         }
         if(message.ice_candidate){await applyRemote(message.ice_candidate)}

@@ -5,7 +5,7 @@ import {decodeRendezvous,encodeOffer,encodeICE,IceCandidate} from "./webrtc_prot
 
 type Keys = "message" | "open" | "close" | "error";
 type Incoming = rendezvous.RendezvousMessage | message.Message;
-type Waiter = {resolve:(value:Incoming)=>void;reject:(error:Error)=>void;timeout:ReturnType<typeof setTimeout>};
+type Waiter = {resolve:(value:Incoming)=>void;reject:(error:Error)=>void;timeout?:ReturnType<typeof setTimeout>};
 
 export default class Websock {
   _websocket: WebSocket;
@@ -140,7 +140,7 @@ export default class Websock {
     });
   }
 
-  next(timeout=12000): Promise<Incoming> {
+  next(timeout=0): Promise<Incoming> {
     if (this._buf.length) return Promise.resolve(this._buf.shift()!);
     if (this._status!=="open") {
       return Promise.reject(new Error("WebSocket connection is not open"));
@@ -148,10 +148,10 @@ export default class Websock {
     return new Promise((resolve,reject)=>{
       const waiter:Waiter={
         resolve,reject,
-        timeout:setTimeout(()=>{
+        timeout:timeout>0?setTimeout(()=>{
           this._waiting=this._waiting.filter(item=>item!==waiter);
           reject(new Error("WebSocket message timed out"));
-        },timeout)
+        },timeout):undefined
       };
       this._waiting.push(waiter);
     });
