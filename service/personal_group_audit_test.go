@@ -132,3 +132,35 @@ func TestAuditRecordWithoutStoredOwnerUsesRegisteredDevice(t *testing.T) {
 		t.Fatalf("legacy audit record should be visible with recovered name: %+v %v", history, err)
 	}
 }
+
+
+func TestOwnedGroupCannotRemoveAdministratorMembership(t *testing.T) {
+	cleanup := setupGroupDB(t)
+	defer cleanup()
+	users := seedGroups(t)
+	owner, adminUser := users["member"], users["admin"]
+	svc := AllService.GroupService
+	group, err := svc.CreateOwnedGroup(owner.Id, "protected", model.GroupTypeShare)
+	if err != nil { t.Fatal(err) }
+	// An administrator may belong to this group through the global admin interface.
+	if err := svc.ChangeMembers(group.Id, []uint{adminUser.Id}, "add"); err != nil { t.Fatal(err) }
+	if err := svc.ChangeOwnedMembers(owner.Id, group.Id, []uint{adminUser.Id}, "remove"); err == nil {
+		t.Fatal("ordinary group owner removed administrator")
+	}
+	if err := svc.ChangeOwnedMembers(owner.Id, group.Id, []uint{owner.Id}, "replace"); err == nil {
+		t.Fatal("ordinary group owner removed administrator by replacing all members")
+	}
+	after, err := svc.MemberIds(group.Id)
+	if err != nil || !includeID(after, adminUser.Id) { t.Fatalf("administrator membership changed: %v %v", after, err) }
+
+	// An administrator owning their own group may retain their own membership.
+	adminGroup, err := svc.CreateOwnedGroup(adminUser.Id, "admin-owned", model.GroupTypeAnchor)
+	if err != nil { t.Fatal(err) }
+	if err := svc.ChangeOwnedMembers(adminUser.Id, adminGroup.Id, []uint{owner.Id}, "replace"); err != nil {
+		t.Fatal(err)
+	}
+	members, err := svc.MemberIds(adminGroup.Id)
+	if err != nil || !includeID(members, adminUser.Id) || !includeID(members, owner.Id) {
+		t.Fatalf("administrator owner membership: %v %v", members, err)
+	}
+}
