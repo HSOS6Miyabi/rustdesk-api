@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -139,11 +138,7 @@ func EffectiveDevicePolicy(deviceId string,userId uint,admin bool) (map[string]s
 		"id-whitelist":policy.IdWhitelist,
 		"whitelist":policy.IpWhitelist,
 		"enable-webrtc":map[bool]string{true:"Y",false:"N"}[policy.EnableWebRTC],
-		"trusted-device-expiration":strconv.Itoa(policy.TrustDurationDays),
+		"trusted-device-expiration-days":strconv.Itoa(policy.TrustDurationDays),
 	}
-	// Keep deterministic ordering in clients that compare the saved options.
-	keys:=make([]string,0,len(options))
-	for key:=range options{keys=append(keys,key)}
-	sort.Strings(keys)
 	return options,true,nil
 }
