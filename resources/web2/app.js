@@ -10,6 +10,7 @@
   config.host.value=read("custom-rendezvous-server")||read("rendezvous-server");
   config.key.value=read("key");
   config.id.value=read("remote-id")||read("id");
+  el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y";
   function message(text){el("v2-message").textContent=text;}
   function sanitize(s){return String(s===undefined||s===null?"":s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
   async function request(path, method="GET", body){
@@ -96,6 +97,7 @@
     if(!host||!id){message("请填写服务器和设备 ID");return;}
     store("custom-rendezvous-server",host);store("rendezvous-server",host);
     store("key",key);store("id",id);store("remote-id",id);
+    sessionStorage.setItem("rustdesk.webclient.webrtc",el("v2-webrtc").checked?"Y":"N");
 
     const nativeHost=document.getElementById("host"),nativeKey=document.getElementById("key"),nativeID=document.querySelector("#app #id");
     if(nativeHost)nativeHost.value=host;

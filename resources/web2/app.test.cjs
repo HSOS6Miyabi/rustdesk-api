@@ -35,7 +35,7 @@ function fixture(options = {}) {
     "v2-host", "v2-key", "v2-id", "v2-message",
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
-    "v2-refresh", "v2-captcha", "v2-captcha-image", "app",
+    "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc", "app",
     "host", "key"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
@@ -137,4 +137,18 @@ test("WebClient v2 supports password login alongside SSO when allowed",async()=>
   await app.settle();
   assert.equal(app.elements.get("shared-login-form").hidden,false);
   assert.equal(app.elements.get("sso-login-link").hidden,false);
+});
+
+test("WebClient v2 enables direct WebRTC only after the user selects it",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const toggle=app.elements.get("v2-webrtc");
+  assert.equal(toggle.checked,undefined);
+  toggle.checked=true;
+  app.elements.get("v2-id").value="123456789";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  assert.equal(app.sessionStorage.getItem("rustdesk.webclient.webrtc"),"Y");
+  toggle.checked=false;
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  assert.equal(app.sessionStorage.getItem("rustdesk.webclient.webrtc"),"N");
 });

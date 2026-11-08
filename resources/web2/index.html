@@ -30,6 +30,8 @@
    <label for="v2-host">ID 服务器</label><input id="v2-host" name="host" required spellcheck="false" placeholder="例如：desk.example.com">
    <label for="v2-key">服务器公钥</label><input id="v2-key" name="key" spellcheck="false" placeholder="从 RustDesk 服务器获取">
    <label for="v2-id">目标设备 ID</label><input id="v2-id" name="id" required spellcheck="false" autocomplete="off" placeholder="输入设备 ID">
+   <label class="rtc-toggle" for="v2-webrtc"><input id="v2-webrtc" name="webrtc" type="checkbox"><span>优先通过 WebRTC 直接连接</span></label>
+   <p class="helper rtc-help">适用于 RustDesk 1.5.x 客户端。若无法建立直接连接，将自动尝试原有的 WebSocket 中继连接。</p>
    <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
   </form>
   <div class="separator"></div>
