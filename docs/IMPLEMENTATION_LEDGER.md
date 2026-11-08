@@ -82,3 +82,31 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 ### 后续功能
 
 商业版仍待实现的功能以 [FEATURE_MATRIX.md](FEATURE_MATRIX.md) 为准。继续开发时，更新本台账、对应提交编号、测试结果和 [HANDOFF.md](HANDOFF.md)。
+
+## 2026-11-09：共享地址簿的附加群组与所有用户共享
+
+这一组修改主要帮助小型团队快速共享常用设备列表。新增功能保留现有个人群组、共享组及公共锚点组的行为。
+
+| 仓库 | 提交 | 完成内容 |
+| --- | --- | --- |
+| API | [ef495dc](https://github.com/HSOS6Miyabi/rustdesk-api/commit/ef495dc3fea1a615dc152200e9dac64da4ee9ba7) | 支持附加群组和所有用户共享；客户端共享地址簿列表使用实际权限 |
+| API | [5938de3](https://github.com/HSOS6Miyabi/rustdesk-api/commit/5938de324923bbc2e5e0ddbff0a412f8e4c7f243) | 覆盖多群组共享、权限优先级、所有用户规则修改及管理页面测试 |
+| API | [bafa58d](https://github.com/HSOS6Miyabi/rustdesk-api/commit/bafa58da217efab387eb3db4b46e7f8f1f746f5c) | 验证原生客户端 `/api/ab/shared/profiles` 在多种权限组合下的响应 |
+
+### 主要修改
+
+- `service/addressBook.go`：读取个人、所有群组及公开共享规则，计算具体用户、群组和公开规则的优先级。
+- `model/addressBook.go`：共享对象新增“所有用户”，使用 `type=3, to_id=0`。
+- `http/controller/api/ab.go`：返回每个地址簿的最终权限，保留公共锚点组原有的可见范围。
+- `http/controller/admin/addressBookCollectionRule.go`、`http/controller/admin/my/addressBookCollectionRule.go`：管理规则时支持所有用户。
+- `resources/admin/app.js`：个人共享规则页面及所有用户选项。
+
+无需迁移已有共享规则或改变原有设备 ID。新增的共享类型使用现有数据表字段。
+
+### 自动化测试
+
+- [共享功能实现后的检查通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42522339510)。
+- [多群组和公开规则测试通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42522474127)。
+- [原生共享地址簿接口集成测试通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42522571693)。
+
+详见 [API 使用说明](API.md)、[测试说明](TESTING.md) 及 [功能清单](FEATURE_MATRIX.md)。地址簿批量导入、回收站等扩展功能仍保留在开发计划中。

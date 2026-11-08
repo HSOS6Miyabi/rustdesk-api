@@ -8,7 +8,7 @@
 | OIDC/LDAP | 已实现 | `service/oauth.go`、`service/ldap.go` | 测试更多身份服务 |
 | 用户群组、公共锚点组 | 已实现 | `service/group.go`、`service/group_members.go` | 与访问控制分别管理 |
 | 联系人单向共享与共享设备 | 已实现 | `http/controller/admin/contact.go` | 增加批量操作 |
-| 个人及共享地址簿 | 已实现基本功能 | `service/addressBook.go` | 跨组规则、批量导入导出 |
+| 个人及共享地址簿 | 已实现个人、群组和所有用户共享，含附加群组权限 | `service/addressBook.go`、`http/controller/api/ab.go` | 批量导入导出、回收站及更多连接选项 |
 | 连接日志、文件传输及告警 | 已实现基本功能；开发分支支持远程结束会话 | `service/audit.go`、`service/session_management.go` | 会话备注和更多查询条件 |
 | WebClient v2、WebSocket、WebRTC | 已实现基本功能 | `resources/web2`、`resources/web/js` | 实际设备回归测试 |
 | 设备策略心跳同步 | 开发分支已实现三级分配及优先级 | `service/device_policy.go`、`service/device_policy_target.go` | 扩充更多客户端设置项 |

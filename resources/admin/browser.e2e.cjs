@@ -301,3 +301,19 @@ test("administrator can create an API token and view it once",async()=>{
     assert.equal(await page.locator('#api-token-secret').count(),0);
   }finally{await context.close();}
 });
+
+test("ordinary users can configure address books shared with everyone",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="myRules"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的地址簿共享规则");
+    await page.locator('button[data-action="create"]').click();
+    const editor=page.locator('#edit-form');
+    await editor.waitFor({state:"visible"});
+    await editor.locator('select[name="type"]').selectOption("3");
+    await editor.locator('input[name="to_id"]').fill("0");
+    assert.equal(await editor.locator('select[name="type"]').inputValue(),"3");
+    assert.equal(await editor.locator('input[name="to_id"]').inputValue(),"0");
+    assert.match(await page.locator("section.drawer").innerText(),/所有用户/);
+  }finally{await context.close();}
+});

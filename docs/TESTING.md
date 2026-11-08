@@ -58,3 +58,13 @@ go test ./http/controller/api -run 'TestOfficialDeviceCLIWithScopedAPIToken' -co
 ```
 
 管理控制台浏览器测试包含设备分组策略、活动连接及令牌创建。测试人员还应在正式发布前使用官方 RustDesk 客户端实际执行 `--assign` 和 `--deploy`。
+
+## 共享地址簿和多群组成员
+
+```bash
+go test ./service -run 'TestAddressBookSharingAdditionalGroupsAndEveryone|TestAddressBookShareRuleUpdateCanSelectEveryone' -count=1
+go test ./http/controller/api -run TestSharedAddressBookProfilesRespectIndividualAndAdditionalGroupPermissions -count=1
+node --test resources/admin/app.test.cjs
+```
+
+测试覆盖用户的主要群组和附加群组、不同共享对象的权限优先级、成员退出群组后权限变化，以及 RustDesk 原生 `/api/ab/shared/profiles` 响应的最终权限。

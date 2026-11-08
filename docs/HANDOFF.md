@@ -56,3 +56,17 @@
 - [Server 设备注册](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42519807127)
 
 每次继续开发前，请查看草稿 PR #6 和 #4 的最新提交与检查结果，不要假设之前的运行结果适用于后来修改的代码。
+
+## 共享地址簿扩展
+
+本阶段还增加了附加群组和所有用户的地址簿共享。个人共享规则的界面位于 `resources/admin/app.js`，核心权限计算位于 `service/addressBook.go`。
+
+接手时重点测试：
+
+- 用户主要群组与附加群组同时生效。
+- 指定用户规则优先于群组规则，群组规则优先于所有用户规则。
+- 退出群组后重新获取共享地址簿，权限立即重新计算。
+- RustDesk 客户端调用 `/api/ab/shared/profiles` 时返回最终有效权限。
+- 公共锚点组的原有可见范围保持有效。
+
+相关提交和测试结果记录于 [IMPLEMENTATION_LEDGER.md](IMPLEMENTATION_LEDGER.md)。

@@ -300,3 +300,31 @@ RustDesk 1.5.x 客户端会向 `POST /api/heartbeat` 发送设备 ID、设备 UU
 设备通过 `POST /api/heartbeat` 上传 `conns` 数组。API 在下一次心跳中通过原生 `disconnect` 数组发送结束指令。
 
 处理状态有 `pending`（等待通知）、`delivered`（已经通知）、`completed`（之后的心跳已确认连接消失）和 `expired`（请求过期）。客户端停止通信时，系统会保留真实的最后处理状态。
+
+## 地址簿共享规则及附加群组
+
+地址簿所有者可以在“我的地址簿共享规则”页面管理自己创建的地址簿共享方式，也可以通过以下接口管理：
+
+- `GET /api/admin/my/address_book_collection_rule/list`
+- `POST /api/admin/my/address_book_collection_rule/create`
+- `POST /api/admin/my/address_book_collection_rule/update`
+- `POST /api/admin/my/address_book_collection_rule/delete`
+
+共享到所有用户时：
+
+```json
+{
+  "collection_id": 12,
+  "type": 3,
+  "to_id": 0,
+  "rule": 1
+}
+```
+
+`type`：`1` 表示指定用户，`2` 表示指定用户组，`3` 表示所有用户。`type=3` 时 `to_id` 必须为 `0`。
+
+`rule`：`1` 为只读，`2` 为读写，`3` 为完全控制。
+
+当用户同时满足多个规则时，优先使用指定用户的规则；没有指定用户的规则时，使用其所有所属群组中权限最高的规则；仍无群组规则时使用所有用户的规则。用户的主要群组和附加群组都参与计算。
+
+RustDesk 客户端通过 `POST /api/ab/shared/profiles` 获取共享地址簿和最终权限。公共锚点组已有的账户可见范围限制仍然生效。
