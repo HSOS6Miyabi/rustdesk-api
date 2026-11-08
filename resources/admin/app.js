@@ -135,6 +135,12 @@
     state.page=k;if(k==="addressbooks")state.bookTab="entries";state.pageNo=1;state.query="";state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
     location.hash="#/"+k;render();load();
   }
+  function returnToWebClient(){
+    if(sessionStorage.getItem("rustdesk.console.return")!=="/webclient2/")return false;
+    sessionStorage.removeItem("rustdesk.console.return");
+    window.location.assign("/webclient2/");
+    return true;
+  }
   async function bootstrap(){
     try{state.config=await request("/config/admin");}catch{state.config={};}
     if(!state.token){
@@ -149,6 +155,7 @@
       }catch{state.token="";sessionStorage.removeItem("rustdesk.console.token");}
     }
     if(!state.token){await getOptions();render();return;}
+    if(returnToWebClient())return;
     const hash=location.hash.replace(/^#\/?/,"").split("?")[0];
     state.page=available(hash)?hash:"overview";render();await load();
   }
@@ -165,6 +172,7 @@
       if(!result||!result.token)throw Error("登录未返回访问令牌");
       state.token=result.token;sessionStorage.setItem("rustdesk.console.token",result.token);
       state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
+      if(returnToWebClient())return;
       state.page="overview";location.hash="#/overview";render();await load();toast("登录成功");
     }catch(e){toast(e.message,true);await getOptions();render();}
     finally{submit.disabled=false;}

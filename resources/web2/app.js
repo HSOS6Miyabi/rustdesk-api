@@ -68,6 +68,17 @@
       }
     }catch(e){state.token="";sessionStorage.removeItem("rustdesk.console.token");login.hidden=false;info.textContent="读取共享设备失败："+e.message;}
   }
+  async function setupLoginOptions(){
+    try {
+      const options=await request("/login-options");
+      const sso=el("sso-login-link");
+      sso.hidden=!Array.isArray(options.ops)||options.ops.length===0;
+      if(options.disable_pwd){
+        el("shared-login-form").hidden=true;
+        if(sso.hidden)el("shared-info").textContent="当前没有可用的登录方式，请联系管理员。";
+      }
+    }catch(err){message("无法获取登录方式："+err.message);}
+  }
   async function showCaptcha(){
     try{
       const options=await request("/login-options");
@@ -85,7 +96,7 @@
     if(!host||!id){message("请填写服务器和设备 ID");return;}
     store("custom-rendezvous-server",host);store("rendezvous-server",host);
     store("key",key);store("id",id);store("remote-id",id);
-    if(state.token)store("access_token",state.token);
+
     const nativeHost=document.getElementById("host"),nativeKey=document.getElementById("key"),nativeID=document.querySelector("#app #id");
     if(nativeHost)nativeHost.value=host;
     if(nativeKey)nativeKey.value=key;
@@ -99,6 +110,9 @@
     message("连接已断开");
   });
   el("v2-refresh").addEventListener("click",loadDevices);
+  el("sso-login-link").addEventListener("click",()=>{
+    sessionStorage.setItem("rustdesk.console.return","/webclient2/");
+  });
   el("shared-login-form").addEventListener("submit",async e=>{
     e.preventDefault();
     const form=e.currentTarget;
@@ -110,7 +124,7 @@
       if(!result.token)throw Error("登录未返回令牌");
       state.token=result.token;
       sessionStorage.setItem("rustdesk.console.token",result.token);
-      store("access_token",result.token);
+
       await loadConnectionDefaults();
       await loadDevices();
     }catch(err){el("shared-info").textContent="登录失败："+err.message;await showCaptcha();}
@@ -133,6 +147,7 @@
     observer.observe(el("app"),{childList:true,subtree:true});
   }
   watchEngine();
+  localStorage.removeItem("access_token");
   loadConnectionDefaults().then(loadDevices);
-  if(!state.token)showCaptcha();
+  if(!state.token){setupLoginOptions();showCaptcha();}
 })();

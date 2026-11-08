@@ -95,7 +95,7 @@ export default class Connection {
       licence_key: localStorage.getItem("key") || undefined,
       conn_type,
       nat_type,
-      token: localStorage.getItem("access_token") || undefined,
+      token: sessionStorage.getItem("rustdesk.console.token") || undefined,
     });
     ws.sendRendezvous({ punch_hole_request });
     const msg = (await ws.next()) as rendezvous.RendezvousMessage;
