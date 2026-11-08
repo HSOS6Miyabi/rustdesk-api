@@ -23,7 +23,7 @@ func TestDeviceHeartbeatReturnsNativeRustDeskStrategyOnlyForMatchingUUID(t *test
 	if err!=nil{t.Fatal(err)}
 	defer sql.Close()
 	sql.SetMaxOpenConns(1)
-	if err:=db.AutoMigrate(&model.Peer{},&model.DevicePolicy{},&model.DevicePolicyAssignment{});err!=nil{t.Fatal(err)}
+	if err:=db.AutoMigrate(&model.Peer{},&model.DevicePolicy{},&model.DevicePolicyAssignment{},&model.DeviceActiveConnection{},&model.DeviceDisconnectRequest{});err!=nil{t.Fatal(err)}
 	oldDB,oldService,oldLogger,oldConfig:=service.DB,service.AllService,service.Logger,service.Config
 	service.New(&config.Config{},db,log.New(),nil,nil)
 	service.AllService.PeerService=&service.PeerService{}
