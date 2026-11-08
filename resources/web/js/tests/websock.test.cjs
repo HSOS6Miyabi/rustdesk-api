@@ -122,6 +122,6 @@ test("WebSocket closes when unsolicited messages exceed the queue limit",async()
   const fixture=createFixture();
   const ws=await fixture.open();
   for(let i=0;i<257;i++)ws._websocket.emit([i%250]);
-  assert.equal(ws._websocket.readyState,2);
+  assert.equal(ws._websocket.readyState,3);
   await assert.rejects(ws.next(100),/not open/i);
 });
