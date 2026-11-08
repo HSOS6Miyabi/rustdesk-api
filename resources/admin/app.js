@@ -317,7 +317,11 @@
   function renderModal(){
     const m=state.modal;if(!m)return "";
     if(m.kind==="edit"){
-      const p=pages[activeKey()],fields=(p.fields||[]).filter(f=>!(state.page==="users"&&m.action==="edit"&&f[0]==="password"));
+      const p=pages[activeKey()],fields=(p.fields||[]).filter(f=>{
+        if(state.page==="users"&&m.action==="edit"&&f[0]==="password")return false;
+        if(!state.isAdmin&&state.page==="addressbooks"&&(f[0]==="user_id"))return false;
+        return true;
+      }).map(f=>state.page==="oauth"&&m.action==="edit"&&f[0]==="client_secret"?[f[0],"Client Secret（留空表示保持当前密钥）",f[2],false]:f);
       const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,'<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="edit-form">保存</button>');
     }
@@ -346,7 +350,11 @@
   async function saveEditor(form){
     const p=pages[activeKey()],data={};
     const oldData=state.modal.data;
-    for(const f of p.fields.filter(f=>!(state.page==="users"&&state.modal.action==="edit"&&f[0]==="password"))){
+    for(const f of p.fields.filter(f=>{
+      if(state.page==="users"&&state.modal.action==="edit"&&f[0]==="password")return false;
+      if(!state.isAdmin&&state.page==="addressbooks"&&f[0]==="user_id")return false;
+      return true;
+    })){
       const [name,,type="text",required=false]=f;
       const el=form.elements.namedItem(name);
       if(!el)continue;
