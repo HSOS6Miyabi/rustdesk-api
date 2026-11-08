@@ -43,7 +43,7 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 ```bash
 npm ci
 npm run build
-node --test tests/webrtc.test.cjs
+node --test tests/webrtc.test.cjs tests/websock.test.cjs
 ```
 
 RustDesk Server 的测试与编译：
@@ -54,3 +54,13 @@ cargo build --locked --release
 ```
 
 GitHub Actions 在发布前执行 Go、JavaScript、浏览器和 Rust 测试，构建跨架构程序及 Docker 镜像，并更新 GHCR 的 `latest` 标签。组合服务端镜像应选用已经发布的 API 版本。
+
+浏览器界面和 WebRTC 通信需要使用 Chromium。安装测试工具后执行：
+
+```bash
+npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+resources/admin/node_modules/.bin/playwright install --with-deps chromium
+node --test resources/admin/browser.e2e.cjs resources/admin/browser.webrtc.e2e.cjs
+```
+
+WebClient 同时支持 WebSocket 中继和 WebRTC。WebSocket 收到消息后直接通知等待中的操作；空闲连接保持活动状态。WebRTC 需要验证被控设备签名的 DTLS 证书信息。服务器的网络测试位于 `scripts/test_runtime.py` 和 `scripts/test_webrtc_rendezvous.py`。

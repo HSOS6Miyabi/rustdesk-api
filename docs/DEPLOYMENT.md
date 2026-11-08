@@ -52,6 +52,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 3600s;
     }
 
@@ -60,12 +61,15 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 3600s;
     }
 }
 ```
 
 如果 RustDesk 服务端在另一台机器上运行，请将 `127.0.0.1` 替换为其内网地址，并确保 WebSocket 代理能够访问端口 `21118` 和 `21119`。证书路径应根据实际的域名与证书位置填写。
+
+为保证来源 IP 的准确性，应限制服务器的 `21118` 和 `21119` 端口，仅允许受信任的反向代理访问。反向代理必须自行填写 `X-Real-IP` 请求头，避免使用外部请求中提供的值。
 
 在 API 的 `conf/config.yaml` 中设置：
 
