@@ -16,7 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lejianwen/rustdesk-api/v2/config"
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/sirupsen/logrus"
 )
 
 func signedOIDCTestToken(t *testing.T, key *rsa.PrivateKey, issuer, nonce string) string {
@@ -97,9 +99,11 @@ func TestOIDCProviderAuthorizationAndAutomaticGroupEnrollment(t *testing.T) {
 	defer server.Close()
 	issuer=server.URL
 
-	oldAPI:=Config.Rustdesk.ApiServer
+	oldConfig,oldLogger:=Config,Logger
+	Config=&config.Config{}
 	Config.Rustdesk.ApiServer="http://api.local.test"
-	defer func(){Config.Rustdesk.ApiServer=oldAPI}()
+	Logger=logrus.New()
+	defer func(){Config=oldConfig;Logger=oldLogger}()
 
 	pkceEnabled:=true
 	autoRegister:=true
