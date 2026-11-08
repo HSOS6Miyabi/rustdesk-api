@@ -10,6 +10,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: rustdesk-api-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
