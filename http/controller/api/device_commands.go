@@ -302,7 +302,7 @@ func (d *DeviceCommands) Deploy(c *gin.Context) {
 		if err != nil {
 			return err
 		}
-		if existing.Uuid != f.Uuid || existing.PublicKey != f.Pk {
+		if existing.Uuid != f.Uuid || existing.PublicKey != f.Pk || existing.Status != "approved" {
 			result = "ID_TAKEN"
 		}
 		return nil

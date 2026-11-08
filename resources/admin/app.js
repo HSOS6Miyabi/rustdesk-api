@@ -251,6 +251,7 @@
   function rowIdentifier(row){return String(row.row_id===undefined?row.id:row.row_id);}
   function rowActions(row){
     const p=pages[activeKey()];
+    if(state.page==="deployed")return '<button type="button" class="btn btn-sm" data-action="deployment-toggle" data-id="'+esc(row.id)+'">'+(row.status==="approved"?"撤销部署":"恢复部署")+"</button>";
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
     let out="";
@@ -490,6 +491,16 @@
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){state.modal=null;render();return;}
     if(a==="logout"){await logout();return;}
+    if(a==="deployment-toggle"){
+      const item=state.rows.find(x=>String(x.id)===String(el.dataset.id));
+      if(!item)return;
+      const status=item.status==="approved"?"revoked":"approved";
+      const question=status==="revoked"?"撤销后该设备将无法在严格登记模式下重新登记。确认撤销吗？":"确定恢复该设备的登记许可吗？";
+      if(!window.confirm(question))return;
+      try{await request("/device_deployment/status","POST",{id:Number(item.id),status});toast("设备部署状态已更新");await load();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="webclient"){window.location.assign("/webclient2/");return;}
     if(a==="audit-export"){await exportAudit(el.dataset.id);return;}
     if(a==="captcha"){await captcha();render();return;}

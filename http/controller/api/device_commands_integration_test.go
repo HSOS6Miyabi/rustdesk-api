@@ -106,6 +106,17 @@ func TestDeviceCommandsWithSQLite(t *testing.T) {
 	if result := send("/internal/v1/device/authorize", deploy, conf.App.InternalKey); !strings.Contains(result.Body.String(), `"OK"`) {
 		t.Fatalf("registered device was not accepted: %s", result.Body.String())
 	}
+	if err := db.Model(&model.DeviceDeployment{}).Where("device_id = ?", deploy["id"]).
+		Update("status", "revoked").Error; err != nil { t.Fatal(err) }
+	if result := send("/internal/v1/device/authorize", deploy, conf.App.InternalKey); !strings.Contains(result.Body.String(), "ID_TAKEN") {
+		t.Fatalf("revoked device should be rejected: %s", result.Body.String())
+	}
+	if result := send("/api/devices/deploy", deploy, ""); !strings.Contains(result.Body.String(), "ID_TAKEN") {
+		t.Fatalf("revoked deployment must not be automatically restored: %s", result.Body.String())
+	}
+	if err := db.Model(&model.DeviceDeployment{}).Where("device_id = ?", deploy["id"]).
+		Update("status", "approved").Error; err != nil { t.Fatal(err) }
+
 	taken := map[string]string{"id": "deployed-10002", "uuid": base64.StdEncoding.EncodeToString([]byte("another-device-uuid")), "pk": pk}
 	if result := send("/api/devices/deploy", taken, ""); !strings.Contains(result.Body.String(), "ID_TAKEN") {
 		t.Fatalf("conflicting registration should be rejected: %s", result.Body.String())
