@@ -767,8 +767,13 @@ function getrUriFromRs(
   isRelay: Boolean = false,
   roffset: number = 0
 ): string {
-    //v2
-  //if (isHttps()) return "wss://" + domain(uri) + "/ws/" + (isRelay ? "relay" : "id");
+  const configuredWsHost = String((window as any).ws_host || "").trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  if (location.protocol === "https:" && configuredWsHost) {
+    if (!configuredWsHost.startsWith("wss://")) {
+      throw new Error("The configured WebSocket endpoint must use wss:// on HTTPS pages");
+    }
+    return configuredWsHost + (isRelay ? "/ws/relay" : "/ws/id");
+  }
   if (uri.indexOf(":") > 0) {
     const tmp = uri.split(":");
     const port = parseInt(tmp[1]);
