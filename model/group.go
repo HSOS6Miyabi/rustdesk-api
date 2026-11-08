@@ -3,6 +3,7 @@ package model
 const (
 	GroupTypeDefault = 1 // 默认
 	GroupTypeShare   = 2 // 共享
+	GroupTypeAnchor  = 3 // 公共锚点
 )
 
 type Group struct {
