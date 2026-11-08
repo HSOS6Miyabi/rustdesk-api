@@ -71,6 +71,7 @@ func ApiInit(g *gin.Engine) {
 		frg.POST("/audit/conn", au.AuditConn)
 		//[method:POST] [uri:/api/audit/file]
 		frg.POST("/audit/file", au.AuditFile)
+		frg.POST("/audit/alarm", au.AuditAlarm)
 	}
 
 	frg.Use(middleware.RustAuth())

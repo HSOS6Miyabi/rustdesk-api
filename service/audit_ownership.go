@@ -77,6 +77,9 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		return errors.New("unsupported connection event")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
+		fresh, err := claimAuditNonce(tx, "conn", event.EventNonce)
+		if err != nil { return err }
+		if !fresh { return nil }
 		previous := &model.AuditConn{}
 		err := tx.Where("peer_id = ? AND conn_id = ?", event.PeerId, event.ConnId).Order("id DESC").First(previous).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return err }
@@ -105,6 +108,9 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		if event.Ip != "" { changes["ip"] = event.Ip }
 		if event.Uuid != "" { changes["uuid"] = event.Uuid }
 		if event.Type != 0 { changes["type"] = event.Type }
+		if event.ConnAuditRef != "" { changes["conn_audit_ref"] = event.ConnAuditRef }
+		if event.PrimaryAuth != 0 { changes["primary_auth"] = event.PrimaryAuth }
+		if event.TwoFactor != 0 { changes["two_factor"] = event.TwoFactor }
 		if previous.FromUserId == 0 && from.UserId != 0 { changes["from_user_id"] = from.UserId }
 		if previous.ToUserId == 0 && to.UserId != 0 { changes["to_user_id"] = to.UserId }
 		if previous.FromAccount == "" && from.Account != "" { changes["from_account"] = from.Account }
@@ -120,10 +126,15 @@ func (as *AuditService) SaveAuditFile(event *model.AuditFile) error {
 	if event == nil || strings.TrimSpace(event.PeerId) == "" {
 		return errors.New("target device ID is required")
 	}
-	from, to, err := auditParticipants(DB, event.FromPeer, event.PeerId)
-	if err != nil { return err }
-	applyAuditFileParticipants(event, from, to)
-	return DB.Create(event).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		fresh, err := claimAuditNonce(tx, "file", event.EventNonce)
+		if err != nil { return err }
+		if !fresh { return nil }
+		from, to, err := auditParticipants(tx, event.FromPeer, event.PeerId)
+		if err != nil { return err }
+		applyAuditFileParticipants(event, from, to)
+		return tx.Create(event).Error
+	})
 }
 
 // fill missing display details from current device information. Historical

@@ -20,6 +20,10 @@ type AuditConn struct {
 	ToDeviceName string `json:"to_device_name" gorm:"default:'';not null;"`
 	Ip        string `json:"ip" gorm:"default:'';not null;"`
 	SessionId string `json:"session_id" gorm:"default:'';not null;"`
+	ConnAuditRef string `json:"conn_audit_ref,omitempty" gorm:"default:'';not null;size:256"`
+	PrimaryAuth int `json:"primary_auth" gorm:"default:0;not null"`
+	TwoFactor int `json:"two_factor" gorm:"default:0;not null"`
+	EventNonce string `json:"-" gorm:"-"`
 	Type      int    `json:"type" gorm:"default:0;not null;"`
 	Uuid      string `json:"uuid" gorm:"default:'';not null;"`
 	CloseTime int64  `json:"close_time" gorm:"default:0;not null;"`
@@ -34,6 +38,8 @@ type AuditConnList struct {
 
 type AuditFile struct {
 	IdModel
+	ConnId int64 `json:"conn_id" gorm:"default:0;not null;index:idx_audit_file_connection"`
+	EventNonce string `json:"-" gorm:"-"`
 	FromPeer string `json:"from_peer" gorm:"default:'';not null;index"`
 	Info     string `json:"info" gorm:"default:'';not null;"`
 	IsFile   bool   `json:"is_file" gorm:"default:0;not null;"`
