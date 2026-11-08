@@ -19,6 +19,26 @@ import (
 type Ab struct {
 }
 
+func anchorDirectoryScope(user *model.User) (map[uint]bool, bool, error) {
+	groupIds, err := service.AllService.GroupService.GroupIdsForUser(user)
+	if err != nil { return nil, false, err }
+	hasAnchor := false
+	for _, groupId := range groupIds {
+		group := service.AllService.GroupService.InfoById(groupId)
+		if group.Id != 0 && group.Type == model.GroupTypeAnchor {
+			hasAnchor = true
+			break
+		}
+	}
+	if !hasAnchor { return nil, false, nil }
+	visible, err := service.AllService.GroupService.VisibleUserIds(user)
+	if err != nil { return nil, false, err }
+	allowed := make(map[uint]bool, len(visible))
+	for _, id := range visible { allowed[id] = true }
+	return allowed, true, nil
+}
+
+
 // Ab
 // @Tags 地址
 // @Summary 地址列表
@@ -391,6 +411,8 @@ func (a *Ab) SharedProfiles(c *gin.Context) {
 	var res []*api.SharedProfilesPayload
 
 	user := service.AllService.UserService.CurUser(c)
+	allowedOwners, anchorMode, err := anchorDirectoryScope(user)
+	if err != nil { response.Error(c, err.Error()); return }
 	myAbCollectionList := service.AllService.AddressBookService.ListCollectionByUserId(user.Id)
 	for _, ab := range myAbCollectionList.AddressBookCollection {
 		res = append(res, &api.SharedProfilesPayload{
@@ -428,6 +450,7 @@ func (a *Ab) SharedProfiles(c *gin.Context) {
 	}
 
 	for _, collection := range collections {
+		if anchorMode && !allowedOwners[collection.UserId] { continue }
 		_u, ok := allUserIds[collection.UserId]
 		if !ok {
 			continue
@@ -514,6 +537,13 @@ func (a *Ab) CheckGuid(cu *model.User, guid string) (gid, uid, cid uint, err err
 		}
 		if c.UserId != uid {
 			err = errors.New("ParamsError")
+			return
+		}
+	}
+	if uid != cu.Id {
+		allowedOwners, anchorMode, scopeErr := anchorDirectoryScope(cu)
+		if scopeErr != nil || (anchorMode && !allowedOwners[uid]) {
+			err = errors.New("NoAccess")
 			return
 		}
 	}
