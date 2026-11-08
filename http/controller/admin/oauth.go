@@ -194,6 +194,10 @@ func (o *Oauth) Create(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemExists"))
 		return
 	}
+	if _, err = service.AllService.GroupService.ValidateAutoGroupIDs(u.AutoGroupIds); err != nil {
+		response.Fail(c, 101, err.Error())
+		return
+	}
 	err = service.AllService.OauthService.Create(u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -251,6 +255,10 @@ func (o *Oauth) Update(c *gin.Context) {
 		return
 	}
 	u := f.ToOauth()
+	if _, err := service.AllService.GroupService.ValidateAutoGroupIDs(u.AutoGroupIds); err != nil {
+		response.Fail(c, 101, err.Error())
+		return
+	}
 	err := service.AllService.OauthService.Update(u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())

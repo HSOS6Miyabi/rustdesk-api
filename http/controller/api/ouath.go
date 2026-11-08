@@ -240,6 +240,10 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 				return
 			}
 		}
+		if err := service.AllService.GroupService.AutoJoinOAuthGroups(user.Id, op); err != nil {
+			c.HTML(http.StatusOK, "oauth_fail.html", gin.H{"message": err.Error()})
+			return
+		}
 		oauthCache.UserId = user.Id
 		oauthService.SetOauthCache(cacheKey, oauthCache, 0)
 		// 如果是webadmin，登录成功后跳转到webadmin

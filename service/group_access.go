@@ -76,6 +76,12 @@ func (gs *GroupService) VisibleUserIds(user *model.User) ([]uint, error) {
 		}
 		visible = append(visible, members...)
 	}
+	var contacts []uint
+	if err := DB.Model(&model.Contact{}).Where("recipient_user_id = ?", user.Id).
+		Pluck("owner_user_id", &contacts).Error; err != nil {
+		return nil, err
+	}
+	visible = append(visible, contacts...)
 	return distinctUserIDs(visible), nil
 }
 

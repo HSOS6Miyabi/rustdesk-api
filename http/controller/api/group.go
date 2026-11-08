@@ -5,9 +5,9 @@ import (
 	apiReq "github.com/lejianwen/rustdesk-api/v2/http/request/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	apiResp "github.com/lejianwen/rustdesk-api/v2/http/response/api"
-	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/service"
 	"net/http"
+	"gorm.io/gorm"
 )
 
 type Group struct {
@@ -35,16 +35,11 @@ func (g *Group) Users(c *gin.Context) {
 		return
 	}
 	u := service.AllService.UserService.CurUser(c)
-	gr := service.AllService.GroupService.InfoById(u.GroupId)
-	userList := &model.UserList{}
-	if !*u.IsAdmin && gr.Type != model.GroupTypeShare {
-		//仅能获取到自己
-		userList.Users = append(userList.Users, u)
-		userList.Total = 1
-	} else {
-		userList = service.AllService.UserService.ListByGroupId(u.GroupId, q.Page, q.PageSize)
-	}
-
+	ids, err := service.AllService.GroupService.VisibleUserIds(u)
+	if err != nil { response.Error(c, err.Error()); return }
+	userList := service.AllService.UserService.List(q.Page, q.PageSize, func(tx *gorm.DB) {
+		tx.Where("id IN ?", ids)
+	})
 	data := make([]*apiResp.UserPayload, 0, len(userList.Users))
 	for _, user := range userList.Users {
 		up := &apiResp.UserPayload{}
@@ -79,20 +74,12 @@ func (g *Group) Peers(c *gin.Context) {
 		response.Error(c, err.Error())
 		return
 	}
-	gr := service.AllService.GroupService.InfoById(u.GroupId)
-	users := make([]*model.User, 0, 1)
-	if !*u.IsAdmin && gr.Type != model.GroupTypeShare {
-		//仅能获取到自己
-		users = append(users, u)
-	} else {
-		users = service.AllService.UserService.ListIdAndNameByGroupId(u.GroupId)
-	}
-
+	userIds, err := service.AllService.GroupService.VisibleUserIds(u)
+	if err != nil { response.Error(c, err.Error()); return }
+	users := service.AllService.UserService.ListByIds(userIds)
 	namesById := make(map[uint]string, len(users))
-	userIds := make([]uint, 0, len(users))
 	for _, user := range users {
 		namesById[user.Id] = user.Username
-		userIds = append(userIds, user.Id)
 	}
 	dGroupNameById := make(map[uint]string)
 	allGroup := service.AllService.GroupService.DeviceGroupList(1, 999, nil)
