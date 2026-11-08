@@ -146,7 +146,6 @@
         state.user=await request("/user/current");
         const routes=Array.isArray(state.user.route_names)?state.user.route_names:[];
         state.isAdmin=routes.includes("*");
-        if(!state.isAdmin){try{await request("/group/list?page=1&page_size=1");state.isAdmin=true;}catch{}}
       }catch{state.token="";sessionStorage.removeItem("rustdesk.console.token");}
     }
     if(!state.token){await getOptions();render();return;}
