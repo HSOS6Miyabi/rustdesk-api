@@ -3,6 +3,7 @@ package admin
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
+	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/service"
 )
@@ -11,7 +12,7 @@ type DeviceDeployment struct{}
 
 func DeviceDeploymentBind(rg *gin.RouterGroup) {
 	handler := &DeviceDeployment{}
-	r := rg.Group("/device_deployment")
+	r := rg.Group("/device_deployment").Use(middleware.AdminPrivilege())
 	r.GET("/list", handler.List)
 }
 

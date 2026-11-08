@@ -156,3 +156,12 @@ test("control console returns to WebClient after SSO login",async()=>{
   await app.settle();
   assert.deepEqual(app.assigned, ["/webclient2/"]);
 });
+
+test("deployment records are visible only to administrators", async () => {
+  const regular = createConsole();
+  await regular.settle();
+  assert.doesNotMatch(regular.root.innerHTML, /设备部署记录/);
+  const admin = createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML, /设备部署记录/);
+});

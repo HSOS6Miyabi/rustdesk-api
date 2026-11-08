@@ -64,8 +64,15 @@ func (d *DeviceCommands) Assign(c *gin.Context) {
 	admin := service.AllService.UserService.IsAdmin(user)
 	err := service.DB.Transaction(func(tx *gorm.DB) error {
 		var peer model.Peer
-		if err := tx.Where("id = ? AND uuid = ?", f.Id, f.Uuid).First(&peer).Error; err != nil {
-			return errors.New("registered device and UUID do not match")
+		if err := tx.Where("id = ?", f.Id).First(&peer).Error; err != nil {
+			return errors.New("registered device was not found")
+		}
+		if peer.Uuid != f.Uuid {
+			fromClient, clientOK := normalizedBase64(f.Uuid, 8, 128)
+			fromDatabase, databaseOK := normalizedBase64(peer.Uuid, 8, 128)
+			if !clientOK || !databaseOK || fromClient != fromDatabase {
+				return errors.New("registered device and UUID do not match")
+			}
 		}
 		if !admin && peer.UserId != user.Id {
 			return errors.New("you may only update your own device")
