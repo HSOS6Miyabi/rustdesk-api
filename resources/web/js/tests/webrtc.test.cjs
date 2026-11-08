@@ -167,8 +167,9 @@ test("WebRTC transport retains idle sessions and enforces explicit handshake tim
   await assert.rejects(first,/timed out/i);
   const pending=transportB.next();
   await new Promise(resolve=>setTimeout(resolve,45));
-  transportA.sendMessage({chat_message:{text:"Desktop is idle and still connected"}});
+  const messageText=new TextEncoder().encode("Desktop is idle and still connected");
+  transportA.sendMessage({clipboard:{content:messageText,compress:false}});
   const delivered=await pending;
-  assert.equal(delivered.chat_message.text,"Desktop is idle and still connected");
+  assert.equal(new TextDecoder().decode(delivered.clipboard.content),"Desktop is idle and still connected");
   transportA.close();transportB.close();
 });
