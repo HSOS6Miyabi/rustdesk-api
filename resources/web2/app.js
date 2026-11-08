@@ -27,6 +27,22 @@
     message("已选择设备 "+id+"，请点击发起连接。");
     window.scrollTo({top:0,behavior:"smooth"});
   }
+  async function loadConnectionDefaults(){
+    if(!state.token)return;
+    try{
+      const server=await request("/config/server");
+      if(!config.host.value.trim()&&server.id_server){
+        config.host.value=String(server.id_server);
+        store("custom-rendezvous-server",config.host.value);
+      }
+      if(!config.key.value.trim()&&server.key){
+        config.key.value=String(server.key);
+        store("key",config.key.value);
+      }
+    }catch(err){
+      message("无法自动读取服务器信息，请手动填写连接设置。");
+    }
+  }
   async function loadDevices(){
     const info=el("shared-info"),list=el("shared-items"),login=el("shared-login");
     info.textContent="正在读取共享设备…";list.replaceChildren();
@@ -95,6 +111,7 @@
       state.token=result.token;
       sessionStorage.setItem("rustdesk.console.token",result.token);
       store("access_token",result.token);
+      await loadConnectionDefaults();
       await loadDevices();
     }catch(err){el("shared-info").textContent="登录失败："+err.message;await showCaptcha();}
     finally{submit.disabled=false;}
@@ -116,6 +133,6 @@
     observer.observe(el("app"),{childList:true,subtree:true});
   }
   watchEngine();
-  loadDevices();
+  loadConnectionDefaults().then(loadDevices);
   if(!state.token)showCaptcha();
 })();
