@@ -12,6 +12,12 @@ type AuditConn struct {
 	PeerId    string `json:"peer_id" gorm:"default:'';not null;index"`
 	FromPeer  string `json:"from_peer" gorm:"default:'';not null;"`
 	FromName  string `json:"from_name" gorm:"default:'';not null;"`
+	FromUserId uint `json:"from_user_id" gorm:"default:0;not null;index"`
+	ToUserId uint `json:"to_user_id" gorm:"default:0;not null;index"`
+	FromAccount string `json:"from_account" gorm:"default:'';not null;"`
+	ToAccount string `json:"to_account" gorm:"default:'';not null;"`
+	FromDeviceName string `json:"from_device_name" gorm:"default:'';not null;"`
+	ToDeviceName string `json:"to_device_name" gorm:"default:'';not null;"`
 	Ip        string `json:"ip" gorm:"default:'';not null;"`
 	SessionId string `json:"session_id" gorm:"default:'';not null;"`
 	Type      int    `json:"type" gorm:"default:0;not null;"`
@@ -37,6 +43,12 @@ type AuditFile struct {
 	Ip       string `json:"ip" gorm:"default:'';not null;"`
 	Num      int    `json:"num" gorm:"default:0;not null;"`
 	FromName string `json:"from_name" gorm:"default:'';not null;"`
+	FromUserId uint `json:"from_user_id" gorm:"default:0;not null;index"`
+	ToUserId uint `json:"to_user_id" gorm:"default:0;not null;index"`
+	FromAccount string `json:"from_account" gorm:"default:'';not null;"`
+	ToAccount string `json:"to_account" gorm:"default:'';not null;"`
+	FromDeviceName string `json:"from_device_name" gorm:"default:'';not null;"`
+	ToDeviceName string `json:"to_device_name" gorm:"default:'';not null;"`
 	TimeModel
 }
 
