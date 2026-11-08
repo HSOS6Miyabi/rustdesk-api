@@ -1,0 +1,195 @@
+name: Verify and release RustDesk API
+
+on:
+  push:
+    branches:
+      - master
+      - feature/modern-console-2026
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      REDIS_TEST_ADDR: 127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify JavaScript syntax
+        run: |
+          test -s resources/admin/index.html
+          test -s resources/admin/app.js
+          test -s resources/web2/index.html
+          node --check resources/admin/app.js
+          node --check resources/web2/app.js
+      - name: Restore dependency checksums
+        run: go mod tidy
+      - name: Save dependency checksums
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/modern-console-2026'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add go.mod go.sum
+          if ! git diff --cached --quiet; then
+            git commit -m "build: record Go module checksums"
+            git push
+          fi
+      - name: Frontend interaction tests
+        run: node --test resources/admin/app.test.cjs
+      - name: Go tests
+        run: go test ./... -count=1
+      - name: Build executable
+        run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
+
+  build:
+    needs: test
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+          - runner: ubuntu-24.04
+            goos: linux
+            goarch: arm64
+          - runner: windows-2022
+            goos: windows
+            goarch: amd64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Compute release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v3.0.0-api.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Linux ARM64 compiler
+        if: matrix.goarch == 'arm64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Restore dependency checksums
+        run: go mod tidy
+      - name: Compile Linux
+        if: matrix.goos == 'linux'
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '1'
+        run: |
+          if [ "$GOARCH" = "arm64" ]; then export CC=aarch64-linux-gnu-gcc; fi
+          mkdir -p dist/package/data dist/package/runtime
+          go build -trimpath -ldflags="-s -w" -o dist/package/apimain ./cmd/apimain.go
+          cp -r conf docs resources dist/package/
+          cd dist
+          tar -czf rustdesk-api-${{ steps.version.outputs.tag }}-${GOOS}-${GOARCH}.tar.gz package
+      - name: Compile Windows
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '1'
+        run: |
+          New-Item -ItemType Directory -Force dist/package/data, dist/package/runtime | Out-Null
+          go build -trimpath -ldflags="-s -w" -o dist/package/apimain.exe ./cmd/apimain.go
+          Copy-Item -Recurse conf, docs, resources dist/package/
+          Compress-Archive -Path dist/package -DestinationPath "dist/rustdesk-api-${{ steps.version.outputs.tag }}-windows-amd64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/rustdesk-api-*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: api-*
+          merge-multiple: true
+          path: dist
+      - name: Determine release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v3.0.0-api.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ github.ref_type != 'tag' }}
+          generate_release_notes: true
+          files: dist/rustdesk-api-*
+
+  docker:
+    needs: test
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Normalize image name
+        id: names
+        shell: bash
+        run: echo "image=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ steps.names.outputs.image }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=ref,event=tag
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

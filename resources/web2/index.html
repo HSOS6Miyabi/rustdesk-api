@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10243a">
+<meta name="description" content="RustDesk 自托管远程桌面客户端">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
+<title>WebClient v2 · RustDesk</title>
+<link rel="icon" href="/_admin/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/webclient2/style.css">
+<script src="/webclient-config/index.js"></script>
+<script src="/webclient/ogvjs-1.8.6/ogv.js"></script>
+<script src="/webclient/yuv-canvas-1.2.6.js"></script>
+<link rel="modulepreload" href="/webclient/js/dist/vendor.js">
+<script type="module" src="/webclient/js/dist/index.js"></script>
+<script src="/webclient2/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+ <div class="brand"><span class="symbol">◈</span><span>RustDesk <small>WebClient v2</small></span></div>
+ <div class="toplinks"><span id="engine-state" class="badge">正在加载远程连接组件</span><a href="/_admin/#/shared">共享设备管理</a><a href="/_admin/">控制台</a></div>
+</header>
+<main class="layout">
+ <aside class="aside" aria-label="连接设置与共享设备">
+  <div class="section-caption">REMOTE ACCESS</div>
+  <h1>远程连接</h1>
+  <p class="helper">输入设备 ID 即可连接。输入框中的设置仅用于当前浏览器。</p>
+  <form id="connect-form">
+   <label for="v2-host">ID 服务器</label><input id="v2-host" name="host" required spellcheck="false" placeholder="例如：desk.example.com">
+   <label for="v2-key">服务器公钥</label><input id="v2-key" name="key" spellcheck="false" placeholder="从 RustDesk 服务器获取">
+   <label for="v2-id">目标设备 ID</label><input id="v2-id" name="id" required spellcheck="false" autocomplete="off" placeholder="输入设备 ID">
+   <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
+  </form>
+  <div class="separator"></div>
+  <div class="section-caption">SHARED DEVICES</div>
+  <div class="row-title"><h2>共享给我的设备</h2><button class="text-button" id="v2-refresh" type="button">刷新</button></div>
+  <div id="shared-info" class="helper" role="status">正在读取共享设备…</div>
+  <div id="shared-login" hidden>
+    <p class="helper">登录后可以查看联系人和群组公开给您的设备。</p>
+    <form id="shared-login-form">
+      <label for="v2-user">账户</label><input id="v2-user" name="username" required autocomplete="username">
+      <label for="v2-pass">密码</label><input id="v2-pass" name="password" type="password" required autocomplete="current-password">
+      <div id="v2-captcha" hidden>
+        <label for="v2-captcha-text">验证码</label><img id="v2-captcha-image" alt="登录验证码" width="130"><input id="v2-captcha-text" name="captcha" autocomplete="off"><input type="hidden" name="captcha_id">
+      </div>
+      <button class="secondary wide" type="submit">登录以查看共享设备</button>
+    </form>
+  </div>
+  <div id="shared-items" class="device-list"></div>
+ </aside>
+ <section class="stage" aria-label="远程桌面画面">
+  <div class="stage-header"><div><h2>远程桌面</h2><p>使用浏览器访问您的 RustDesk 设备</p></div><span class="dot"></span></div>
+  <div id="app" class="engine"><div class="placeholder"><div class="screen-icon">▣</div><h3>等待连接设备</h3><p>在左侧输入设备 ID，然后选择“发起连接”。</p></div></div>
+  <div class="stage-footer"><span id="v2-message" role="status">准备连接</span><span>由 RustDesk 开源 Web 连接组件提供远程桌面通信</span></div>
+ </section>
+</main>
+</body>
+</html>

@@ -1,6 +1,8 @@
 package service
 
 import (
+	crand "crypto/rand"
+	"encoding/base64"
 	"errors"
 	"math/rand"
 	"strconv"
@@ -90,7 +92,11 @@ func (us *UserService) GenerateToken(u *model.User) string {
 	if len(Jwt.Key) > 0 {
 		return Jwt.GenerateToken(u.Id)
 	}
-	return utils.Md5(u.Username + time.Now().String())
+	secret := make([]byte, 32)
+	if _, err := crand.Read(secret); err != nil {
+		panic("cannot create secure access token: " + err.Error())
+	}
+	return base64.RawURLEncoding.EncodeToString(secret)
 }
 
 // Login 登录
@@ -293,7 +299,7 @@ func (us *UserService) UpdatePassword(u *model.User, password string) error {
 
 // IsAdmin 是否管理员
 func (us *UserService) IsAdmin(u *model.User) bool {
-	return u != nil && *u.IsAdmin
+	return u != nil && u.IsAdmin != nil && *u.IsAdmin
 }
 
 // RouteNames

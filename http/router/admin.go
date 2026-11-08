@@ -50,6 +50,10 @@ func Init(g *gin.Engine) {
 
 	RustdeskCmdBind(adg)
 	DeviceGroupBind(adg)
+	ContactBind(adg)
+	SharedDevicesBind(adg)
+	PersonalGroupBind(adg)
+	MyAuditBind(adg)
 	//访问静态文件
 	//g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/upload"))
 }
@@ -100,6 +104,10 @@ func GroupBind(rg *gin.RouterGroup) {
 		cont := &admin.Group{}
 		aR.GET("/list", cont.List)
 		aR.GET("/detail/:id", cont.Detail)
+		aR.GET("/members", cont.Members)
+		aR.POST("/members/batch", cont.BatchMembers)
+		aR.GET("/anchors", cont.Anchors)
+		aR.POST("/anchors", cont.SetAnchors)
 		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
 		aR.POST("/delete", cont.Delete)
@@ -321,4 +329,38 @@ func ShareRecordBind(rg *gin.RouterGroup) {
 		aR.POST("/batchDelete", cont.BatchDelete)
 	}
 
+}
+
+func ContactBind(rg *gin.RouterGroup) {
+	r := rg.Group("/contact")
+	c := &admin.Contact{}
+	r.GET("/list", c.List)
+	r.POST("/add", c.Add)
+	r.POST("/delete", c.Delete)
+}
+
+func SharedDevicesBind(rg *gin.RouterGroup) {
+	rg.GET("/shared_devices/list", (&admin.SharedDevices{}).List)
+	rg.GET("/shared_devices/sources", (&admin.SharedDevices{}).Sources)
+}
+
+func PersonalGroupBind(rg *gin.RouterGroup) {
+	owner := &admin.MyGroup{}
+	r := rg.Group("/my/group")
+	r.GET("/list", owner.List)
+	r.GET("/detail/:id", owner.Detail)
+	r.POST("/create", owner.Create)
+	r.POST("/update", owner.Update)
+	r.POST("/delete", owner.Delete)
+	r.GET("/members", owner.Members)
+	r.POST("/members/batch", owner.BatchMembers)
+	r.GET("/anchors", owner.Anchors)
+	r.POST("/anchors", owner.SetAnchors)
+	r.GET("/user/lookup", owner.UserLookup)
+}
+
+func MyAuditBind(rg *gin.RouterGroup) {
+	audit := &admin.MyAudit{}
+	rg.GET("/my/audit_conn/list", audit.Connections)
+	rg.GET("/my/audit_file/list", audit.Files)
 }

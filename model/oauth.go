@@ -43,6 +43,7 @@ type Oauth struct {
 	ClientSecret string `json:"client_secret"`
 	//RedirectUrl  string `json:"redirect_url"`
 	AutoRegister *bool  `json:"auto_register"`
+	AutoGroupIds string `json:"auto_group_ids" gorm:"default:'';not null"`
 	Scopes       string `json:"scopes"`
 	Issuer       string `json:"issuer"`
 	PkceEnable   *bool  `json:"pkce_enable"`

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"io"
 	"fmt"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"net"
@@ -57,33 +59,36 @@ func (is *ServerCmdService) SendCmd(port int, cmd string, arg string) (string, e
 
 // SendSocketCmd
 func (is *ServerCmdService) SendSocketCmd(ty string, port int, cmd string) (string, error) {
-	addr := "[::1]"
-	tcp := "tcp6"
-	if ty == "v4" {
-		tcp = "tcp"
-		addr = "127.0.0.1"
+	addr, network := "127.0.0.1", "tcp4"
+	if ty == "v6" {
+		addr, network = "::1", "tcp6"
 	}
-	conn, err := net.Dial(tcp, fmt.Sprintf("%s:%v", addr, port))
-	if err != nil {
-		Logger.Debugf("%s connect to id server failed: %v", ty, err)
-		return "", err
-	}
+	conn, err := net.DialTimeout(network, net.JoinHostPort(addr, fmt.Sprint(port)), 3*time.Second)
+	if err != nil { return "", err }
 	defer conn.Close()
-	//发送命令
-	_, err = conn.Write([]byte(cmd))
-	if err != nil {
-		Logger.Debugf("%s send cmd failed: %v", ty, err)
-		return "", err
+	if err := conn.SetWriteDeadline(time.Now().Add(3*time.Second)); err != nil { return "", err }
+	if _, err := conn.Write([]byte(cmd)); err != nil { return "", err }
+	const maxReply = 65536
+	var response bytes.Buffer
+	buffer := make([]byte, 4096)
+	if err := conn.SetReadDeadline(time.Now().Add(2*time.Second)); err != nil { return "", err }
+	for response.Len() < maxReply {
+		remaining := maxReply - response.Len()
+		if remaining < len(buffer) { buffer = buffer[:remaining] }
+		n, readErr := conn.Read(buffer)
+		if n > 0 {
+			response.Write(buffer[:n])
+			conn.SetReadDeadline(time.Now().Add(200*time.Millisecond))
+		}
+		if readErr != nil {
+			if netErr, ok := readErr.(net.Error); ok && netErr.Timeout() && response.Len() > 0 {
+				break
+			}
+			if readErr == io.EOF { break }
+			return "", readErr
+		}
 	}
-	time.Sleep(100 * time.Millisecond)
-	//读取返回
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil && err.Error() != "EOF" {
-		Logger.Debugf("%s read response failed: %v", ty, err)
-		return "", err
-	}
-	return string(buf[:n]), nil
+	return response.String(), nil
 }
 
 func (is *ServerCmdService) Update(f *model.ServerCmd) error {

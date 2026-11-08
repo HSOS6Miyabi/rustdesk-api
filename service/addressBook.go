@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"gorm.io/gorm"
@@ -53,53 +54,47 @@ func (s *AddressBookService) AddAddressBook(ab *model.AddressBook) error {
 
 // UpdateAddressBook
 func (s *AddressBookService) UpdateAddressBook(abs []*model.AddressBook, userId uint) error {
-	//比较peers和数据库中的数据，如果peers中的数据在数据库中不存在，则添加，如果存在则更新，如果数据库中的数据在peers中不存在，则删除
-	// 开始事务
-	tx := DB.Begin()
-	//1. 获取数据库中的数据
-	var dbABs []*model.AddressBook
-	tx.Where("user_id = ?", userId).Find(&dbABs)
-	//2. 比较peers和数据库中的数据
-	//2.1 获取peers中的id
-	aBIds := make(map[string]*model.AddressBook)
-	for _, ab := range abs {
-		aBIds[ab.Id] = ab
-	}
-	//2.2 获取数据库中的id
-	dbABIds := make(map[string]*model.AddressBook)
-	for _, dbAb := range dbABs {
-		dbABIds[dbAb.Id] = dbAb
-	}
-	//2.3 比较peers和数据库中的数据
-	for id, ab := range aBIds {
-		dbAB, ok := dbABIds[id]
-		ab.UserId = userId
-		if !ok {
-			//添加
-			if ab.Platform == "" || ab.Username == "" || ab.Hostname == "" {
-				peer := AllService.PeerService.FindById(ab.Id)
-				if peer.RowId != 0 {
-					ab.Platform = AllService.AddressBookService.PlatformFromOs(peer.Os)
-					ab.Username = peer.Username
-					ab.Hostname = peer.Hostname
+	if userId == 0 { return errors.New("user ID is required") }
+	if len(abs) > 5000 { return errors.New("too many address book entries") }
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var saved []*model.AddressBook
+		// Legacy /api/ab updates the default address book only.
+		if err := tx.Where("user_id = ? AND collection_id = 0", userId).
+			Find(&saved).Error; err != nil { return err }
+		existing := make(map[string]*model.AddressBook, len(saved))
+		for _, item := range saved { existing[item.Id] = item }
+		seen := make(map[string]bool, len(abs))
+		for _, item := range abs {
+			if item == nil || strings.TrimSpace(item.Id) == "" {
+				return errors.New("device ID cannot be empty")
+			}
+			if seen[item.Id] { return errors.New("duplicate device ID") }
+			seen[item.Id] = true
+			item.UserId = userId
+			item.CollectionId = 0
+			if item.Platform == "" || item.Username == "" || item.Hostname == "" {
+				var peer model.Peer
+				if err := tx.Where("id = ?", item.Id).First(&peer).Error; err == nil && peer.RowId != 0 {
+					if item.Platform == "" { item.Platform = s.PlatformFromOs(peer.Os) }
+					if item.Username == "" { item.Username = peer.Username }
+					if item.Hostname == "" { item.Hostname = peer.Hostname }
 				}
 			}
-			tx.Create(ab)
-		} else {
-			//更新
-			tx.Model(&model.AddressBook{}).Where("row_id = ?", dbAB.RowId).Updates(ab)
+			if previous, ok := existing[item.Id]; ok {
+				if err := tx.Model(&model.AddressBook{}).
+					Where("row_id = ?", previous.RowId).
+					Select("*").Omit("row_id", "created_at", "updated_at").
+					Updates(item).Error; err != nil { return err }
+				delete(existing, item.Id)
+			} else {
+				if err := tx.Create(item).Error; err != nil { return err }
+			}
 		}
-	}
-	//2.4 删除
-	for id, dbAB := range dbABIds {
-		_, ok := aBIds[id]
-		if !ok {
-			tx.Delete(dbAB)
+		for _, obsolete := range existing {
+			if err := tx.Delete(obsolete).Error; err != nil { return err }
 		}
-	}
-	tx.Commit()
-	return nil
-
+		return nil
+	})
 }
 
 func (s *AddressBookService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AddressBookList) {

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/global"
@@ -154,6 +155,7 @@ func (o *Oauth) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.OauthService.InfoById(uint(iid))
 	if u.Id > 0 {
+		u.ClientSecret = ""
 		response.Success(c, u)
 		return
 	}
@@ -183,6 +185,10 @@ func (o *Oauth) Create(c *gin.Context) {
 		response.Fail(c, 101, errList[0])
 		return
 	}
+	if strings.TrimSpace(f.ClientSecret) == "" {
+		response.Fail(c, 101, "Client Secret is required")
+		return
+	}
 	u := f.ToOauth()
 	err := u.FormatOauthInfo()
 	if err != nil {
@@ -192,6 +198,10 @@ func (o *Oauth) Create(c *gin.Context) {
 	ex := service.AllService.OauthService.InfoByOp(u.Op)
 	if ex.Id > 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemExists"))
+		return
+	}
+	if _, err = service.AllService.GroupService.ValidateAutoGroupIDs(u.AutoGroupIds); err != nil {
+		response.Fail(c, 101, err.Error())
 		return
 	}
 	err = service.AllService.OauthService.Create(u)
@@ -221,6 +231,7 @@ func (o *Oauth) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.OauthService.List(query.Page, query.PageSize, nil)
+	for _, provider := range res.Oauths { provider.ClientSecret = "" }
 	response.Success(c, res)
 }
 
@@ -251,6 +262,16 @@ func (o *Oauth) Update(c *gin.Context) {
 		return
 	}
 	u := f.ToOauth()
+	existing := service.AllService.OauthService.InfoById(u.Id)
+	if existing.Id == 0 {
+		response.Fail(c, 101, "OAuth provider not found")
+		return
+	}
+	if strings.TrimSpace(u.ClientSecret) == "" { u.ClientSecret = existing.ClientSecret }
+	if _, err := service.AllService.GroupService.ValidateAutoGroupIDs(u.AutoGroupIds); err != nil {
+		response.Fail(c, 101, err.Error())
+		return
+	}
 	err := service.AllService.OauthService.Update(u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())

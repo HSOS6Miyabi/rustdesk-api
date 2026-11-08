@@ -42,6 +42,9 @@ func (a *Audit) ConnList(c *gin.Context) {
 		}
 		tx.Order("id desc")
 	})
+	if err := service.AllService.AuditService.EnrichConnections(res.AuditConns, 0); err != nil {
+		response.Fail(c, 101, err.Error()); return
+	}
 	response.Success(c, res)
 }
 
@@ -141,6 +144,9 @@ func (a *Audit) FileList(c *gin.Context) {
 		}
 		tx.Order("id desc")
 	})
+	if err := service.AllService.AuditService.EnrichFiles(res.AuditFiles, 0); err != nil {
+		response.Fail(c, 101, err.Error()); return
+	}
 	response.Success(c, res)
 }
 

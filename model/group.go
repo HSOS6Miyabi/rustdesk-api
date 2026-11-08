@@ -3,12 +3,14 @@ package model
 const (
 	GroupTypeDefault = 1 // 默认
 	GroupTypeShare   = 2 // 共享
+	GroupTypeAnchor  = 3 // 公共锚点
 )
 
 type Group struct {
 	IdModel
 	Name string `json:"name" gorm:"default:'';not null;"`
 	Type int    `json:"type" gorm:"default:1;not null;"`
+	OwnerUserId uint `json:"owner_user_id" gorm:"default:0;not null;index"`
 	TimeModel
 }
 

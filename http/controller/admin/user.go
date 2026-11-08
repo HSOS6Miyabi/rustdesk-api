@@ -61,7 +61,12 @@ func (ct *User) Create(c *gin.Context) {
 		response.Fail(c, 101, errList[0])
 		return
 	}
+	if len(f.Password) < 8 || len(f.Password) > 72 {
+		response.Fail(c, 101, "初始密码必须包含 8 至 72 个字符")
+		return
+	}
 	u := f.ToUser()
+	u.Password = f.Password
 	err := service.AllService.UserService.Create(u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
