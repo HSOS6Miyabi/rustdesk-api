@@ -143,7 +143,7 @@ test("WebClient v2 enables direct WebRTC only after the user selects it",async()
   const app=fixture({token:"session-token"});
   await app.settle();
   const toggle=app.elements.get("v2-webrtc");
-  assert.equal(toggle.checked,undefined);
+  assert.equal(toggle.checked,false);
   toggle.checked=true;
   app.elements.get("v2-id").value="123456789";
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
