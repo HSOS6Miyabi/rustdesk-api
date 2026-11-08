@@ -125,8 +125,33 @@ jobs:
           go build -trimpath -ldflags="-s -w" -o dist/package/apimain.exe ./cmd/apimain.go
           Copy-Item -Recurse conf, docs, resources dist/package/
           Compress-Archive -Path dist/package -DestinationPath "dist/rustdesk-api-${{ steps.version.outputs.tag }}-windows-amd64.zip"
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/rustdesk-api-*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: api-*
+          merge-multiple: true
+          path: dist
+      - name: Determine release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v3.0.0-api.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
