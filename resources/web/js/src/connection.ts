@@ -25,9 +25,7 @@ type DrawCallback = (data: Uint8Array) => void;
 //const cursorCanvas = document.createElement("canvas");
 
 export default class Connection {
-  _msgs: any[];
   _ws: Websock | WebRTCTransport | undefined;
-  _interval: any;
   _id: string;
   _hash: message.Hash | undefined;
   _msgbox: MsgboxCallback;
@@ -43,7 +41,6 @@ export default class Connection {
   constructor() {
     this._msgbox = globals.msgbox;
     this._draw = globals.draw;
-    this._msgs = [];
     this._id = "";
     this._videoTestSpeed = [0, 0];
     //this._cursors = {};
@@ -75,12 +72,6 @@ export default class Connection {
         }
       }
     }
-    this._interval = setInterval(() => {
-      while (this._msgs.length) {
-        this._ws?.sendMessage(this._msgs[0]);
-        this._msgs.splice(0, 1);
-      }
-    }, 1);
     this.loadVideoDecoder();
     this._id=id;
     if(sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y" &&
@@ -463,8 +454,6 @@ export default class Connection {
   }
 
   close() {
-    this._msgs = [];
-    clearInterval(this._interval);
     this._ws?.close();
     this._videoDecoder?.close();
   }
