@@ -33,6 +33,8 @@
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
     transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
+    disconnectHistory: {name:"结束连接记录",icon:"clock",section:"系统管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
   };
@@ -79,9 +81,12 @@
     if(k==="success")return v?'<span class="pill good">成功</span>':'<span class="pill warn">失败</span>';
     if(k==="is_admin")return v?"管理员":"普通用户";
     if(k==="enable_webrtc")return v?"启用":"停用";
-    if(k==="status"&&typeof v==="string")return esc(v==="approved"?"已登记":v);
+    if(k==="status"&&typeof v==="string")return esc({
+      approved:"已登记",revoked:"已撤销",pending:"等待通知",
+      delivered:"已通知客户端",completed:"连接已结束",expired:"已过期"
+    }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(k==="created_at"||k==="last_online_time"||k==="expire")return date(v);
+    if(["created_at","last_online_time","expire","last_seen_at","delivered_at","completed_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -253,6 +258,7 @@
   function rowIdentifier(row){return String(row.row_id===undefined?row.id:row.row_id);}
   function rowActions(row){
     const p=pages[activeKey()];
+    if(state.page==="activeSessions")return '<button type="button" class="btn btn-sm btn-danger" data-action="session-disconnect" data-id="'+esc(row.conn_id)+'" data-device="'+esc(row.device_id)+'">结束连接</button>';
     if(state.page==="deployed")return '<button type="button" class="btn btn-sm" data-action="deployment-toggle" data-id="'+esc(row.id)+'">'+(row.status==="approved"?"撤销部署":"恢复部署")+"</button>";
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
@@ -493,6 +499,17 @@
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){state.modal=null;render();return;}
     if(a==="logout"){await logout();return;}
+    if(a==="session-disconnect"){
+      const deviceId=el.dataset.device, connId=Number(el.dataset.id);
+      if(!deviceId||!connId)return;
+      if(!window.confirm("确定请求结束设备 "+deviceId+" 的连接 "+connId+" 吗？"))return;
+      try{
+        await request("/session/disconnect","POST",{device_id:deviceId,conn_id:connId});
+        toast("结束连接请求已提交，客户端下次发送心跳时会收到通知");
+        await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="deployment-toggle"){
       const item=state.rows.find(x=>String(x.id)===String(el.dataset.id));
       if(!item)return;
