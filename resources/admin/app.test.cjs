@@ -181,3 +181,17 @@ test("administrators can manage user and device-group policies", async () => {
   await admin.open("groupPolicyAssignments");
   assert.ok(admin.calls.some(call => call.endpoint === "/device_policy/group_assignment/list"));
 });
+
+test("active session actions appear only in administrator console", async () => {
+  const owner = createConsole();
+  await owner.settle();
+  await owner.settle();
+  assert.doesNotMatch(owner.root.innerHTML, /活动远程连接/);
+  const admin = createConsole(true);
+  await admin.settle();
+  await admin.settle();
+  assert.match(admin.root.innerHTML, /活动远程连接/);
+  assert.match(admin.root.innerHTML, /结束连接记录/);
+  await admin.open("activeSessions");
+  assert.ok(admin.calls.some(call => call.endpoint === "/session/list"));
+});

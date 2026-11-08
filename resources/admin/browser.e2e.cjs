@@ -44,6 +44,11 @@ function serve(req, res) {
       list:[{id:2,from_peer:"123456",from_account:"owner",
         peer_id:"654321",to_account:"alice",path:"/files/report.pdf",direction:"outgoing"}],total:1
     });
+    if(route==="/session/list")return answer(res, {list:[
+      {id:4,device_id:"support-123456",conn_id:41,last_seen_at:1710000000}
+    ],total:1});
+    if(route==="/session/disconnect")return answer(res, {status:"pending"});
+    if(route==="/session/disconnect/list")return answer(res, {list:[],total:0});
     if(route==="/my/login_log/list")return answer(res, {list:[],total:0});
     if(route==="/user/list")return answer(res, {
       list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
@@ -255,5 +260,19 @@ test("ordinary users see their security alarms but cannot access global security
     await page.locator('nav.side-scroll button[data-view="myalarms"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的安全告警");
     await page.getByText("设备 ID 白名单拒绝 (10)").first().waitFor();
+  }finally{await context.close();}
+});
+
+test("administrator can request disconnection of a reported remote session",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    page.on("dialog",dialog=>dialog.accept());
+    await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="活动远程连接");
+    await page.getByText("support-123456",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="session-disconnect"]').first().click();
+    await page.getByText(/结束连接请求已提交/).first().waitFor();
+    await page.locator('nav.side-scroll button[data-view="disconnectHistory"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="结束连接记录");
   }finally{await context.close();}
 });
