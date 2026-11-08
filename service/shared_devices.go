@@ -29,34 +29,43 @@ type SharedDevicePage struct {
 
 func sharedOwnerSources(user *model.User) (map[uint][]SharedDeviceSource, error) {
 	owners := make(map[uint][]SharedDeviceSource)
-	groups, err := AllService.GroupService.GroupIdsForUser(user)
+	if user == nil || user.Id == 0 { return nil, fmt.Errorf("user is required") }
+	groups, hasAnchor, err := AllService.GroupService.directoryGroups(user)
 	if err != nil { return nil, err }
-	anchorMode := false
-	for _, id := range groups {
-		if group := AllService.GroupService.InfoById(id); group.Id != 0 && group.Type == model.GroupTypeAnchor {
-			anchorMode = true
-		}
-	}
-	for _, id := range groups {
-		group := AllService.GroupService.InfoById(id)
-		if group.Id == 0 { continue }
-		var ids []uint
+	groupNames := make(map[uint]string, len(groups))
+	shareIds, anchorIds := make([]uint, 0), make([]uint, 0)
+	for _, group := range groups {
+		groupNames[group.Id] = group.Name
 		switch group.Type {
 		case model.GroupTypeShare:
-			if anchorMode { continue }
-			ids, err = AllService.GroupService.MemberIds(id)
+			if !hasAnchor { shareIds = append(shareIds, group.Id) }
 		case model.GroupTypeAnchor:
-			ids, err = AllService.GroupService.AnchorIds(id)
-		default:
-			continue
+			anchorIds = append(anchorIds, group.Id)
 		}
-		if err != nil { return nil, err }
-		for _, owner := range ids {
-			if owner == user.Id { continue }
-			owners[owner] = append(owners[owner], SharedDeviceSource{
-				Type: "group", Id: id, Name: group.Name,
-			})
-		}
+	}
+	seenGroup := make(map[uint]map[uint]bool)
+	addGroup := func(owner, groupId uint) {
+		if owner == 0 || owner == user.Id { return }
+		if seenGroup[owner] == nil { seenGroup[owner] = make(map[uint]bool) }
+		if seenGroup[owner][groupId] { return }
+		seenGroup[owner][groupId] = true
+		owners[owner] = append(owners[owner], SharedDeviceSource{
+			Type:"group", Id:groupId, Name:groupNames[groupId],
+		})
+	}
+	if len(shareIds) > 0 {
+		var primary []struct{ Id uint; GroupId uint }
+		if err := DB.Model(&model.User{}).Select("id,group_id").
+			Where("group_id IN ?", shareIds).Scan(&primary).Error; err != nil { return nil, err }
+		for _, row := range primary { addGroup(row.Id, row.GroupId) }
+		var extra []model.GroupMembership
+		if err := DB.Where("group_id IN ?", shareIds).Find(&extra).Error; err != nil { return nil, err }
+		for _, row := range extra { addGroup(row.UserId, row.GroupId) }
+	}
+	if len(anchorIds) > 0 {
+		var anchors []model.GroupAnchor
+		if err := DB.Where("group_id IN ?", anchorIds).Find(&anchors).Error; err != nil { return nil, err }
+		for _, row := range anchors { addGroup(row.UserId, row.GroupId) }
 	}
 	var contacts []model.Contact
 	if err := DB.Where("recipient_user_id = ?", user.Id).Find(&contacts).Error; err != nil {
