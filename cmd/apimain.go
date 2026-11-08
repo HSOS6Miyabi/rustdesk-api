@@ -312,6 +312,7 @@ func Migrate(version uint) {
 		&model.AuditRetentionPolicy{},
 		&model.DevicePolicy{},
 		&model.DevicePolicyAssignment{},
+		&model.DeviceDeployment{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},

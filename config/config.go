@@ -23,6 +23,8 @@ type App struct {
 	DisablePwdLogin  bool          `mapstructure:"disable-pwd-login"`
 	CaptchaThreshold int           `mapstructure:"captcha-threshold"`
 	BanThreshold     int           `mapstructure:"ban-threshold"`
+	RequireDeviceDeployment bool   `mapstructure:"require-device-deployment"`
+	InternalKey      string        `mapstructure:"internal-key"`
 }
 type Admin struct {
 	Title           string `mapstructure:"title"`

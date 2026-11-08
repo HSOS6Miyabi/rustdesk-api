@@ -8,7 +8,9 @@ app:
   show-swagger: 0 # 1:启用 0:禁用
   token-expire: 168h
   web-sso: true #web auth sso
-  disable-pwd-login: false #禁用密码登录
+  disable-pwd-login: false
+  require-device-deployment: false #启用后需要先使用客户端 --deploy 登记设备
+  internal-key: "" #使用严格登记时，API 和 hbbs 需设置相同的内部访问密钥 #禁用密码登录
 
 admin:
   title: "RustDesk API Admin"

@@ -22,6 +22,8 @@ func ApiInit(g *gin.Engine) {
 	// 加载 HTML 模板
 	g.LoadHTMLGlob("resources/templates/*")
 
+	g.POST("/internal/v1/device/authorize", (&api.DeviceCommands{}).AuthorizeRegistration)
+
 	frg := g.Group("/api")
 
 	{
@@ -76,6 +78,8 @@ func ApiInit(g *gin.Engine) {
 	}
 
 	frg.Use(middleware.RustAuth())
+	frg.POST("/devices/cli", (&api.DeviceCommands{}).Assign)
+	frg.POST("/devices/deploy", (&api.DeviceCommands{}).Deploy)
 	{
 		u := &api.User{}
 		frg.GET("/user/info", u.Info)
