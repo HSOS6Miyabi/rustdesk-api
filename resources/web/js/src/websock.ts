@@ -1,6 +1,7 @@
 import * as message from "./message.js";
 import * as rendezvous from "./rendezvous.js";
 import * as globals from "./globals";
+import {decodeRendezvous,encodeOffer,encodeICE,IceCandidate} from "./webrtc_protocol";
 
 type Keys = "message" | "open" | "close" | "error";
 
@@ -59,12 +60,20 @@ export default class Websock {
     );
   }
 
+  sendWebRTCOffer(request:rendezvous.PunchHoleRequest,offer:string) {
+    this._websocket.send(encodeOffer(request,offer));
+  }
+
+  sendICE(candidate:IceCandidate) {
+    this._websocket.send(encodeICE(candidate));
+  }
+
   parseMessage(data: Uint8Array) {
     return message.Message.decode(data);
   }
 
   parseRendezvous(data: Uint8Array) {
-    return rendezvous.RendezvousMessage.decode(data);
+    return decodeRendezvous(data);
   }
 
   // Event Handlers
