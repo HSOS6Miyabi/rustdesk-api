@@ -30,6 +30,10 @@
 ```bash
 git clone https://github.com/HSOS6Miyabi/rustdesk-api.git
 cd rustdesk-api
+cd resources/web/js
+npm ci
+npm run build
+cd ../../..
 go build -o apimain ./cmd/apimain.go
 mkdir -p data runtime
 ./apimain
@@ -38,6 +42,8 @@ mkdir -p data runtime
 默认 HTTP 端口为 `21114`。首次启动时，会在服务端日志显示管理员 `admin` 的初始密码。登录后请立即修改密码，也可以运行 `./apimain reset-admin-pwd 新密码`。
 
 打开 `http://服务器地址:21114/_admin/` 进入控制台。公网部署请通过 HTTPS 访问。
+
+Docker 构建前也需要先运行上面的 `npm ci` 与 `npm run build`，以生成 WebClient v2 连接组件。直接使用 GitHub Release 或 GHCR 镜像时，所需网页文件已包含在发布内容中。
 
 Docker 构建与运行：
 
