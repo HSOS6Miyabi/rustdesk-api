@@ -79,7 +79,17 @@ func (us *GroupService) DeviceGroupCreate(u *model.DeviceGroup) error {
 	return res
 }
 func (us *GroupService) DeviceGroupDelete(u *model.DeviceGroup) error {
-	return DB.Delete(u).Error
+	if u==nil||u.Id==0{return errors.New("invalid device group")}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err:=tx.Model(&model.Peer{}).Where("group_id = ?",u.Id).
+			Update("group_id",uint(0)).Error;err!=nil{return err}
+		if err:=tx.Where("group_id = ?",u.Id).
+			Delete(&model.DevicePolicyGroupAssignment{}).Error;err!=nil{return err}
+		result:=tx.Delete(u)
+		if result.Error!=nil{return result.Error}
+		if result.RowsAffected==0{return gorm.ErrRecordNotFound}
+		return nil
+	})
 }
 
 func (us *GroupService) DeviceGroupUpdate(u *model.DeviceGroup) error {

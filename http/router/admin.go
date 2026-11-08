@@ -392,4 +392,12 @@ func DevicePolicyBind(rg *gin.RouterGroup) {
 	adm.POST("/assignment/create",handler.AssignmentCreate)
 	adm.POST("/assignment/update",handler.AssignmentUpdate)
 	adm.POST("/assignment/delete",handler.AssignmentDelete)
+	adm.GET("/user_assignment/list",handler.UserAssignmentList)
+	adm.POST("/user_assignment/create",handler.UserAssignmentCreate)
+	adm.POST("/user_assignment/update",handler.UserAssignmentUpdate)
+	adm.POST("/user_assignment/delete",handler.UserAssignmentDelete)
+	adm.GET("/group_assignment/list",handler.GroupAssignmentList)
+	adm.POST("/group_assignment/create",handler.GroupAssignmentCreate)
+	adm.POST("/group_assignment/update",handler.GroupAssignmentUpdate)
+	adm.POST("/group_assignment/delete",handler.GroupAssignmentDelete)
 }

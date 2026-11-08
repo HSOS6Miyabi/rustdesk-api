@@ -312,6 +312,8 @@ func Migrate(version uint) {
 		&model.AuditRetentionPolicy{},
 		&model.DevicePolicy{},
 		&model.DevicePolicyAssignment{},
+		&model.DevicePolicyUserAssignment{},
+		&model.DevicePolicyGroupAssignment{},
 		&model.DeviceDeployment{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},

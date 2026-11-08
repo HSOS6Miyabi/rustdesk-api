@@ -54,6 +54,8 @@ func normalIPWhitelist(value string) (string,error) {
 func ValidateDevicePolicy(policy *model.DevicePolicy) error {
 	if policy==nil{return errors.New("policy is required")}
 	policy.Name=strings.TrimSpace(policy.Name)
+	if policy.Status==0{policy.Status=1}
+	if policy.Status!=1 && policy.Status!=2{return errors.New("invalid device policy status")}
 	if len([]rune(policy.Name))<1||len([]rune(policy.Name))>100 {
 		return errors.New("policy name must be between 1 and 100 characters")
 	}
@@ -74,7 +76,7 @@ func SaveDevicePolicy(policy *model.DevicePolicy) error {
 	policy.Revision=time.Now().UnixNano()
 	if policy.Id==0{return DB.Create(policy).Error}
 	result:=DB.Model(&model.DevicePolicy{}).Where("id = ?",policy.Id).Updates(map[string]interface{}{
-		"name":policy.Name,"id_whitelist":policy.IdWhitelist,
+		"name":policy.Name,"status":policy.Status,"id_whitelist":policy.IdWhitelist,
 		"ip_whitelist":policy.IpWhitelist,"enable_web_rtc":policy.EnableWebRTC,
 		"trust_duration_days":policy.TrustDurationDays,"revision":policy.Revision,
 	})
@@ -89,7 +91,9 @@ func DeleteDevicePolicy(id uint) error {
 		result:=tx.Where("id = ?",id).Delete(&model.DevicePolicy{})
 		if result.Error!=nil{return result.Error}
 		if result.RowsAffected==0{return gorm.ErrRecordNotFound}
-		return tx.Where("policy_id = ?",id).Delete(&model.DevicePolicyAssignment{}).Error
+		if err:=tx.Where("policy_id = ?",id).Delete(&model.DevicePolicyAssignment{}).Error;err!=nil{return err}
+		if err:=tx.Where("policy_id = ?",id).Delete(&model.DevicePolicyUserAssignment{}).Error;err!=nil{return err}
+		return tx.Where("policy_id = ?",id).Delete(&model.DevicePolicyGroupAssignment{}).Error
 	})
 }
 
@@ -122,38 +126,40 @@ func DeleteDevicePolicyAssignment(id uint) error {
 	return DB.Where("id = ?",id).Delete(&model.DevicePolicyAssignment{}).Error
 }
 
+// EffectiveDevicePolicy preserves the original API for older callers.
 func EffectiveDevicePolicy(deviceId string,userId uint,admin bool) (map[string]string,bool,error) {
-	if len(deviceId)==0||len(deviceId)>128||userId==0{return nil,false,errors.New("invalid device or account")}
-	var owner model.Peer
-	if err:=DB.Where("id = ?",deviceId).First(&owner).Error;err!=nil{
-		return nil,false,errors.New("device was not found")
-	}
-	if owner.UserId!=userId&&!admin{
-		return nil,false,errors.New("device was not found")
-	}
-	var assignment model.DevicePolicyAssignment
-	err:=DB.Where("device_id = ?",deviceId).First(&assignment).Error
-	if errors.Is(err,gorm.ErrRecordNotFound){return map[string]string{},false,nil}
-	if err!=nil{return nil,false,err}
-	var policy model.DevicePolicy
-	if err:=DB.First(&policy,assignment.PolicyId).Error;err!=nil{return nil,false,err}
-	options:=map[string]string{
-		"id-whitelist":policy.IdWhitelist,
-		"whitelist":policy.IpWhitelist,
-		"enable-webrtc":map[bool]string{true:"Y",false:"N"}[policy.EnableWebRTC],
-		"trusted-device-expiration-days":strconv.Itoa(policy.TrustDurationDays),
-	}
-	return options,true,nil
+	options,assigned,_,_,err:=EffectiveDevicePolicyDetails(deviceId,userId,admin)
+	return options,assigned,err
 }
 
+func EffectiveDevicePolicyDetails(deviceId string,userId uint,admin bool) (map[string]string,bool,string,uint,error) {
+	if len(deviceId)==0||len(deviceId)>253||userId==0{return nil,false,"",0,errors.New("invalid device or account")}
+	var peer model.Peer
+	if err:=DB.Where("id = ?",deviceId).First(&peer).Error;err!=nil{
+		return nil,false,"",0,errors.New("device was not found")
+	}
+	if peer.UserId!=userId&&!admin{
+		return nil,false,"",0,errors.New("device was not found")
+	}
+	resolved,err:=ResolveDevicePolicy(&peer)
+	if err!=nil{return nil,false,"",0,err}
+	if resolved==nil{return map[string]string{},false,"",0,nil}
+	options:=map[string]string{
+		"id-whitelist":resolved.Policy.IdWhitelist,
+		"whitelist":resolved.Policy.IpWhitelist,
+		"enable-webrtc":map[bool]string{true:"Y",false:"N"}[resolved.Policy.EnableWebRTC],
+		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
+	}
+	return options,true,resolved.Source,resolved.Policy.Id,nil
+}
 
-// HeartbeatDeviceStrategy returns RustDesk's native configuration strategy response.
-// The client requests it during its normal 15-second heartbeat and handles updates itself.
+// HeartbeatDeviceStrategy returns native options for the highest-priority
+// applicable policy, without changing the official client's response shape.
 func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]interface{},error) {
 	if peer==nil||peer.RowId==0{return map[string]interface{}{},nil}
-	var assignment model.DevicePolicyAssignment
-	err:=DB.Where("device_id = ?",peer.Id).First(&assignment).Error
-	if errors.Is(err,gorm.ErrRecordNotFound) {
+	resolved,err:=ResolveDevicePolicy(peer)
+	if err!=nil{return nil,err}
+	if resolved==nil {
 		if modifiedAt==0{return map[string]interface{}{},nil}
 		return map[string]interface{}{
 			"modified_at":int64(0),
@@ -163,27 +169,15 @@ func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]int
 			}},
 		},nil
 	}
-	if err!=nil{return nil,err}
-	var policy model.DevicePolicy
-	if err:=DB.First(&policy,assignment.PolicyId).Error;err!=nil{
-		if errors.Is(err,gorm.ErrRecordNotFound){return map[string]interface{}{},nil}
-		return nil,err
-	}
-	revision:=policy.Revision
-	if assignment.Revision>revision{revision=assignment.Revision}
-	if revision==0 {
-		revision=time.Time(policy.UpdatedAt).UnixNano()
-		if a:=time.Time(assignment.UpdatedAt).UnixNano();a>revision{revision=a}
-	}
-	if revision<=0{revision=1}
+	revision:=resolved.Revision
 	if revision==modifiedAt{return map[string]interface{}{},nil}
-	opts:=map[string]string{
-		"id-whitelist":policy.IdWhitelist,
-		"whitelist":policy.IpWhitelist,
-		"trusted-device-expiration-days":strconv.Itoa(policy.TrustDurationDays),
+	options:=map[string]string{
+		"id-whitelist":resolved.Policy.IdWhitelist,
+		"whitelist":resolved.Policy.IpWhitelist,
+		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
 	}
 	return map[string]interface{}{
 		"modified_at":revision,
-		"strategy":map[string]interface{}{"config_options":opts},
+		"strategy":map[string]interface{}{"config_options":options},
 	},nil
 }
