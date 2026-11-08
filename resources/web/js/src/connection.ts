@@ -307,7 +307,7 @@ export default class Connection {
       this._ws?.sendMessage({ public_key });
       return;
     }
-    const msg = (await this._ws?.next()) as message.Message;
+    const msg = (await this._ws?.next(12000)) as message.Message;
     let signedId: any = msg?.signed_id;
     if(isRTC&&!signedId)throw new Error("WebRTC peer did not provide a signed identity");
     if (!signedId) {
