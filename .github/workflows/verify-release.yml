@@ -5,10 +5,14 @@ on:
     branches:
       - master
       - feature/modern-console-2026
-    tags:
-      - 'v*'
   pull_request:
   workflow_dispatch:
+    inputs:
+      milestone_release:
+        description: 'Confirm publication of a milestone from a v* tag'
+        type: boolean
+        default: false
+        required: true
 
 concurrency:
   group: rustdesk-api-${{ github.ref }}
@@ -177,6 +181,7 @@ jobs:
 
   publish:
     needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.milestone_release && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -205,7 +210,7 @@ jobs:
 
   docker:
     needs: [test, build]
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' && inputs.milestone_release && startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
       matrix:
@@ -266,6 +271,7 @@ jobs:
 
   docker-manifest:
     needs: docker
+    if: github.event_name == 'workflow_dispatch' && inputs.milestone_release && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
