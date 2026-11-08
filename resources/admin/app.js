@@ -11,15 +11,19 @@
     addressbooks: {name:"地址簿",icon:"book",section:"工作空间",endpoint:"address_book",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["username","登录账户"],["platform","平台"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","登录账户"],["password","连接密码","password"],["platform","平台"],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"],["forceAlwaysRelay","强制使用中继","checkbox"]]},
     collections: {name:"地址簿分类",icon:"folder",section:"工作空间",endpoint:"address_book_collection",columns:[["id","编号"],["name","分类名称"],["user_id","所有者 ID"]],fields:[["name","名称","text",true],["user_id","所有者 ID","number",true]]},
     tags: {name:"设备标签",icon:"tag",section:"工作空间",endpoint:"tag",columns:[["id","编号"],["name","标签名称"],["color","颜色"],["collection_id","地址簿 ID"]],fields:[["name","名称","text",true],["color","颜色（ARGB 整数）","number",true],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"]]},
-    groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
+    mygroups: {name:"我的群组",icon:"layers",section:"个人管理",endpoint:"my/group",columns:[["id","编号"],["name","群组名称"],["type","分组类型"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
+    groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"],["owner_user_id","创建者用户 ID"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
     users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"username",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
     devicegroups: {name:"设备分组",icon:"grid",section:"成员管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
     oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的分组 ID（逗号分隔）"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
     server: {name:"服务器管理",icon:"terminal",section:"系统管理",admin:true},
+    myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["created_at","时间"]]},
+    mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    myloginlogs: {name:"我的登录记录",icon:"clock",section:"我的审计记录",endpoint:"my/login_log",readonly:true,columns:[["id","编号"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
-    connections: {name:"连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["from_peer","来源设备"],["peer_id","目标设备"],["ip","IP 地址"],["created_at","时间"]]},
-    transfers: {name:"文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["from_peer","来源设备"],["peer_id","目标设备"],["path","文件路径"],["created_at","时间"]]},
+    connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["created_at","时间"]]},
+    transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
   };
@@ -59,6 +63,7 @@
   function colValue(v,k){
     if(k==="sources"&&Array.isArray(v))return v.map(x=>'<span class="pill '+(x.type==="contact"?"good":"")+'" style="margin:2px">'+esc(x.type==="contact"?"联系人："+x.name:"群组："+x.name)+'</span>').join("");
     if(k==="type"&&(v===1||v===2||v===3))return ["","普通组","共享组","公共锚点组"][v];
+    if(k==="direction")return v==="outgoing"?"我发起的连接":v==="incoming"?"连接我的设备":v==="both"?"双方均为我的设备":"—";
     if(k==="is_admin")return v?"管理员":"普通用户";
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
     if(k==="created_at"||k==="last_online_time"||k==="expire")return date(v);
@@ -214,7 +219,7 @@
   }
   function overview(){
     const m=state.metrics||{};
-    const shortcuts=["devices","shared","contacts",state.isAdmin?"groups":"addressbooks"];
+    const shortcuts=["devices","shared","contacts",state.isAdmin?"groups":"mygroups"];
     const quick=shortcuts.map(k=>'<button data-view="'+k+'" class="quick-card">'+icon(pages[k].icon,21)+'<strong>'+esc(pages[k].name)+" "+icon("arrow",14)+'</strong></button>').join("");
     const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+esc(x.alias||x.hostname||x.id)+'</strong><span class="cell-sub">'+esc(x.id)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
@@ -229,7 +234,7 @@
     let out="";
     if(state.isAdmin||state.page!=="devices")out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
     if(state.page==="users"){out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';}
-    if(state.page==="groups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
+    if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     if(state.isAdmin||state.page!=="devices")out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
     return out;
   }
@@ -254,7 +259,8 @@
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
-    return pageHeading(isBook?"地址簿":p.name,isBook?"在一个页面中管理地址簿分类及其包含的设备，原有数据自动保留。":"查看、编辑和管理相关数据。",add)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
+    return pageHeading(isBook?"地址簿":p.name,description,add)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -323,8 +329,9 @@
     if(m.kind==="members"||m.kind==="anchors"){
       const anchor=m.kind==="anchors";
       const rows=(m.users||[]).map(u=>'<label class="status-row" style="cursor:pointer"><span><strong>'+esc(u.nickname||u.username)+'</strong><span class="cell-sub">@'+esc(u.username)+' · ID '+esc(u.id)+'</span></span><input style="width:18px;height:18px;accent-color:var(--main)" type="checkbox" name="selected" value="'+esc(u.id)+'" '+(m.selected.has(u.id)?"checked":"")+'></label>').join("");
-      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的普通成员。":"当前组成员已经勾选。添加成员会保留现有成员；移除成员将删除勾选成员的群组关系；替换成员会只保留勾选成员。")+'</p><div class="field" style="margin-top:20px"><label for="user-filter">查找用户</label><input id="user-filter" placeholder="筛选用户名"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>用户 ID（可用逗号分隔，适用于大量成员）</label><input name="manual_ids" placeholder="例如：2,5,8"></div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
-      const footer='<button class="btn" data-action="close-modal">取消</button>'+(anchor?'<button class="btn btn-primary" data-action="member-replace">保存公共成员</button>':'<button class="btn" data-action="member-add">添加成员</button><button class="btn btn-danger" data-action="member-remove">移除成员</button><button class="btn btn-primary" data-action="member-replace">替换成员</button>');
+      const personalHint=m.personal?'<div class="field" style="margin-top:18px"><label for="lookup-username">通过用户名添加成员</label><div style="display:flex;gap:9px"><input id="lookup-username" placeholder="输入完整用户名" autocomplete="off"><button class="btn" type="button" data-action="lookup-user">查找并选中</button></div><small>请输入准确的用户名，系统不会公开其他群组的成员列表。</small></div>':"";
+      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的成员，包括管理员。":"当前成员已经勾选。取消勾选可以移除成员，添加新用户后保存即可一次修改多人。")+'</p>'+personalHint+'<div class="field" style="margin-top:20px"><label for="user-filter">筛选已显示的用户</label><input id="user-filter" placeholder="输入用户名或编号"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>补充用户 ID（逗号分隔，可选）</label><input name="manual_ids" placeholder="例如：2,5,8"></div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
+      const footer='<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" data-action="member-replace">'+(anchor?"保存公共成员":"保存群组成员")+'</button>';
       return modal(anchor?"设置公共成员":"批量管理成员",m.group.name,details,footer);
     }
     return "";
@@ -365,18 +372,18 @@
     catch(e){toast(e.message,true);}
   }
   async function groupMembers(id,anchor){
-    const group=state.rows.find(r=>String(r.id)===String(id));if(!group)return;
+    const group=state.rows.find(r=>String(r.id)===String(id));
+    if(!group)return;
+    const personal=state.page==="mygroups";
     try{
-      const [selected,listing]=await Promise.all([
-        request("/group/"+(anchor?"anchors":"members")+"?group_id="+encodeURIComponent(id)),
-        request("/user/list?page=1&page_size=500")
-      ]);
-      const rows=listing.list||[];
+      const rootPath=personal?"/my/group":"/group";
+      const selected=await request(rootPath+"/"+(anchor?"anchors":"members")+"?group_id="+encodeURIComponent(id));
+      const rows=personal?(selected.users||[]):((await request("/user/list?page=1&page_size=500")).list||[]);
       const displayed=new Set(rows.map(x=>Number(x.id)));
-      for(const memberId of selected.user_ids||[]){
-        if(!displayed.has(Number(memberId)))rows.push({id:memberId,username:"用户 "+memberId,nickname:""});
+      for(const member of selected.users||[]){
+        if(!displayed.has(Number(member.id))){rows.push(member);displayed.add(Number(member.id));}
       }
-      state.modal={kind:anchor?"anchors":"members",group,selected:new Set(selected.user_ids||[]),users:rows};
+      state.modal={kind:anchor?"anchors":"members",group,personal,selected:new Set((selected.user_ids||[]).map(Number)),users:rows};
       render();
     }catch(e){toast(e.message,true);}
   }
@@ -394,7 +401,8 @@
     if(action==="remove"&&!window.confirm("确定从群组移除这 "+ids.length+" 名选中成员吗？"))return;
     if(action==="replace"&&!window.confirm("确定将这个群组的成员设为选中的 "+ids.length+" 人吗？"))return;
     try{
-      const url=m.kind==="anchors"?"/group/anchors":"/group/members/batch";
+      const base=m.personal?"/my/group":"/group";
+      const url=m.kind==="anchors"?base+"/anchors":base+"/members/batch";
       const payload=m.kind==="anchors"?{group_id:m.group.id,user_ids:ids}:{group_id:m.group.id,user_ids:ids,action};
       await request(url,"POST",payload);
       state.modal=null;toast("群组成员已更新");await load();
@@ -431,6 +439,22 @@
       return;
     }
     if(a==="members"||a==="anchors"){await groupMembers(el.dataset.id,a==="anchors");return;}
+    if(a==="lookup-user"){
+      const m=state.modal,field=document.getElementById("lookup-username");
+      if(!m?.personal||!field)return;
+      const username=field.value.trim();
+      if(username.length<2){toast("请输入完整的用户名",true);return;}
+      try{
+        const selected=document.querySelectorAll('#member-choices input[name="selected"]:checked');
+        m.selected=new Set([...selected].map(x=>Number(x.value)));
+        const found=await request("/my/group/user/lookup?username="+encodeURIComponent(username));
+        if(!m.users.some(x=>Number(x.id)===Number(found.id)))m.users.push(found);
+        m.selected.add(Number(found.id));
+        toast("已选中成员："+found.username);
+        render();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
     if(a.startsWith("member-")){await submitMembers(a.replace("member-",""));return;}
     if(a==="contact-delete"){
       if(!window.confirm("撤销对该联系人的设备共享吗？"))return;
