@@ -73,8 +73,8 @@ func (s *AddressBookService) UpdateAddressBook(abs []*model.AddressBook, userId 
 			item.UserId = userId
 			item.CollectionId = 0
 			if item.Platform == "" || item.Username == "" || item.Hostname == "" {
-				peer := AllService.PeerService.FindById(item.Id)
-				if peer != nil && peer.RowId != 0 {
+				var peer model.Peer
+				if err := tx.Where("id = ?", item.Id).First(&peer).Error; err == nil && peer.RowId != 0 {
 					if item.Platform == "" { item.Platform = s.PlatformFromOs(peer.Os) }
 					if item.Username == "" { item.Username = peer.Username }
 					if item.Hostname == "" { item.Hostname = peer.Hostname }
