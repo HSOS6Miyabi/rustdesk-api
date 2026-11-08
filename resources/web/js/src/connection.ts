@@ -1,4 +1,7 @@
 import Websock from "./websock";
+import WebRTCTransport from "./webrtc_transport";
+import {ExtendedRendezvous,encodeWebRTCEndpoint,decodeWebRTCEndpoint,
+  fingerprintFromSDP,fingerprintMatches,IceCandidate} from "./webrtc_protocol";
 import * as message from "./message.js";
 import * as rendezvous from "./rendezvous.js";
 import { loadVp9 } from "./codec";
@@ -23,7 +26,7 @@ type DrawCallback = (data: Uint8Array) => void;
 
 export default class Connection {
   _msgs: any[];
-  _ws: Websock | undefined;
+  _ws: Websock | WebRTCTransport | undefined;
   _interval: any;
   _id: string;
   _hash: message.Hash | undefined;
@@ -79,6 +82,15 @@ export default class Connection {
       }
     }, 1);
     this.loadVideoDecoder();
+    this._id=id;
+    if(sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y" &&
+       typeof RTCPeerConnection!=="undefined"){
+      try{
+        if(await this.connectWebRTC(id))return;
+      }catch(error){
+        console.warn("WebRTC direct connection failed, switching to WebSocket relay:",error);
+      }
+    }
     const uri = getDefaultUri();
     const ws = new Websock(uri, true);
     this._ws = ws;
@@ -133,6 +145,111 @@ export default class Connection {
     }
   }
 
+  // Prefer an authenticated WebRTC data channel, with the established relay
+  // connection procedure retained as the fallback for unavailable peers.
+  async connectWebRTC(id:string):Promise<boolean>{
+    const key=localStorage.getItem("key")||"";
+    if(!key.trim())return false;
+    const ws=new Websock(getDefaultUri(),true);
+    const pc=new RTCPeerConnection({
+      iceTransportPolicy:"all",
+      iceServers:[
+        {urls:"stun:stun.cloudflare.com:3478"},
+        {urls:"stun:stun.l.google.com:19302"},
+        {urls:"stun:stun.antisip.com:3478"}
+      ]
+    });
+    const channel=pc.createDataChannel("bootstrap",{ordered:true});
+    const transport=new WebRTCTransport(pc,channel);
+    let connected=false,offerSent=false;
+    let sessionKey="",peerKey:Uint8Array|undefined;
+    const pendingLocal:IceCandidate[]=[];
+    const pendingRemote:IceCandidate[]=[];
+    const sendCandidate=(candidate:IceCandidate)=>{
+      try{
+        ws.sendICE(candidate);
+        // The controlled device's first UDP signaling packet may arrive
+        // after the initial candidate; send it again once.
+        setTimeout(()=>{
+          if(!connected && ws._status==="open"){
+            try{ws.sendICE(candidate)}catch{}
+          }
+        },400);
+      }catch(error){console.debug("ICE candidate send:",error);}
+    };
+    pc.onicecandidate=event=>{
+      if(!event.candidate||!sessionKey)return;
+      const value:IceCandidate={
+        id, socket_addr:new Uint8Array(),
+        session_key:sessionKey,
+        candidate:JSON.stringify(event.candidate.toJSON())
+      };
+      if(value.candidate.length>8*1024)return;
+      if(!offerSent)pendingLocal.push(value);
+      else sendCandidate(value);
+    };
+    const applyRemote=async(ice:IceCandidate)=>{
+      if(ice.session_key!==sessionKey||!ice.candidate||ice.candidate.length>8*1024)return;
+      if(!pc.remoteDescription){
+        if(pendingRemote.length<64)pendingRemote.push(ice);
+        return;
+      }
+      try{await pc.addIceCandidate(JSON.parse(ice.candidate))}
+      catch(error){console.debug("ICE candidate rejected:",error);}
+    };
+    try{
+      await ws.open();
+      const offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      const local=pc.localDescription;
+      if(!local?.sdp)throw new Error("WebRTC local SDP missing");
+      sessionKey=fingerprintFromSDP(local.sdp);
+      if(!sessionKey)throw new Error("WebRTC local DTLS fingerprint missing");
+      const request=rendezvous.PunchHoleRequest.fromPartial({
+        id,licence_key:key,
+        conn_type:rendezvous.ConnType.DEFAULT_CONN,
+        nat_type:rendezvous.NatType.SYMMETRIC,
+        token:sessionStorage.getItem("rustdesk.console.token")||""
+      });
+      ws.sendWebRTCOffer(request,encodeWebRTCEndpoint(local));
+      offerSent=true;
+      for(const candidate of pendingLocal.splice(0))sendCandidate(candidate);
+      const end=Date.now()+15000;
+      let answerReceived=false;
+      while(Date.now()<end && !connected){
+        if(answerReceived&&channel.readyState==="open"){connected=true;break}
+        let message:ExtendedRendezvous;
+        try{message=await ws.next(500) as ExtendedRendezvous}
+        catch(error){
+          if(String(error).includes("Timeout"))continue;
+          throw error;
+        }
+        if(message.ice_candidate){await applyRemote(message.ice_candidate)}
+        const response=message.punch_hole_response;
+        if(response?.other_failure)throw new Error(response.other_failure);
+        if(response?.webrtc_sdp_answer&&!answerReceived){
+          const answer=decodeWebRTCEndpoint(response.webrtc_sdp_answer);
+          await pc.setRemoteDescription(answer);
+          answerReceived=true;
+          peerKey=response.pk;
+          for(const candidate of pendingRemote.splice(0))await applyRemote(candidate);
+        }
+        // A legacy peer may not answer WebRTC. Keep the relay response and
+        // open a new ordinary relay request when this attempt expires.
+      }
+      if(!answerReceived||channel.readyState!=="open"||!peerKey?.length)return false;
+      this._ws=transport;
+      if(!(await this.secure(peerKey)))throw new Error("WebRTC peer identity validation failed");
+      ws.close();
+      globals.pushEvent("connection_ready",{secure:true,direct:true});
+      await this.msgLoop();
+      return true;
+    }finally{
+      ws.close();
+      if(!connected){transport.close();if(this._ws===transport)this._ws=undefined;}
+    }
+  }
+
   async connectRelay(rr: rendezvous.RelayResponse) {
     const pk = rr.pk;
     let uri = rr.relay_server;
@@ -158,6 +275,7 @@ export default class Connection {
   }
 
   async secure(pk: Uint8Array | undefined) {
+    const isRTC=this._ws instanceof WebRTCTransport;
     if (pk) {
       const RS_PK = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
       try {
@@ -180,6 +298,7 @@ export default class Connection {
           "Handshake failed: invalid public key from rendezvous server"
         );
     }
+    if(isRTC&&!pk)throw new Error("WebRTC server identity could not be verified");
     if (!pk) {
       // send an empty message out in case server is setting up secure and waiting for first message
       const public_key = message.PublicKey.fromPartial({});
@@ -188,6 +307,7 @@ export default class Connection {
     }
     const msg = (await this._ws?.next()) as message.Message;
     let signedId: any = msg?.signed_id;
+    if(isRTC&&!signedId)throw new Error("WebRTC peer did not provide a signed identity");
     if (!signedId) {
       console.error("Handshake failed: invalid message type");
       const public_key = message.PublicKey.fromPartial({});
@@ -204,15 +324,20 @@ export default class Connection {
       this._ws?.sendMessage({ public_key });
       return;
     }
+    if(isRTC&&!fingerprintMatches(signedId,(this._ws as WebRTCTransport).remoteSDP())){
+      throw new Error("WebRTC DTLS certificate does not match the signed peer identity");
+    }
     const idpk = message.IdPk.decode(signedId);
     const id = idpk.id;
     const theirPk = idpk.pk;
+    if(isRTC&&id!==this._id)throw new Error("WebRTC peer ID mismatch");
     if (id != this._id!) {
       console.error("Handshake failed: sign failure");
       const public_key = message.PublicKey.fromPartial({});
       this._ws?.sendMessage({ public_key });
       return;
     }
+    if(isRTC&&theirPk.length!==32)throw new Error("Invalid WebRTC peer public key");
     if (theirPk.length != 32) {
       console.error(
         "Handshake failed: invalid public box key length from peer"
