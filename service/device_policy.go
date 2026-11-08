@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 	"strings"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
@@ -70,11 +71,12 @@ func ValidateDevicePolicy(policy *model.DevicePolicy) error {
 
 func SaveDevicePolicy(policy *model.DevicePolicy) error {
 	if err:=ValidateDevicePolicy(policy);err!=nil{return err}
+	policy.Revision=time.Now().UnixNano()
 	if policy.Id==0{return DB.Create(policy).Error}
 	result:=DB.Model(&model.DevicePolicy{}).Where("id = ?",policy.Id).Updates(map[string]interface{}{
 		"name":policy.Name,"id_whitelist":policy.IdWhitelist,
 		"ip_whitelist":policy.IpWhitelist,"enable_web_rtc":policy.EnableWebRTC,
-		"trust_duration_days":policy.TrustDurationDays,
+		"trust_duration_days":policy.TrustDurationDays,"revision":policy.Revision,
 	})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return errors.New("device policy was not found")}
@@ -95,6 +97,7 @@ func SaveDevicePolicyAssignment(item *model.DevicePolicyAssignment) error {
 	if item==nil||item.PolicyId==0 || strings.TrimSpace(item.DeviceId)=="" ||
 		len(strings.TrimSpace(item.DeviceId))>128{return errors.New("invalid policy assignment")}
 	item.DeviceId=strings.TrimSpace(item.DeviceId)
+	item.Revision=time.Now().UnixNano()
 	var count int64
 	if err:=DB.Model(&model.DevicePolicy{}).Where("id = ?",item.PolicyId).Count(&count).Error;err!=nil{return err}
 	if count==0{return errors.New("device policy was not found")}
@@ -104,11 +107,11 @@ func SaveDevicePolicyAssignment(item *model.DevicePolicyAssignment) error {
 	if item.Id==0{
 		return DB.Clauses(clause.OnConflict{
 			Columns:[]clause.Column{{Name:"device_id"}},
-			DoUpdates:clause.AssignmentColumns([]string{"policy_id","updated_at"}),
+			DoUpdates:clause.AssignmentColumns([]string{"policy_id","revision","updated_at"}),
 		}).Create(item).Error
 	}
 	result:=DB.Model(&model.DevicePolicyAssignment{}).Where("id = ?",item.Id).
-		Updates(map[string]interface{}{"policy_id":item.PolicyId,"device_id":item.DeviceId})
+		Updates(map[string]interface{}{"policy_id":item.PolicyId,"device_id":item.DeviceId,"revision":item.Revision})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return errors.New("policy assignment was not found")}
 	return nil
@@ -141,4 +144,46 @@ func EffectiveDevicePolicy(deviceId string,userId uint,admin bool) (map[string]s
 		"trusted-device-expiration-days":strconv.Itoa(policy.TrustDurationDays),
 	}
 	return options,true,nil
+}
+
+
+// HeartbeatDeviceStrategy returns RustDesk's native configuration strategy response.
+// The client requests it during its normal 15-second heartbeat and handles updates itself.
+func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]interface{},error) {
+	if peer==nil||peer.RowId==0{return map[string]interface{}{},nil}
+	var assignment model.DevicePolicyAssignment
+	err:=DB.Where("device_id = ?",peer.Id).First(&assignment).Error
+	if errors.Is(err,gorm.ErrRecordNotFound) {
+		if modifiedAt==0{return map[string]interface{}{},nil}
+		return map[string]interface{}{
+			"modified_at":int64(0),
+			"strategy":map[string]interface{}{"config_options":map[string]string{
+				"id-whitelist":"","whitelist":"",
+				"trusted-device-expiration-days":"",
+			}},
+		},nil
+	}
+	if err!=nil{return nil,err}
+	var policy model.DevicePolicy
+	if err:=DB.First(&policy,assignment.PolicyId).Error;err!=nil{
+		if errors.Is(err,gorm.ErrRecordNotFound){return map[string]interface{}{},nil}
+		return nil,err
+	}
+	revision:=policy.Revision
+	if assignment.Revision>revision{revision=assignment.Revision}
+	if revision==0 {
+		revision=time.Time(policy.UpdatedAt).UnixNano()
+		if a:=time.Time(assignment.UpdatedAt).UnixNano();a>revision{revision=a}
+	}
+	if revision<=0{revision=1}
+	if revision==modifiedAt{return map[string]interface{}{},nil}
+	opts:=map[string]string{
+		"id-whitelist":policy.IdWhitelist,
+		"whitelist":policy.IpWhitelist,
+		"trusted-device-expiration-days":strconv.Itoa(policy.TrustDurationDays),
+	}
+	return map[string]interface{}{
+		"modified_at":revision,
+		"strategy":map[string]interface{}{"config_options":opts},
+	},nil
 }

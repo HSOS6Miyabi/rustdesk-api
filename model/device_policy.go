@@ -8,6 +8,7 @@ type DevicePolicy struct {
 	IpWhitelist string `json:"ip_whitelist" gorm:"type:text;not null"`
 	EnableWebRTC bool `json:"enable_webrtc" gorm:"not null;default:false"`
 	TrustDurationDays int `json:"trust_duration_days" gorm:"not null;default:0"`
+	Revision int64 `json:"revision" gorm:"not null;default:0"`
 	TimeModel
 }
 
@@ -16,5 +17,6 @@ type DevicePolicyAssignment struct {
 	IdModel
 	DeviceId string `json:"device_id" gorm:"not null;uniqueIndex;size:128"`
 	PolicyId uint `json:"policy_id" gorm:"not null;index"`
+	Revision int64 `json:"revision" gorm:"not null;default:0"`
 	TimeModel
 }

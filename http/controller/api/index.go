@@ -54,12 +54,22 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
-	//如果在40s以内则不更新
+	// Only a heartbeat with the device's registered UUID can receive its assigned policy.
+	if peer.Uuid == "" || peer.Uuid != info.Uuid {
+		c.JSON(http.StatusOK, gin.H{})
+		return
+	}
 	if time.Now().Unix()-peer.LastOnlineTime >= 30 {
-		upp := &model.Peer{RowId: peer.RowId, LastOnlineTime: time.Now().Unix(), LastOnlineIp: c.ClientIP()}
+		upp := &model.Peer{RowId:peer.RowId,LastOnlineTime:time.Now().Unix(),LastOnlineIp:c.ClientIP()}
 		service.AllService.PeerService.Update(upp)
 	}
-	c.JSON(http.StatusOK, gin.H{})
+	data,err:=service.HeartbeatDeviceStrategy(peer,info.ModifiedAt)
+	if err!=nil {
+		if service.Logger!=nil{service.Logger.WithError(err).Warn("failed loading device policy for heartbeat")}
+		c.JSON(http.StatusOK,gin.H{})
+		return
+	}
+	c.JSON(http.StatusOK,data)
 }
 
 // Version 版本
