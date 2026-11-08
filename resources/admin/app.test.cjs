@@ -165,3 +165,19 @@ test("deployment records are visible only to administrators", async () => {
   await admin.settle();
   assert.match(admin.root.innerHTML, /设备部署记录/);
 });
+
+test("administrators can manage user and device-group policies", async () => {
+  const regular = createConsole();
+  await regular.settle();
+  await regular.settle();
+  assert.doesNotMatch(regular.root.innerHTML, /用户策略分配/);
+  const admin = createConsole(true);
+  await admin.settle();
+  await admin.settle();
+  assert.match(admin.root.innerHTML, /用户策略分配/);
+  assert.match(admin.root.innerHTML, /设备组策略分配/);
+  await admin.open("userPolicyAssignments");
+  assert.ok(admin.calls.some(call => call.endpoint === "/device_policy/user_assignment/list"));
+  await admin.open("groupPolicyAssignments");
+  assert.ok(admin.calls.some(call => call.endpoint === "/device_policy/group_assignment/list"));
+});
