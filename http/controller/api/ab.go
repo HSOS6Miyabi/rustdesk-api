@@ -423,43 +423,49 @@ func (a *Ab) SharedProfiles(c *gin.Context) {
 		})
 	}
 
-	allAbIds := make(map[uint]int) //用map去重，并保留最大Rule
-	allUserIds := make(map[uint]*model.User)
+	sharedCollections := make(map[uint]bool)
 	rules := service.AllService.AddressBookService.CollectionReadRules(user)
 	for _, rule := range rules {
-		//先判断是否存在
-		r, ok := allAbIds[rule.CollectionId]
-		if ok {
-			//再判断权限大小
-			if r < rule.Rule {
-				allAbIds[rule.CollectionId] = rule.Rule
-			}
-		} else {
-			allAbIds[rule.CollectionId] = rule.Rule
-			allUserIds[rule.UserId] = nil
-		}
-
+		sharedCollections[rule.CollectionId] = true
 	}
-	abids := utils.Keys(allAbIds)
-	collections := service.AllService.AddressBookService.ListCollectionByIds(abids)
-
-	ids := utils.Keys(allUserIds)
-	allUsers := service.AllService.UserService.ListByIds(ids)
-	for _, u := range allUsers {
-		allUserIds[u.Id] = u
+	collectionIDs := make([]uint, 0, len(sharedCollections))
+	for id := range sharedCollections {
+		collectionIDs = append(collectionIDs, id)
 	}
-
+	collections := service.AllService.AddressBookService.ListCollectionByIds(collectionIDs)
+	owners := make(map[uint]bool, len(collections))
 	for _, collection := range collections {
-		if anchorMode && !allowedOwners[collection.UserId] { continue }
-		_u, ok := allUserIds[collection.UserId]
-		if !ok {
+		owners[collection.UserId] = true
+	}
+	ownerIDs := make([]uint, 0, len(owners))
+	for id := range owners {
+		ownerIDs = append(ownerIDs, id)
+	}
+	users := service.AllService.UserService.ListByIds(ownerIDs)
+	userByID := make(map[uint]*model.User, len(users))
+	for _, owner := range users {
+		userByID[owner.Id] = owner
+	}
+	for _, collection := range collections {
+		if collection.UserId == user.Id {
+			continue
+		}
+		if anchorMode && !allowedOwners[collection.UserId] {
+			continue
+		}
+		owner := userByID[collection.UserId]
+		if owner == nil {
+			continue
+		}
+		effective := service.AllService.AddressBookService.UserMaxRule(user, collection.UserId, collection.Id)
+		if effective < model.ShareAddressBookRuleRuleRead {
 			continue
 		}
 		res = append(res, &api.SharedProfilesPayload{
-			Guid:  a.ComposeGuid(_u.GroupId, _u.Id, collection.Id),
-			Name:  collection.Name,
-			Owner: _u.Username,
-			Rule:  allAbIds[collection.Id],
+			Guid: a.ComposeGuid(owner.GroupId, owner.Id, collection.Id),
+			Name: collection.Name,
+			Owner: owner.Username,
+			Rule: effective,
 		})
 	}
 

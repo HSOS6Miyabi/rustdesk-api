@@ -210,49 +210,78 @@ func (s *AddressBookService) CollectionInfoById(id uint) *model.AddressBookColle
 	return p
 }
 
+// CollectionReadRules locates shared address books for an account using its
+// primary group, additional memberships, and public sharing rules.
 func (s *AddressBookService) CollectionReadRules(user *model.User) (res []*model.AddressBookCollectionRule) {
-	// personalRules
-	var personalRules []*model.AddressBookCollectionRule
-	tx2 := DB.Model(&model.AddressBookCollectionRule{})
-	tx2.Where("type = ? and to_id = ? and rule > 0", model.ShareAddressBookRuleTypePersonal, user.Id).Find(&personalRules)
-	res = append(res, personalRules...)
-
-	//group
-	var groupRules []*model.AddressBookCollectionRule
-	tx3 := DB.Model(&model.AddressBookCollectionRule{})
-	tx3.Where("type = ? and to_id = ? and rule > 0", model.ShareAddressBookRuleTypeGroup, user.GroupId).Find(&groupRules)
-	res = append(res, groupRules...)
-	return
+	if user == nil || user.Id == 0 {
+		return nil
+	}
+	if err := DB.Where("type = ? AND to_id = ? AND rule > 0",
+		model.ShareAddressBookRuleTypePersonal, user.Id).Find(&res).Error; err != nil {
+		return nil
+	}
+	groups, err := (&GroupService{}).GroupIdsForUser(user)
+	if err != nil {
+		return nil
+	}
+	if len(groups) > 0 {
+		var groupRules []*model.AddressBookCollectionRule
+		if err := DB.Where("type = ? AND to_id IN ? AND rule > 0",
+			model.ShareAddressBookRuleTypeGroup, groups).Find(&groupRules).Error; err != nil {
+			return nil
+		}
+		res = append(res, groupRules...)
+	}
+	var publicRules []*model.AddressBookCollectionRule
+	if err := DB.Where("type = ? AND to_id = 0 AND rule > 0",
+		model.ShareAddressBookRuleTypeAll).Find(&publicRules).Error; err != nil {
+		return nil
+	}
+	return append(res, publicRules...)
 }
 
-func (s *AddressBookService) UserMaxRule(user *model.User, uid, cid uint) int {
-	// ismy?
-	if user.Id == uid {
+// UserMaxRule chooses the most specific applicable sharing rule. Multiple
+// memberships in different groups combine by choosing the strongest group rule.
+func (s *AddressBookService) UserMaxRule(user *model.User, ownerID, collectionID uint) int {
+	if user == nil || user.Id == 0 || ownerID == 0 {
+		return 0
+	}
+	if user.Id == ownerID {
 		return model.ShareAddressBookRuleRuleFullControl
 	}
-	max := 0
-	personalRules := &model.AddressBookCollectionRule{}
-	tx := DB.Model(personalRules)
-	tx.Where("type = ? and collection_id = ? and to_id = ?", model.ShareAddressBookRuleTypePersonal, cid, user.Id).First(&personalRules)
-	if personalRules.Id != 0 {
-		max = personalRules.Rule
-		if max == model.ShareAddressBookRuleRuleFullControl {
-			return max
+	var direct model.AddressBookCollectionRule
+	err := DB.Where("user_id = ? AND collection_id = ? AND type = ? AND to_id = ?",
+		ownerID, collectionID, model.ShareAddressBookRuleTypePersonal, user.Id).
+		Order("id DESC").First(&direct).Error
+	if err == nil {
+		return direct.Rule
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0
+	}
+	groups, err := (&GroupService{}).GroupIdsForUser(user)
+	if err != nil {
+		return 0
+	}
+	if len(groups) > 0 {
+		var groupMax int
+		if err := DB.Model(&model.AddressBookCollectionRule{}).
+			Where("user_id = ? AND collection_id = ? AND type = ? AND to_id IN ?",
+				ownerID, collectionID, model.ShareAddressBookRuleTypeGroup, groups).
+			Select("COALESCE(MAX(rule), 0)").Scan(&groupMax).Error; err != nil {
+			return 0
+		}
+		if groupMax > 0 {
+			return groupMax
 		}
 	}
-
-	groupRules := &model.AddressBookCollectionRule{}
-	tx2 := DB.Model(groupRules)
-	tx2.Where("type = ? and collection_id = ? and to_id = ?", model.ShareAddressBookRuleTypeGroup, cid, user.GroupId).First(&groupRules)
-	if groupRules.Id != 0 {
-		if groupRules.Rule > max {
-			max = groupRules.Rule
-		}
-		if max == model.ShareAddressBookRuleRuleFullControl {
-			return max
-		}
+	var everyone model.AddressBookCollectionRule
+	if err := DB.Where("user_id = ? AND collection_id = ? AND type = ? AND to_id = 0",
+		ownerID, collectionID, model.ShareAddressBookRuleTypeAll).
+		Order("id DESC").First(&everyone).Error; err == nil {
+		return everyone.Rule
 	}
-	return max
+	return 0
 }
 
 func (s *AddressBookService) CheckUserReadPrivilege(user *model.User, uid, cid uint) bool {
@@ -294,6 +323,14 @@ func (s *AddressBookService) RuleInfoByToIdAndCid(t int, toid, cid uint) *model.
 	p := &model.AddressBookCollectionRule{}
 	DB.Where("type = ? and to_id = ? and collection_id = ?", t, toid, cid).First(p)
 	return p
+}
+
+// RuleInfoByOwnerAndTarget resolves a sharing rule within its owner's address book.
+func (s *AddressBookService) RuleInfoByOwnerAndTarget(ownerID uint, typ int, toID, collectionID uint) *model.AddressBookCollectionRule {
+	rule := &model.AddressBookCollectionRule{}
+	DB.Where("user_id = ? AND type = ? AND to_id = ? AND collection_id = ?",
+		ownerID, typ, toID, collectionID).First(rule)
+	return rule
 }
 func (s *AddressBookService) CreateRule(t *model.AddressBookCollectionRule) error {
 	return DB.Create(t).Error

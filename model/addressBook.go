@@ -61,8 +61,8 @@ type AddressBookCollectionRule struct {
 	UserId       uint `json:"user_id" gorm:"default:0;not null;"`
 	CollectionId uint `json:"collection_id" gorm:"default:0;not null;index" validate:"required"`
 	Rule         int  `json:"rule" gorm:"default:0;not null;" validate:"required,gte=1,lte=3"` // 0: 无 1: 读 2: 读写  3: 完全控制
-	Type         int  `json:"type" gorm:"default:1;not null;" validate:"required,gte=1,lte=2"` // 1: 个人 2: 群组
-	ToId         uint `json:"to_id" gorm:"default:0;not null;" validate:"required,gt=0"`
+	Type         int  `json:"type" gorm:"default:1;not null;" validate:"required,gte=1,lte=3"` // 1: 个人 2: 群组 3: 所有用户
+	ToId         uint `json:"to_id" gorm:"default:0;not null;" validate:"gte=0"`
 	TimeModel
 }
 type AddressBookCollectionRuleList struct {
@@ -73,6 +73,7 @@ type AddressBookCollectionRuleList struct {
 const (
 	ShareAddressBookRuleTypePersonal = 1
 	ShareAddressBookRuleTypeGroup    = 2
+	ShareAddressBookRuleTypeAll      = 3
 )
 const (
 	ShareAddressBookRuleRuleRead        = 1
