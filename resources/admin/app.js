@@ -33,6 +33,7 @@
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
     transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"系统管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
@@ -86,7 +87,7 @@
       delivered:"已通知客户端",completed:"连接已结束",expired:"已过期"
     }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(["created_at","last_online_time","expire","last_seen_at","delivered_at","completed_at"].includes(k))return date(v);
+    if(["created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -258,6 +259,10 @@
   function rowIdentifier(row){return String(row.row_id===undefined?row.id:row.row_id);}
   function rowActions(row){
     const p=pages[activeKey()];
+    if(state.page==="apiTokens"){
+      return row.revoked_at?'<span class="pill muted">已撤销</span>':
+        '<button type="button" class="btn btn-sm btn-danger" data-action="revoke-api-token" data-id="'+esc(row.id)+'">撤销令牌</button>';
+    }
     if(state.page==="activeSessions")return '<button type="button" class="btn btn-sm btn-danger" data-action="session-disconnect" data-id="'+esc(row.conn_id)+'" data-device="'+esc(row.device_id)+'">结束连接</button>';
     if(state.page==="deployed")return '<button type="button" class="btn btn-sm" data-action="deployment-toggle" data-id="'+esc(row.id)+'">'+(row.status==="approved"?"撤销部署":"恢复部署")+"</button>";
     if(p.readonly)return "";
@@ -290,7 +295,7 @@
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
-    const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
+    const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于官方客户端命令行的设备部署与分配。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
     const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
     const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">下载 CSV（最多 10000 条）</button>':"";
     return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
@@ -389,6 +394,13 @@
       const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,'<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="edit-form">保存</button>');
     }
+    if(m.kind==="created-api-token"){
+      const body='<div class="field"><label for="api-token-secret">请保存以下令牌</label>'+
+        '<input id="api-token-secret" readonly value="'+esc(m.token)+'" autocomplete="off">'+
+        '<small>令牌原文仅显示一次，关闭页面后无法再次查看。</small></div>';
+      return modal("API 管理令牌已创建","可用于官方 RustDesk 客户端的 --assign 和 --deploy 命令。",body,
+        '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
+    }
     if(m.kind==="reset-password"){
       const body='<form id="reset-password-form"><input type="hidden" name="id" value="'+esc(m.user.id)+'"><div class="form-grid"><div class="field full"><label for="new-user-password">新密码 <span class="required">*</span></label><input id="new-user-password" name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></div></div></form>';
       return modal("重设用户密码","账户："+m.user.username,body,'<button class="btn" type="button" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="reset-password-form">保存新密码</button>');
@@ -432,7 +444,13 @@
       if(oldData.row_id!==undefined)data.row_id=oldData.row_id;
     }
     try{
-      await request(endpoint(activeKey())+"/"+state.modal.action,"POST",data);
+      const result=await request(endpoint(activeKey())+"/"+state.modal.action,"POST",data);
+      if(state.page==="apiTokens"&&state.modal.action==="create"){
+        if(!result?.token)throw Error("服务器未返回新令牌");
+        state.modal={kind:"created-api-token",token:result.token};
+        await load();
+        return;
+      }
       state.modal=null;toast("保存成功");await load();
     }catch(e){toast(e.message,true);}
   }
@@ -499,6 +517,25 @@
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){state.modal=null;render();return;}
     if(a==="logout"){await logout();return;}
+    if(a==="revoke-api-token"){
+      const item=state.rows.find(x=>String(x.id)===String(el.dataset.id));
+      if(!item||!window.confirm("撤销后使用此令牌的自动部署将停止。确定撤销吗？"))return;
+      try{await request("/api_token/delete","POST",{id:Number(item.id)});toast("管理令牌已撤销");await load();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="copy-api-token"){
+      const field=document.getElementById("api-token-secret");
+      if(!field)return;
+      field.focus();field.select();
+      try{
+        if(window.navigator?.clipboard?.writeText){
+          await window.navigator.clipboard.writeText(field.value);
+          toast("已复制令牌");
+        }else toast("已选择令牌文本，请手动复制");
+      }catch{toast("已选择令牌文本，请手动复制");}
+      return;
+    }
     if(a==="session-disconnect"){
       const deviceId=el.dataset.device, connId=Number(el.dataset.id);
       if(!deviceId||!connId)return;
