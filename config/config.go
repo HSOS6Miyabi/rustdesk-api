@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"github.com/spf13/viper"
 	"strings"
 	"time"
@@ -92,6 +93,20 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	*/
 	if err := v.Unmarshal(rowVal); err != nil {
 		panic(fmt.Errorf("Fatal error config: %s \n", err))
+	}
+	// These shared names allow a combined container to configure both Go and Rust processes.
+	if key, ok := os.LookupEnv("RUSTDESK_API_INTERNAL_KEY"); ok {
+		rowVal.App.InternalKey = strings.TrimSpace(key)
+	}
+	if value, ok := os.LookupEnv("REQUIRE_DEVICE_DEPLOYMENT"); ok {
+		switch strings.ToUpper(strings.TrimSpace(value)) {
+		case "Y", "YES", "TRUE", "1":
+			rowVal.App.RequireDeviceDeployment = true
+		case "N", "NO", "FALSE", "0", "":
+			rowVal.App.RequireDeviceDeployment = false
+		default:
+			panic(fmt.Errorf("invalid REQUIRE_DEVICE_DEPLOYMENT value: %s", value))
+		}
 	}
 	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()

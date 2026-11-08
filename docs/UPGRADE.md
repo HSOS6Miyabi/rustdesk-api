@@ -18,7 +18,14 @@ API 启动时自动为以下内容创建或增加字段：
 
 如需启用严格登记：
 
-API 设置：
+API 与 Server 都可以通过相同的环境变量设置：
+
+```bash
+export REQUIRE_DEVICE_DEPLOYMENT=Y
+export RUSTDESK_API_INTERNAL_KEY="替换为随机且保密的内部通信密钥"
+```
+
+或者在 API 中使用 YAML 配置：
 
 ```yaml
 app:
