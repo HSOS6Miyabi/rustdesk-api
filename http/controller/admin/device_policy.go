@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	"github.com/lejianwen/rustdesk-api/v2/model"
@@ -98,11 +96,7 @@ func (d *DevicePolicy) Current(c *gin.Context){
 	options,assigned,err:=service.EffectiveDevicePolicy(deviceId,user.Id,
 		service.AllService.UserService.IsAdmin(user))
 	if err!=nil{response.Error(c,err.Error());return}
-	version:=uint(1)
-	if value:=c.Query("client_version");value!="" {
-		if v,e:=strconv.ParseUint(value,10,32);e==nil{version=uint(v)}
-	}
 	response.Success(c,gin.H{
-		"assigned":assigned,"device_id":deviceId,"options":options,"policy_version":version,
+		"assigned":assigned,"device_id":deviceId,"options":options,"schema_version":1,
 	})
 }
