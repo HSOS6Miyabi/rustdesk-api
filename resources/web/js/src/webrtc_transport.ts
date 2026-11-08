@@ -133,9 +133,9 @@ export default class WebRTCTransport {
 
   private fail(reason:Error){
     if(this.closed)return;
-    this.close();
     const pending=this.waiting.splice(0);
     for(const waiter of pending){clearTimeout(waiter.timeout);waiter.reject(reason)}
+    this.close();
   }
 
   public close(){
