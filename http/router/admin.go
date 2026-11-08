@@ -369,6 +369,8 @@ func MyAuditBind(rg *gin.RouterGroup) {
 func AuditManagementBind(rg *gin.RouterGroup) {
 	handler:=&admin.AuditManagement{}
 	rg.GET("/my/audit_alarm/list",handler.MyAlarms)
+	rg.GET("/audit_alarm/list",middleware.AdminPrivilege(),handler.Alarms)
+	rg.GET("/audit_operation/list",middleware.AdminPrivilege(),handler.Operations)
 	adm:=rg.Group("/audit").Use(middleware.AdminPrivilege())
 	adm.GET("/alarms",handler.Alarms)
 	adm.GET("/operations",handler.Operations)
