@@ -268,7 +268,7 @@
   function shared(){
     const groups=(state.groups||[]);
     const options='<option value="all">全部共享设备</option><option value="contact">联系人共享</option><option value="group">群组共享</option>';
-    const ids=groups.filter(x=>state.sourceType==="all"||x.type===state.sourceType).map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===String(state.sourceId)?"selected":"")+'>'+esc(x.type==="contact"?"联系人 · "+x.name:"群组 · "+x.name)+'</option>').join("");
+    const ids=groups.filter(x=>state.sourceType==="all"||x.type===state.sourceType).map(x=>'<option value="'+esc(x.type+":"+x.id)+'" '+(x.type===state.sourceType&&String(x.id)===String(state.sourceId)?"selected":"")+'>'+esc(x.type==="contact"?"联系人 · "+x.name:"群组 · "+x.name)+'</option>').join("");
     const search='<div class="table-toolbar"><div class="search">'+icon("search",16)+'<input id="table-search" placeholder="搜索设备 ID、备注或主机名" value="'+esc(state.query)+'"></div><select id="shared-source-type" class="btn" aria-label="共享类型">'+options.replace('value="'+state.sourceType+'"','value="'+state.sourceType+'" selected')+'</select><select id="shared-source-id" class="btn" aria-label="共享来源"><option value="0">所有来源</option>'+ids+'</select></div>';
     return pageHeading("共享设备","汇总联系人、共享组和公共锚点组公开给您的设备。同一设备只显示一次，并标明所有共享来源。",'<button class="btn btn-primary" data-action="webclient">'+icon("monitor",16)+'打开 WebClient v2</button>')+
       '<section class="panel">'+search+table({...pages.shared},state.rows)+pagination()+'</section>';
@@ -311,14 +311,14 @@
   function renderModal(){
     const m=state.modal;if(!m)return "";
     if(m.kind==="edit"){
-      const p=pages[state.page],fields=p.fields||[];
+      const p=pages[activeKey()],fields=p.fields||[];
       const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,'<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="edit-form">保存</button>');
     }
     if(m.kind==="members"||m.kind==="anchors"){
       const anchor=m.kind==="anchors";
       const rows=(m.users||[]).map(u=>'<label class="status-row" style="cursor:pointer"><span><strong>'+esc(u.nickname||u.username)+'</strong><span class="cell-sub">@'+esc(u.username)+' · ID '+esc(u.id)+'</span></span><input style="width:18px;height:18px;accent-color:var(--main)" type="checkbox" name="selected" value="'+esc(u.id)+'" '+(m.selected.has(u.id)?"checked":"")+'></label>').join("");
-      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的普通成员。":"勾选账户后，选择添加、移除或替换成员。原有主要分组信息会保留。")+'</p><div class="field" style="margin-top:20px"><label for="user-filter">查找用户</label><input id="user-filter" placeholder="筛选用户名"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>用户 ID（可用逗号分隔，适用于大量成员）</label><input name="manual_ids" placeholder="例如：2,5,8"></div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
+      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的普通成员。":"当前组成员已经勾选。添加成员会保留现有成员；移除成员将删除勾选成员的群组关系；替换成员会只保留勾选成员。")+'</p><div class="field" style="margin-top:20px"><label for="user-filter">查找用户</label><input id="user-filter" placeholder="筛选用户名"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>用户 ID（可用逗号分隔，适用于大量成员）</label><input name="manual_ids" placeholder="例如：2,5,8"></div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
       const footer='<button class="btn" data-action="close-modal">取消</button>'+(anchor?'<button class="btn btn-primary" data-action="member-replace">保存公共成员</button>':'<button class="btn" data-action="member-add">添加成员</button><button class="btn btn-danger" data-action="member-remove">移除成员</button><button class="btn btn-primary" data-action="member-replace">替换成员</button>');
       return modal(anchor?"设置公共成员":"批量管理成员",m.group.name,details,footer);
     }
@@ -366,7 +366,12 @@
         request("/group/"+(anchor?"anchors":"members")+"?group_id="+encodeURIComponent(id)),
         request("/user/list?page=1&page_size=500")
       ]);
-      state.modal={kind:anchor?"anchors":"members",group,selected:new Set(selected.user_ids||[]),users:listing.list||[]};
+      const rows=listing.list||[];
+      const displayed=new Set(rows.map(x=>Number(x.id)));
+      for(const memberId of selected.user_ids||[]){
+        if(!displayed.has(Number(memberId)))rows.push({id:memberId,username:"用户 "+memberId,nickname:""});
+      }
+      state.modal={kind:anchor?"anchors":"members",group,selected:new Set(selected.user_ids||[]),users:rows};
       render();
     }catch(e){toast(e.message,true);}
   }
@@ -381,7 +386,8 @@
     let ids;try{
       ids=[...new Set([...Array.from(form.querySelectorAll('input[name="selected"]:checked')).map(x=>Number(x.value)),...parseIds(form.elements.manual_ids.value)])];
     }catch(e){toast(e.message,true);return;}
-    if(action==="remove"&&!window.confirm("确定移除选中的群组成员吗？"))return;
+    if(action==="remove"&&!window.confirm("确定从群组移除这 "+ids.length+" 名选中成员吗？"))return;
+    if(action==="replace"&&!window.confirm("确定将这个群组的成员设为选中的 "+ids.length+" 人吗？"))return;
     try{
       const url=m.kind==="anchors"?"/group/anchors":"/group/members/batch";
       const payload=m.kind==="anchors"?{group_id:m.group.id,user_ids:ids}:{group_id:m.group.id,user_ids:ids,action};
@@ -461,7 +467,7 @@
   document.addEventListener("change",async event=>{
     const el=event.target;
     if(el.id==="shared-source-type"){state.sourceType=el.value;state.sourceId="0";state.pageNo=1;await load();}
-    if(el.id==="shared-source-id"){state.sourceId=el.value;state.pageNo=1;await load();}
+    if(el.id==="shared-source-id"){if(el.value==="0"){state.sourceId="0";}else{const parts=el.value.split(":");state.sourceType=parts[0];state.sourceId=parts[1];}state.pageNo=1;await load();}
   });
   window.addEventListener("hashchange",()=>{if(!state.user)return;const viewName=location.hash.replace(/^#\/?/,"").split("?")[0];if(available(viewName)&&state.page!==viewName)view(viewName);});
   bootstrap().catch(e=>{toast(e.message,true);render();});
