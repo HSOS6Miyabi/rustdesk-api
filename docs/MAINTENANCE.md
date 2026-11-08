@@ -32,3 +32,25 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 推送版本标签，例如 `v3.0.0` 后，GitHub Actions 在 Go 测试、前端交互测试及 WebClient 连接组件构建通过后，发布可执行程序压缩包到 GitHub Release。主分支和版本标签还会构建 Docker 镜像，分别提供 amd64 与 arm64 架构。
 
 发布前检查配置文件中的端口及 JWT 密钥设置，并备份正式环境数据库。
+
+
+## RustDesk 1.5.x 的自动化测试
+
+连接审计测试应包括连接认证方式、双重认证、文件传输的连接编号、告警类型、大整数会话编号和重复提交处理。设备策略测试应包括 UUID 检查、策略分配、修改、撤销及自动心跳响应。
+
+修改 WebClient 后，在 `resources/web/js` 目录执行：
+
+```bash
+npm ci
+npm run build
+node --test tests/webrtc.test.cjs
+```
+
+RustDesk Server 的测试与编译：
+
+```bash
+cargo test --locked
+cargo build --locked --release
+```
+
+GitHub Actions 在发布前执行 Go、JavaScript、浏览器和 Rust 测试，构建跨架构程序及 Docker 镜像，并更新 GHCR 的 `latest` 标签。组合服务端镜像应选用已经发布的 API 版本。
