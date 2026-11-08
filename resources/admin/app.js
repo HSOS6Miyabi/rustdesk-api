@@ -445,10 +445,10 @@
     }
     try{
       const result=await request(endpoint(activeKey())+"/"+state.modal.action,"POST",data);
-      if(state.page==="apiTokens"&&state.modal.action==="create"){
+      if(p.endpoint==="api_token"&&state.modal.action==="create"){
         if(!result?.token)throw Error("服务器未返回新令牌");
         state.modal={kind:"created-api-token",token:result.token};
-        await load();
+        render();
         return;
       }
       state.modal=null;toast("保存成功");await load();

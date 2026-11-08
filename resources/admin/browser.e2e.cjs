@@ -294,7 +294,7 @@ test("administrator can create an API token and view it once",async()=>{
     await page.waitForTimeout(300);
     const tokenField=page.locator('#api-token-secret');
     assert.ok(await tokenField.count()>0,
-      "API token must be visible after creation. Current dialog: "+(await page.locator("#modal-overlay").innerText()));
+      "API token must be visible after creation. Page: "+(await page.locator(".content").innerText()).slice(-1200));
     await tokenField.waitFor({state:"visible"});
     assert.equal(await page.locator('#api-token-secret').inputValue(),"rdapi_example-secret-value");
     await page.locator('button[data-action="close-modal"]').last().click();
