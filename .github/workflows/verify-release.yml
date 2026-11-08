@@ -67,7 +67,7 @@ jobs:
             git push
           fi
       - name: Frontend interaction tests
-        run: node --test resources/admin/app.test.cjs
+        run: node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
       - name: Go tests
         run: go test ./... -count=1
       - name: Build executable
