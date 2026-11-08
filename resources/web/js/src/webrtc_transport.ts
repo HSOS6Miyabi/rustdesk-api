@@ -7,7 +7,7 @@ const MAX_BUFFERED_BYTES = 4 * 1024 * 1024;
 type WaitingReader = {
   resolve: (value: message.Message) => void;
   reject: (reason: Error) => void;
-  timeout: ReturnType<typeof setTimeout>;
+  timeout: ReturnType<typeof setTimeout> | undefined;
 };
 
 // RustDesk's WebRTC stream uses one header byte before each ordered, reliable
@@ -89,16 +89,16 @@ export default class WebRTCTransport {
     // apply a second secretbox cipher to the data channel.
   }
 
-  public next(timeoutMs=12000):Promise<message.Message>{
+  public next(timeoutMs=0):Promise<message.Message>{
     if(this.frames.length)return Promise.resolve(this.frames.shift()!);
     if(this.closed)return Promise.reject(new Error("WebRTC channel closed"));
     return new Promise((resolve,reject)=>{
       const waiter:WaitingReader={
         resolve,reject,
-        timeout:setTimeout(()=>{
+        timeout:timeoutMs>0?setTimeout(()=>{
           this.waiting=this.waiting.filter(x=>x!==waiter);
           reject(new Error("WebRTC message timed out"));
-        },timeoutMs)
+        },timeoutMs):undefined
       };
       this.waiting.push(waiter);
     });
