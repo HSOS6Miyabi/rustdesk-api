@@ -12,7 +12,7 @@
     collections: {name:"地址簿分类",icon:"folder",section:"工作空间",endpoint:"address_book_collection",columns:[["id","编号"],["name","分类名称"],["user_id","所有者 ID"]],fields:[["name","名称","text",true],["user_id","所有者 ID","number",true]]},
     tags: {name:"设备标签",icon:"tag",section:"工作空间",endpoint:"tag",columns:[["id","编号"],["name","标签名称"],["color","颜色"],["collection_id","地址簿 ID"]],fields:[["name","名称","text",true],["color","颜色（ARGB 整数）","number",true],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"]]},
     groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
-    users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"username",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
+    users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"username",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
     devicegroups: {name:"设备分组",icon:"grid",section:"成员管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
     oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的分组 ID（逗号分隔）"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
@@ -175,7 +175,7 @@
   }
   async function logout(){
     try{await request("/logout","POST",{});}catch{}
-    state.token="";state.user=null;state.isAdmin=false;sessionStorage.removeItem("rustdesk.console.token");
+    state.token="";state.user=null;state.isAdmin=false;sessionStorage.removeItem("rustdesk.console.token");localStorage.removeItem("access_token");
     await getOptions();render();
   }
   async function load(){
@@ -228,6 +228,7 @@
     const id=esc(rowIdentifier(row));
     let out="";
     if(state.isAdmin||state.page!=="devices")out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
+    if(state.page==="users"){out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';}
     if(state.page==="groups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     if(state.isAdmin||state.page!=="devices")out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
     return out;
@@ -311,9 +312,13 @@
   function renderModal(){
     const m=state.modal;if(!m)return "";
     if(m.kind==="edit"){
-      const p=pages[activeKey()],fields=p.fields||[];
+      const p=pages[activeKey()],fields=(p.fields||[]).filter(f=>!(state.page==="users"&&m.action==="edit"&&f[0]==="password"));
       const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,'<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="edit-form">保存</button>');
+    }
+    if(m.kind==="reset-password"){
+      const body='<form id="reset-password-form"><input type="hidden" name="id" value="'+esc(m.user.id)+'"><div class="form-grid"><div class="field full"><label for="new-user-password">新密码 <span class="required">*</span></label><input id="new-user-password" name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></div></div></form>';
+      return modal("重设用户密码","账户："+m.user.username,body,'<button class="btn" type="button" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="reset-password-form">保存新密码</button>');
     }
     if(m.kind==="members"||m.kind==="anchors"){
       const anchor=m.kind==="anchors";
@@ -335,7 +340,7 @@
   async function saveEditor(form){
     const p=pages[activeKey()],data={};
     const oldData=state.modal.data;
-    for(const f of p.fields){
+    for(const f of p.fields.filter(f=>!(state.page==="users"&&state.modal.action==="edit"&&f[0]==="password"))){
       const [name,,type="text",required=false]=f;
       const el=form.elements.namedItem(name);
       if(!el)continue;
@@ -420,6 +425,11 @@
     if(a==="oidc"){await oidc(el.dataset.id);return;}
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
     if(a==="delete"){await deleteEntry(el.dataset.id);return;}
+    if(a==="reset-password"){
+      const user=state.rows.find(r=>String(r.id)===String(el.dataset.id));
+      if(user){state.modal={kind:"reset-password",user};render();}
+      return;
+    }
     if(a==="members"||a==="anchors"){await groupMembers(el.dataset.id,a==="anchors");return;}
     if(a.startsWith("member-")){await submitMembers(a.replace("member-",""));return;}
     if(a==="contact-delete"){
@@ -432,10 +442,18 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form"].includes(f.id))return;
     event.preventDefault();
     if(f.id==="login-form")await handleLogin(f);
     if(f.id==="edit-form")await saveEditor(f);
+    if(f.id==="reset-password-form"){
+      const id=state.modal?.user.id, password=f.elements.password.value;
+      if(!id||password.length<8)return;
+      try{
+        await request("/user/changePwd","POST",{id,password});
+        state.modal=null;toast("用户密码已更新");await load();
+      }catch(e){toast(e.message,true);}
+    }
     if(f.id==="contact-form"){
       try{await request("/contact/add","POST",{username:f.elements.username.value.trim()});toast("已向联系人开放您的设备");await load();}catch(e){toast(e.message,true);}
     }
