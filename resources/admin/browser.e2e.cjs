@@ -113,6 +113,7 @@ test("desktop: ordinary users see owned groups and audit records, not global adm
     assert.match(await page.locator(".content").innerText(),/我的家庭设备/);
     await page.locator('nav.side-scroll button[data-view="myconnections"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的连接记录");
+    await page.locator(".table-scroll tbody tr").first().waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/654321/);
     assert.match(await page.locator(".content").innerText(),/alice/);
   }finally{await context.close();}
