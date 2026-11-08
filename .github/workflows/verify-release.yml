@@ -49,6 +49,9 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+      - name: WebRTC protocol and data-channel tests
+        working-directory: resources/web/js
+        run: node --test tests/webrtc.test.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: webclient-js-bundle
