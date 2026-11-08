@@ -155,3 +155,20 @@ test("WebRTC transport rejects malformed fragments and closes its connection",as
   await assert.rejects(waiting,/fragment/);
   assert.equal(closed,true);
 });
+
+
+test("WebRTC transport retains idle sessions and enforces explicit handshake timeout",async()=>{
+  const left=fakeChannel(),right=fakeChannel();
+  left.remote=right;right.remote=left;
+  const transportA=new WebRTCTransport({remoteDescription:{sdp:"v=0"},close(){}},left);
+  const transportB=new WebRTCTransport({remoteDescription:{sdp:"v=0"},close(){}},right);
+
+  const first=transportB.next(15);
+  await assert.rejects(first,/timed out/i);
+  const pending=transportB.next();
+  await new Promise(resolve=>setTimeout(resolve,45));
+  transportA.sendMessage({chat_message:{text:"Desktop is idle and still connected"}});
+  const delivered=await pending;
+  assert.equal(delivered.chat_message.text,"Desktop is idle and still connected");
+  transportA.close();transportB.close();
+});
