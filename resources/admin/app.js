@@ -67,7 +67,7 @@
   }
   const state={
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
-    page:"overview",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
+    page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
     groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
@@ -96,6 +96,7 @@
     wrap.append(node);setTimeout(()=>node.remove(),4300);
   }
   function available(k){return pages[k]&&(!pages[k].admin||state.isAdmin);}
+  function activeKey(){return state.page==="addressbooks"&&state.bookTab==="collections"?"collections":state.page;}
   function endpoint(k) {const p=pages[k];return !state.isAdmin&&["peer","address_book","address_book_collection","tag","login_log"].includes(p.endpoint)?"/my/"+p.endpoint:"/"+p.endpoint;}
   function pageHeading(title,subtitle,actions=""){
     return '<div class="page-head"><div><p class="eyebrow">RUSTDESK / CONTROL CENTER</p><h1>'+esc(title)+'</h1><p class="subtitle">'+esc(subtitle)+'</p></div><div class="head-actions">'+actions+'</div></div>';
@@ -113,7 +114,7 @@
     const username=state.user&&state.user.nickname||state.user&&state.user.username||"用户";
     let section="",nav="";
     for(const [key,p] of Object.entries(pages)){
-      if(!available(key))continue;
+      if(!available(key)||key==="collections")continue;
       if(p.section!==section){section=p.section;nav+='<div class="side-section">'+esc(section)+'</div>';}
       nav+='<button class="nav-link '+(key===state.page?"active":"")+'" type="button" data-view="'+esc(key)+'" '+(key===state.page?'aria-current="page"':'')+'>'+icon(p.icon,18)+esc(p.name)+'</button>';
     }
@@ -126,7 +127,7 @@
   }
   function view(k){
     if(!available(k))return;
-    state.page=k;state.pageNo=1;state.query="";state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
+    state.page=k;if(k==="addressbooks")state.bookTab="entries";state.pageNo=1;state.query="";state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
     location.hash="#/"+k;render();load();
   }
   async function bootstrap(){
@@ -178,7 +179,7 @@
     await getOptions();render();
   }
   async function load(){
-    const n=++seq,k=state.page,p=pages[k];
+    const n=++seq,k=state.page,p=pages[activeKey()];
     state.loading=true;state.error="";render();
     try{
       if(k==="overview"){
@@ -202,7 +203,7 @@
       }else if(p.endpoint){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize});
         if(p.search&&state.query)q.set(p.search,state.query);
-        const result=await request(endpoint(k)+"/list?"+q.toString());
+        const result=await request(endpoint(activeKey())+"/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
       }
     }catch(e){state.error=e.message;state.rows=[];state.total=0;}
@@ -222,7 +223,7 @@
   }
   function rowIdentifier(row){return String(row.row_id===undefined?row.id:row.row_id);}
   function rowActions(row){
-    const p=pages[state.page];
+    const p=pages[activeKey()];
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
     let out="";
@@ -246,11 +247,13 @@
     return '<div class="pager"><span>第 '+state.pageNo+' / '+pagesCount+' 页 · 共 '+state.total+' 项</span><div class="pager-buttons"><button data-action="prev" '+(state.pageNo===1?"disabled":"")+' aria-label="上一页">‹</button><button data-action="next" '+(state.pageNo>=pagesCount?"disabled":"")+' aria-label="下一页">›</button></div></div>';
   }
   function genericList(){
-    const p=pages[state.page];
+    const p=pages[activeKey()];
     const add=p.readonly||state.page==="devices"&&!state.isAdmin?"":'<button class="btn btn-primary" data-action="create">'+icon("plus",16)+'新增'+esc(p.name)+'</button>';
     const search='<div class="table-toolbar"><div class="search">'+icon("search",16)+'<input id="table-search" aria-label="搜索" placeholder="'+(p.search?"按关键词搜索…":"筛选本页内容…")+'" value="'+esc(state.query)+'"></div><span class="toolbar-meta">共 '+state.total+' 项</span></div>';
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
-    return pageHeading(p.name,"查看、编辑和管理相关数据。",add)+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const isBook = state.page==="addressbooks";
+    const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
+    return pageHeading(isBook?"地址簿":p.name,isBook?"在一个页面中管理地址簿分类及其包含的设备，原有数据自动保留。":"查看、编辑和管理相关数据。",add)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -322,7 +325,7 @@
     return "";
   }
   async function openEditor(rowId,action){
-    const p=pages[state.page];let row={};
+    const p=pages[activeKey()];let row={};
     if(action==="edit"){
       row=state.rows.find(r=>rowIdentifier(r)===rowId)||{};
       if(!Object.keys(row).length){toast("未找到记录",true);return;}
@@ -330,7 +333,7 @@
     state.modal={kind:"edit",action,data:row};render();
   }
   async function saveEditor(form){
-    const p=pages[state.page],data={};
+    const p=pages[activeKey()],data={};
     const oldData=state.modal.data;
     for(const f of p.fields){
       const [name,,type="text",required=false]=f;
@@ -346,14 +349,14 @@
       if(oldData.row_id!==undefined)data.row_id=oldData.row_id;
     }
     try{
-      await request(endpoint(state.page)+"/"+state.modal.action,"POST",data);
+      await request(endpoint(activeKey())+"/"+state.modal.action,"POST",data);
       state.modal=null;toast("保存成功");await load();
     }catch(e){toast(e.message,true);}
   }
   async function deleteEntry(id){
-    const p=pages[state.page],r=state.rows.find(x=>rowIdentifier(x)===id);
+    const p=pages[activeKey()],r=state.rows.find(x=>rowIdentifier(x)===id);
     if(!r||!window.confirm("确定删除这条记录吗？"))return;
-    try{await request(endpoint(state.page)+"/delete","POST",{id:r.id,row_id:r.row_id});toast("已删除");await load();}
+    try{await request(endpoint(activeKey())+"/delete","POST",{id:r.id,row_id:r.row_id});toast("已删除");await load();}
     catch(e){toast(e.message,true);}
   }
   async function groupMembers(id,anchor){
@@ -401,6 +404,7 @@
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
     if(a==="refresh"){await load();return;}
+    if(a==="book-entries"||a==="book-collections"){state.bookTab=a==="book-entries"?"entries":"collections";state.pageNo=1;state.query="";await load();return;}
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){state.modal=null;render();return;}
@@ -441,7 +445,7 @@
     const el=event.target;
     if(el.id==="table-search"){
       state.query=el.value;clearTimeout(debounce);
-      const p=pages[state.page];
+      const p=pages[activeKey()];
       if(state.page==="shared"||p.search){
         debounce=setTimeout(()=>{state.pageNo=1;load();},350);
       }else{
