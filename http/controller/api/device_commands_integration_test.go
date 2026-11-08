@@ -37,7 +37,7 @@ func TestDeviceCommandsWithSQLite(t *testing.T) {
 	service.DB = db
 	service.Config = conf
 	service.AllService = &service.Service{UserService: &service.UserService{}}
-	global.Config = conf
+	global.Config = *conf
 	defer func() {
 		service.DB, service.AllService, service.Config, global.Config = oldDB, oldService, oldConfig, oldGlobalConfig
 	}()

@@ -32,7 +32,7 @@ func Init(g *gin.Engine) {
 	TagBind(adg)
 	AddressBookBind(adg)
 	PeerBind(adg)
-	DeviceDeploymentBind(adg)
+	admin.DeviceDeploymentBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)

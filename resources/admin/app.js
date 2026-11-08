@@ -77,6 +77,7 @@
     if(k==="success")return v?'<span class="pill good">成功</span>':'<span class="pill warn">失败</span>';
     if(k==="is_admin")return v?"管理员":"普通用户";
     if(k==="enable_webrtc")return v?"启用":"停用";
+    if(k==="status"&&typeof v==="string")return esc(v==="approved"?"已登记":v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
     if(k==="created_at"||k==="last_online_time"||k==="expire")return date(v);
     if(typeof v==="boolean")return v?"是":"否";
