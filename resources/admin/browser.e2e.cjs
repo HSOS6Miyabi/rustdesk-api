@@ -204,11 +204,11 @@ test("administrator: security policies, alarms and operation logs render correct
   try{
     await page.locator('nav.side-scroll button[data-view="policies"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备安全策略");
-    await page.getByText("办公设备",{exact:true}).waitFor();
+    await page.getByText("办公设备",{exact:true}).first().waitFor();
     assert.match(await page.locator(".content").innerText(),/192.0.2.0\/24/);
     await page.locator('nav.side-scroll button[data-view="policyAssignments"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备策略分配");
-    await page.getByText("desk-001",{exact:true}).waitFor();
+    await page.getByText("desk-001",{exact:true}).first().waitFor();
     await page.locator('nav.side-scroll button[data-view="alarms"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="安全告警");
     await page.getByText("设备 ID 白名单拒绝 (10)").first().waitFor();
@@ -239,7 +239,7 @@ test("mobile: device policy editor and retention form remain usable",async()=>{
     await openMenu();
     await page.locator('nav.side-scroll button[data-view="retention"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="日志保留设置");
-    await page.locator('#retention-form input[name="connection_days"]').waitFor({state:"visible"});
+    await page.waitForFunction(()=>document.querySelector('#retention-form input[name="connection_days"]')?.value==="90");
     assert.equal(await page.locator('#retention-form input[name="connection_days"]').inputValue(),"90");
     const dims=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
     assert.ok(dims.scroll<=dims.width+2,"mobile retention form has horizontal overflow: "+JSON.stringify(dims));
