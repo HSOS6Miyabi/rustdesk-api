@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"gorm.io/gorm"
 )
@@ -35,7 +36,16 @@ func (us *GroupService) Create(u *model.Group) error {
 	return res
 }
 func (us *GroupService) Delete(u *model.Group) error {
-	return DB.Delete(u).Error
+	if u == nil || u.Id <= 1 { return errors.New("cannot delete the default group") }
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("group_id = ?", u.Id).
+			Update("group_id", uint(1)).Error; err != nil { return err }
+		if err := tx.Where("group_id = ?", u.Id).
+			Delete(&model.GroupMembership{}).Error; err != nil { return err }
+		if err := tx.Where("group_id = ?", u.Id).
+			Delete(&model.GroupAnchor{}).Error; err != nil { return err }
+		return tx.Delete(u).Error
+	})
 }
 
 // Update 更新
