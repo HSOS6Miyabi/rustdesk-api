@@ -106,12 +106,12 @@ test.after(async()=>{
 test("desktop: ordinary users see owned groups and audit records, not global administration",async()=>{
   const {context,page}=await pageForViewport(1440,900,false);
   try{
-    assert.equal(await page.locator('button[data-view="groups"]').count(),0);
-    assert.equal(await page.locator('button[data-view="mygroups"]').count(),1);
-    await page.locator('button[data-view="mygroups"]').click();
+    assert.equal(await page.locator('nav.side-scroll button[data-view="groups"]').count(),0);
+    assert.equal(await page.locator('nav.side-scroll button[data-view="mygroups"]').count(),1);
+    await page.locator('nav.side-scroll button[data-view="mygroups"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的群组");
     assert.match(await page.locator(".content").innerText(),/我的家庭设备/);
-    await page.locator('button[data-view="myconnections"]').click();
+    await page.locator('nav.side-scroll button[data-view="myconnections"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的连接记录");
     assert.match(await page.locator(".content").innerText(),/654321/);
     assert.match(await page.locator(".content").innerText(),/alice/);
@@ -121,9 +121,9 @@ test("desktop: ordinary users see owned groups and audit records, not global adm
 test("desktop: administrators have a separate global group entry",async()=>{
   const {context,page}=await pageForViewport(1440,900,true);
   try{
-    assert.equal(await page.locator('button[data-view="groups"]').count(),1);
-    assert.equal(await page.locator('button[data-view="mygroups"]').count(),1);
-    await page.locator('button[data-view="groups"]').click();
+    assert.equal(await page.locator('nav.side-scroll button[data-view="groups"]').count(),1);
+    assert.equal(await page.locator('nav.side-scroll button[data-view="mygroups"]').count(),1);
+    await page.locator('nav.side-scroll button[data-view="groups"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户分组");
     assert.match(await page.locator(".content").innerText(),/系统分组/);
   }finally{await context.close();}
@@ -139,7 +139,7 @@ test("mobile: navigation, owned group form and contacts fit a narrow screen",asy
     await page.waitForTimeout(250);
     let bounds=await page.locator("aside.sidebar").boundingBox();
     assert.ok(bounds && bounds.x>=-2,"mobile navigation must be visible");
-    await page.locator('button[data-view="mygroups"]').click();
+    await page.locator('nav.side-scroll button[data-view="mygroups"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的群组");
     await page.locator('button[data-action="create"]').click();
     const drawer=page.locator("section.drawer");
@@ -150,7 +150,7 @@ test("mobile: navigation, owned group form and contacts fit a narrow screen",asy
     await page.locator('button[data-action="close-modal"]').last().click();
 
     await menu.click();
-    await page.locator('button[data-view="contacts"]').click();
+    await page.locator('nav.side-scroll button[data-view="contacts"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="联系人");
     assert.match(await page.locator(".content").innerText(),/Alice/);
     assert.match(await page.locator(".content").innerText(),/Bob/);
@@ -167,7 +167,7 @@ test("tablet: shared device and audit pages are accessible without horizontal ov
   const {context,page}=await pageForViewport(768,1024,false);
   try{
     await page.locator('button[data-action="mobile-open"]').click();
-    await page.locator('button[data-view="shared"]').click();
+    await page.locator('nav.side-scroll button[data-view="shared"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="共享设备");
     const width=await page.evaluate(()=>({
       document:document.documentElement.scrollWidth,
