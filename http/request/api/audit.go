@@ -23,7 +23,7 @@ func (a *AuditConnForm) ToAuditConn() *model.AuditConn {
 	fn := ""
 	if len(a.Peer) >= 1 {
 		fp = a.Peer[0]
-		if len(a.Peer) == 2 {
+		if len(a.Peer) >= 2 {
 			fn = a.Peer[1]
 		}
 	}

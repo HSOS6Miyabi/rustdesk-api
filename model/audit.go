@@ -10,7 +10,7 @@ type AuditConn struct {
 	Action    string `json:"action" gorm:"default:'';not null;"`
 	ConnId    int64  `json:"conn_id" gorm:"default:0;not null;index"`
 	PeerId    string `json:"peer_id" gorm:"default:'';not null;index"`
-	FromPeer  string `json:"from_peer" gorm:"default:'';not null;"`
+	FromPeer  string `json:"from_peer" gorm:"default:'';not null;index"`
 	FromName  string `json:"from_name" gorm:"default:'';not null;"`
 	FromUserId uint `json:"from_user_id" gorm:"default:0;not null;index"`
 	ToUserId uint `json:"to_user_id" gorm:"default:0;not null;index"`

@@ -53,6 +53,8 @@ jobs:
             git commit -m "build: record Go module checksums"
             git push
           fi
+      - name: Frontend interaction tests
+        run: node --test resources/admin/app.test.cjs
       - name: Go tests
         run: go test ./... -count=1
       - name: Build executable
