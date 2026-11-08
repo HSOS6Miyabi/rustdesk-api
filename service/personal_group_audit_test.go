@@ -105,6 +105,15 @@ func TestAuditParticipationAndOutOfOrderConnectionUpdates(t *testing.T) {
 	if err != nil || previous.Total != 1 || previous.AuditConns[0].ToAccount != targetUser.Username {
 		t.Fatalf("historical ownership was lost: %+v %v", previous, err)
 	}
+	// The device's new owner must not see records from an earlier ownership period.
+	newOwnerHistory, err := audit.OwnConnections(stranger.Id, 1, 20)
+	if err != nil || newOwnerHistory.Total != 0 {
+		t.Fatalf("device transfer exposed the former owner's connection history: %+v %v", newOwnerHistory, err)
+	}
+	newOwnerFiles, err := audit.OwnFiles(stranger.Id, 1, 20)
+	if err != nil || newOwnerFiles.Total != 0 {
+		t.Fatalf("device transfer exposed the former owner's file history: %+v %v", newOwnerFiles, err)
+	}
 }
 
 func TestAuditRecordWithoutStoredOwnerUsesRegisteredDevice(t *testing.T) {
