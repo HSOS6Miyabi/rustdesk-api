@@ -152,6 +152,8 @@ test("mobile: navigation, owned group form and contacts fit a narrow screen",asy
     await menu.click();
     await page.locator('nav.side-scroll button[data-view="contacts"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="联系人");
+    await page.getByText("Alice",{exact:true}).waitFor();
+    await page.getByText("Bob",{exact:true}).waitFor();
     assert.match(await page.locator(".content").innerText(),/Alice/);
     assert.match(await page.locator(".content").innerText(),/Bob/);
     const width=await page.evaluate(()=>({
