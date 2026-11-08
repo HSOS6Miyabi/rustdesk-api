@@ -111,6 +111,15 @@ func TestUpgradeExistingSQLiteData(t *testing.T) {
 	for _, name := range []string{"group_memberships", "group_anchors", "contacts"} {
 		if !db.Migrator().HasTable(name) { t.Fatalf("missing new table %s", name) }
 	}
+	for _, index := range []struct{ table interface{}; name string }{
+		{&model.GroupMembership{}, "idx_group_membership_user"},
+		{&model.Contact{}, "idx_contact_recipient"},
+		{&model.AuditConn{}, "idx_audit_conn_peer_connection"},
+	} {
+		if !db.Migrator().HasIndex(index.table,index.name) {
+			t.Fatalf("missing query index %s after upgrade",index.name)
+		}
+	}
 
 	// Re-applying migrations should preserve the data and the schema.
 	if err := db.AutoMigrate(&model.Group{}, &model.GroupMembership{}, &model.GroupAnchor{},
