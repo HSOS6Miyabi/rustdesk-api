@@ -69,6 +69,7 @@
     if(!host||!id){message("请填写服务器和设备 ID");return;}
     store("custom-rendezvous-server",host);store("rendezvous-server",host);
     store("key",key);store("id",id);store("remote-id",id);
+    if(state.token)store("access_token",state.token);
     const nativeHost=document.getElementById("host"),nativeKey=document.getElementById("key"),nativeID=document.querySelector("#app #id");
     if(nativeHost)nativeHost.value=host;
     if(nativeKey)nativeKey.value=key;
@@ -93,6 +94,7 @@
       if(!result.token)throw Error("登录未返回令牌");
       state.token=result.token;
       sessionStorage.setItem("rustdesk.console.token",result.token);
+      store("access_token",result.token);
       await loadDevices();
     }catch(err){el("shared-info").textContent="登录失败："+err.message;await showCaptcha();}
     finally{submit.disabled=false;}
