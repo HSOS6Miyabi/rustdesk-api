@@ -206,3 +206,15 @@ test("API management tokens are only shown to administrators", async () => {
   await admin.open("apiTokens");
   assert.ok(admin.calls.some(call => call.endpoint === "/api_token/list"));
 });
+
+test("users can manage personal address book sharing including everyone",async()=>{
+  const app=createConsole();
+  await app.settle();
+  await app.settle();
+  assert.match(app.root.innerHTML,/我的地址簿共享规则/);
+  await app.open("myRules");
+  assert.ok(app.calls.some(call=>call.endpoint==="/my/address_book_collection_rule/list"));
+  await app.action("create");
+  assert.match(app.root.innerHTML,/所有用户/);
+  assert.match(app.root.innerHTML,/对象 ID（所有用户填 0）/);
+});

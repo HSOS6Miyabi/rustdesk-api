@@ -351,7 +351,13 @@ func (s *AddressBookService) ListRules(page uint, size uint, f func(tx *gorm.DB)
 }
 
 func (s *AddressBookService) UpdateRule(t *model.AddressBookCollectionRule) error {
-	return DB.Model(t).Updates(t).Error
+	if t == nil || t.Id == 0 {
+		return errors.New("address book sharing rule ID is required")
+	}
+	return DB.Model(&model.AddressBookCollectionRule{}).Where("id = ? AND user_id = ?", t.Id, t.UserId).
+		Updates(map[string]interface{}{
+			"collection_id": t.CollectionId, "type": t.Type, "to_id": t.ToId, "rule": t.Rule,
+		}).Error
 }
 
 func (s *AddressBookService) DeleteRule(t *model.AddressBookCollectionRule) error {
