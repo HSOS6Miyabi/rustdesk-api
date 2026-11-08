@@ -1,0 +1,17 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates tzdata \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY docker-bin/apimain /app/apimain
+COPY conf /app/conf
+COPY docs /app/docs
+COPY resources /app/resources
+RUN mkdir -p /app/data /app/runtime && chmod 755 /app/apimain
+
+VOLUME /app/data
+EXPOSE 21114
+CMD ["./apimain"]
