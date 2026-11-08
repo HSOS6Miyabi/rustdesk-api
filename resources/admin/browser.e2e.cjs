@@ -290,7 +290,7 @@ test("administrator can create an API token and view it once",async()=>{
     await editor.waitFor();
     await editor.locator('input[name="name"]').fill("My deployment token");
     await editor.locator('input[name="permissions"]').fill("devices.deploy");
-    await page.locator('button[form="edit-form"]').click();
+    await page.locator('button[data-action="submit-api-token"]').click();
     await page.waitForTimeout(300);
     const tokenField=page.locator('#api-token-secret');
     assert.ok(await tokenField.count()>0,

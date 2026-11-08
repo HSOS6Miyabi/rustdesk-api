@@ -392,7 +392,11 @@
         return true;
       }).map(f=>state.page==="oauth"&&m.action==="edit"&&f[0]==="client_secret"?[f[0],"Client Secret（留空表示保持当前密钥）",f[2],false]:f);
       const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
-      return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,'<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" type="submit" form="edit-form">保存</button>');
+      const saveButton=state.page==="apiTokens"?
+        '<button class="btn btn-primary" type="button" data-action="submit-api-token">创建令牌</button>':
+        '<button class="btn btn-primary" type="submit" form="edit-form">保存</button>';
+      return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+saveButton);
     }
     if(m.kind==="created-api-token"){
       const body='<div class="field"><label for="api-token-secret">请保存以下令牌</label>'+
@@ -517,6 +521,11 @@
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){state.modal=null;render();return;}
     if(a==="logout"){await logout();return;}
+    if(a==="submit-api-token"){
+      const form=document.getElementById("edit-form");
+      if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
     if(a==="revoke-api-token"){
       const item=state.rows.find(x=>String(x.id)===String(el.dataset.id));
       if(!item||!window.confirm("撤销后使用此令牌的自动部署将停止。确定撤销吗？"))return;
