@@ -33,6 +33,7 @@ func Init(g *gin.Engine) {
 	AddressBookBind(adg)
 	PeerBind(adg)
 	admin.DeviceDeploymentBind(adg)
+	DeviceSessionsBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)
@@ -400,4 +401,12 @@ func DevicePolicyBind(rg *gin.RouterGroup) {
 	adm.POST("/group_assignment/create",handler.GroupAssignmentCreate)
 	adm.POST("/group_assignment/update",handler.GroupAssignmentUpdate)
 	adm.POST("/group_assignment/delete",handler.GroupAssignmentDelete)
+}
+
+func DeviceSessionsBind(rg *gin.RouterGroup) {
+	handler:=&admin.DeviceSessions{}
+	r:=rg.Group("/session").Use(middleware.AdminPrivilege())
+	r.GET("/list",handler.List)
+	r.POST("/disconnect",handler.Disconnect)
+	r.GET("/disconnect/list",handler.Requests)
 }

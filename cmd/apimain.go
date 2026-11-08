@@ -315,6 +315,8 @@ func Migrate(version uint) {
 		&model.DevicePolicyUserAssignment{},
 		&model.DevicePolicyGroupAssignment{},
 		&model.DeviceDeployment{},
+		&model.DeviceActiveConnection{},
+		&model.DeviceDisconnectRequest{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},

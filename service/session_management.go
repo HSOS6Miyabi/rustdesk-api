@@ -1,0 +1,118 @@
+package service
+
+import (
+	"errors"
+	"sort"
+	"time"
+
+	"github.com/lejianwen/rustdesk-api/v2/model"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+const sessionAliveSeconds int64 = 45
+const disconnectExpiresSeconds int64 = 120
+const maxConnectionsPerHeartbeat = 256
+
+// SynchronizeDeviceSessions follows the existing RustDesk heartbeat protocol.
+func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,error) {
+	if peer==nil||peer.RowId==0{return nil,errors.New("device is not registered")}
+	if len(connections)>maxConnectionsPerHeartbeat{
+		return nil,errors.New("too many connections in heartbeat")
+	}
+	now:=time.Now().Unix()
+	active:=make(map[int32]bool,len(connections))
+	for _,id:=range connections {
+		if id!=0 {active[id]=true}
+	}
+	keys:=make([]int32,0,len(active))
+	records:=make([]model.DeviceActiveConnection,0,len(active))
+	for id:=range active {
+		keys=append(keys,id)
+		records=append(records,model.DeviceActiveConnection{DeviceId:peer.Id,ConnId:id,LastSeenAt:now})
+	}
+	sort.Slice(keys,func(i,j int)bool{return keys[i]<keys[j]})
+	instructions:=make([]int32,0)
+	err:=DB.Transaction(func(tx *gorm.DB) error {
+		if len(records)>0 {
+			if err:=tx.Clauses(clause.OnConflict{
+				Columns:[]clause.Column{{Name:"device_id"},{Name:"conn_id"}},
+				DoUpdates:clause.AssignmentColumns([]string{"last_seen_at","updated_at"}),
+			}).CreateInBatches(records,100).Error;err!=nil{return err}
+			if err:=tx.Where("device_id = ? AND conn_id NOT IN ?",peer.Id,keys).
+				Delete(&model.DeviceActiveConnection{}).Error;err!=nil{return err}
+		}else{
+			if err:=tx.Where("device_id = ?",peer.Id).
+				Delete(&model.DeviceActiveConnection{}).Error;err!=nil{return err}
+		}
+		var requests []model.DeviceDisconnectRequest
+		if err:=tx.Where("device_id = ? AND status IN ?",peer.Id,[]string{"pending","delivered"}).
+			Order("id ASC").Find(&requests).Error;err!=nil{return err}
+		for _,request:=range requests{
+			switch {
+			case request.ExpiresAt<=now:
+				if err:=tx.Model(&request).Update("status","expired").Error;err!=nil{return err}
+			case !active[request.ConnId]:
+				fields:=map[string]interface{}{"status":"expired"}
+				if request.Status=="delivered" {
+					fields["status"]="completed"
+					fields["completed_at"]=now
+				}
+				if err:=tx.Model(&request).Updates(fields).Error;err!=nil{return err}
+			default:
+				instructions=append(instructions,request.ConnId)
+				if err:=tx.Model(&request).Updates(map[string]interface{}{
+					"status":"delivered","delivered_at":now,
+				}).Error;err!=nil{return err}
+			}
+		}
+		return nil
+	})
+	if err!=nil{return nil,err}
+	return instructions,nil
+}
+
+// RequestDeviceDisconnect only queues a request for a recently reported session.
+func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error {
+	if deviceID==""||len(deviceID)>253||connID==0||requester==0{
+		return errors.New("valid device, connection and requester are required")
+	}
+	now:=time.Now().Unix()
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var connection model.DeviceActiveConnection
+		err:=tx.Where("device_id = ? AND conn_id = ? AND last_seen_at >= ?",
+			deviceID,connID,now-sessionAliveSeconds).First(&connection).Error
+		if errors.Is(err,gorm.ErrRecordNotFound){return errors.New("connection is not active")}
+		if err!=nil{return err}
+		var existing model.DeviceDisconnectRequest
+		err=tx.Where("device_id = ? AND conn_id = ? AND status IN ? AND expires_at > ?",
+			deviceID,connID,[]string{"pending","delivered"},now).First(&existing).Error
+		if err==nil{return nil}
+		if !errors.Is(err,gorm.ErrRecordNotFound){return err}
+		return tx.Create(&model.DeviceDisconnectRequest{
+			DeviceId:deviceID,ConnId:connID,RequestedBy:requester,
+			Status:"pending",ExpiresAt:now+disconnectExpiresSeconds,
+		}).Error
+	})
+}
+
+func ListActiveDeviceSessions(page,pageSize uint) ([]model.DeviceActiveConnection,int64,error) {
+	var total int64
+	var rows []model.DeviceActiveConnection
+	query:=DB.Model(&model.DeviceActiveConnection{}).
+		Where("last_seen_at >= ?",time.Now().Unix()-sessionAliveSeconds)
+	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
+	if err:=query.Order("last_seen_at DESC").Scopes(Paginate(page,pageSize)).
+		Find(&rows).Error;err!=nil{return nil,0,err}
+	return rows,total,nil
+}
+
+func ListDisconnectRequests(page,pageSize uint) ([]model.DeviceDisconnectRequest,int64,error) {
+	var total int64
+	var rows []model.DeviceDisconnectRequest
+	query:=DB.Model(&model.DeviceDisconnectRequest{})
+	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
+	if err:=query.Order("id DESC").Scopes(Paginate(page,pageSize)).
+		Find(&rows).Error;err!=nil{return nil,0,err}
+	return rows,total,nil
+}

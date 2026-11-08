@@ -66,8 +66,13 @@ func (i *Index) Heartbeat(c *gin.Context) {
 	data,err:=service.HeartbeatDeviceStrategy(peer,info.ModifiedAt)
 	if err!=nil {
 		if service.Logger!=nil{service.Logger.WithError(err).Warn("failed loading device policy for heartbeat")}
-		c.JSON(http.StatusOK,gin.H{})
-		return
+		data=map[string]interface{}{}
+	}
+	commands,err:=service.SynchronizeDeviceSessions(peer,info.Conns)
+	if err!=nil {
+		if service.Logger!=nil{service.Logger.WithError(err).Warn("failed updating device sessions")}
+	}else if len(commands)>0{
+		data["disconnect"]=commands
 	}
 	c.JSON(http.StatusOK,data)
 }
