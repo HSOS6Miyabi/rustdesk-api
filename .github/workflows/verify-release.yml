@@ -73,8 +73,24 @@ jobs:
       - name: Build executable
         run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
 
+  browser-e2e:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test framework
+        run: |
+          npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+          resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Test desktop, tablet and mobile layouts
+        run: node --test resources/admin/browser.e2e.cjs
+
   build:
-    needs: test
+    needs: [test, browser-e2e]
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
