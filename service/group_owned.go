@@ -88,10 +88,14 @@ func (gs *GroupService) OwnedGroupAnchors(ownerId, groupId uint) ([]uint, error)
 	return gs.AnchorIds(groupId)
 }
 
-func verifyNonAdminMembers(ids []uint) error {
-	if len(ids) == 0 { return nil }
+func verifyNonAdminMembers(ids []uint, ownerId uint) error {
+	checked := make([]uint, 0, len(ids))
+	for _, id := range distinctUserIDs(ids) {
+		if id != ownerId { checked = append(checked, id) }
+	}
+	if len(checked) == 0 { return nil }
 	var count int64
-	if err := DB.Model(&model.User{}).Where("id IN ? AND is_admin = ?", distinctUserIDs(ids), true).Count(&count).Error; err != nil {
+	if err := DB.Model(&model.User{}).Where("id IN ? AND is_admin = ?", checked, true).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 { return errors.New("only system administrators can change administrator group memberships") }
@@ -103,12 +107,18 @@ func (gs *GroupService) ChangeOwnedMembers(ownerId, groupId uint, ids []uint, ac
 	if action != "add" && action != "remove" && action != "replace" {
 		return errors.New("invalid member operation")
 	}
-	if action != "remove" {
-		if err := verifyNonAdminMembers(ids); err != nil { return err }
-	}
+	if err := verifyNonAdminMembers(ids, ownerId); err != nil { return err }
 	if action == "replace" {
-		// The owner must remain a member of a group that they manage.
 		ids = append(distinctUserIDs(ids), ownerId)
+		current, err := gs.MemberIds(groupId)
+		if err != nil { return err }
+		selected := make(map[uint]bool, len(ids))
+		for _, id := range ids { selected[id] = true }
+		var removed []uint
+		for _, id := range current {
+			if !selected[id] { removed = append(removed, id) }
+		}
+		if err := verifyNonAdminMembers(removed, ownerId); err != nil { return err }
 	}
 	if action == "remove" {
 		for _, id := range ids {
