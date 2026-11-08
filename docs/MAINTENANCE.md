@@ -20,6 +20,7 @@ go build -o /tmp/rustdesk-api ./cmd/apimain.go
 node --check resources/admin/app.js
 node --test resources/admin/app.test.cjs
 node --check resources/web2/app.js
+cd resources/web/js && npm ci && npm run build
 ```
 
 Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。GitHub Actions 会为测试启动 Redis 服务。
@@ -28,6 +29,6 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 
 ## 发布
 
-推送版本标签，例如 `v3.0.0` 后，GitHub Actions 在 Go 测试和 JavaScript 语法检查通过后，发布可执行程序压缩包到 GitHub Release。主分支和版本标签还会构建 Docker 镜像，分别提供 amd64 与 arm64 架构。
+推送版本标签，例如 `v3.0.0` 后，GitHub Actions 在 Go 测试、前端交互测试及 WebClient 连接组件构建通过后，发布可执行程序压缩包到 GitHub Release。主分支和版本标签还会构建 Docker 镜像，分别提供 amd64 与 arm64 架构。
 
 发布前检查配置文件中的端口及 JWT 密钥设置，并备份正式环境数据库。

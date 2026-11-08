@@ -41,6 +41,19 @@ jobs:
           test -s resources/web2/index.html
           node --check resources/admin/app.js
           node --check resources/web2/app.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build WebClient connection engine
+        working-directory: resources/web/js
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: webclient-js-bundle
+          path: resources/web/js/dist
+          if-no-files-found: error
       - name: Restore dependency checksums
         run: go mod tidy
       - name: Save dependency checksums
@@ -81,6 +94,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: webclient-js-bundle
+          path: resources/web/js/dist
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -168,6 +185,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: webclient-js-bundle
+          path: resources/web/js/dist
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Normalize image name
