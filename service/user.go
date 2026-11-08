@@ -214,43 +214,53 @@ func (us *UserService) Logout(u *model.User, token string) error {
 
 // Delete 删除用户和oauth信息
 func (us *UserService) Delete(u *model.User) error {
-	userCount := us.getAdminUserCount()
-	if userCount <= 1 && us.IsAdmin(u) {
+	if u == nil || u.Id == 0 { return errors.New("user ID is required") }
+	current := us.InfoById(u.Id)
+	if current.Id == 0 { return errors.New("user does not exist") }
+	if us.IsAdmin(current) && us.getAdminUserCount() <= 1 {
 		return errors.New("The last admin user cannot be deleted")
 	}
-	tx := DB.Begin()
-	// 删除用户
-	if err := tx.Delete(u).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	// 删除关联的 OAuth 信息
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.UserThird{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	//  删除关联的ab
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBook{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	//  删除关联的abc
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBookCollection{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	//  删除关联的abcr
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	tx.Commit()
-	// 删除关联的peer
-	if err := AllService.PeerService.EraseUserId(u.Id); err != nil {
-		Logger.Warn("User deleted successfully, but failed to unlink peer.")
-		return nil
-	}
-	return nil
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var ownedGroups []uint
+		if err := tx.Model(&model.Group{}).Where("owner_user_id = ?", u.Id).
+			Pluck("id", &ownedGroups).Error; err != nil { return err }
+		var ownedCollections []uint
+		if err := tx.Model(&model.AddressBookCollection{}).Where("user_id = ?",u.Id).
+			Pluck("id", &ownedCollections).Error; err != nil { return err }
+
+		if len(ownedGroups) > 0 {
+			if err := tx.Model(&model.User{}).Where("group_id IN ?",ownedGroups).
+				Update("group_id",1).Error; err != nil { return err }
+			for _, row := range []interface{}{&model.GroupMembership{},&model.GroupAnchor{}} {
+				if err := tx.Where("group_id IN ?",ownedGroups).Delete(row).Error; err != nil { return err }
+			}
+			if err := tx.Where("id IN ?",ownedGroups).Delete(&model.Group{}).Error; err != nil { return err }
+			if err := tx.Where("type = ? AND to_id IN ?",model.ShareAddressBookRuleTypeGroup,ownedGroups).
+				Delete(&model.AddressBookCollectionRule{}).Error; err != nil { return err }
+		}
+		if len(ownedCollections) > 0 {
+			if err := tx.Where("collection_id IN ?",ownedCollections).
+				Delete(&model.AddressBookCollectionRule{}).Error; err != nil { return err }
+		}
+		if err := tx.Where("owner_user_id = ? OR recipient_user_id = ?",u.Id,u.Id).
+			Delete(&model.Contact{}).Error; err != nil { return err }
+		if err := tx.Where("user_id = ?",u.Id).
+			Delete(&model.GroupMembership{}).Error; err != nil { return err }
+		if err := tx.Where("user_id = ?",u.Id).
+			Delete(&model.GroupAnchor{}).Error; err != nil { return err }
+		if err := tx.Where("type = ? AND to_id = ?",model.ShareAddressBookRuleTypePersonal,u.Id).
+			Delete(&model.AddressBookCollectionRule{}).Error; err != nil { return err }
+		for _, row := range []interface{}{
+			&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
+			&model.AddressBookCollectionRule{},&model.Tag{},
+			&model.UserToken{},&model.ShareRecord{},
+		} {
+			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
+		}
+		if err := tx.Model(&model.Peer{}).Where("user_id = ?",u.Id).
+			Update("user_id",0).Error; err != nil { return err }
+		return tx.Delete(current).Error
+	})
 }
 
 // Update 更新

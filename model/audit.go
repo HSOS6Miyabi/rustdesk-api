@@ -8,8 +8,8 @@ const (
 type AuditConn struct {
 	IdModel
 	Action    string `json:"action" gorm:"default:'';not null;"`
-	ConnId    int64  `json:"conn_id" gorm:"default:0;not null;index"`
-	PeerId    string `json:"peer_id" gorm:"default:'';not null;index"`
+	ConnId    int64  `json:"conn_id" gorm:"default:0;not null;index;index:idx_audit_conn_peer_connection,priority:2"`
+	PeerId    string `json:"peer_id" gorm:"default:'';not null;index;index:idx_audit_conn_peer_connection,priority:1"`
 	FromPeer  string `json:"from_peer" gorm:"default:'';not null;index"`
 	FromName  string `json:"from_name" gorm:"default:'';not null;"`
 	FromUserId uint `json:"from_user_id" gorm:"default:0;not null;index"`

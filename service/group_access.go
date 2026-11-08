@@ -37,51 +37,64 @@ func (gs *GroupService) GroupIdsForUser(user *model.User) ([]uint, error) {
 	return distinctUserIDs(append([]uint{user.GroupId}, additional...)), nil
 }
 
-// VisibleUserIds only controls the account and device directory exposed by API endpoints.
-// Connecting directly to a device using its known ID remains unrestricted by group visibility.
+func (gs *GroupService) directoryGroups(user *model.User) ([]model.Group, bool, error) {
+	ids, err := gs.GroupIdsForUser(user)
+	if err != nil { return nil, false, err }
+	if len(ids) == 0 { return nil, false, nil }
+	var groups []model.Group
+	if err := DB.Where("id IN ?", ids).Find(&groups).Error; err != nil {
+		return nil, false, err
+	}
+	hasAnchor := false
+	for _, group := range groups {
+		if group.Type == model.GroupTypeAnchor { hasAnchor = true }
+	}
+	return groups, hasAnchor, nil
+}
+
+// VisibleUserIds filters only directory responses and never denies direct device-ID connections.
 func (gs *GroupService) VisibleUserIds(user *model.User) ([]uint, error) {
 	if user == nil || user.Id == 0 {
 		return nil, errors.New("user does not exist")
 	}
-	groups, err := gs.GroupIdsForUser(user)
+	groups, hasAnchor, err := gs.directoryGroups(user)
 	if err != nil { return nil, err }
-	hasAnchorGroup := false
-	for _, id := range groups {
-		if group := gs.InfoById(id); group.Id != 0 && group.Type == model.GroupTypeAnchor {
-			hasAnchorGroup = true
-		}
-	}
-	// Even an administrator who belongs to an anchor group sees only the
-	// explicitly selected public users in RustDesk client directory results.
-	if !hasAnchorGroup && user.IsAdmin != nil && *user.IsAdmin {
+	// Group administrators follow public-anchor visibility in the RustDesk client.
+	if !hasAnchor && user.IsAdmin != nil && *user.IsAdmin {
 		var all []uint
 		err := DB.Model(&model.User{}).Pluck("id", &all).Error
 		return all, err
 	}
 	visible := []uint{user.Id}
-	for _, id := range groups {
-		group := gs.InfoById(id)
-		if group.Id == 0 { continue }
-		var members []uint
+	sharedIds, anchorIds := make([]uint, 0), make([]uint, 0)
+	for _, group := range groups {
 		switch group.Type {
 		case model.GroupTypeShare:
-			// Anchor groups take precedence over broad group visibility.
-			if hasAnchorGroup { continue }
-			members, err = gs.MemberIds(id)
+			if !hasAnchor { sharedIds = append(sharedIds, group.Id) }
 		case model.GroupTypeAnchor:
-			members, err = gs.AnchorIds(id)
-		default:
-			continue
+			anchorIds = append(anchorIds, group.Id)
 		}
-		if err != nil { return nil, err }
-		visible = append(visible, members...)
 	}
-	// Contact exposure is independent of group visibility and explicitly
-	// granted by each device owner.
-	var contacts []uint
+	if len(sharedIds) > 0 {
+		var primary, secondary []uint
+		if err := DB.Model(&model.User{}).Where("group_id IN ?", sharedIds).
+			Pluck("id", &primary).Error; err != nil { return nil, err }
+		if err := DB.Model(&model.GroupMembership{}).Where("group_id IN ?", sharedIds).
+			Pluck("user_id", &secondary).Error; err != nil { return nil, err }
+		visible = append(visible, primary...)
+		visible = append(visible, secondary...)
+	}
+	if len(anchorIds) > 0 {
+		var anchors []uint
+		if err := DB.Model(&model.GroupAnchor{}).Where("group_id IN ?", anchorIds).
+			Pluck("user_id", &anchors).Error; err != nil { return nil, err }
+		visible = append(visible, anchors...)
+	}
+	// An explicitly created contact grant is independent of the group configuration.
+	var contactOwners []uint
 	if err := DB.Model(&model.Contact{}).Where("recipient_user_id = ?", user.Id).
-		Pluck("owner_user_id", &contacts).Error; err != nil { return nil, err }
-	visible = append(visible, contacts...)
+		Pluck("owner_user_id", &contactOwners).Error; err != nil { return nil, err }
+	visible = append(visible, contactOwners...)
 	return distinctUserIDs(visible), nil
 }
 

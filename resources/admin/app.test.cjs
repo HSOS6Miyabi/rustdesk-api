@@ -17,11 +17,12 @@ function storage(initial = {}) {
   };
 }
 
-function createConsole(isAdmin = false) {
+function createConsole(isAdmin = false, overrides = {}) {
   const calls = [];
   const events = {};
   const root = { innerHTML: "" };
-  const browserLocation = { hash: "#/overview", assign() {} };
+  const assigned = [];
+  const browserLocation = { hash: "#/overview", assign(url) {assigned.push(url);} };
   const user = {
     username: "demo-user",
     nickname: "Demo",
@@ -74,7 +75,7 @@ function createConsole(isAdmin = false) {
     confirm() { return true; },
     location: browserLocation
   };
-  const session = storage({ "rustdesk.console.token": "example-session" });
+  const session = storage({ "rustdesk.console.token": "example-session", ...overrides });
   const local = storage();
   const context = {
     document: mockDocument, window: mockWindow, location: browserLocation,
@@ -86,7 +87,7 @@ function createConsole(isAdmin = false) {
   vm.runInNewContext(source, context, { filename: "resources/admin/app.js" });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return {
-    root, calls, events, fixtures, settle,
+    root, calls, events, fixtures, settle, assigned,
     async open(view) {
       const control = { dataset: { view } };
       await events.click({ target: { closest: () => control } });
@@ -147,4 +148,11 @@ test("personal group form includes anchor type", async () => {
   await app.action("create");
   assert.match(app.root.innerHTML, /公共锚点组/);
   assert.match(app.root.innerHTML, /新增我的群组|新建我的群组/);
+});
+
+test("control console returns to WebClient after SSO login",async()=>{
+  const app=createConsole(false, {"rustdesk.console.return":"/webclient2/"});
+  await app.settle();
+  await app.settle();
+  assert.deepEqual(app.assigned, ["/webclient2/"]);
 });
