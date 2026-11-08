@@ -31,12 +31,19 @@ func sharedOwnerSources(user *model.User) (map[uint][]SharedDeviceSource, error)
 	owners := make(map[uint][]SharedDeviceSource)
 	groups, err := AllService.GroupService.GroupIdsForUser(user)
 	if err != nil { return nil, err }
+	anchorMode := false
+	for _, id := range groups {
+		if group := AllService.GroupService.InfoById(id); group.Id != 0 && group.Type == model.GroupTypeAnchor {
+			anchorMode = true
+		}
+	}
 	for _, id := range groups {
 		group := AllService.GroupService.InfoById(id)
 		if group.Id == 0 { continue }
 		var ids []uint
 		switch group.Type {
 		case model.GroupTypeShare:
+			if anchorMode { continue }
 			ids, err = AllService.GroupService.MemberIds(id)
 		case model.GroupTypeAnchor:
 			ids, err = AllService.GroupService.AnchorIds(id)
@@ -117,4 +124,32 @@ func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filte
 		})
 	}
 	return result, nil
+}
+
+func (ps *PeerService) SharedDeviceSources(user *model.User) ([]SharedDeviceSource, error) {
+	owners, err := sharedOwnerSources(user)
+	if err != nil { return nil, err }
+	all := make(map[string]SharedDeviceSource)
+	var ids []uint
+	for id := range owners { ids = append(ids, id) }
+	var users []model.User
+	if len(ids) > 0 {
+		if err := DB.Select("id,username").Where("id IN ?", ids).Find(&users).Error; err != nil { return nil, err }
+	}
+	nameByID := make(map[uint]string,len(users))
+	for _, u := range users { nameByID[u.Id] = u.Username }
+	for owner, sources := range owners {
+		for _, source := range sources {
+			if source.Type == "contact" { source.Name = nameByID[owner] }
+			key := fmt.Sprintf("%s:%d", source.Type, source.Id)
+			all[key] = source
+		}
+	}
+	result := make([]SharedDeviceSource, 0, len(all))
+	for _, source := range all { result = append(result, source) }
+	sort.Slice(result,func(i,j int) bool {
+		if result[i].Type != result[j].Type { return result[i].Type < result[j].Type }
+		return result[i].Name < result[j].Name
+	})
+	return result,nil
 }

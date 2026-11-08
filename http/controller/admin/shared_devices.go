@@ -22,3 +22,10 @@ func (ct *SharedDevices) List(c *gin.Context) {
 	if err != nil { response.Fail(c, 101, err.Error()); return }
 	response.Success(c, page)
 }
+
+func (ct *SharedDevices) Sources(c *gin.Context) {
+	current := service.AllService.UserService.CurUser(c)
+	sources, err := service.AllService.PeerService.SharedDeviceSources(current)
+	if err != nil { response.Fail(c,101,err.Error()); return }
+	response.Success(c,gin.H{"sources": sources})
+}

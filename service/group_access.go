@@ -43,44 +43,44 @@ func (gs *GroupService) VisibleUserIds(user *model.User) ([]uint, error) {
 	if user == nil || user.Id == 0 {
 		return nil, errors.New("user does not exist")
 	}
-	if user.IsAdmin != nil && *user.IsAdmin {
+	groups, err := gs.GroupIdsForUser(user)
+	if err != nil { return nil, err }
+	hasAnchorGroup := false
+	for _, id := range groups {
+		if group := gs.InfoById(id); group.Id != 0 && group.Type == model.GroupTypeAnchor {
+			hasAnchorGroup = true
+		}
+	}
+	// Even an administrator who belongs to an anchor group sees only the
+	// explicitly selected public users in RustDesk client directory results.
+	if !hasAnchorGroup && user.IsAdmin != nil && *user.IsAdmin {
 		var all []uint
 		err := DB.Model(&model.User{}).Pluck("id", &all).Error
 		return all, err
 	}
 	visible := []uint{user.Id}
-	groups, err := gs.GroupIdsForUser(user)
-	if err != nil {
-		return nil, err
-	}
 	for _, id := range groups {
 		group := gs.InfoById(id)
-		if group.Id == 0 {
-			continue
-		}
+		if group.Id == 0 { continue }
 		var members []uint
 		switch group.Type {
 		case model.GroupTypeShare:
-			err = DB.Model(&model.User{}).
-				Where("group_id = ? OR id IN (?)", id,
-					DB.Model(&model.GroupMembership{}).Select("user_id").Where("group_id = ?", id)).
-				Pluck("id", &members).Error
+			// Anchor groups take precedence over broad group visibility.
+			if hasAnchorGroup { continue }
+			members, err = gs.MemberIds(id)
 		case model.GroupTypeAnchor:
-			err = DB.Model(&model.GroupAnchor{}).Where("group_id = ?", id).
-				Pluck("user_id", &members).Error
+			members, err = gs.AnchorIds(id)
 		default:
 			continue
 		}
-		if err != nil {
-			return nil, err
-		}
+		if err != nil { return nil, err }
 		visible = append(visible, members...)
 	}
+	// Contact exposure is independent of group visibility and explicitly
+	// granted by each device owner.
 	var contacts []uint
 	if err := DB.Model(&model.Contact{}).Where("recipient_user_id = ?", user.Id).
-		Pluck("owner_user_id", &contacts).Error; err != nil {
-		return nil, err
-	}
+		Pluck("owner_user_id", &contacts).Error; err != nil { return nil, err }
 	visible = append(visible, contacts...)
 	return distinctUserIDs(visible), nil
 }

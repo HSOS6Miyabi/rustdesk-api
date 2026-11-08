@@ -339,4 +339,5 @@ func ContactBind(rg *gin.RouterGroup) {
 
 func SharedDevicesBind(rg *gin.RouterGroup) {
 	rg.GET("/shared_devices/list", (&admin.SharedDevices{}).List)
+	rg.GET("/shared_devices/sources", (&admin.SharedDevices{}).Sources)
 }
