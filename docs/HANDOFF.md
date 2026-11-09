@@ -1,5 +1,7 @@
 # 开发交接说明
 
+> **统一交接入口：[RustDesk OSS API 与 Server 完整实施台账](IMPLEMENTATION_LEDGER.md)。** 包含当前两仓库提交及 CI、完整功能状态、T001 至 T022 待办任务、测试命令、部署设置和发布条件。请先阅读台账第 1 至第 10 节，再按需阅读下方模块说明。
+
 本项目面向小型团队，优先补齐官方客户端常用功能，并保留简单的默认部署方式。
 
 ## 当前工作
@@ -89,7 +91,7 @@
 
 ### 接手后的优先工作
 
-读取 [功能清单](FEATURE_MATRIX.md) 中尚未完成的功能，首先检查 TOTP、邮箱登录验证、控制角色、多中继服务器与自定义客户端功能，并继续保持功能实现、前端操作、自动测试和文档记录同步更新。
+优先按照 [实施台账](IMPLEMENTATION_LEDGER.md) 中 T001 至 T012 的实际客户端、数据库和部署检查推进；之后根据 T013 至 T022 的优先级继续扩展自定义客户端构建器、更多客户端策略和其他功能。每个功能均需更新测试及交接记录。
 
 两个仓库仍处于草稿 PR 阶段。版本确认之前不发布 Release。
 
@@ -154,7 +156,7 @@ Server：
 
 两端使用相同的 `RUSTDESK_API_INTERNAL_KEY`；Server 通过 `RUSTDESK_API_RELAY_NODES_URL` 查找内部接口。未配置同步地址时保留原有中继选择方法。
 
-接手时应检查 API 和 Server 两个草稿 PR 的最新 CI，并运行上述真实服务测试。服务器区域自动识别（GeoLite2）仍在待开发范围中。
+接手时应检查 API 和 Server 两个草稿 PR 的最新 CI，并运行上述真实服务测试。GeoLite2 Country CSV 国家识别已实现，详细内容见下文“GeoLite2 国家识别”。
 
 ## GeoLite2 国家识别
 
@@ -193,7 +195,7 @@ API 数据库迁移版本为 278，包含 `control_roles`、`control_role_assign
 - `service/admin_mfa_reset.go`：管理员恢复账户双重认证。
 - `resources/admin/app.js`：角色权限选择、分配和受委派成员可访问的网页。
 
-当前分支数据库迁移版本为 279。新增 `admin_roles`、`admin_role_assignments`，系统管理员默认仍拥有全部权限。一个用户可被分配多个角色。
+管理员角色在迁移版本 279 中增加了 `admin_roles`、`admin_role_assignments`；当前开发分支数据库迁移版本为 280。系统管理员默认仍拥有全部权限。一个用户可被分配多个角色。
 
 限定范围只读角色目前支持 `users.view` 和 `devices.view`。其他操作需要全局角色。新增其他管理端点时，应先为 `AdminPermissionForRoute` 添加相应权限，再根据操作对象限制可访问的数据，避免扩大角色权限。
 

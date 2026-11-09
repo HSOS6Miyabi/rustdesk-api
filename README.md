@@ -1,5 +1,7 @@
 # RustDesk API
 
+> **接手开发请先阅读：[完整实施台账与 22 项待办事项](docs/IMPLEMENTATION_LEDGER.md)。** 当前功能位于两个仓库的 `development/m1-device-management` 开发分支，正式里程碑尚未确认，日常提交不发布 Release。
+
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
 本项目提供设备和用户管理、地址簿、联系人共享、远程访问记录、OIDC/SSO 登录、WebClient v2，以及适合电脑和平板、手机使用的管理界面。

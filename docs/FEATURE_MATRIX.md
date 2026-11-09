@@ -1,5 +1,7 @@
 # RustDesk 功能清单
 
+接手开发与完整待办任务请查看 [实施台账](IMPLEMENTATION_LEDGER.md)。当前开发分支尚未批准发布，以下“已实现”均指开发代码及相应自动化测试，不包含待执行的真实客户端检查。
+
 本项目面向个人和小型团队，尽量提供开源、自托管的 RustDesk 商业版常用功能。此表按照当前开发分支的代码维护，不能以“计划中”代替实际完成情况。
 
 | 功能 | 当前情况 | 对应模块 | 后续工作 |
@@ -14,8 +16,8 @@
 | 连接日志、文件传输及告警 | 已实现主要日志、远程结束会话与历史连接备注 | `service/audit.go`、`service/session_management.go`、`service/audit_note.go` | 更多查询条件 |
 | WebClient v2、WebSocket、WebRTC | 已实现基本功能 | `resources/web2`、`resources/web/js` | 实际设备回归测试 |
 | 设备策略心跳同步 | 开发分支已实现三级分配及优先级 | `service/device_policy.go`、`service/device_policy_target.go` | 扩充更多客户端设置项 |
-| 官方客户端 `--assign` | 开发中 | `http/controller/api/device_commands.go` | 执行集成测试及兼容性检查 |
-| 官方客户端 `--deploy` | 开发中 | `http/controller/api/device_commands.go` | 配套服务端端到端测试 |
+| 官方客户端 `--assign` | 已实现 API 接口及集成测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端完成分配操作测试（T001） |
+| 官方客户端 `--deploy` | 已实现 API 接口和真实 hbbs 测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端测试安装、部署与撤销（T001） |
 | 管理设备部署记录 | 开发分支已实现撤销和恢复许可 | `http/controller/admin/device_deployment.go` | 批量管理 |
 | 严格设备注册（可选） | 开发分支已实现并通过实际服务进程测试 | API 与 `rustdesk-server` | 真实客户端安装测试 |
 | SMTP 邮件发送和管理 | 开发分支已实现 SMTP 设置、凭据加密和测试邮件 | `service/mail.go`、`http/controller/admin/mail.go` | 更多邮件发送通知 |
