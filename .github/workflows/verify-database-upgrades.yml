@@ -1,0 +1,57 @@
+name: Test database upgrades
+
+on:
+  push:
+    branches:
+      - development/m1-device-management
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rustdesk-database-upgrades-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sqlite-mysql-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: rustdesk_upgrade
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-only-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_USER: rustdesk
+          POSTGRES_DB: rustdesk_upgrade
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U rustdesk -d rustdesk_upgrade"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+          cache: true
+      - name: Test historical schema migration across three databases
+        env:
+          RUSTDESK_TEST_MYSQL_DSN: 'root:test-only-password@tcp(127.0.0.1:3306)/rustdesk_upgrade?charset=utf8mb4&parseTime=true&loc=UTC'
+          RUSTDESK_TEST_POSTGRES_DSN: 'host=127.0.0.1 port=5432 user=rustdesk password=test-only-password dbname=rustdesk_upgrade sslmode=disable TimeZone=UTC'
+        run: go test ./service -run 'TestDatabaseMigrationAcrossDrivers' -count=1 -v
