@@ -314,7 +314,7 @@ jobs:
             TAG="v3.0.0-api.$GITHUB_RUN_NUMBER"
           fi
           TAGS=(-t "$IMAGE:$TAG")
-          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+          if [[ "$GITHUB_REF" == "refs/heads/master" || "$GITHUB_REF_TYPE" == "tag" ]]; then
             TAGS+=(-t "$IMAGE:latest")
           fi
           docker buildx imagetools create "${TAGS[@]}" "$IMAGE:$TAG-amd64" "$IMAGE:$TAG-arm64"
