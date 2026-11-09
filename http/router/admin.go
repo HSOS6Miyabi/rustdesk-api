@@ -120,7 +120,6 @@ func GroupBind(rg *gin.RouterGroup) {
 	{
 		cont := &admin.Group{}
 		aR.GET("/list", cont.List)
-		aR.GET("/export", cont.ExportCSV)
 		aR.GET("/detail/:id", cont.Detail)
 		aR.GET("/members", cont.Members)
 		aR.POST("/members/batch", cont.BatchMembers)
@@ -129,6 +128,10 @@ func GroupBind(rg *gin.RouterGroup) {
 		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
 		aR.POST("/delete", cont.Delete)
+	}
+}
+
+.POST("/delete", cont.Delete)
 	}
 }
 
@@ -187,6 +190,7 @@ func PeerBind(rg *gin.RouterGroup) {
 	{
 		cont := &admin.Peer{}
 		aR.GET("/list", cont.List)
+		aR.GET("/export", cont.ExportCSV)
 		aR.GET("/detail/:id", cont.Detail)
 		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
