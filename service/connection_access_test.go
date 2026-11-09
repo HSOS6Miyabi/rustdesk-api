@@ -105,3 +105,37 @@ func TestConnectionAccessRulesValidateReferences(t *testing.T){
 	if err:=DeleteAccessRule(r.Id);err==nil{t.Fatal("deleted rule was deleted again")}
 }
 func itoaGroup(id uint)string {return strconv.FormatUint(uint64(id),10)}
+
+func TestConnectionAccessRuleCleanupWhenObjectsDisappear(t *testing.T){
+	cleanup:=setupGroupDB(t)
+	defer cleanup()
+	if err:=DB.AutoMigrate(&model.AccessRule{},&model.DeviceGroup{},&model.UserToken{});err!=nil{t.Fatal(err)}
+	AllService.UserService=&UserService{}
+	users:=seedGroups(t)
+	user:=users["anchor"]
+	deviceGroup:=&model.DeviceGroup{Name:"Older desktops"}
+	if err:=DB.Create(deviceGroup).Error;err!=nil{t.Fatal(err)}
+	for _,deviceID:=range []string{"deleted-device","batch-one","batch-two"}{
+		device:=&model.Peer{Id:deviceID,Uuid:deviceID+"-uuid",UserId:user.Id,GroupId:deviceGroup.Id}
+		if err:=DB.Create(device).Error;err!=nil{t.Fatal(err)}
+	}
+	rules:=[]*model.AccessRule{
+		{Name:"Direct",SourceType:"all",TargetType:"device",TargetID:"deleted-device",Effect:"allow",Enabled:true},
+		{Name:"Batch one",SourceType:"all",TargetType:"device",TargetID:"batch-one",Effect:"allow",Enabled:true},
+		{Name:"Batch two",SourceType:"all",TargetType:"device",TargetID:"batch-two",Effect:"allow",Enabled:true},
+		{Name:"Device group",SourceType:"all",TargetType:"device_group",TargetID:itoaGroup(deviceGroup.Id),Effect:"allow",Enabled:true},
+		{Name:"User group",SourceType:"group",SourceID:2,TargetType:"all",Effect:"allow",Enabled:true},
+	}
+	for _,rule:=range rules{if err:=SaveAccessRule(rule);err!=nil{t.Fatal(err)}}
+	deleted:=AllService.PeerService.FindById("deleted-device")
+	if err:=AllService.PeerService.Delete(deleted);err!=nil{t.Fatal(err)}
+	first:=AllService.PeerService.FindById("batch-one")
+	second:=AllService.PeerService.FindById("batch-two")
+	if err:=AllService.PeerService.BatchDelete([]uint{first.RowId,second.RowId});err!=nil{t.Fatal(err)}
+	if err:=AllService.GroupService.DeviceGroupDelete(deviceGroup);err!=nil{t.Fatal(err)}
+	if err:=AllService.GroupService.Delete(&model.Group{IdModel:model.IdModel{Id:2}});err!=nil{t.Fatal(err)}
+	var remaining int64
+	if err:=DB.Model(&model.AccessRule{}).Count(&remaining).Error;err!=nil||remaining!=0{
+		t.Fatalf("deleted devices and groups retained %d access rules: %v",remaining,err)
+	}
+}

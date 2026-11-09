@@ -17,6 +17,7 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
 		&model.PasswordResetToken{},&model.UserInvitation{},&model.ControlRole{},&model.ControlRoleAssignment{},
 		&model.AdminRole{},&model.AdminRoleAssignment{},
+		&model.AccessRule{},
 		&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
@@ -45,6 +46,16 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	}
 	peer:=&model.Peer{Id:"owned-device",UserId:owner.Id,Hostname:"Owner's PC"}
 	if err:=DB.Create(peer).Error;err!=nil{t.Fatal(err)}
+	for _,rule:=range []*model.AccessRule{
+		{Name:"Account access",SourceType:"user",SourceID:owner.Id,
+			TargetType:"all",Effect:"allow",Enabled:true},
+		{Name:"Target owner",SourceType:"all",TargetType:"user",
+			TargetID:strconv.FormatUint(uint64(owner.Id),10),Effect:"allow",Enabled:true},
+		{Name:"Owned group",SourceType:"group",SourceID:group.Id,
+			TargetType:"all",Effect:"allow",Enabled:true},
+	}{
+		if err:=DB.Create(rule).Error;err!=nil{t.Fatal(err)}
+	}
 	role:=&model.ControlRole{Name:"Account control",Keyboard:1}
 	if err:=DB.Create(role).Error;err!=nil{t.Fatal(err)}
 	if err:=DB.Create(&model.ControlRoleAssignment{
@@ -134,6 +145,9 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	if err:=DB.Model(&model.AdminRoleAssignment{}).Where("role_id = ?",adminRole.Id).
 		Count(&count).Error;err!=nil||count!=0{
 		t.Fatalf("deleted role retained assignments for other accounts: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AccessRule{}).Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account and owned group left %d connection access rules: %v",count,err)
 	}
 	var preservedPeer model.Peer
 	if err:=DB.Where("id = ?",peer.Id).First(&preservedPeer).Error;err!=nil||preservedPeer.UserId!=0 {
