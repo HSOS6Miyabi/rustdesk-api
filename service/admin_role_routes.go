@@ -28,7 +28,7 @@ func AdminPermissionForRoute(method,path string)string{
 		if read{return "users.force_logout"}
 	case p=="/user_token/delete"||p=="/user_token/batchDelete":
 		if write{return "users.force_logout"}
-	case p=="/peer/list"||p=="/peer/detail/:id":
+	case p=="/peer/list"||p=="/peer/export"||p=="/peer/detail/:id":
 		if read{return "devices.view"}
 	case p=="/peer/create":
 		if write{return "devices.create"}
