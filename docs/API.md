@@ -190,7 +190,12 @@ RustDesk 客户端使用以下接口提交审计事件：
   "id_whitelist": "123456,789*",
   "ip_whitelist": "192.0.2.0/24",
   "enable_webrtc": true,
-  "trust_duration_days": 30
+  "trust_duration_days": 30,
+  "access_mode": "view",
+  "enable_keyboard": "N",
+  "enable_clipboard": "N",
+  "enable_file_transfer": "N",
+  "approval_mode": "password-click"
 }
 ```
 
@@ -201,6 +206,10 @@ RustDesk 客户端使用以下接口提交审计事件：
 ```
 
 `trust_duration_days` 可填写 `0`、`1`、`7`、`30` 或 `90`，其中 `0` 表示不限期限。
+
+新增的远程安全设置遵循 RustDesk 官方客户端设置名称。访问模式可填写 `custom`、`full` 或 `view`；键盘鼠标、剪贴板、文件传输分别使用 `Y`（允许）、`N`（禁止）；连接确认方式可填写 `password-click`、`password` 或 `click`。留空表示沿用客户端设置。服务器保存此前由策略管理的选项，管理员将其改为空值时，后续心跳会发送清除指令。尚未通过策略管理的选项保持原有处理方式。
+
+设置名称及适用平台见 [RustDesk 官方高级设置说明](https://rustdesk.com/docs/en/self-host/client-configuration/advanced-settings/)。控制角色在连接协商期间处理会话权限，这里的策略通过客户端心跳更新本地设置。
 
 `GET /api/device-policy/current?device_id=123456789` 供已登录的设备所有者及管理员查询当前策略。
 
@@ -816,3 +825,31 @@ Content-Type: application/json
 ```
 
 一次可处理最多 200 条记录。个人接口只处理当前账户的回收站。管理员接口可通过 `user_id` 指定所有者。恢复前检查原分类、设备 ID 是否冲突以及记录归属，任何不满足条件的记录都会取消整批恢复。批量永久删除会检查所有目标记录已处于回收站，删除操作不可恢复。
+
+
+## 邮件事件通知
+
+管理员可以在“邮件事件通知”页面选择需要发送的事件及通知收件邮箱。数据库迁移版本为 281，初始状态不启用通知。建议先在“SMTP 邮件服务”页面配置发送服务器并发送测试邮件。
+
+- `GET /api/admin/notification/settings`：查看通知状态及支持的事件。
+- `POST /api/admin/notification/settings`：保存配置。
+- `GET /api/admin/notification/list?page=1&page_size=20`：查看邮件发送记录与失败原因。
+- `POST /api/admin/notification/retry`：重新提交已失败的发送记录，请求正文为 `{"id":8}`。
+
+示例：
+
+```json
+{
+  "enabled": true,
+  "recipients": "admin@example.com,support@example.com",
+  "events": "login.failure,deployment.changed,session.disconnect_requested,session.ended,audit.file"
+}
+```
+
+一次最多配置 5 个收件邮箱。登录异常会在同一来源、账户与 15 分钟时间范围内合并通知，降低重复邮件数量。发送任务与业务操作分开执行，发送失败会保留状态及失败原因；系统最多自动尝试三次，管理员可以重新提交失败的邮件。通知邮件不包含登录密码、设备密钥或 API 令牌。
+
+## 设备清单及审计 CSV 筛选
+
+具有相应管理权限的用户可通过 `GET /api/admin/peer/export` 下载设备清单。参数支持 `user_id`（所有者编号）与 `search`（设备 ID、主机名或别名）。服务器会进一步限制受委派管理员可读取的用户范围。具有 `devices.read` 权限的独立 API 令牌也可以访问 `GET /api/automation/v1/devices/export`，令牌所属账户必须是启用的系统管理员。
+
+`GET /api/admin/audit/export` 在原有 `kind` 与 `from_id` 参数之外，还支持 `from_date`、`to_date`（日期格式 `YYYY-MM-DD`），以及适用类别中的 `peer_id`、`from_peer`、`from_user_id`、`action`。日期筛选使用 UTC 日期，数据下载最多 10000 条。对 CSV 的文本字段进行电子表格安全处理。
