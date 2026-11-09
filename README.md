@@ -98,3 +98,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 ## 连接记录备注
 
 管理员可在“全部连接记录”中为历史远程连接添加备注，记录用途和处理过程。连接记录导出 CSV 时也包含备注，方便日常归档。
+
+## 双重认证
+
+个人设置中支持可选的 TOTP 动态验证码和六个一次性恢复码。启用后，官方 RustDesk 客户端与 Web 管理控制台的密码登录都需要进行双重认证。服务器需要配置持久化的 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，详情参见 [升级说明](docs/UPGRADE.md)。

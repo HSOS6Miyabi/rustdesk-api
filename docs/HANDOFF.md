@@ -98,3 +98,19 @@
 `model/audit.go` 的 `AuditConn` 保存 `note` 和 `note_updated_by`。`service/audit_note.go` 按连接记录编号修改备注。管理员 HTTP 接口位于 `http/controller/admin/audit_note.go`，管理页面位于 `resources/admin/app.js` 的“全部连接记录”。
 
 执行 `go test ./service -run TestConnectionAuditNotes -count=1` 和 `go test ./http/controller/admin -run TestConnectionAuditNoteHTTPAndCSV -count=1` 检查备注与 CSV 导出，另使用 Chromium 管理界面测试确认编辑功能。
+
+## 双重认证功能
+
+TOTP 实现位于 `service/totp.go`，数据模型位于 `model/totp.go`。API 个人设置接口：`http/controller/admin/totp.go`。双阶段登录分别位于 `http/controller/api/login.go`、`http/controller/admin/login.go`，管理网页位于 `resources/admin/app.js`。
+
+启动环境必须配置 `RUSTDESK_API_MAIL_ENCRYPTION_KEY` 才能绑定 TOTP；用户无需同时启用 SMTP。此密钥需要在数据库备份和服务重启时持续保持一致。更改密钥前必须处理已保存的 TOTP 密钥和 SMTP 密码。
+
+在开发分支运行：
+```bash
+go test ./service -run 'TestTOTP|TestDeleteUser' -count=1
+go test ./http/controller/api -run TestNativeRustDeskLoginRequiresTOTP -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+TOTP 数据和恢复码会随账户删除一并清理。具体提交和 CI 运行链接参见 [IMPLEMENTATION_LEDGER.md](IMPLEMENTATION_LEDGER.md)。

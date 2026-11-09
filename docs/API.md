@@ -453,3 +453,31 @@ POST /api/admin/audit_conn/note
 备注最多 2000 个字符，提交空字符串可清除备注。仅修改备注与更新人编号，保留原始连接时间、认证信息及会话编号。
 
 查询 `GET /api/admin/audit_conn/list` 返回 `note`、`note_updated_by`；`GET /api/admin/audit/export?kind=audit_conn` 下载的 CSV 也包含这两个字段。
+
+## TOTP 双重认证
+
+双重认证默认关闭。用户登录管理控制台后，可以通过以下接口管理自己的身份验证器：
+
+- `GET /api/admin/mfa/status`：启用状态、待完成绑定以及剩余恢复码数量。
+- `POST /api/admin/mfa/setup`：生成身份验证器密钥和 `otpauth://` 配置链接，绑定请求有效期 10 分钟。
+- `POST /api/admin/mfa/enable`：验证当前六位验证码并启用双重认证，生成 6 个一次性恢复码。
+- `POST /api/admin/mfa/recovery/regenerate`：提交有效验证码或恢复码，重新生成 6 个恢复码。
+- `POST /api/admin/mfa/disable`：提交有效验证码或恢复码，解除双重认证。
+
+启用、解除及重新生成恢复码的请求正文：
+
+```json
+{"code":"123456"}
+```
+
+启用成功后响应 `data.recovery_codes` 列出 6 个恢复码，仅显示一次。后续 `/mfa/status` 只返回恢复码数量。
+
+官方客户端 `POST /api/login` 在已启用 TOTP 的用户输入正确账号与密码后，先返回：
+
+```json
+{"type":"email_check","tfa_type":"tfa_check","secret":"一次性登录凭据","user":{"name":"team-member"}}
+```
+
+然后客户端提交 `type=email_code` 或 `tfa_code`、`secret`、`tfaCode`、`username` 完成验证，成功后返回普通 `access_token` 登录结果。
+
+网页管理控制台 `POST /api/admin/login` 会返回 `data.type=tfa_check`、`secret` 和 `data.user`，然后以 `type=tfa_code` 及验证码再次提交。单次挑战有效期为 5 分钟，每次最多验证 5 次。

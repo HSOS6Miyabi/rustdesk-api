@@ -82,3 +82,17 @@ export RUSTDESK_API_MAIL_ENCRYPTION_KEY="更换为长期保存的随机密钥，
 ## 连接记录备注
 
 `audit_conns` 新增 `note` 和 `note_updated_by`。历史记录的备注默认为空，原有连接时间、身份信息及导出功能保留。管理员可在“全部连接记录”添加和查询备注。
+
+## TOTP 双重认证
+
+数据库自动新增 `user_totps`、`totp_recovery_codes`、`totp_login_challenges`。原有用户默认不启用 TOTP，已安装的普通客户端可继续登录。
+
+如需启用身份验证器，在服务器设置并保存 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，例如：
+
+```bash
+export RUSTDESK_API_MAIL_ENCRYPTION_KEY="替换成至少32个随机字符的长期加密密钥"
+```
+
+该密钥同时用于加密 SMTP 密码和 TOTP 密钥。即使暂时不使用 SMTP，TOTP 仍需要此环境变量。备份数据库时应同时保存密钥，避免升级后无法验证已有的身份验证器。
+
+用户在 Web 控制台“个人设置”中启用 TOTP、输入验证码并妥善保存六个恢复码。

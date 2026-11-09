@@ -71,3 +71,9 @@ SMTP 配置存储在 `smtp_settings` 中。SMTP 密码使用 `RUSTDESK_API_MAIL_
 ## 连接记录备注
 
 备注存储在原有 `audit_conns` 表中，使用 `note` 和 `note_updated_by` 字段。仅管理员可以修改备注，管理操作经已有 HTTP 操作记录组件记录。导出连接日志时将备注及更新人编号追加至 CSV 字段中。
+
+## TOTP 与官方客户端登录
+
+TOTP 密钥保存在 `UserTOTP`，恢复码哈希保存在 `TOTPRecoveryCode`。密码验证成功后，如果用户启用了 TOTP，API 生成有效期五分钟的 `TOTPLoginChallenge`，暂不创建登录会话。用户提交有效动态验证码或一次性恢复码后，服务器才签发原有登录令牌。
+
+客户端使用公开 RustDesk 登录协议中的 `type`、`tfa_type`、`secret` 和 `tfaCode`。管理控制台通过个人设置接口完成绑定、解除和恢复码重新生成。

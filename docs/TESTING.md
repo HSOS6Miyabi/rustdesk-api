@@ -104,3 +104,14 @@ node --test resources/admin/browser.e2e.cjs
 ```
 
 检查备注添加、修改、清除、长度限制、管理员界面保存以及历史连接 CSV 导出。测试同时确认原始连接编号和远程设备信息保留。
+
+## TOTP 双重认证及恢复码
+
+```bash
+go test ./service -run 'TestTOTP|TestDeleteUser' -count=1
+go test ./http/controller/api -run TestNativeRustDeskLoginRequiresTOTP -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+检查 RFC 6238 时间步进计算、绑定、恢复码单次使用、登录挑战有效期和最大尝试次数、官方客户端 HTTP 响应、网页两步登录及账户删除后的认证数据清理。

@@ -171,3 +171,33 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 管理员通过 `POST /api/admin/audit_conn/note` 修改备注，最多 2000 个字符。管理操作自动记录在原有操作日志中。备注同样包含在 `GET /api/admin/audit/export?kind=audit_conn` 的 CSV 文件中。
 
 自动化测试见 [API 草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 的最新提交及 [GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42561282556)。这部分仅修改 API，无须更新 Server。
+
+## 2026-11-09：TOTP 双重认证和一次性恢复码
+
+本模块对小型团队默认关闭。用户可以通过个人设置开启身份验证器，登录时按官方客户端双重认证请求格式验证。支持 30 秒动态验证码、6 个一次性恢复码及验证码重复使用检查。
+
+| 仓库 | 提交 | 内容 |
+| --- | --- | --- |
+| API | [6115846](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6115846009eed5c7e01a4d2b58ff01da4938193e) | TOTP 时间校验、绑定、恢复码、登录挑战及数据库迁移 |
+| API | [6cfd42b](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6cfd42bae6040d16c6eeae9af82a8b560313ac1f) | 官方客户端和网页密码登录的双重认证步骤 |
+| API | [1299065](https://github.com/HSOS6Miyabi/rustdesk-api/commit/12990659d510794924d44ce2b8f46140f3d30707) | 个人设置中的双重认证启停、恢复码管理 |
+| API | [2943406](https://github.com/HSOS6Miyabi/rustdesk-api/commit/29434069a2fa6e6d6d2d08c03ff62f2c9b903c86) | RFC 6238 标准验证码及绑定、恢复码与挑战限制测试 |
+| API | [760fbb2](https://github.com/HSOS6Miyabi/rustdesk-api/commit/760fbb25add2190ce75b626e649857622c19c425) | 官方 RustDesk 客户端登录协议的请求与响应测试 |
+| API | [eefe3f2](https://github.com/HSOS6Miyabi/rustdesk-api/commit/eefe3f2b97df1d5b6d7bfe386e448b3cc70df786) | 管理网页 TOTP 绑定、恢复码显示及登录浏览器测试 |
+| API | [ec31834](https://github.com/HSOS6Miyabi/rustdesk-api/commit/ec3183425294169f22ec64938cab0365a0f41217) | 删除账户时删除 TOTP 数据、登录挑战及密码恢复申请；撤销该账户发出的待接受邀请 |
+
+### 数据、接口及兼容性
+
+增加 `user_totps`、`totp_recovery_codes`、`totp_login_challenges`，数据库迁移版本更新到 274。TOTP 密钥加密保存；恢复码只在生成时显示，数据库只保存摘要。
+
+官方客户端登录首先返回 `type=email_check`、`tfa_type=tfa_check` 和一次性 `secret`；用户提交动态验证码后再创建实际登录令牌。网页通过 `/api/admin/mfa` 管理绑定状态。
+
+目前复用邮件模块使用的 `RUSTDESK_API_MAIL_ENCRYPTION_KEY` 加密 TOTP 密钥。该环境变量在不使用 SMTP 的安装中也需要设置，开启双重认证前应保存并备份。
+
+### 验证
+
+- [TOTP 标准算法与恢复码测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42562369988)，通过。
+- [RustDesk 官方客户端双重认证协议测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42562498241)，通过。
+- [Web 控制台绑定、恢复码及登录浏览器测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42562596974)，通过。
+
+真实 Windows、macOS、Linux、Android 客户端登录需要在完成里程碑前结合实际设备进行检查。

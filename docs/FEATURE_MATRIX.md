@@ -21,7 +21,7 @@
 | SMTP 邮件发送和管理 | 开发分支已实现 SMTP 设置、凭据加密和测试邮件 | `service/mail.go`、`http/controller/admin/mail.go` | 更多邮件发送通知 |
 | 邮件邀请注册 | 开发分支已实现，含有效期和邀请撤销 | `service/user_invitation.go` | 批量邀请 |
 | 邮箱密码恢复 | 开发分支已实现，含一次性恢复链接和旧会话撤销 | `service/password_recovery.go` | 更多恢复方式 |
-| TOTP 与恢复码 | 待实现 | 账户服务 | 原生客户端二次验证 |
+| TOTP 与恢复码 | 开发分支已实现，完成 Go、原生客户端协议及浏览器自动化测试 | `service/totp.go`、`http/controller/admin/totp.go` | 实际客户端多平台测试 |
 | 独立 API 管理令牌 | 开发分支已实现设备命令权限与到期管理 | `service/api_token.go`、`http/middleware/device_command_auth.go` | 扩充可用接口与权限类别 |
 | 管理员角色、控制角色 | 待实现 | API 与服务端 | 分级权限管理 |
 | 服务器执行的连接访问规则 | 待实现 | API 与 `hbbs` | 可选严格模式 |
@@ -48,3 +48,5 @@
 - 成员邮件邀请与账户密码恢复：通过一次性邮件链接完成操作。
 
 以上功能均在 GitHub 草稿 PR 中开发。当前公开 Release 仍应按照其对应版本的功能说明使用。
+
+- 普通用户个人设置：可启用 TOTP、查看剩余恢复码数量、重新生成恢复码或解除双重认证。
