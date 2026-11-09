@@ -101,6 +101,14 @@ jobs:
         run: npm ci --prefix resources/web/js --no-audit --no-fund
       - name: Test desktop, tablet and mobile layouts
         run: node --test resources/admin/browser.e2e.cjs
+      - name: Retain UI screenshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-admin-browser-screenshots
+          path: resources/admin/test-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Test WebRTC media transport in Chromium
         run: node --test resources/admin/browser.webrtc.e2e.cjs
 
