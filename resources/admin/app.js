@@ -18,7 +18,7 @@
     ["users.edit","编辑用户信息"],["users.edit_password","修改用户密码"],
     ["users.force_logout","结束账户会话"],["users.manage_2fa","管理双重认证"],
     ["devices.view","查看设备"],["devices.create","创建设备"],
-    ["devices.edit_info","修改设备信息"],["devices.delete","删除设备"],
+    ["devices.edit_info","修改设备信息"],["devices.delete","删除设备"],["devices.transfer","转移设备所有者"],
     ["user_groups.view","查看用户分组"],["user_groups.edit","管理用户分组"],
     ["device_groups.view","查看设备组"],["device_groups.edit","管理设备组"],
     ["audits.view","查看连接和操作记录"],["audits.edit","管理审计记录"],
