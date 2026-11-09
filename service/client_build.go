@@ -1,6 +1,10 @@
 package service
 
 import (
+	"io"
+	"encoding/hex"
+	"crypto/subtle"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -179,10 +183,30 @@ func ClientBuildFile(taskID uint)(string,string,error){
 		return "","",errors.New("invalid client package name")
 	}
 	path:=filepath.Join(clientBuildRoot(),fmt.Sprintf("%d",task.Id),task.Filename)
-	info,err:=os.Stat(path)
+	info,err:=os.Lstat(path)
 	if err!=nil{return "","",err}
-	if !info.Mode().IsRegular()||info.Size()!=task.Bytes{
+	if !info.Mode().IsRegular()||info.Size()!=task.Bytes || task.Bytes<=0{
 		return "","",errors.New("client package is unavailable")
+	}
+	if len(task.Sha256)!=64 {
+		return "","",errors.New("client package integrity record is missing")
+	}
+	expected,err:=hex.DecodeString(task.Sha256)
+	if err!=nil || len(expected)!=sha256.Size {
+		return "","",errors.New("client package checksum is invalid")
+	}
+	file,err:=os.Open(path)
+	if err!=nil{return "","",err}
+	defer file.Close()
+	opened,err:=file.Stat()
+	if err!=nil{return "","",err}
+	if !os.SameFile(info,opened) || opened.Size()!=task.Bytes {
+		return "","",errors.New("client package was changed during verification")
+	}
+	h:=sha256.New()
+	if _,err:=io.Copy(h,file);err!=nil{return "","",err}
+	if subtle.ConstantTimeCompare(h.Sum(nil),expected)!=1 {
+		return "","",errors.New("client package integrity check failed")
 	}
 	return path,task.Filename,nil
 }
