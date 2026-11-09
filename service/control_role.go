@@ -79,6 +79,10 @@ func SaveControlRoleAssignment(item *model.ControlRoleAssignment)error{
 	item.TargetType=strings.TrimSpace(item.TargetType)
 	item.TargetId=strings.TrimSpace(item.TargetId)
 	if err:=validateControlTarget(item.TargetType,item.TargetId);err!=nil{return err}
+	if item.TargetType==controlTargetUser||item.TargetType==controlTargetDeviceGroup{
+		number,_:=strconv.ParseUint(item.TargetId,10,32)
+		item.TargetId=strconv.FormatUint(number,10)
+	}
 	var role model.ControlRole
 	if err:=DB.Where("id = ?",item.RoleId).First(&role).Error;err!=nil{
 		return errors.New("control role does not exist")

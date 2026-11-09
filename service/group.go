@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strconv"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"gorm.io/gorm"
 )
@@ -85,6 +86,9 @@ func (us *GroupService) DeviceGroupDelete(u *model.DeviceGroup) error {
 			Update("group_id",uint(0)).Error;err!=nil{return err}
 		if err:=tx.Where("group_id = ?",u.Id).
 			Delete(&model.DevicePolicyGroupAssignment{}).Error;err!=nil{return err}
+		if err:=tx.Where("target_type = ? AND target_id = ?",controlTargetDeviceGroup,
+			strconv.FormatUint(uint64(u.Id),10)).
+			Delete(&model.ControlRoleAssignment{}).Error;err!=nil{return err}
 		result:=tx.Delete(u)
 		if result.Error!=nil{return result.Error}
 		if result.RowsAffected==0{return gorm.ErrRecordNotFound}

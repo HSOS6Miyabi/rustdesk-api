@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"strconv"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
 )
@@ -14,7 +15,7 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 		&model.AddressBookCollectionRule{},&model.Tag{},
 		&model.UserToken{},&model.ShareRecord{},&model.APIToken{},
 		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
-		&model.PasswordResetToken{},&model.UserInvitation{},
+		&model.PasswordResetToken{},&model.UserInvitation{},&model.ControlRole{},&model.ControlRoleAssignment{},
 		&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
@@ -43,6 +44,11 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	}
 	peer:=&model.Peer{Id:"owned-device",UserId:owner.Id,Hostname:"Owner's PC"}
 	if err:=DB.Create(peer).Error;err!=nil{t.Fatal(err)}
+	role:=&model.ControlRole{Name:"Account control",Keyboard:1}
+	if err:=DB.Create(role).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.Create(&model.ControlRoleAssignment{
+		TargetType:"user",TargetId:strconv.FormatUint(uint64(owner.Id),10),RoleId:role.Id,
+	}).Error;err!=nil{t.Fatal(err)}
 	if err:=DB.Create(&model.UserToken{UserId:owner.Id,Token:"old-session",ExpiredAt:4102444800}).Error;err!=nil{
 		t.Fatal(err)
 	}
@@ -106,6 +112,12 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 		model.ShareAddressBookRuleTypeGroup,group.Id,
 		model.ShareAddressBookRuleTypePersonal,owner.Id,
 	).Count(&count).Error;err!=nil||count!=0{t.Fatalf("stale shared address book grant remains: %d %v",count,err)}
+
+	if err:=DB.Model(&model.ControlRoleAssignment{}).
+		Where("target_type = ? AND target_id = ?","user",strconv.FormatUint(uint64(owner.Id),10)).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account still has assigned control role: %d %v",count,err)
+	}
 	var preservedPeer model.Peer
 	if err:=DB.Where("id = ?",peer.Id).First(&preservedPeer).Error;err!=nil||preservedPeer.UserId!=0 {
 		t.Fatalf("device was not detached: %+v %v",preservedPeer,err)

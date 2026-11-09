@@ -262,6 +262,10 @@ func (us *UserService) Delete(u *model.User) error {
 		if err:=tx.Model(&model.UserInvitation{}).
 			Where("created_by = ? AND accepted_at = 0 AND revoked_at = 0",u.Id).
 			Update("revoked_at",time.Now().Unix()).Error;err!=nil{return err}
+
+		if err:=tx.Where("target_type = ? AND target_id = ?",
+			controlTargetUser,strconv.FormatUint(uint64(u.Id),10)).
+			Delete(&model.ControlRoleAssignment{}).Error;err!=nil{return err}
 		if err:=tx.Unscoped().Where("user_id = ?",u.Id).
 			Delete(&model.AddressBook{}).Error;err!=nil{return err}
 		if err := tx.Model(&model.Peer{}).Where("user_id = ?",u.Id).
