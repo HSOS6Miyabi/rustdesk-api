@@ -27,6 +27,19 @@ func AdminPrivilege() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// Scoped roles may modify only handlers which explicitly verify
+		// both the current and destination account before applying changes.
+		if !scope.Global && c.Request.Method != "GET" {
+			switch c.FullPath() {
+			case "/api/admin/user/update", "/api/admin/user/delete",
+				"/api/admin/peer/update", "/api/admin/peer/delete",
+				"/api/admin/peer/batchDelete", "/api/admin/peer/transfer":
+			default:
+				response.Fail(c, 403, "当前账户没有此管理权限")
+				c.Abort()
+				return
+			}
+		}
 		c.Set("adminRoleScope",scope)
 		c.Next()
 	}
