@@ -1,61 +1,91 @@
-# Windows 客户端安装程序制作与管理
+# RustDesk 客户端安装文件制作与管理
 
-客户端安装程序构建器允许管理员保存自己的 RustDesk 服务器配置，为 Windows 用户准备可以直接取得服务器设置的安装程序，并查看生成历史及下载状态。当前支持 **Windows x64 和 Windows ARM64 的官方 RustDesk 1.5.1 EXE**。功能已通过 Go、Chromium 与官方文件 SHA-256 检查，正式安装前仍应使用实际 Windows 设备验证。
+管理员可以在网页中保存 RustDesk 服务器配置，制作带有配置说明的官方客户端安装文件，查看处理记录并下载文件。当前固定使用 **RustDesk 1.5.1**，支持 Windows、Linux、macOS 的 x64 与 ARM64 架构。系统对所有官方安装文件核对大小与 SHA-256，并对生成的文件再次检查完整性。
 
-## 使用前的准备
+本功能已通过安装文件下载、配置编码、ZIP 文件内容、脚本语法、Linux 模拟安装命令及浏览器操作测试。实际客户端安装、系统权限及远程桌面连接仍需要相应系统上的真实设备验证。
 
-需要准备已经运行的 RustDesk API、`hbbs`、`hbbr`，以及服务器公钥：
+## 各操作系统的安装文件
 
-- **ID 服务器地址**：例如 `desk.example.com:21116`。请使用客户端能够访问的地址。
-- **服务器公钥**：`hbbs` 数据目录中的 `id_ed25519.pub` 内容。公钥解码后应为 32 字节。
-- **API 地址**：例如 `https://desk.example.com`。建议通过 HTTPS 对外提供服务。
-- **中继服务器地址**：例如 `relay.example.com:21117`，也可以留空，由 ID 服务器提供中继地址。
+| 系统与架构 | 下载文件 | 服务器配置方式 |
+| --- | --- | --- |
+| Windows x64、Windows ARM64 | 官方 `.exe` | 安装文件名使用 RustDesk 官方客户端支持的服务器配置格式 |
+| Linux x64、Linux ARM64 | 包含官方 `.deb`、`install-and-configure.sh` 和说明的 `.zip` | 在 Debian/Ubuntu 中安装原始 DEB 后，通过 RustDesk 命令行保存服务器配置 |
+| macOS x64、macOS ARM64 | 包含官方 `.dmg`、`configure-rustdesk.command` 和说明的 `.zip` | 将 RustDesk.app 安装至“应用程序”目录后，通过 RustDesk 命令行保存服务器配置 |
 
-配置 ID 服务器和中继地址前，应先确认 DNS、TLS 证书和对应端口能够在用户所在的网络访问。客户端构建页面要求有效的管理员登录会话。
+Windows 文件保留官方 EXE 原始字节。Linux 与 macOS 的 ZIP 文件中也保留原始 DEB 或 DMG 文件，配置脚本作为单独的文本文件提供。ZIP 的 SHA-256 用于核对整个压缩包，压缩包内的 `README.txt` 记录官方安装文件的 SHA-256。
 
-## 在管理页面制作安装程序
+Linux 的自动安装脚本适用于 Debian 和 Ubuntu；其他 Linux 发行版应使用 RustDesk 官方对应格式的安装程序并手动设置服务器。
 
-1. 登录 API 管理控制台，打开“客户端安装包构建”。
-2. 输入配置名称、选择 Windows x64 或 Windows ARM64，再填写 ID 服务器、公钥、API 和中继地址。
-3. 点击“保存配置”。已保存的配置会显示在下方，可再次编辑，或者创建新的配置。
-4. 对目标配置点击“创建安装包任务”。任务列表显示等待处理、正在处理、安装包已准备好或处理失败。
-5. 任务准备完成后点击“下载安装程序”。失败任务可以重新处理。
+## 准备服务器配置
 
-系统会下载对应平台的官方 RustDesk 1.5.1 EXE，核对文件大小及 SHA-256，并将服务器配置编码在官方客户端可识别的文件名中。**原始 EXE 内容不会被修改。** 服务器在下载文件给管理员之前还会重新核对其 SHA-256，以检查已保存的文件。
+在创建配置前，需要已经可以访问的 RustDesk API、`hbbs` 和 `hbbr`，以及以下资料：
 
-已创建的任务保留当时的配置副本。后来编辑或删除配置，不会更改此前生成的安装程序。
+- **ID 服务器**，例如 `desk.example.com:21116`，填写客户端可以连接的地址。
+- **服务器公钥**，从 `hbbs` 数据目录的 `id_ed25519.pub` 读取，Base64 解码结果应为 32 字节。
+- **API 地址**，例如 `https://desk.example.com`。对外访问建议使用 HTTPS。
+- **中继服务器**，例如 `relay.example.com:21117`。若由 ID 服务器自动提供中继地址，可以留空。
 
-## 文件保存及部署方式
+设置之前应检查域名、证书及相关端口的访问情况。创建和下载任务需要有效的系统管理员登录会话。
 
-服务器默认将生成的文件保存在 `data/client-builds/<任务编号>/`，可以通过环境变量 `RUSTDESK_CLIENT_BUILD_DIR` 指定其他目录。
+## 网页使用方法
 
-- **普通服务器进程**：为运行 API 的系统账户准备可写且持久保存的目录，并在备份中包含该目录。
-- **Docker**：默认目录位于容器内的 `/app/data/client-builds`。挂载并保留 `/app/data`，更新镜像或重新创建容器后即可继续访问已经准备好的安装程序。也可以将自定义目录挂载到容器内。
-- **访问权限**：构建目录使用受限制的文件权限。下载接口需管理员登录令牌，完成任务只允许从下载接口读取。
-- **数据备份**：除安装文件外，请一并备份数据库中的 `client_build_profiles` 和 `client_build_tasks`。数据库保存任务状态和下载文件的校验值。
+1. 登录管理控制台，打开“客户端安装包构建”。
+2. 输入配置名称，选择目标操作系统及架构，填写服务器地址、公钥、API 地址和可选的中继地址，点击“保存配置”。
+3. 在“已保存的配置”中选择“创建安装包任务”，然后查看下方的任务状态。
+4. 任务状态为“安装包已准备好”时，点击“下载安装程序”。若任务失败，查看显示的原因后使用“重新处理”。
+5. 在目标计算机上按以下方法安装和配置，最后检查服务器地址、登录和远程连接。
 
-构建过程中的文件来源固定为官方版本的 GitHub Release，任务不能提交任意下载地址。文件验证不成功时，任务状态会记录原因，不会提供该文件供下载。
+**Windows**：直接使用下载的 EXE 安装，检查文件数字签名。安装后的服务器配置由 RustDesk 官方客户端识别安装程序文件名中的内容。
+
+**Linux**：解压 ZIP，在 Debian 或 Ubuntu 的终端进入解压目录，执行：
+
+```bash
+sh ./install-and-configure.sh
+```
+
+脚本会通过系统的 `apt-get` 安装同目录官方 DEB，再调用 RustDesk 的 `--option` 命令保存服务器参数。安装与配置需要 `sudo` 权限。
+
+**macOS**：解压 ZIP，打开 DMG 并将 RustDesk.app 放入“应用程序”目录，然后在终端进入解压目录执行：
+
+```sh
+sh ./configure-rustdesk.command
+```
+
+配置脚本通过已安装的 RustDesk 命令行保存服务器参数，需要系统管理员权限。DMG 与应用程序文件本身保持原样。首次运行仍需按 macOS 提示授予远程控制所需的系统权限。
+
+## 任务记录、保存及备份
+
+创建任务时，服务器会将当时的配置另存至该任务。后来修改或删除配置，已经创建的任务不会改变。任务状态包括 `pending`、`building`、`ready` 和 `failed`。如果处理进程中断，服务器会标记长时间未完成的任务，管理员可以重新提交。
+
+文件默认保存在 `data/client-builds/<任务编号>/`，也可以通过环境变量 `RUSTDESK_CLIENT_BUILD_DIR` 自行指定。
+
+- 普通服务器进程运行时，应确保 API 服务账户有权写入该目录，并将其加入备份。
+- Docker 部署默认使用容器内 `/app/data/client-builds`。持久挂载 `/app/data`，在重新创建容器后保留安装文件。
+- 同时备份数据库中的 `client_build_profiles`、`client_build_tasks` 和安装文件目录。数据库保存处理状态、最终文件大小与 SHA-256。
+- 文件只允许从经过管理员身份验证的接口下载。服务器下载官方文件与向管理员提供文件时均验证 SHA-256。
+
+构建任务只允许使用固定的官方版本和下载地址，不接受任意第三方安装文件链接。当前版本更新时应同步修改官方文件校验值和自动测试。
 
 ## 管理 API
 
-需要有效的 API 管理后台登录令牌，使用请求头 `api-token`。接口路径如下：
+发送管理后台登录令牌，使用 `api-token` 请求头。接口如下：
 
-| 方法 | 路径 | 用途 |
+| 请求方法 | 地址 | 用途 |
 | --- | --- | --- |
-| GET | `/api/admin/client_builder/profiles?page=1&page_size=20` | 查看已保存的配置 |
+| GET | `/api/admin/client_builder/profiles?page=1&page_size=20` | 查看配置 |
 | POST | `/api/admin/client_builder/profiles` | 新建或修改配置 |
-| POST | `/api/admin/client_builder/profiles/delete` | 删除指定配置 |
-| GET | `/api/admin/client_builder/tasks?page=1&page_size=20` | 查看任务历史 |
-| POST | `/api/admin/client_builder/tasks` | 创建构建任务 |
-| POST | `/api/admin/client_builder/tasks/retry` | 重新处理失败任务 |
-| GET | `/api/admin/client_builder/tasks/:id/download` | 下载已经准备好的安装程序 |
+| POST | `/api/admin/client_builder/profiles/delete` | 删除配置 |
+| GET | `/api/admin/client_builder/tasks?page=1&page_size=20` | 查看任务 |
+| POST | `/api/admin/client_builder/tasks` | 创建任务 |
+| POST | `/api/admin/client_builder/tasks/retry` | 重新提交失败任务 |
+| GET | `/api/admin/client_builder/tasks/:id/download` | 下载准备好的安装文件 |
 
-保存配置示例：
+新建配置示例：
 
 ```json
 {
   "name": "技术支持团队",
-  "platform": "windows-x64",
+  "platform": "linux-x64",
   "version": "1.5.1",
   "host": "desk.example.com:21116",
   "public_key": "替换为自己的服务器公钥",
@@ -64,16 +94,10 @@
 }
 ```
 
-创建任务示例为 `{"profile_id": 12}`，重新处理任务示例为 `{"id": 8}`。修改配置时需携带该配置的 `id`。
+`platform` 支持 `windows-x64`、`windows-arm64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64`。新建任务使用 `{"profile_id":12}`，重新提交失败任务使用 `{"id":8}`。修改已保存配置时需要提供该配置的 `id`。
 
-任务字段 `status` 可能为 `pending`（等待）、`building`（正在处理）、`ready`（可下载）或 `failed`（失败）。任务记录包含平台、版本、文件名、SHA-256、文件大小以及处理时间。
+## 检查方式及发布条件
 
-## 检查与限制
+相关代码位于 `service/client_build.go`、`service/client_build_worker.go`、`service/client_packages.go`。单元和模拟安装检查位于 `service/client_build_test.go` 与 `service/client_packages_test.go`；网页测试位于 `resources/admin/app.test.cjs` 和 `resources/admin/browser.e2e.cjs`。GitHub Actions 的 `.github/workflows/verify-client-build.yml` 会实际下载六个平台的官方文件并核对 SHA-256。
 
-源码检查和自动测试位于 `service/client_build_test.go`、`resources/admin/app.test.cjs` 和 `resources/admin/browser.e2e.cjs`。对应 GitHub Actions 工作流是 `.github/workflows/verify-client-build.yml`，同时实际下载官方 Windows x64、ARM64 安装程序，检查文件头、大小和 SHA-256。
-
-当前预设版本固定为 RustDesk 1.5.1。只有在更新官方文件的地址、校验值和对应测试后，才能允许选择新的客户端版本。macOS、Linux 的专用安装包制作与真实跨平台安装仍需进一步完成。
-
-在 Windows 上交付时，应检查安装程序的数字签名、实际安装结果、服务器设置、登录和远程连接。未经测试的自定义安装程序不得直接替换已经在使用的正式客户端。
-
-正式里程碑发布仍须由维护者明确确认；构建器生成的个人安装程序不属于本项目的 GitHub Release。
+在真实系统交付前，仍需分别检查 Windows 安装程序的数字签名、Linux 发行版依赖、macOS 应用程序权限、登录流程和远程桌面连接。只有全部发布前检查完成并获得明确批准，才可以创建本项目的正式 Release。
