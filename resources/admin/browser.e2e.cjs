@@ -782,7 +782,7 @@ test("administrator can configure Windows installers and inspect email delivery 
         window.__clientFormSubmissions.push(event.target.id);
       },true);
     });
-    await profileForm.locator('button[type="submit"]').click();
+    await profileForm.locator('button[data-action="client-save"]').click();
     await page.waitForTimeout(800);
     const submitted=observedRequests.find(request=>
       request.url.endsWith("/api/admin/client_builder/profiles")&&request.method==="POST");
