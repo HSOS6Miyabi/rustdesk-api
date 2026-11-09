@@ -46,6 +46,7 @@ function createConsole(isAdmin = false, overrides = {}) {
         to_account: "another-user", path: "/home/file", direction: "outgoing" }], total: 1
     },
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
+    "/access_rule/list": {list:[{id:8,name:"Office support",source_type:"group",source_id:2,target_type:"device_group",target_id:"3",effect:"allow",enabled:true}],total:1},
     "/admin_role/list": {list:[{id:12,name:"Read-only devices",permissions:"devices.view",scope_type:"global",scope_id:0,enabled:true}],total:1},
     "/admin_role_assignment/list": {list:[{id:4,user_id:15,role_id:12}],total:1},
     "/mfa/status": {enabled:false,pending:false,remaining_recovery_codes:0},
@@ -375,4 +376,19 @@ test("delegated viewers see authorized directory pages without edit buttons",asy
   await app.open("devices");
   assert.ok(app.calls.some(x=>x.endpoint==="/peer/list"));
   assert.ok(!app.calls.some(x=>x.endpoint==="/my/peer/list"));
+});
+
+test("access rules expose source and target selectors without changing default behavior",async()=>{
+  const ordinary=createConsole();
+  await ordinary.settle();
+  assert.doesNotMatch(ordinary.root.innerHTML,/连接访问规则/);
+  const admin=createConsole(true);
+  await admin.settle();
+  await admin.open("accessRules");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/access_rule/list"));
+  assert.match(admin.root.innerHTML,/Office support/);
+  await admin.action("create");
+  for(const text of ["所有已登录用户","指定用户组","指定所有者的设备","指定设备组","允许访问","禁止访问"]){
+    assert.match(admin.root.innerHTML,new RegExp(text));
+  }
 });

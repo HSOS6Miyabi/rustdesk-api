@@ -92,6 +92,10 @@ function serve(req, res) {
       "/admin_role_assignment/create","/admin_role_assignment/update","/admin_role_assignment/delete"].includes(route)){
       return answer(res,{});
     }
+    if(route==="/access_rule/list")return answer(res,{list:[
+      {id:18,name:"Helpdesk access",source_type:"group",source_id:2,target_type:"device_group",target_id:"3",effect:"allow",enabled:true}
+    ],total:1});
+    if(["/access_rule/create","/access_rule/update","/access_rule/delete"].includes(route))return answer(res,{});
     if(route==="/control_role/list")return answer(res,{list:[
       {id:7,name:"Helpdesk role",keyboard:1,clipboard:2,file:1,terminal:1}
     ],total:1});
@@ -684,5 +688,34 @@ test("administrator can reset a team member's lost second-factor credentials",as
     const body=(await saved).postDataJSON();
     assert.equal(body.id,3);
     await page.getByText("用户双重认证已重置").waitFor();
+  }finally{await context.close();}
+});
+
+test("administrator can create a device-group connection access rule",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="accessRules"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="连接访问规则");
+    await page.getByText("Helpdesk access",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="create"]').click();
+    const editor=page.locator('#edit-form');
+    await editor.locator('input[name="name"]').fill("Shared support group");
+    await editor.locator('select[name="source_type"]').selectOption("group");
+    await editor.locator('input[name="source_id"]').fill("2");
+    await editor.locator('select[name="target_type"]').selectOption("device_group");
+    await editor.locator('input[name="target_id"]').fill("3");
+    await editor.locator('select[name="effect"]').selectOption("allow");
+    await editor.locator('input[name="enabled"]').check();
+    const sending=page.waitForRequest(req=>req.url().endsWith("/api/admin/access_rule/create")&&req.method()==="POST");
+    await page.locator('button[form="edit-form"]').click();
+    const body=(await sending).postDataJSON();
+    assert.equal(body.name,"Shared support group");
+    assert.equal(body.source_type,"group");
+    assert.equal(body.source_id,2);
+    assert.equal(body.target_type,"device_group");
+    assert.equal(body.target_id,"3");
+    assert.equal(body.effect,"allow");
+    assert.equal(body.enabled,true);
+    await editor.waitFor({state:"detached"});
   }finally{await context.close();}
 });
