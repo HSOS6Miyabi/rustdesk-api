@@ -319,6 +319,7 @@ func Migrate(version uint) {
 		&model.DeviceDisconnectRequest{},
 		&model.APIToken{},
 		&model.SMTPSetting{},
+		&model.PasswordResetToken{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
