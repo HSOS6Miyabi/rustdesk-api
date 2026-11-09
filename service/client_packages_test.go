@@ -87,6 +87,45 @@ func TestOfficialLinuxAndMacInstallerPackagesPreserveOriginalFiles(t *testing.T)
 					t.Fatalf("client setup script has invalid shell syntax: %v %s",err,out)
 				}
 			}
+			if runtime.GOOS=="linux" && strings.HasPrefix(tc.platform,"linux") {
+				directory:=t.TempDir()
+				binaryDir:=filepath.Join(directory,"bin")
+				if err:=os.MkdirAll(binaryDir,0700);err!=nil{t.Fatal(err)}
+				for name,body:=range map[string]string{
+					"sudo":"#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$RUSTDESK_INSTALL_TEST_LOG\"\n",
+					"rustdesk":"#!/bin/sh\nexit 0\n",
+				}{
+					if err:=os.WriteFile(filepath.Join(binaryDir,name),[]byte(body),0755);err!=nil{t.Fatal(err)}
+				}
+				installScript:=filepath.Join(directory,tc.script)
+				if err:=os.WriteFile(installScript,script,0755);err!=nil{t.Fatal(err)}
+				logfile:=filepath.Join(directory,"commands.txt")
+				command:=exec.Command("sh",installScript)
+				command.Dir=directory
+				command.Env=append(os.Environ(),
+					"PATH="+binaryDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+					"RUSTDESK_INSTALL_TEST_LOG="+logfile)
+				if output,err:=command.CombinedOutput();err!=nil{
+					t.Fatalf("simulated Linux setup did not finish: %v %s",err,output)
+				}
+				data,err:=os.ReadFile(logfile)
+				if err!=nil{t.Fatal(err)}
+				commands:=string(data)
+				for _,required:=range []string{
+					"apt-get install -y ./"+tc.asset,
+					"--option custom-rendezvous-server "+profile.Host,
+					"--option key "+profile.PublicKey,
+					"--option api-server "+profile.APIServer,
+					"--option relay-server "+profile.RelayServer,
+				}{
+					if !strings.Contains(commands,required){
+						t.Fatalf("simulated setup omitted %q",required)
+					}
+				}
+				if strings.Count(strings.TrimSpace(commands),"\n")!=4{
+					t.Fatalf("simulated setup ran an unexpected number of commands: %s",commands)
+				}
+			}
 			if err:=DB.Model(task).Updates(map[string]interface{}{
 				"status":"ready","sha256":digest,"bytes":size,
 			}).Error;err!=nil{t.Fatal(err)}
