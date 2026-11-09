@@ -256,6 +256,7 @@ func (us *UserService) Delete(u *model.User) error {
 			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},&model.APIToken{},
 			&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},&model.PasswordResetToken{},
 			&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
+			&model.UserToken{},
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}
@@ -271,10 +272,17 @@ func (us *UserService) Delete(u *model.User) error {
 				Delete(&model.AdminRoleAssignment{}).Error;err!=nil{return err}
 		}
 		if tx.Migrator().HasTable(&model.AdminRole{}) {
-			if err:=tx.Where("scope_type = ? AND scope_id = ?",AdminScopeIndividual,u.Id).
-				Delete(&model.AdminRole{}).Error;err!=nil{return err}
+			var scopedRoles []uint
+			scopeQuery:=tx.Model(&model.AdminRole{}).
+				Where("scope_type = ? AND scope_id = ?",AdminScopeIndividual,u.Id)
 			if len(ownedGroups)>0 {
-				if err:=tx.Where("scope_type = ? AND scope_id IN ?",AdminScopeGroup,ownedGroups).
+				scopeQuery=scopeQuery.Or("scope_type = ? AND scope_id IN ?",AdminScopeGroup,ownedGroups)
+			}
+			if err:=scopeQuery.Pluck("id",&scopedRoles).Error;err!=nil{return err}
+			if len(scopedRoles)>0{
+				if err:=tx.Where("role_id IN ?",scopedRoles).
+					Delete(&model.AdminRoleAssignment{}).Error;err!=nil{return err}
+				if err:=tx.Where("id IN ?",scopedRoles).
 					Delete(&model.AdminRole{}).Error;err!=nil{return err}
 			}
 		}

@@ -18,6 +18,7 @@ func ResetUserSecondFactors(userID uint) error {
 		for _,item:=range []interface{}{
 			&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
 			&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
+			&model.UserToken{},
 		}{
 			if err:=tx.Where("user_id = ?",userID).Delete(item).Error;err!=nil{return err}
 		}
