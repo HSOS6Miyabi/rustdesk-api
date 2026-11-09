@@ -1,3 +1,9 @@
+> This development branch supports delegated administrator roles with multiple
+> role assignments per user. Global roles can grant selected administration
+> operations; user- and group-scoped roles currently provide read-only access
+> to their matching users and devices. Existing full administrators retain
+> unrestricted management access. See [API reference](docs/API.md).
+
 > Optional country-based relay selection is supported through GeoLite2 Country
 > CSV files. Configure `RUSTDESK_GEOIP_CSV_DIR` on hbbs and add ISO country
 > codes to managed relay nodes in the API console. Country files are supplied

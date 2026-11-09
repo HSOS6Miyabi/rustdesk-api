@@ -25,7 +25,7 @@
 | TOTP 与恢复码 | 开发分支已实现，完成 Go、原生客户端协议及浏览器自动化测试 | `service/totp.go`、`http/controller/admin/totp.go` | 实际客户端多平台测试 |
 | 独立 API 管理令牌 | 开发分支已实现设备命令权限与到期管理 | `service/api_token.go`、`http/middleware/device_command_auth.go` | 扩充可用接口与权限类别 |
 | 远程控制角色 | 开发分支已实现 14 项官方客户端会话权限、设备/用户/设备组分配、hbbs 协议传递 | `service/control_role.go`、Server `src/control_roles.rs` | 真实桌面连接及各操作权限测试 |
-| 管理员角色与细分管理权限 | 待实现 | API 后台 | 根据小团队使用需求配置管理员角色 |
+| 管理员分级角色 | 开发分支已实现多角色授权、细分操作权限及限定用户/群组的查看范围 | `service/admin_role.go`、`http/middleware/admin_privilege.go` | 增加更多限定范围的修改操作 |
 | 服务器执行的连接访问规则 | 待实现 | API 与 `hbbs` | 可选严格模式 |
 | 多中继节点与 GeoLite2 国家识别 | 开发分支已实现 IP 网络、国家代码选择、自动同步和节点故障替换 | `service/relay_node.go`、Server `src/relay_policy.rs`、`src/geoip_country.rs` | 真实跨地区连接测试、可选 MMDB 文件支持 |
 | 自定义客户端构建器 | 待实现 | 独立构建工作流 | 各系统安装包 |
@@ -56,3 +56,5 @@
 - 中继节点管理：可设置中继地址、优先级、CIDR 网络范围、ISO 国家代码及启停。支持 GeoLite2 Country CSV、本地查询、运行时更新和节点断开后的替代选择。
 
 - 远程控制角色：为设备、设备所有者或设备组指定权限，支持键盘、剪贴板、文件传输、终端、远程重启、录制、USB 等官方协议字段。
+
+- 管理员分级角色：可授予普通成员具体管理权限；支持多个角色、全局角色、指定账户和用户组的只读目录权限。系统管理员保留全部管理功能。

@@ -350,3 +350,50 @@ Server 需设置 `RUSTDESK_API_CONTROL_ROLE_URL` 才会查询控制角色。设�
 - [Server 实际运行进程协议检查](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42569942719)，以该工作流最终状态为准。
 
 实际桌面连接的键盘、文件传输、剪贴板、终端等操作行为仍需要在各平台客户端上进一步验证。
+
+## 2026-11-09：管理员角色、细分权限和成员管理委派
+
+这一部分适合小型团队由多名成员共同维护设备。系统管理员可以创建管理角色，指定允许的管理操作，再将多个角色分配给同一位成员。全局角色可执行指定的管理操作；指定用户和用户组的角色目前支持查看范围受限的用户与设备目录。
+
+### 具体提交
+
+| 提交 | 主要工作 |
+| --- | --- |
+| [5c39269](https://github.com/HSOS6Miyabi/rustdesk-api/commit/5c39269fdf24026f74ddbe350ded19b71309884e) | 管理角色及多角色分配、权限清单、全局及限定范围的目录访问 |
+| [9033661](https://github.com/HSOS6Miyabi/rustdesk-api/commit/9033661efbd147243c48cd15fc6e4c544099ab4e) | 后台请求权限检查及登录页面使用的管理权限名称 |
+| [7167e7f](https://github.com/HSOS6Miyabi/rustdesk-api/commit/7167e7fcab95fa4751fb613921fc36d41947149f) | 管理角色创建、修改、查询、删除及角色分配接口 |
+| [e408c55](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e408c55c2259163b59c06cfd0d7e6f4aed70068e) | 限定用户组或指定账户时，筛选用户和设备列表及详情 |
+| [1dc3185](https://github.com/HSOS6Miyabi/rustdesk-api/commit/1dc31854c64759617a03285a5cf9085198d3feeb) | 清理被删除账户或用户组对应的角色分配 |
+| [9eb73ac](https://github.com/HSOS6Miyabi/rustdesk-api/commit/9eb73ac0ec84edb208d109537499112f0eb96323) | 网页管理界面创建角色、勾选权限、分配给用户 |
+| [e7ff42d](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e7ff42d5bc8b4b4844afad8c32759b8e82a9843e) | 测试角色叠加、用户组范围、停用、删除及接口权限映射 |
+| [2f713df](https://github.com/HSOS6Miyabi/rustdesk-api/commit/2f713dff3a50cda30dcbf55af4f8f0dc1d7a1349) | Gin 实际管理接口的限定范围和越权访问测试 |
+| [8ed6790](https://github.com/HSOS6Miyabi/rustdesk-api/commit/8ed67903d6884ef5434e6c763191002e105d0d55) | 统一限定范围访问时的拒绝响应 |
+| [f320640](https://github.com/HSOS6Miyabi/rustdesk-api/commit/f320640567bb8ecc7a22e9fc773b17097861a26f) | 网页角色管理及受限成员导航测试 |
+| [9a74eb1](https://github.com/HSOS6Miyabi/rustdesk-api/commit/9a74eb1f014ed139106c8fe25f07204340482263) | 管理角色页面提交操作 |
+| [d92959e](https://github.com/HSOS6Miyabi/rustdesk-api/commit/d92959e6847bd8b0111eee0f049e292091a95718) | 管理员帮助用户重置 TOTP 和邮箱验证 |
+| [373b9bf](https://github.com/HSOS6Miyabi/rustdesk-api/commit/373b9bf370de7bbda1ba3dbd150483e85fcb1991) | 重置双重认证时撤销旧登录会话，清理失效角色授权 |
+| [b4a9b02](https://github.com/HSOS6Miyabi/rustdesk-api/commit/b4a9b02d50ac4987d0316b1fd36821e4eef75b84) | 双重认证恢复、登录会话撤销与浏览器操作测试 |
+
+### 管理范围
+
+- 全局：使用该角色可执行的所有管理操作，并访问全体相应数据。
+- 用户组：对该组的主要成员及附加成员提供用户目录、设备目录只读访问。
+- 指定用户：仅可查看该用户资料和名下设备。
+
+**限定范围角色目前仅允许 `users.view` 和 `devices.view`。** 修改用户、设备或系统配置，需要具有相应操作权限的全局角色。若要进一步实现用户组范围内的编辑和设备迁移，应在专门的权限检查后扩展，避免更新超出授权范围的记录。
+
+已经拥有 `is_admin=true` 的系统管理员继续拥有全部管理权限。普通成员未被分配管理角色时，现有个人功能不改变。管理角色接口本身仅允许系统管理员访问，普通受委派成员不能创建或提升自己的角色。
+
+### 数据迁移与清理
+
+新建 `admin_roles`、`admin_role_assignments`，数据库迁移版本为 279。一个角色可以分配给多个成员，一个成员可以同时拥有多个角色。禁用角色后立即停止该角色授权，删除角色时同时删除相关分配记录。
+
+删除账户或用户组时，会删除相关分配和失效的范围角色。管理员重置成员的 TOTP、邮箱登录验证后，成员原有登录会话同时被撤销，可重新选择登录方式。
+
+### 测试情况
+
+- [角色叠加、权限范围与基本接口测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42573060628)：通过。
+- [角色管理和双重认证重置综合测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42574010348)：通过。
+- 最新开发提交的全部自动化测试参见 [API 草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)。
+
+本模块只修改 API 和管理控制台，不需要改变当前 Server 二进制程序。

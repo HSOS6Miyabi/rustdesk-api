@@ -179,3 +179,31 @@ API 数据库迁移版本为 278，包含 `control_roles`、`control_role_assign
 角色优先级为单台设备、设备所有者、设备组；未分配角色时，客户端继续沿用原有权限。运行 `go test ./service -run TestControl -count=1` 和 `go test ./http/controller/api -run TestInternalControl -count=1` 检查后端，再运行管理页面测试。
 
 两个仓库的最新提交和 CI 见 [实施台账](IMPLEMENTATION_LEDGER.md)。
+
+## 管理员分级权限
+
+核心文件：
+
+- `model/admin_role.go`：管理员角色、用户与角色的多对多分配。
+- `service/admin_role.go`：权限清单、角色范围检查和角色叠加。
+- `service/admin_role_routes.go`：后台 HTTP 方法与管理权限的对应规则。
+- `http/middleware/admin_privilege.go`：判断系统管理员或已委派成员的访问资格。
+- `http/controller/admin/admin_role.go`：角色与分配的管理接口。
+- `http/controller/admin/user.go`、`peer.go`：对限定用户/群组角色筛选列表和详情。
+- `service/admin_mfa_reset.go`：管理员恢复账户双重认证。
+- `resources/admin/app.js`：角色权限选择、分配和受委派成员可访问的网页。
+
+当前分支数据库迁移版本为 279。新增 `admin_roles`、`admin_role_assignments`，系统管理员默认仍拥有全部权限。一个用户可被分配多个角色。
+
+限定范围只读角色目前支持 `users.view` 和 `devices.view`。其他操作需要全局角色。新增其他管理端点时，应先为 `AdminPermissionForRoute` 添加相应权限，再根据操作对象限制可访问的数据，避免扩大角色权限。
+
+继续开发时运行：
+
+```bash
+go test ./service -run 'TestAdministrator|TestDelegated|TestAdminResetSecondFactors' -count=1
+go test ./http/controller/admin -run 'TestDelegatedAdmin|TestAdminRoles' -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+完成后根据 [实施台账](IMPLEMENTATION_LEDGER.md) 更新最新提交与 CI。

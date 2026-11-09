@@ -177,3 +177,16 @@ node --test resources/admin/browser.e2e.cjs
 ```
 
 验证权限位编码、14 项客户端权限配置、按设备和分组的优先级、删除后的数据处理、内部 API 访问验证和浏览器中的角色编辑。Server 使用 `scripts/test_control_roles.py` 启动真实 hbbs 进程，检查远程会话协议中的权限字段。
+
+## 管理员角色与限定范围访问
+
+```bash
+go test ./service -run 'TestAdministrator|TestDelegated|TestAdminResetSecondFactors' -count=1
+go test ./http/controller/admin -run 'TestDelegatedAdmin|TestAdminRoles' -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+测试检查同一用户的多个角色合并、全局权限、指定账户与用户组的查看范围、拒绝查看其他账户设备、角色启停和删除、管理员角色创建页面及已获授权成员的导航。用户双重认证重置测试还检查现有会话是否撤销。
+
+正式部署前需要使用拥有不同角色的真实账户检查管理页面以及不同设备归属情况下的数据范围。

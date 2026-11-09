@@ -620,3 +620,56 @@ X-RustDesk-Internal-Key: <内部通信密钥>
 ```
 
 具体权限数字以角色配置计算的实际值为准。没有分配角色时，返回 `assigned:false`，hbbs 保留客户端原有的权限处理方式。
+
+## 管理员分级角色
+
+系统管理员可以使用管理角色，把指定的后台功能交给其他团队成员维护。被委派的成员可以保持 `is_admin=false`。
+
+管理角色接口：
+
+- `GET /api/admin/admin_role/catalog`：获取服务器支持的管理权限清单。
+- `GET /api/admin/admin_role/list`：列出角色。
+- `POST /api/admin/admin_role/create`：创建角色。
+- `POST /api/admin/admin_role/update`：修改角色。
+- `POST /api/admin/admin_role/delete`：删除角色，正文 `{"id":3}`。
+
+角色示例：
+
+```json
+{
+  "name":"客服设备查看",
+  "permissions":"users.view,devices.view",
+  "scope_type":"group",
+  "scope_id":2,
+  "enabled":true
+}
+```
+
+`scope_type` 为 `global`、`group` 或 `individual`。全局角色的 `scope_id` 使用 0；用户组角色填写用户组编号，指定账户角色填写用户编号。
+
+限定用户组或指定账户的角色目前仅允许 `users.view` 和 `devices.view`，并且在用户和设备列表、详情接口中限制可见记录。其他权限需要全局角色。
+
+角色分配接口：
+
+- `GET /api/admin/admin_role_assignment/list`
+- `POST /api/admin/admin_role_assignment/create`
+- `POST /api/admin/admin_role_assignment/update`
+- `POST /api/admin/admin_role_assignment/delete`
+
+创建分配：
+
+```json
+{"user_id":12,"role_id":3}
+```
+
+成员可以拥有多个角色，服务器会合并这些角色允许的管理操作。角色被禁用或删除后，对应操作权限不再有效。后台登录或查询 `GET /api/admin/user/current` 时，`route_names` 会列出普通成员已获授权的管理权限名称。系统管理员仍以 `["*"]` 表示全部管理权限。
+
+支持的权限名称由 `/admin_role/catalog` 返回，涵盖用户、设备、分组、设备策略、远程控制角色、审计、SMTP、中继节点、API 令牌和活动连接等类别。创建角色时服务端验证所有权限名称。
+
+如果成员丢失身份验证器或无法访问原邮箱，具备全局 `users.manage_2fa` 权限的管理员可以调用：
+
+```http
+POST /api/admin/user/mfa/reset
+```
+
+请求正文为 `{"id":12}`。此操作清除目标账户的 TOTP、恢复码和邮箱登录验证设置，同时撤销其原有登录会话。成员随后可通过仍可使用的登录方式重新登录并设置双重认证。

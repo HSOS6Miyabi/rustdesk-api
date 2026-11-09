@@ -109,3 +109,13 @@ GeoLite2 Country CSV 文件由服务器管理员获取，hbbs 可通过 `RUSTDES
 当连接客户端经 hbbs 请求目标设备时，Server 向 API 的内部控制权限接口查询目标设备生效角色，并将其编码写入 `PunchHole.control_permissions`、`FetchLocalAddr.control_permissions` 或 `RequestRelay.control_permissions`。官方被控客户端按对应权限处理远程操作。无角色时不设置这些字段，保留原有设备权限。
 
 Server 可以将角色查询结果按设备短暂缓存，默认 5 秒。角色管理和分配由管理员 Web 控制台操作。
+
+## 管理员角色与委派权限
+
+`AdminRole` 保存角色名称、授权操作、适用范围和启用状态。`AdminRoleAssignment` 将角色与成员账户关联，一个账户可以拥有多个角色。
+
+后台请求统一通过 `AdminPrivilege()` 检查：系统管理员直接通过，普通成员仅能访问明确映射到已授权权限的管理接口。角色管理接口本身仅允许系统管理员操作。管理权限由 `service/admin_role_routes.go` 提供明确的 HTTP 方法与路径匹配，未列出的管理接口不会被受委派角色自动开放。
+
+对 `users.view` 和 `devices.view`，全局角色允许查看全部数据。指定账户和用户组的角色计算允许的用户编号集合，用户列表及设备列表使用 SQL 限制查询范围，详情接口再次检查目标归属。其他修改管理数据的操作目前只允许全局角色。
+
+登录和会话信息的 `route_names` 提供可显示的管理权限名称，网页根据服务器返回的名称显示用户可用的功能；实际操作继续由服务端独立检查权限。
