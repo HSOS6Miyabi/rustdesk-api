@@ -627,7 +627,9 @@
       '<input type="hidden" name="id" value="'+esc(current.id||"")+'">'+
       '<div class="form-grid">'+textField("name","配置名称",true)+
       '<div class="field"><label for="client-platform">客户端平台</label><select name="platform" id="client-platform">'+
-      [["windows-x64","Windows x64"],["windows-arm64","Windows ARM64"]].map(([id,label])=>
+      [["windows-x64","Windows x64"],["windows-arm64","Windows ARM64"],
+       ["linux-x64","Linux x64（Debian/Ubuntu）"],["linux-arm64","Linux ARM64（Debian/Ubuntu）"],
+       ["macos-x64","macOS x64"],["macos-arm64","macOS ARM64"]].map(([id,label])=>
         '<option value="'+id+'" '+((current.platform||"windows-x64")===id?"selected":"")+'>'+label+'</option>').join("")+
       '</select></div>'+
       textField("host","RustDesk ID 服务器地址（可带端口）",true)+
@@ -652,14 +654,14 @@
        '<span class="pill muted">'+esc(status[task.status]||"处理中")+'</span>')+
       '</div>').join("")||'<p class="tips">尚未创建安装包任务。</p>';
     return pageHeading("客户端安装包构建",
-      "选择官方 RustDesk 1.5.1 Windows 安装程序，在保留原程序内容的前提下生成包含服务器配置的文件名。",
+      "选择 RustDesk 1.5.1 官方客户端。Windows 使用包含服务器配置的安装文件名，Linux 和 macOS 提供原始安装程序与配置脚本。",
       '<button type="button" class="btn" data-action="refresh">刷新任务状态</button>')+
       '<section class="panel"><div class="panel-header"><h2 class="panel-title">客户端预设配置</h2></div>'+fields+'</section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">已保存的配置</h2></div>'+
       '<div class="tips">'+profileList+'</div></section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">历史构建任务及安装包</h2></div>'+
       '<div class="tips">'+history+'</div></section>'+
-      '<p class="subtitle" style="margin-top:12px">安装程序来自官方发布文件，下载时验证 SHA-256。macOS 和 Linux 安装包仍需后续构建适配及真实设备测试。</p>';
+      '<p class="subtitle" style="margin-top:12px">安装文件来自官方发布版本，下载时验证 SHA-256。Linux 和 macOS 压缩包内包含原始安装文件、操作说明及配置脚本，请按系统要求安装并检查实际连接。</p>';
   }
   function notificationsPage(){
     const p=pages.notifications, settings=state.notifications?.settings||{};

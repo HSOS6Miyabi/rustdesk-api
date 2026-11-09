@@ -552,6 +552,7 @@ test("visual client builder shows official Windows configurations, tasks and dow
   assert.match(admin.root.innerHTML,/客户端安装包构建/);
   await admin.open("clientBuilder");
   for(const label of ["客户端预设配置","Office installer","Windows x64","Windows ARM64",
+    "Linux x64","Linux ARM64","macOS x64","macOS ARM64",
     "服务器公钥","创建安装包任务","安装包已准备好","下载安装程序","重新处理"]){
     assert.match(admin.root.innerHTML,new RegExp(label));
   }

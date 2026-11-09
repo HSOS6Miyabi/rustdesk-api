@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'service/client_build*.go'
+      - 'service/client_packages*.go'
       - 'model/client_build.go'
       - 'http/controller/api/device_commands.go'
       - 'http/router/api.go'
@@ -20,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify-windows-assets:
+  verify-official-assets:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -30,10 +31,10 @@ jobs:
           go-version: '1.23.10'
           cache: true
       - name: Check installer profiles and artifact checksum logic
-        run: go test ./service -run '^TestClientBuild' -count=1 -v
+        run: go test ./service -run 'TestClientBuild|TestOfficialLinuxAndMac|TestClientSetupScript' -count=1 -v
       - name: Check native client CLI request fields across supported versions
         run: python3 scripts/verify_upstream_client_commands.py
-      - name: Verify pinned official Windows executables
+      - name: Verify official Windows, Linux and macOS installers
         run: |
           python3 - <<'PY'
           import hashlib
@@ -45,6 +46,14 @@ jobs:
                "319206042390ebfcba934cf0baa2f612f34de463c78c843b7cb8c22097c4bf7b"),
               ("rustdesk-1.5.1-aarch64.exe", 24252784,
                "54de7328a4a2bff0b9e60d1268f7b239c45d11ab4dff4fed0c88a8a3b0fbe516"),
+              ("rustdesk-1.5.1-x86_64.deb", 25337156,
+               "b5d682ad90cb7571ecbdbf26eef58d3c4514e726a74ef6d08ce3f0b114ef0bd9"),
+              ("rustdesk-1.5.1-aarch64.deb", 23594612,
+               "d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc466348669"),
+              ("rustdesk-1.5.1-x86_64.dmg", 37691902,
+               "457e4e786426d51714f8d08ce8d90815635bcd1923ab682ebfc5bc546e5b4399"),
+              ("rustdesk-1.5.1-aarch64.dmg", 30548457,
+               "1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c3ffd70d7b"),
           )
           for filename, expected_size, expected_hash in files:
               with urllib.request.urlopen(release + filename, timeout=120) as response:
@@ -56,12 +65,16 @@ jobs:
                       if not chunk:
                           break
                       if not prefix:
-                          prefix = chunk[:2]
+                          prefix = chunk[:8]
                       size += len(chunk)
                       if size > expected_size:
                           raise RuntimeError(f"{filename}: file exceeds the pinned size")
                       digest.update(chunk)
-              if prefix != b"MZ" or size != expected_size or digest.hexdigest() != expected_hash:
-                  raise RuntimeError(f"{filename}: PE header, size or SHA-256 differs")
-              print(f"{filename}: official PE installer verified, {size} bytes, SHA-256 {expected_hash}")
+              if filename.endswith(".exe") and not prefix.startswith(b"MZ"):
+                  raise RuntimeError(f"{filename}: unexpected executable format")
+              if filename.endswith(".deb") and prefix != b"!<arch>\\n":
+                  raise RuntimeError(f"{filename}: unexpected Debian package format")
+              if size != expected_size or digest.hexdigest() != expected_hash:
+                  raise RuntimeError(f"{filename}: size or SHA-256 differs")
+              print(f"{filename}: official installer verified, {size} bytes, SHA-256 {expected_hash}")
           PY
