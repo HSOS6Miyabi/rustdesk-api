@@ -131,10 +131,6 @@ func GroupBind(rg *gin.RouterGroup) {
 	}
 }
 
-.POST("/delete", cont.Delete)
-	}
-}
-
 func DeviceGroupBind(rg *gin.RouterGroup) {
 	aR := rg.Group("/device_group").Use(middleware.AdminPrivilege())
 	{
