@@ -80,6 +80,37 @@ def check_deploy(version, core_main, ui_interface, available_fields):
     print(f"{version}: native --deploy fields and response codes matched")
 
 
+
+def check_native_settings_cli(core_main):
+    marker = 'args[0] == "--option"'
+    start = core_main.find(marker)
+    if start == -1:
+        raise AssertionError("RustDesk 1.5.1 does not provide --option")
+    end = core_main.find('args[0] == "--', start + len(marker))
+    body = core_main[start:end if end > start else start + 2400]
+    required = (
+        "crate::platform::is_installed()",
+        "is_root()",
+        "args.len() == 2",
+        "args.len() == 3",
+        "crate::ipc::get_options()",
+        "crate::ipc::set_option(",
+    )
+    for part in required:
+        if part not in body:
+            raise AssertionError(f"RustDesk 1.5.1 --option behavior changed: {part}")
+    for setting in (
+        "custom-rendezvous-server", "key", "api-server", "relay-server"
+    ):
+        if f'set_option("{setting}"' not in core_main and (
+            f'"{setting}".into()' not in core_main
+        ):
+            raise AssertionError(f"RustDesk 1.5.1 does not recognize {setting}")
+    if "UserMainIpcScope::new()" not in core_main:
+        raise AssertionError("Linux/macOS user IPC routing for --option was removed")
+    print("RustDesk 1.5.1: administrator-only --option write and readback supported")
+
+
 def main():
     api = (ROOT / "http/controller/api/device_commands.go").read_text(encoding="utf-8")
     routes = (ROOT / "http/router/api.go").read_text(encoding="utf-8")
@@ -95,6 +126,8 @@ def main():
         else:
             ui = source(version, "src/ui_interface.rs")
             check_deploy(version, core, ui, deploy_fields)
+        if version == "1.5.1":
+            check_native_settings_cli(core)
     print("Official native command compatibility source checks passed.")
 
 
