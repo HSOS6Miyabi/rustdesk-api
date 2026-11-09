@@ -83,7 +83,12 @@
     myalarms: {name:"我的安全告警",icon:"shield",section:"我的审计记录",endpoint:"my/audit_alarm",readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["conn_id","连接编号"],["info","告警详情"],["created_at","时间"]]},
     alarms: {name:"安全告警",icon:"shield",section:"系统管理",endpoint:"audit_alarm",admin:true,readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["from_user_id","发起方用户 ID"],["to_user_id","接收方用户 ID"],["conn_id","连接编号"],["source_ip","来源 IP"],["info","告警详情"],["created_at","时间"]]},
     operations: {name:"管理操作记录",icon:"clock",section:"系统管理",endpoint:"audit_operation",admin:true,readonly:true,columns:[["id","编号"],["account","操作账户"],["method","请求方法"],["path","操作内容"],["client_ip","来源 IP"],["success","结果"],["created_at","时间"]]},
-    policies: {name:"设备安全策略",icon:"shield",section:"系统管理",endpoint:"device_policy",admin:true,columns:[["id","编号"],["name","策略名称"],["id_whitelist","设备 ID 白名单"],["ip_whitelist","IP 白名单"],["enable_webrtc","启用 WebRTC"],["trust_duration_days","可信设备有效期（天）"],["status","策略状态"]],fields:[["name","策略名称","text",true],["status","策略状态","status"],["id_whitelist","设备 ID 白名单","textarea"],["ip_whitelist","IP 白名单（单个地址或 CIDR）","textarea"],["enable_webrtc","允许 WebRTC 连接","checkbox"],["trust_duration_days","可信设备有效期（天）","trusted_days"]]},
+    policies: {name:"设备安全策略",icon:"shield",section:"系统管理",endpoint:"device_policy",admin:true,columns:[["id","编号"],["name","策略名称"],["id_whitelist","设备 ID 白名单"],["ip_whitelist","IP 白名单"],["enable_webrtc","启用 WebRTC"],["trust_duration_days","可信设备有效期（天）"],["status","策略状态"]],fields:[["name","策略名称","text",true],["status","策略状态","status"],["id_whitelist","设备 ID 白名单","textarea"],["ip_whitelist","IP 白名单（单个地址或 CIDR）","textarea"],["enable_webrtc","允许 WebRTC 连接","checkbox"],["trust_duration_days","可信设备有效期（天）","trusted_days"],
+      ["access_mode","允许的远程连接方式","policy_access"],
+      ["enable_keyboard","允许远程键盘和鼠标","policy_bool"],
+      ["enable_clipboard","允许远程剪贴板","policy_bool"],
+      ["enable_file_transfer","允许远程文件传输","policy_bool"],
+      ["approval_mode","远程连接确认方式","policy_approve"]]},
     policyAssignments: {name:"设备策略分配",icon:"grid",section:"系统管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
     userPolicyAssignments: {name:"用户策略分配",icon:"users",section:"系统管理",endpoint:"device_policy/user_assignment",admin:true,columns:[["id","编号"],["user_id","用户 ID"],["policy_id","策略编号"]],fields:[["user_id","用户 ID","number",true],["policy_id","策略编号","number",true]]},
     groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"系统管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
@@ -702,6 +707,16 @@
         administratorPermissions.map(([permission,title])=>
           '<label class="check"><input type="checkbox" name="permissions" value="'+esc(permission)+'" '+
           (enabled.has(permission)?"checked":"")+'>'+esc(title)+'</label>').join("")+'</div>';
+    }
+    else if(["policy_access","policy_bool","policy_approve"].includes(type)){
+      const opts={
+        policy_access:[["","沿用设备设置"],["custom","自定义权限"],["full","允许完整控制"],["view","仅查看"]],
+        policy_bool:[["","沿用设备设置"],["Y","允许"],["N","禁止"]],
+        policy_approve:[["","沿用设备设置"],["password-click","密码或手动确认"],["password","仅密码"],["click","仅手动确认"]]
+      }[type];
+      input='<select name="'+esc(name)+'">'+opts.map(([key,label])=>
+        '<option value="'+esc(key)+'" '+(String(value)===String(key)?"selected":"")+'>'+
+        esc(label)+'</option>').join("")+'</select>';
     }
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
     else if(type==="trusted_days"){
