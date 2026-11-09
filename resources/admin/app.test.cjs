@@ -321,3 +321,25 @@ test("relay node settings provide multi-server and IP range controls",async()=>{
   assert.match(administrator.root.innerHTML,/IP 网络/);
   assert.match(administrator.root.innerHTML,/国家代码/);
 });
+
+test("control roles expose all 14 native connection permissions",async()=>{
+  const regular=createConsole();
+  await regular.settle();
+  assert.doesNotMatch(regular.root.innerHTML,/远程控制角色/);
+  const admin=createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML,/远程控制角色/);
+  await admin.open("controlRoles");
+  assert.ok(admin.calls.some(call=>call.endpoint==="/control_role/list"));
+  await admin.action("create");
+  for(const label of ["键盘和鼠标","剪贴板","文件传输","远程终端",
+    "远程打印机","音频","摄像头","TCP 隧道","远程重启",
+    "会话录制","禁止远程设备本地输入","修改远程设置","隐私模式","USB 设备"]){
+    assert.match(admin.root.innerHTML,new RegExp(label));
+  }
+  assert.match(admin.root.innerHTML,/沿用设备设置/);
+  assert.match(admin.root.innerHTML,/禁止/);
+  assert.match(admin.root.innerHTML,/允许/);
+  await admin.open("controlAssignments");
+  assert.ok(admin.calls.some(call=>call.endpoint==="/control_assignment/list"));
+});

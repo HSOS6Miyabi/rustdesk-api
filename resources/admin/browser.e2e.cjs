@@ -82,6 +82,16 @@ function serve(req, res) {
       {id:17,email:"new.member@example.test",group_id:1,expires_at:1910000000,accepted_at:0,revoked_at:0}
     ],total:1});
     if(route==="/invite/create"||route==="/invite/revoke"||route==="/invite/accept")return answer(res,{});
+    if(route==="/control_role/list")return answer(res,{list:[
+      {id:7,name:"Helpdesk role",keyboard:1,clipboard:2,file:1,terminal:1}
+    ],total:1});
+    if(route==="/control_assignment/list")return answer(res,{list:[
+      {id:5,target_type:"device",target_id:"desk-001",role_id:7}
+    ],total:1});
+    if(["/control_role/create","/control_role/update","/control_role/delete",
+      "/control_assignment/create","/control_assignment/update","/control_assignment/delete"].includes(route)){
+      return answer(res,{});
+    }
     if(route==="/relay/list")return answer(res,{list:[
       {id:10,name:"East site",address:"relay-east.example.test:21117",
        subnets:"203.0.113.0/24",countries:"JP",priority:10,enabled:true}
@@ -567,5 +577,33 @@ test("administrator can configure relay node preferences",async()=>{
     await page.locator('#edit-form input[name="enabled"]').check();
     await page.locator('button[form="edit-form"]').click();
     await page.locator("#edit-form").waitFor({state:"detached"});
+  }finally{await context.close();}
+});
+
+test("administrator can save a control role with native permissions",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="controlRoles"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="远程控制角色");
+    await page.getByText("Helpdesk role",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="create"]').click();
+    await page.locator('#edit-form input[name="name"]').fill("Temporary support");
+    await page.locator('#edit-form select[name="keyboard"]').selectOption("1");
+    await page.locator('#edit-form select[name="clipboard"]').selectOption("2");
+    await page.locator('#edit-form select[name="file"]').selectOption("1");
+    await page.locator('#edit-form select[name="usb"]').selectOption("1");
+    const sending=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/control_role/create")&&req.method()==="POST");
+    await page.locator('button[form="edit-form"]').click();
+    const submitted=(await sending).postDataJSON();
+    assert.equal(submitted.name,"Temporary support");
+    assert.equal(submitted.keyboard,1);
+    assert.equal(submitted.clipboard,2);
+    assert.equal(submitted.file,1);
+    assert.equal(submitted.usb,1);
+    await page.locator('#edit-form').waitFor({state:"detached"});
+    await page.locator('nav.side-scroll button[data-view="controlAssignments"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="远程控制角色分配");
+    await page.getByText("desk-001",{exact:true}).first().waitFor();
   }finally{await context.close();}
 });
