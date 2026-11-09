@@ -130,3 +130,12 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 ## 可选的服务器连接访问规则
 
 管理员可以通过“连接访问规则”设置哪些成员和用户组允许连接哪些设备。hbbs 可在普通连接和中继连接开始时请求 API 检查登录会话与设备访问权限。默认不启用，原有客户端可以继续使用。启用方法参见 [部署说明](docs/DEPLOYMENT.md)。
+
+
+## Windows 客户端安装程序与自动化管理
+
+开发分支的管理控制台提供“客户端安装包构建”，可保存服务器地址、公钥和 API 地址，创建 Windows x64/ARM64 安装程序任务，并下载经过 SHA-256 检查的官方 RustDesk 1.5.1 EXE。安装程序保留官方原始内容，文件名包含服务器配置。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
+
+管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
+
+本分支的数据库迁移版本是 282。Linux、macOS 专用安装程序、真实设备连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。正式版本发布需要单独确认。
