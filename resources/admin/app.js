@@ -35,6 +35,7 @@
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
     transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    invitations: {name:"成员邮件邀请",icon:"users",section:"成员管理",endpoint:"invite",admin:true,columns:[["id","编号"],["email","收件邮箱"],["group_id","用户组 ID"],["expires_at","有效期截止"],["accepted_at","接受时间"],["revoked_at","撤销时间"]],fields:[["email","成员邮箱","email",true],["group_id","加入的用户组 ID（默认 1）","number"],["expires_in_days","有效天数（默认 7）","number"]]},
     mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
@@ -90,7 +91,7 @@
       delivered:"已通知客户端",completed:"连接已结束",expired:"已过期"
     }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(["created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at"].includes(k))return date(v);
+    if(["created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -150,6 +151,21 @@
         '<button class="btn" data-action="close-modal">取消</button>'+
         '<button class="btn btn-primary" type="submit" form="forgot-password-form">发送恢复邮件</button>');
     }
+    if(current.kind==="accept-invitation"){
+      const body='<form id="accept-invitation-form"><div class="form-grid">'+
+        '<div class="field"><label for="invited-username">用户名</label>'+
+        '<input id="invited-username" name="username" autocomplete="username" minlength="3" maxlength="64" required></div>'+
+        '<div class="field"><label for="invited-nickname">显示名称</label>'+
+        '<input id="invited-nickname" name="nickname" autocomplete="name"></div>'+
+        '<div class="field"><label for="invited-password">登录密码</label>'+
+        '<input id="invited-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>'+
+        '<div class="field"><label for="invited-password-confirm">确认密码</label>'+
+        '<input id="invited-password-confirm" name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>'+
+        '</div></form>';
+      return modal("接受团队邀请","创建账号后，即可使用 RustDesk 自托管服务。",body,
+        '<button type="button" class="btn" data-action="close-modal">取消</button>'+
+        '<button type="submit" class="btn btn-primary" form="accept-invitation-form">创建账户</button>');
+    }
     if(current.kind==="public-reset-password"){
       const body='<form id="public-password-reset-form"><div class="form-grid">'+
         '<div class="field"><label for="recovery-new-password">新密码</label>'+
@@ -191,6 +207,14 @@
   }
   async function bootstrap(){
     const recoveryHash=location.hash||"";
+    if(recoveryHash.startsWith("#/invite?")){
+      const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
+      if(token){
+        state.token="";state.user=null;
+        sessionStorage.removeItem("rustdesk.console.token");
+        state.modal={kind:"accept-invitation",token};
+      }
+    }
     if(recoveryHash.startsWith("#/password-reset?")){
       const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
       if(token){
@@ -299,6 +323,11 @@
     const p=pages[activeKey()];
     if(state.page==="trash")return '<button type="button" class="btn btn-sm" data-action="trash-restore" data-id="'+esc(row.row_id)+'">恢复</button>'+
       '<button type="button" class="btn btn-sm btn-danger" data-action="trash-purge" data-id="'+esc(row.row_id)+'">彻底删除</button>';
+    if(state.page==="invitations"){
+      if(row.accepted_at)return '<span class="pill good">已接受</span>';
+      if(row.revoked_at)return '<span class="pill muted">已撤销</span>';
+      return '<button class="btn btn-sm btn-danger" data-action="invitation-revoke" data-id="'+esc(row.id)+'">撤销邀请</button>';
+    }
     if(state.page==="apiTokens"){
       return row.revoked_at?'<span class="pill muted">已撤销</span>':
         '<button type="button" class="btn btn-sm btn-danger" data-action="revoke-api-token" data-id="'+esc(row.id)+'">撤销令牌</button>';
@@ -650,7 +679,7 @@
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){
-      if(state.modal?.kind==="public-reset-password")location.hash="#/overview";
+      if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
     }
     if(a==="forgot-password"){state.modal={kind:"forgot-password"};render();return;}
@@ -678,6 +707,13 @@
       return;
     }
     if(a==="csv-submit"){await transferAddressBookCSV();return;}
+    if(a==="invitation-revoke"){
+      const row=state.rows.find(x=>String(x.id)===String(el.dataset.id));
+      if(!row||!window.confirm("确定撤销发送到 "+row.email+" 的邀请吗？"))return;
+      try{await request("/invite/revoke","POST",{id:Number(row.id)});toast("邀请已撤销");await load();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="revoke-api-token"){
       const item=state.rows.find(x=>String(x.id)===String(el.dataset.id));
       if(!item||!window.confirm("撤销后使用此令牌的自动部署将停止。确定撤销吗？"))return;
@@ -757,8 +793,25 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form"].includes(f.id))return;
     event.preventDefault();
+    if(f.id==="accept-invitation-form"){
+      const password=f.elements.password.value;
+      if(password!==f.elements.confirm_password.value){
+        toast("两次输入的密码不一致",true);return;
+      }
+      try{
+        await request("/invite/accept","POST",{
+          token:state.modal?.token,
+          username:f.elements.username.value.trim(),
+          nickname:f.elements.nickname.value.trim(),
+          password
+        });
+        state.modal=null;location.hash="#/overview";render();
+        toast("账户已创建，请使用新账户登录");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(f.id==="forgot-password-form"){
       try{
         await request("/password/forgot","POST",{email:f.elements.email.value.trim()});
@@ -845,6 +898,20 @@
     if(el.id==="shared-source-type"){state.sourceType=el.value;state.sourceId="0";state.pageNo=1;await load();}
     if(el.id==="shared-source-id"){if(el.value==="0"){state.sourceId="0";}else{const parts=el.value.split(":");state.sourceType=parts[0];state.sourceId=parts[1];}state.pageNo=1;await load();}
   });
-  window.addEventListener("hashchange",()=>{if(!state.user)return;const viewName=location.hash.replace(/^#\/?/,"").split("?")[0];if(available(viewName)&&state.page!==viewName)view(viewName);});
+  window.addEventListener("hashchange",()=>{
+    const hash=location.hash||"";
+    for(const [prefix,kind] of [["#/password-reset?","public-reset-password"],["#/invite?","accept-invitation"]]){
+      if(!hash.startsWith(prefix))continue;
+      const token=new URLSearchParams(hash.slice(hash.indexOf("?")+1)).get("token");
+      if(token){
+        state.token="";state.user=null;sessionStorage.removeItem("rustdesk.console.token");
+        state.modal={kind,token};render();
+      }
+      return;
+    }
+    if(!state.user)return;
+    const viewName=hash.replace(/^#\/?/,"").split("?")[0];
+    if(available(viewName)&&state.page!==viewName)view(viewName);
+  });
   bootstrap().catch(e=>{toast(e.message,true);render();});
 })();
