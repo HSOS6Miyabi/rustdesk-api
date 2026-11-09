@@ -46,6 +46,30 @@ func (l *Login) Login(c *gin.Context) {
 		return
 	}
 
+
+	if f.Type=="tfa_code"||f.Type=="email_code" {
+		code:=f.TfaCode
+		if code==""{code=f.VerificationCode}
+		user,err:=service.CompleteTOTPLoginChallenge(f.Secret,f.Username,code)
+		if err!=nil{
+			loginLimiter.RecordFailedAttempt(clientIp)
+			response.Error(c,"动态验证码、恢复码或验证请求无效")
+			return
+		}
+		ref:=c.GetHeader("referer")
+		if ref!=""{f.DeviceInfo.Type=model.LoginLogClientWeb}
+		session:=service.AllService.UserService.Login(user,&model.LoginLog{
+			UserId:user.Id,Client:f.DeviceInfo.Type,DeviceId:f.Id,
+			Uuid:f.Uuid,Ip:clientIp,Type:model.LoginLogTypeAccount,Platform:f.DeviceInfo.Os,
+		})
+		loginLimiter.RemoveAttempts(clientIp)
+		c.JSON(http.StatusOK,apiResp.LoginRes{
+			AccessToken:session.Token,Type:"access_token",
+			User:*(&apiResp.UserPayload{}).FromUser(user),
+		})
+		return
+	}
+
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {
 		loginLimiter.RecordFailedAttempt(clientIp)
@@ -65,6 +89,19 @@ func (l *Login) Login(c *gin.Context) {
 
 	if !service.AllService.UserService.CheckUserEnable(u) {
 		response.Error(c, response.TranslateMsg(c, "UserDisabled"))
+		return
+	}
+
+
+	totpEnabled,err:=service.TOTPEnabled(u.Id)
+	if err!=nil{response.Error(c,"无法读取双重认证设置");return}
+	if totpEnabled{
+		challenge,err:=service.StartTOTPLoginChallenge(u.Id)
+		if err!=nil{response.Error(c,"无法创建双重认证请求");return}
+		c.JSON(http.StatusOK,gin.H{
+			"type":"email_check","tfa_type":"tfa_check","secret":challenge,
+			"user":(&apiResp.UserPayload{}).FromUser(u),
+		})
 		return
 	}
 

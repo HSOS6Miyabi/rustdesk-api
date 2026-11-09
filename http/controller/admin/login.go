@@ -48,6 +48,23 @@ func (ct *Login) Login(c *gin.Context) {
 		return
 	}
 
+
+	if f.Type=="tfa_code" {
+		u,err:=service.CompleteTOTPLoginChallenge(f.Secret,f.Username,f.TfaCode)
+		if err!=nil{
+			loginLimiter.RecordFailedAttempt(clientIp)
+			response.Fail(c,101,"动态验证码、恢复码或验证请求无效")
+			return
+		}
+		session:=service.AllService.UserService.Login(u,&model.LoginLog{
+			UserId:u.Id,Client:model.LoginLogClientWebAdmin,
+			Ip:clientIp,Type:model.LoginLogTypeAccount,Platform:f.Platform,
+		})
+		loginLimiter.RemoveAttempts(clientIp)
+		responseLoginSuccess(c,u,session.Token)
+		return
+	}
+
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {
 		loginLimiter.RecordFailedAttempt(clientIp)
@@ -83,6 +100,20 @@ func (ct *Login) Login(c *gin.Context) {
 			return
 		}
 		response.Fail(c, 101, response.TranslateMsg(c, "UserDisabled"))
+		return
+	}
+
+
+	totpEnabled,err:=service.TOTPEnabled(u.Id)
+	if err!=nil{response.Fail(c,101,"无法读取双重认证设置");return}
+	if totpEnabled {
+		challenge,err:=service.StartTOTPLoginChallenge(u.Id)
+		if err!=nil{response.Fail(c,101,"无法创建双重认证请求");return}
+		loginLimiter.RemoveAttempts(clientIp)
+		response.Success(c,gin.H{
+			"type":"tfa_check","tfa_type":"tfa_check","secret":challenge,
+			"user":gin.H{"name":u.Username,"email":u.Email},
+		})
 		return
 	}
 

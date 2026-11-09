@@ -36,6 +36,9 @@ type LoginForm struct {
 	Uuid       string            `json:"uuid"  label:"uuid"`
 	Username   string            `json:"username" validate:"required,gte=2,lte=32" label:"用户名"`
 	Password   string            `json:"password,omitempty" validate:"gte=4,lte=32" label:"密码"`
+	TfaCode string `json:"tfaCode"`
+	VerificationCode string `json:"verificationCode"`
+	Secret string `json:"secret"`
 }
 
 type UserListQuery struct {

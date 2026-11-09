@@ -28,6 +28,7 @@ func Init(g *gin.Engine) {
 	adg.Use(middleware.BackendUserAuth(),middleware.RecordOperations())
 	//FileBind(adg)
 	UserBind(adg)
+	TOTPBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
@@ -450,4 +451,14 @@ func InvitationBind(rg *gin.RouterGroup){
 	r.GET("/list",controller.List)
 	r.POST("/create",controller.Create)
 	r.POST("/revoke",controller.Revoke)
+}
+
+func TOTPBind(rg *gin.RouterGroup){
+	controller:=&admin.TOTP{}
+	r:=rg.Group("/mfa")
+	r.GET("/status",controller.Status)
+	r.POST("/setup",controller.Setup)
+	r.POST("/enable",controller.Enable)
+	r.POST("/disable",controller.Disable)
+	r.POST("/recovery/regenerate",controller.RegenerateRecoveryCodes)
 }
