@@ -99,7 +99,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,mfa:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -144,6 +144,14 @@
   function loginRecoveryModal(){
     const current=state.modal;
     if(!current)return "";
+    if(current.kind==="mfa-login"){
+      const body='<form id="mfa-login-form"><div class="field"><label for="mfa-login-code">动态验证码或一次性恢复码</label>'+
+        '<input id="mfa-login-code" name="code" autocomplete="one-time-code" minlength="6" maxlength="20" required autofocus>'+
+        '<small>使用身份验证器中的 6 位验证码，或之前保存的恢复码。</small></div></form>';
+      return modal("双重认证","账户："+current.username,body,
+        '<button type="button" class="btn" data-action="close-modal">取消</button>'+
+        '<button type="submit" class="btn btn-primary" form="mfa-login-form">完成登录</button>');
+    }
     if(current.kind==="forgot-password"){
       const body='<form id="forgot-password-form"><div class="field"><label for="recovery-email">账户邮箱</label>'+
         '<input type="email" name="email" id="recovery-email" autocomplete="email" required></div></form>';
@@ -250,6 +258,12 @@
     const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
     try{
       const result=await request("/login","POST",data);
+      if(result?.type==="tfa_check"){
+        if(!result.secret||!result.user?.name)throw Error("双重认证请求不完整");
+        state.modal={kind:"mfa-login",username:result.user.name,secret:result.secret};
+        render();
+        return;
+      }
       if(!result||!result.token)throw Error("登录未返回访问令牌");
       state.token=result.token;sessionStorage.setItem("rustdesk.console.token",result.token);
       state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
@@ -289,6 +303,8 @@
         const result=await request("/shared_devices/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
+      }else if(k==="profile"){
+        state.mfa=await request("/mfa/status");
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
       }else if(k==="retention"){
@@ -456,8 +472,17 @@
   }
 
   function profile(){
-    return pageHeading("个人设置","查看当前账户并修改登录密码。")+
-      '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>';
+    const m=state.mfa||{};
+    const mfaText=m.enabled?
+      "已启用身份验证器双重认证，剩余恢复码："+esc(m.remaining_recovery_codes??0)+" 个。":
+      "尚未启用双重认证，开启后登录需要输入动态验证码。";
+    const mfaActions=m.enabled?
+      '<button type="button" class="btn" data-action="mfa-regenerate">重新生成恢复码</button>'+
+      '<button type="button" class="btn btn-danger" data-action="mfa-disable">解除双重认证</button>':
+      '<button type="button" class="btn btn-primary" data-action="mfa-setup">启用 TOTP 双重认证</button>';
+    return pageHeading("个人设置","管理自己的登录密码与可选双重认证。")+
+      '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>'+
+      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips" style="display:flex;gap:10px;flex-wrap:wrap">'+mfaActions+'</div></section>';
   }
   function renderPage(){
     if(state.page==="overview")return overview();
@@ -518,6 +543,31 @@
       return modal(importing?"导入地址簿 CSV":"导出地址簿 CSV","仅处理指定账户的地址簿条目。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+
         '<button class="btn btn-primary" data-action="csv-submit">'+(importing?"导入 CSV":"下载 CSV")+'</button>');
+    }
+    if(m.kind==="mfa-setup"){
+      const body='<p>在身份验证器中添加账户，输入下面的密钥或导入配置链接，再填写当前 6 位验证码。</p>'+
+        '<div class="field"><label>身份验证器密钥</label><input readonly value="'+esc(m.secret)+'" autocomplete="off"></div>'+
+        '<div class="field"><label>身份验证器配置链接</label><textarea readonly rows="3">'+esc(m.uri)+'</textarea></div>'+
+        '<form id="mfa-activate-form"><div class="field"><label for="mfa-activate-code">6 位动态验证码</label>'+
+        '<input id="mfa-activate-code" name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required></div></form>';
+      return modal("启用双重认证","身份验证器密钥只在绑定时显示，验证成功后生成恢复码。",body,
+        '<button type="button" class="btn" data-action="close-modal">取消</button>'+
+        '<button type="submit" class="btn btn-primary" form="mfa-activate-form">验证并启用</button>');
+    }
+    if(m.kind==="mfa-codes"){
+      const list=(m.codes||[]).map(code=>'<li><code>'+esc(code)+'</code></li>').join("");
+      const body='<p>请保存下面 6 个一次性恢复码。如果身份验证器无法使用，可以在登录时输入其中一个恢复码。</p>'+
+        '<ol style="margin-top:12px">'+list+'</ol><p>恢复码关闭后不会再次显示。</p>';
+      return modal("保存双重认证恢复码","建议将恢复码保存在安全的位置。",body,
+        '<button type="button" class="btn btn-primary" data-action="close-modal">我已保存恢复码</button>');
+    }
+    if(m.kind==="mfa-action"){
+      const actionName=m.action==="disable"?"解除双重认证":"重新生成恢复码";
+      const body='<form id="mfa-confirm-form"><div class="field"><label for="mfa-confirm-code">动态验证码或恢复码</label>'+
+        '<input id="mfa-confirm-code" name="code" autocomplete="one-time-code" minlength="6" maxlength="20" required></div></form>';
+      return modal(actionName,"确认后将应用当前账户的双重认证设置。",body,
+        '<button type="button" class="btn" data-action="close-modal">取消</button>'+
+        '<button type="submit" class="btn btn-primary" form="mfa-confirm-form">确认</button>');
     }
     if(m.kind==="audit-note"){
       const body='<form id="audit-note-form">'+
@@ -726,6 +776,17 @@
       return;
     }
     if(a==="csv-submit"){await transferAddressBookCSV();return;}
+    if(a==="mfa-setup"){
+      try{
+        const setup=await request("/mfa/setup","POST",{});
+        state.modal={kind:"mfa-setup",...setup};render();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="mfa-disable"||a==="mfa-regenerate"){
+      state.modal={kind:"mfa-action",action:a==="mfa-disable"?"disable":"regenerate"};render();
+      return;
+    }
     if(a==="audit-note"){
       const record=state.rows.find(x=>String(x.id)===String(el.dataset.id));
       if(record){state.modal={kind:"audit-note",data:record};render();}
@@ -826,8 +887,49 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form"].includes(f.id))return;
     event.preventDefault();
+    if(f.id==="mfa-login-form"){
+      const pending=state.modal;
+      if(pending?.kind!=="mfa-login")return;
+      try{
+        const result=await request("/login","POST",{
+          username:pending.username,type:"tfa_code",secret:pending.secret,
+          tfaCode:f.elements.code.value.trim(),platform:"web"
+        });
+        if(!result?.token)throw Error("登录未返回访问令牌");
+        state.modal=null;state.token=result.token;
+        sessionStorage.setItem("rustdesk.console.token",result.token);
+        state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
+        if(returnToWebClient())return;
+        state.page="overview";location.hash="#/overview";render();await load();
+        toast("登录成功");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(f.id==="mfa-activate-form"){
+      try{
+        const result=await request("/mfa/enable","POST",{code:f.elements.code.value.trim()});
+        if(!Array.isArray(result?.recovery_codes))throw Error("恢复码生成失败");
+        state.mfa=await request("/mfa/status");
+        state.modal={kind:"mfa-codes",codes:result.recovery_codes};
+        render();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(f.id==="mfa-confirm-form"){
+      const action=state.modal?.action;
+      if(!["disable","regenerate"].includes(action))return;
+      try{
+        const result=await request(action==="disable"?"/mfa/disable":"/mfa/recovery/regenerate",
+          "POST",{code:f.elements.code.value.trim()});
+        state.mfa=await request("/mfa/status");
+        state.modal=action==="regenerate"?{kind:"mfa-codes",codes:result.recovery_codes}:null;
+        render();
+        if(action==="disable")toast("双重认证已解除");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(f.id==="accept-invitation-form"){
       const password=f.elements.password.value;
       if(password!==f.elements.confirm_password.value){
