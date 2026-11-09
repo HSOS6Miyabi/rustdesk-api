@@ -855,13 +855,13 @@ Content-Type: application/json
 `GET /api/admin/audit/export` 在原有 `kind` 与 `from_id` 参数之外，还支持 `from_date`、`to_date`（日期格式 `YYYY-MM-DD`），以及适用类别中的 `peer_id`、`from_peer`、`from_user_id`、`action`。日期筛选使用 UTC 日期，数据下载最多 10000 条。对 CSV 的文本字段进行电子表格安全处理。
 
 
-## 官方 Windows 客户端构建器
+## 官方客户端安装文件制作
 
-管理员可以创建 RustDesk 1.5.1 Windows x64/ARM64 客户端配置，准备经过 SHA-256 验证的官方安装程序，并查看任务历史。管理接口统一使用 `/api/admin/client_builder` 前缀：
+管理员可以创建 RustDesk 1.5.1 的 Windows、Linux、macOS x64/ARM64 客户端配置，下载经过 SHA-256 验证的官方安装程序，并查看任务历史。Windows 使用包含配置的安装文件名；Linux/macOS 提供原始 DEB/DMG 与单独的配置脚本，打包成 ZIP。管理接口统一使用 `/api/admin/client_builder` 前缀：
 
 - `GET /profiles`、`POST /profiles`、`POST /profiles/delete`：查看、创建、更新和删除服务器配置。
 - `GET /tasks`、`POST /tasks`：查看任务或根据 `{"profile_id":12}` 创建任务。
 - `POST /tasks/retry`：使用 `{"id":8}` 重新提交失败任务。
 - `GET /tasks/:id/download`：下载已经准备好的安装程序。
 
-服务器会保留官方 EXE 文件内容，通过官方客户端可识别的文件名包含服务器配置，下载前再次验证 SHA-256。配置需要系统管理员权限。详细的填写方法、状态说明和普通服务器及 Docker 数据保存方式见 [客户端构建器说明](CLIENT_BUILDER.md)。
+服务器会保留官方 EXE、DEB 或 DMG 文件内容；Windows 通过文件名传递服务器配置，Linux 和 macOS 通过单独的脚本保存服务器配置。下载前再次验证最终文件的 SHA-256。配置需要系统管理员权限。详细的填写方法、状态说明和普通服务器及 Docker 数据保存方式见 [客户端构建器说明](CLIENT_BUILDER.md)。

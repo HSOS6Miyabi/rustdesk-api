@@ -218,14 +218,14 @@ Server 测试启动真实 hbbs 和模拟 API，验证已授权的 `PunchHoleRequ
 ## 客户端构建器和独立 API 令牌
 
 ```bash
-go test ./service -run 'TestClientBuild' -count=1
+go test ./service -run 'TestClientBuild|TestOfficialLinuxAndMac|TestClientSetupScript|TestInterruptedClient' -count=1
 go test ./http/middleware -run 'TestAutomationTokenRequiresScopeAndAdministrator' -count=1
 go test ./http/router -run 'TestAutomationDeviceInventoryAndRouteIsolation' -count=1
 node --test resources/admin/app.test.cjs resources/admin/browser.e2e.cjs
 python3 scripts/verify_upstream_client_commands.py
 ```
 
-`.github/workflows/verify-client-build.yml` 实际下载 RustDesk 1.5.1 的 Windows x64 与 ARM64 官方 EXE，检查大小、SHA-256、文件类型，以及服务器配置编码和安装程序内容保持不变。管理界面的浏览器测试检查安装配置保存、构建历史、桌面和移动端页面。生成的截图由 GitHub Actions 的 `rustdesk-admin-browser-screenshots` 文件提供。
+`.github/workflows/verify-client-build.yml` 实际下载 RustDesk 1.5.1 的 Windows EXE、Linux DEB 和 macOS DMG（x64 与 ARM64），检查大小、SHA-256、文件类型和原始安装程序内容保持不变。Linux/macOS 的 ZIP 及配置脚本还通过 Go 单元测试和 Linux 模拟安装命令检查。管理界面的浏览器测试检查安装配置保存、构建历史、桌面和移动端页面。生成的截图由 GitHub Actions 的 `rustdesk-admin-browser-screenshots` 文件提供。
 
 ## 邮件事件通知、设备策略与导出
 

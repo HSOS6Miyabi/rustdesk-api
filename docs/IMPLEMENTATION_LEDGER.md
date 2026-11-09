@@ -35,7 +35,7 @@
 
 CI 已实际通过的内容：
 
-- API：Go 测试、Go 编译、JavaScript 语法及交互测试、WebClient 构建与 WebRTC 检查、Chromium 桌面/平板/手机页面操作、三种数据库模拟升级及官方 Windows 客户端安装程序完整性检查。
+- API：Go 测试、Go 编译、JavaScript 语法及交互测试、WebClient 构建与 WebRTC 检查、Chromium 桌面/平板/手机页面操作、三种数据库模拟升级及官方 Windows、Linux、macOS 客户端安装文件完整性检查。
 - Server：Rust 编译及单元测试；实际 `hbbs`/`hbbr` 的 TCP、UDP、WebSocket、WebRTC 信令、登记及访问权限检查；AMD64/ARM64 的普通进程部署、Docker 组合部署、重启和数据保持测试。
 - CI **没有**替代对正式 SMTP、实际多平台桌面客户端、真实互联网中继部署和生产数据库的检查。其具体待办项目列于下文。
 
@@ -63,7 +63,7 @@ CI 已实际通过的内容：
 | F16 | 服务器集中连接访问规则 | 已实现且真实服务测试通过；默认关闭；实际客户端待验证 | API `service/connection_access.go`；Server `src/connection_access.rs` |
 | F17 | 连接、文件、登录与操作审计、历史连接备注和导出 | 已实现，含设备清单 CSV、审计日期和设备筛选、历史连接备注，自动测试通过 | `service/audit.go`、`service/audit_note.go`、`http/controller/admin/peer_export.go` |
 | F18 | WebClient v2、WebSocket 和 WebRTC | 现有功能保留，CI 编译和浏览器测试通过；真实设备待验证 | `resources/web2`、`resources/web/js` |
-| F19 | 可视化自定义客户端构建器 | 已实现 Windows x64/ARM64 配置、任务记录、官方安装程序 SHA-256 验证和下载，自动测试通过；真实 Windows 安装待检 | `service/client_build.go`、`service/client_build_worker.go`、`http/controller/admin/client_builder.go` |
+| F19 | 可视化自定义客户端构建器 | 已实现 Windows、Linux、macOS 的 x64/ARM64 官方安装文件和配置脚本打包，自动测试通过；真实系统安装待检 | `service/client_build.go`、`service/client_build_worker.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` |
 | F20 | GeoLite2 MMDB 读取、更多策略和 API 令牌功能、批量管理增强 | MMDB、客户端策略、独立管理令牌和四类批量管理已实现并通过自动化测试 | 见 T014–T018 |
 
 ### 4. 完整待办事项及处理顺序
@@ -84,7 +84,7 @@ CI 已实际通过的内容：
 | T010 | P0 | 官方客户端 1.4.5/1.5.0/1.5.1 的命令字段检查通过；真实客户端测试待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
-| T013 | P1 | Windows 构建器已实现并通过自动测试；其他平台及真实安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
+| T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
 | T014 | P1 | 已实现并通过心跳及界面自动测试；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
 | T016 | P1 | 已实现，CI 通过 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
@@ -712,15 +712,15 @@ Server 通过带内部密钥的 POST 请求，将设备 ID 和客户端登录令
 
 本阶段已实现 P1 类别的 T013–T020 中列出的主要管理功能，并完成对应自动化测试。正式发布前仍需完成真实客户端、实际邮箱、公网中继与数据库备份恢复检查。以下记录当前开发代码的功能和验证范围。
 
-### Windows 客户端安装程序
+### Windows、Linux、macOS 客户端安装文件
 
-客户端构建页面支持保存服务器地址、公钥、API 和中继地址，选择 Windows x64 或 ARM64，创建安装包任务、查看任务记录、重新执行未成功任务及下载已准备好的安装程序。构建服务保留 RustDesk 1.5.1 官方 EXE 原始字节，根据官方客户端支持的文件名格式保存服务器配置。程序在下载官方文件时核对大小与 SHA-256，管理员下载时再次核对文件完整性。
+客户端构建页面支持保存服务器地址、公钥、API 和中继地址，选择 Windows、Linux、macOS 的 x64 或 ARM64，创建安装任务、查看历史记录、重新提交失败任务及下载已准备好的文件。构建服务保留 RustDesk 1.5.1 官方 EXE、DEB 或 DMG 原始字节。Windows 使用官方客户端识别的文件名保存服务器配置；Linux/macOS 在 ZIP 内另附配置脚本和使用说明。系统在下载官方文件及管理员下载文件时核对 SHA-256。
 
-关键文件：`model/client_build.go`、`service/client_build.go`、`service/client_build_worker.go`、`http/controller/admin/client_builder.go`、`resources/admin/app.js`。
+关键文件：`model/client_build.go`、`service/client_build.go`、`service/client_build_worker.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go`、`resources/admin/app.js`。
 
 - [官方安装程序核对及 Go 单元测试 #42620321148](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620321148)：通过。
 - [Chromium 桌面、平板与手机交互及截图检查 #42620320903](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320903)：通过。
-- Linux、macOS 的安装程序制作及真实 Windows 安装、运行和连接检查，继续在发布前任务中执行。
+- [六个平台官方安装文件检查 #42623413828](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42623413828)：通过；包含 Linux 和 macOS ZIP 及配置脚本的 Go 测试。\n- Windows、Linux、macOS 的真实安装、权限及连接检查，继续在发布前任务中执行。
 
 ### 邮件通知与管理数据
 

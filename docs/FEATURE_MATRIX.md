@@ -2,7 +2,7 @@
 
 接手开发与完整待办任务请查看 [实施台账](IMPLEMENTATION_LEDGER.md)。当前开发分支尚未批准发布，以下“已实现”均指开发代码及相应自动化测试，不包含待执行的真实客户端检查。
 
-本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前开发分支和自动化测试结果为依据；实际设备、正式数据库及邮件服务商的检查另行列明。数据库迁移版本为 282，Windows 客户端构建器目前使用经过完整性验证的官方 1.5.1 安装程序。
+本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前开发分支和自动化测试结果为依据；实际设备、正式数据库及邮件服务商的检查另行列明。数据库迁移版本为 282。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
 
 | 功能 | 当前情况 | 对应模块 | 后续工作 |
 | --- | --- | --- | --- |
@@ -32,7 +32,7 @@
 | 多中继节点与 GeoLite2 国家识别 | 开发分支已实现 IP 网络、国家代码选择、自动同步、节点故障替换与 MMDB/CSV 读取 | `service/relay_node.go`、Server `src/relay_policy.rs`、`src/geoip_country.rs` | 真实跨地区连接测试 |
 | 独立 API 令牌与自动化管理 | 开发分支已实现细分操作权限、有效期、撤销及管理员身份复核，Go 和浏览器测试通过 | `http/router/automation.go`、`http/middleware/automation_auth.go` | 对接实际自动化脚本 |
 | 批量联系人、共享、部署和回收站管理 | 开发分支已实现，支持事务检查与管理界面操作，Go 和浏览器测试通过 | `service/address_book_batch.go`、`http/controller/admin/contact_batch.go` | 在真实团队数据上检查操作 |
-| 自定义客户端构建器 | 已实现 Windows x64/ARM64 配置、任务记录及校验下载，CI 通过 | `service/client_build.go`、`service/client_build_worker.go`、`http/controller/admin/client_builder.go` | 实际 Windows 安装及其他系统支持 |
+| 自定义客户端构建器 | 已实现 Windows、Linux、macOS 的 x64/ARM64 任务、校验下载和配置脚本打包，自动测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
 
 相关代码与测试：API 草稿 PR [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)，Server 草稿 PR [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。
 

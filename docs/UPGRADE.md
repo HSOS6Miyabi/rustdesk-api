@@ -192,6 +192,6 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 一致的密钥"
 
 当前开发分支的 API 数据库迁移版本为 **282**。升级时新增 `client_build_profiles` 和 `client_build_tasks` 两张表，分别用于保存客户端服务器配置和构建任务历史。升级不会修改已有用户、设备、群组、地址簿及审计记录。
 
-管理员在“客户端安装包构建”页面创建 Windows 安装程序。数据库保存配置、SHA-256 和任务状态，生成的安装程序默认存放于 `data/client-builds`。升级与备份时，应同时保留数据库和该目录。普通服务器运行和 Docker 挂载方式见 [客户端构建器说明](CLIENT_BUILDER.md)。
+管理员在“客户端安装包构建”页面准备 Windows、Linux、macOS 的官方客户端文件。数据库保存配置、SHA-256 和任务状态，生成的安装程序默认存放于 `data/client-builds`。升级与备份时，应同时保留数据库和该目录。普通服务器运行和 Docker 挂载方式见 [客户端构建器说明](CLIENT_BUILDER.md)。
 
 自动化模拟升级已覆盖 SQLite、MySQL 8.4 与 PostgreSQL 16，并检查旧设备策略及审计记录。正式部署前仍需使用真实数据库备份执行升级与恢复演练。

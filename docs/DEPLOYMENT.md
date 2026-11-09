@@ -275,8 +275,8 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
 `hbbs` 可通过 `RUSTDESK_GEOIP_MMDB_FILE` 指定 GeoLite2 Country MMDB 文件，也可继续使用 `RUSTDESK_GEOIP_CSV_DIR` 指定 CSV 目录。两者同时配置时优先查询 MMDB，未找到国家信息的地址再查 CSV。文件更新后使用本地控制命令 `reload-geo` 重新载入。正式数据库需要部署者自行获取，Docker 部署时应挂载相关文件或目录。
 
 
-## Windows 客户端安装程序构建及数据目录
+## Windows、Linux、macOS 客户端安装文件及数据目录
 
-管理员可以在“客户端安装包构建”页面准备 Windows x64 或 ARM64 的官方 RustDesk 1.5.1 安装程序。系统保存服务器配置，创建构建任务，从 GitHub 获取对应安装程序并核对 SHA-256。安装程序的原始字节保持不变。
+管理员可以在“客户端安装包构建”页面准备 Windows、Linux、macOS 的 x64 或 ARM64 官方 RustDesk 1.5.1 安装文件。系统保存服务器配置并创建处理任务，从 GitHub 获取对应文件并核对 SHA-256。Windows 通过文件名携带配置，Linux/macOS 使用 ZIP 保存原始安装文件和设置脚本；所有官方安装文件内容保持不变。
 
 普通服务器运行时，默认文件目录为 `data/client-builds`，可设置 `RUSTDESK_CLIENT_BUILD_DIR` 修改目录。Docker 镜像默认将数据保存在 `/app/data/client-builds`，需要持久挂载 `/app/data`。维护和备份时同时保存数据库和构建文件，避免任务记录与文件不一致。详细操作见 [客户端构建器说明](CLIENT_BUILDER.md)。
