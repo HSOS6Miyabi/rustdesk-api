@@ -183,12 +183,18 @@
     if(k==="is_admin")return v?"管理员":"普通用户";
     if(k==="enable_webrtc")return v?"启用":"停用";
     if(k==="enabled")return v?"已启用":"已停用";
+    if(k==="event_type")return esc({
+      "login.failure":"登录失败","deployment.changed":"设备登记变更",
+      "session.disconnect_requested":"远程连接结束请求",
+      "session.ended":"远程连接已结束","audit.file":"文件传输"
+    }[v]||v);
     if(k==="status"&&typeof v==="string")return esc({
-      approved:"已登记",revoked:"已撤销",pending:"等待通知",
-      delivered:"已通知客户端",completed:"连接已结束",expired:"已过期"
+      approved:"已登记",revoked:"已撤销",pending:"等待处理",
+      delivered:"已通知客户端",completed:"连接已结束",expired:"已过期",
+      sending:"正在发送",retry:"等待重试",sent:"发送成功",failed:"发送失败"
     }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(["created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
+    if(["sent_at","created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -1598,10 +1604,11 @@
     if(f.id==="login-form")await handleLogin(f);
     if(f.id==="client-profile-form"){
       const form={};
+      const values=new FormData(f);
       for(const name of ["name","platform","host","public_key","api_server","relay_server"]){
-        form[name]=f.elements[name].value.trim();
+        form[name]=String(values.get(name)||"").trim();
       }
-      const id=Number(f.elements.id.value);
+      const id=Number(values.get("id"));
       if(Number.isSafeInteger(id)&&id>0)form.id=id;
       form.version="1.5.1";
       try{
