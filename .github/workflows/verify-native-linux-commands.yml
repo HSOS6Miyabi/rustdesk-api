@@ -1,0 +1,47 @@
+name: Verify installed Linux client deployment commands
+
+on:
+  push:
+    branches:
+      - development/m1-device-management
+    paths:
+      - 'scripts/test_official_linux_cli.py'
+      - '.github/workflows/verify-native-linux-commands.yml'
+  pull_request:
+    paths:
+      - 'scripts/test_official_linux_cli.py'
+      - '.github/workflows/verify-native-linux-commands.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-client:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the verified official Linux RustDesk 1.5.1 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/rustdesk-1.5.1-x86_64.deb"
+          curl -fLsS --retry 3 --output "$package" \
+            'https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.deb'
+          echo "b5d682ad90cb7571ecbdbf26eef58d3c4514e726a74ef6d08ce3f0b114ef0bd9  $package" |
+            sha256sum --check
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$package"
+          test "$(rustdesk --version)" = "1.5.1"
+      - name: Start the installed RustDesk service
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl daemon-reload
+          sudo systemctl start rustdesk.service
+          sudo systemctl is-active --quiet rustdesk.service
+          sudo systemctl status --no-pager rustdesk.service
+      - name: Verify official deployment and assignment requests
+        shell: bash
+        run: sudo -E python3 scripts/test_official_linux_cli.py
