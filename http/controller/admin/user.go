@@ -35,7 +35,7 @@ func (ct *User) Detail(c *gin.Context) {
 		if scopeAny,ok:=c.Get("adminRoleScope");ok {
 			scope,valid:=scopeAny.(service.AdminRoleAccess)
 			if !valid||!service.ScopeCanViewUser(scope,u.Id){
-				response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+				response.Fail(c,403,"当前账户无权查看该记录")
 				return
 			}
 		}
@@ -104,7 +104,7 @@ func (ct *User) List(c *gin.Context) {
 	if scopeAny,ok:=c.Get("adminRoleScope");ok {
 		scope,valid:=scopeAny.(service.AdminRoleAccess)
 		if !valid||(!scope.Global&&len(scope.UserIDs)==0){
-			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+			response.Fail(c,403,"当前账户无权查看该记录")
 			return
 		}
 		if !scope.Global{

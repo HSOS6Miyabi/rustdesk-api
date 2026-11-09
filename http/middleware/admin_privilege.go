@@ -17,13 +17,13 @@ func AdminPrivilege() gin.HandlerFunc {
 		}
 		permission := service.AdminPermissionForRoute(c.Request.Method,c.FullPath())
 		if permission=="" {
-			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+			response.Fail(c,403,"当前账户没有此管理权限")
 			c.Abort()
 			return
 		}
 		scope,err:=service.RoleAccessForUser(u,permission)
 		if err!=nil || (!scope.Global && len(scope.UserIDs)==0) {
-			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+			response.Fail(c,403,"当前账户没有此管理权限")
 			c.Abort()
 			return
 		}
