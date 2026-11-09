@@ -517,3 +517,15 @@ test("notification settings and delivery history display per-event controls",asy
     assert.match(admin.root.innerHTML,new RegExp(name));
   }
 });
+
+test("device strategy form offers supported access and approval policies",async()=>{
+  const app=createConsole(true);
+  await app.settle();
+  await app.open("policies");
+  await app.action("create");
+  for(const label of ["允许的远程连接方式","允许远程键盘和鼠标","允许远程剪贴板",
+    "允许远程文件传输","远程连接确认方式","自定义权限","仅查看",
+    "密码或手动确认","仅密码","仅手动确认"]){
+    assert.match(app.root.innerHTML,new RegExp(label));
+  }
+});
