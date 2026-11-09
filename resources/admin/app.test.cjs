@@ -47,6 +47,7 @@ function createConsole(isAdmin = false, overrides = {}) {
     },
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
     "/mfa/status": {enabled:false,pending:false,remaining_recovery_codes:0},
+    "/mfa/email/status": {enabled:false,email:"owner@example.test",mail_configured:true},
     "/my/login_log/list": { list: [], total: 0 },
     "/user/list": { list: [], total: 0 },
     "/peer/list": { list: [], total: 0 },
@@ -295,4 +296,13 @@ test("users can see optional authenticator setup in personal settings",async()=>
   assert.ok(app.calls.some(x=>x.endpoint==="/mfa/status"));
   assert.match(app.root.innerHTML,/双重认证（TOTP）/);
   assert.match(app.root.innerHTML,/启用 TOTP 双重认证/);
+});
+
+test("personal profile shows optional emailed verification",async()=>{
+  const app=createConsole();
+  await app.settle();
+  await app.open("profile");
+  assert.ok(app.calls.some(x=>x.endpoint==="/mfa/email/status"));
+  assert.match(app.root.innerHTML,/邮箱登录验证/);
+  assert.match(app.root.innerHTML,/发送邮箱验证码并启用/);
 });

@@ -26,14 +26,22 @@ function serve(req, res) {
       req.on("data",chunk=>payload+=chunk.toString());
       req.on("end",()=>{
         const input=JSON.parse(payload||"{}");
-        if(input.type==="tfa_code"){
+        if(input.type==="tfa_code"||input.type==="email_code"){
           return answer(res,{username:"admin",nickname:"Admin",route_names:["*"],token:"admin-token"});
+        }
+
+        if(input.username==="email-user"){
+          return answer(res,{type:"email_check",tfa_type:"email_check",secret:"email-verification-challenge",user:{name:input.username,email:"email-user@example.test"}});
         }
         return answer(res,{type:"tfa_check",tfa_type:"tfa_check",secret:"temporary-challenge",user:{name:input.username}});
       });
       return;
     }
     if(route==="/mfa/status")return answer(res,{enabled:false,pending:false,remaining_recovery_codes:0});
+    if(route==="/mfa/email/status")return answer(res,{enabled:false,email:"owner@example.test",mail_configured:true});
+    if(route==="/mfa/email/setup")return answer(res,{secret:"mail-enrollment-challenge",expires_in_seconds:600});
+    if(route==="/mfa/email/enable"||route==="/mfa/email/disable")return answer(res,{});
+
     if(route==="/mfa/setup")return answer(res,{
       secret:"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",uri:"otpauth://totp/RustDesk%20OSS%20API?secret=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",expires_at:1910000000
     });
@@ -501,6 +509,37 @@ test("web login accepts authenticator challenge before opening the console",asyn
     await page.locator('#password').fill("Password123");
     await page.locator('#login-form button[type="submit"]').click();
     await page.locator('#mfa-login-code').waitFor({state:"visible"});
+    await page.locator('#mfa-login-code').fill("123456");
+    await page.locator('button[form="mfa-login-form"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"admin-token");
+  }finally{await context.close();}
+});
+
+test("personal settings can opt in to email login verification",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="profile"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="个人设置");
+    await page.getByText("邮箱登录验证",{exact:true}).waitFor();
+    await page.locator('button[data-action="email-verification-setup"]').click();
+    await page.locator('#email-verification-code').waitFor({state:"visible"});
+    await page.locator('#email-verification-code').fill("123456");
+    await page.locator('button[form="email-verification-form"]').click();
+    await page.getByText("邮箱登录验证已启用").waitFor();
+  }finally{await context.close();}
+});
+
+test("web login can complete an email verification challenge",async()=>{
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const page=await context.newPage();
+  try{
+    await page.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await page.locator('#username').fill("email-user");
+    await page.locator('#password').fill("Password123");
+    await page.locator('#login-form button[type="submit"]').click();
+    await page.locator('#mfa-login-code').waitFor({state:"visible"});
+    await page.getByText("邮箱验证码",{exact:true}).waitFor();
     await page.locator('#mfa-login-code').fill("123456");
     await page.locator('button[form="mfa-login-form"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
