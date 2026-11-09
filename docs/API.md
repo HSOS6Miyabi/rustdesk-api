@@ -481,3 +481,44 @@ POST /api/admin/audit_conn/note
 然后客户端提交 `type=email_code` 或 `tfa_code`、`secret`、`tfaCode`、`username` 完成验证，成功后返回普通 `access_token` 登录结果。
 
 网页管理控制台 `POST /api/admin/login` 会返回 `data.type=tfa_check`、`secret` 和 `data.user`，然后以 `type=tfa_code` 及验证码再次提交。单次挑战有效期为 5 分钟，每次最多验证 5 次。
+
+## 邮箱验证码登录
+
+用户可以在 Web 管理控制台“个人设置”中启用或关闭邮箱验证码登录。该功能默认关闭，管理员需要先配置 SMTP 邮件服务，用户需要具有正确的账户邮箱。
+
+已登录用户的接口：
+
+- `GET /api/admin/mfa/email/status`：查看邮箱地址、验证码登录启用状态，以及 SMTP 是否已配置。
+- `POST /api/admin/mfa/email/setup`：向账户邮箱发送 6 位绑定验证码，返回一次性 `secret`。
+- `POST /api/admin/mfa/email/enable`：提交 `secret` 和收到的 6 位验证码，启用邮箱登录验证。
+- `POST /api/admin/mfa/email/disable`：关闭当前账户的邮箱验证码登录。
+
+验证绑定时的请求格式：
+
+```json
+{"secret":"绑定请求返回的凭据","code":"123456"}
+```
+
+绑定成功之后，客户端密码登录第一步返回：
+
+```json
+{
+  "type":"email_check",
+  "tfa_type":"email_check",
+  "secret":"当前登录请求凭据",
+  "user":{"name":"team-member","email":"team@example.com"}
+}
+```
+
+客户端收到邮件后，向 `POST /api/login` 提交：
+
+```json
+{
+  "type":"email_code",
+  "username":"team-member",
+  "secret":"当前登录请求凭据",
+  "verificationCode":"123456"
+}
+```
+
+成功后才会签发普通 `access_token`。网页 `/api/admin/login` 采用相同的双阶段流程。每个验证码有效期 10 分钟，尝试次数和申请频率受限制。TOTP 已启用的账户优先使用 TOTP。

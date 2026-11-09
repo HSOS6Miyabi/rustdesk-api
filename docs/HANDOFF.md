@@ -114,3 +114,25 @@ node --test resources/admin/browser.e2e.cjs
 ```
 
 TOTP 数据和恢复码会随账户删除一并清理。具体提交和 CI 运行链接参见 [IMPLEMENTATION_LEDGER.md](IMPLEMENTATION_LEDGER.md)。
+
+## 邮箱验证码登录
+
+- `model/email_verification.go`：邮箱验证设置及一次性验证码请求。
+- `service/email_login.go`：生成、发送、核对邮箱验证码。
+- `service/second_factor.go`：根据登录请求选择 TOTP 或邮箱验证码。
+- `http/controller/admin/email_verification.go`：个人设置接口。
+- `http/controller/api/login.go`、`http/controller/admin/login.go`：官方客户端和 Web 登录。
+- `resources/admin/app.js`：个人邮箱登录验证设置和验证码输入页面。
+
+SMTP 服务必须事先配置；用户启用邮箱验证前，需要确认自己账户中的邮箱可接收邮件。当前邮箱发生变化时，之前确认的邮箱不会自动授权新邮箱。旧用户默认继续使用原有密码或 OIDC/LDAP 登录方式。
+
+测试：
+
+```bash
+go test ./service -run 'TestEmailLogin|TestEmailCode' -count=1
+go test ./http/controller/api -run TestNativeRustDeskEmailCodeLogin -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+具体提交见 [实施台账](IMPLEMENTATION_LEDGER.md)。

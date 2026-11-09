@@ -102,3 +102,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 ## 双重认证
 
 个人设置中支持可选的 TOTP 动态验证码和六个一次性恢复码。启用后，官方 RustDesk 客户端与 Web 管理控制台的密码登录都需要进行双重认证。服务器需要配置持久化的 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，详情参见 [升级说明](docs/UPGRADE.md)。
+
+## 邮箱验证码登录
+
+可选启用邮箱登录验证。管理员配置 SMTP 后，用户可以在“个人设置”中完成邮箱绑定，后续密码登录会收到一次性验证码。若同时启用了 TOTP，将优先使用身份验证器。新安装默认不需要邮箱验证码。

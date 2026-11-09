@@ -19,6 +19,7 @@
 | 管理设备部署记录 | 开发分支已实现撤销和恢复许可 | `http/controller/admin/device_deployment.go` | 批量管理 |
 | 严格设备注册（可选） | 开发分支已实现并通过实际服务进程测试 | API 与 `rustdesk-server` | 真实客户端安装测试 |
 | SMTP 邮件发送和管理 | 开发分支已实现 SMTP 设置、凭据加密和测试邮件 | `service/mail.go`、`http/controller/admin/mail.go` | 更多邮件发送通知 |
+| 邮箱验证码登录 | 开发分支已实现可选启用、邮件绑定和原生客户端验证流程 | `service/email_login.go`、`http/controller/admin/email_verification.go` | 更多邮件模板及实际客户端测试 |
 | 邮件邀请注册 | 开发分支已实现，含有效期和邀请撤销 | `service/user_invitation.go` | 批量邀请 |
 | 邮箱密码恢复 | 开发分支已实现，含一次性恢复链接和旧会话撤销 | `service/password_recovery.go` | 更多恢复方式 |
 | TOTP 与恢复码 | 开发分支已实现，完成 Go、原生客户端协议及浏览器自动化测试 | `service/totp.go`、`http/controller/admin/totp.go` | 实际客户端多平台测试 |

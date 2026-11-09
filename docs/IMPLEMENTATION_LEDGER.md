@@ -201,3 +201,34 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 - [Web 控制台绑定、恢复码及登录浏览器测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42562596974)，通过。
 
 真实 Windows、macOS、Linux、Android 客户端登录需要在完成里程碑前结合实际设备进行检查。
+
+## 2026-11-09：可选邮箱验证码登录
+
+通过已配置的 SMTP 服务器发送 6 位数字验证码。用户登录后可在个人设置中启用邮箱登录验证；登录时由服务器发送验证码，验证成功才创建账户会话。双重认证继续保持可选，已启用 TOTP 时优先使用身份验证器。
+
+| 仓库 | 提交 | 实施内容 |
+| --- | --- | --- |
+| API | [2919335](https://github.com/HSOS6Miyabi/rustdesk-api/commit/2919335af73d5f6bd8e81463599fd2fff82df854) | 邮箱验证数据表、验证码生成及发送、登录验证服务、统一双重认证接口 |
+| API | [5a254fd](https://github.com/HSOS6Miyabi/rustdesk-api/commit/5a254fdb0b65255a4f15b08ae2f9a008e0e3e6f9) | 绑定与关闭接口、官方客户端和网页登录流程 |
+| API | [c4e025e](https://github.com/HSOS6Miyabi/rustdesk-api/commit/c4e025eb324d24825ee81532e40078a8074ecd0b) | 本地 SMTP 验证、验证码有效期和尝试次数测试 |
+| API | [32a3a88](https://github.com/HSOS6Miyabi/rustdesk-api/commit/32a3a88cb9ac1e41b414d7a600f8fd4cd8a07568) | 个人设置中的邮箱验证开关与两步登录 |
+| API | [7babd12](https://github.com/HSOS6Miyabi/rustdesk-api/commit/7babd1221d94515ca6f25ab2916df3eeb7c7a426) | 验证码发送频率和重复申请测试 |
+| API | [1f6e49c](https://github.com/HSOS6Miyabi/rustdesk-api/commit/1f6e49cee055082629845820ba039ce8ab20449e) | 官方 RustDesk 客户端邮箱验证码请求与登录响应测试 |
+| API | [6a74cda](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6a74cda828b0696b1a879f614df06f363d83f0b7) | 网页账户绑定和邮箱验证码登录浏览器测试 |
+| API | [e8d54f3](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e8d54f3f157c97ab8086fad729cf949698aa6309) | 删除账户时清除邮箱验证设置与未完成的验证码请求 |
+
+### 数据库及默认行为
+
+增加 `email_login_settings`、`email_code_challenges`，数据库迁移版本更新至 275。用户默认不开启邮箱验证码登录，原有登录方式继续有效。
+
+邮箱验证码通过已配置的 SMTP 发送，10 分钟内有效，最多尝试 5 次；单个账户每小时最多申请 6 次。绑定时先向当前账户邮箱发送验证码，成功验证后记录已验证的邮箱地址。账户邮箱变更后，需要重新进行邮箱验证。
+
+官方客户端复用 `type=email_check`、`tfa_type=email_check` 和 `verificationCode` 字段。已有 TOTP 的用户优先使用身份验证器，其余启用邮箱验证的用户使用邮箱验证码。服务器不会在验证码通过前发放登录令牌。
+
+### 测试
+
+- [邮箱验证码服务及发送频率测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42563626241)，通过。
+- [完整原生客户端 HTTP 接口测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42563745799)，按后续综合测试结果核对。
+- [网页邮箱验证及登录测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42563796255)，按最新综合测试结果核对。
+
+与此前相同，日常提交不创建 GitHub Release 或发行版 Docker 镜像。

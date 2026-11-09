@@ -77,3 +77,11 @@ SMTP 配置存储在 `smtp_settings` 中。SMTP 密码使用 `RUSTDESK_API_MAIL_
 TOTP 密钥保存在 `UserTOTP`，恢复码哈希保存在 `TOTPRecoveryCode`。密码验证成功后，如果用户启用了 TOTP，API 生成有效期五分钟的 `TOTPLoginChallenge`，暂不创建登录会话。用户提交有效动态验证码或一次性恢复码后，服务器才签发原有登录令牌。
 
 客户端使用公开 RustDesk 登录协议中的 `type`、`tfa_type`、`secret` 和 `tfaCode`。管理控制台通过个人设置接口完成绑定、解除和恢复码重新生成。
+
+## 邮箱验证码登录
+
+邮箱验证设置存储在 `EmailLoginSetting`，按用户记录已验证的邮箱。临时验证请求存储在 `EmailCodeChallenge`，只保存一次性凭据和验证码摘要。用户修改邮箱后，旧的验证状态不再适用。
+
+密码登录通过后，若用户启用了 TOTP，优先创建 TOTP 登录请求；否则如已启用邮箱验证，向账户邮箱发送一次性验证码。验证码通过后，才向客户端或 Web 控制台签发登录令牌。
+
+邮件发送使用管理员配置的 SMTP 服务。邮箱验证码申请具有有效期、尝试次数和发送频率限制。
