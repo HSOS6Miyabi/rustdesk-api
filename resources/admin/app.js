@@ -668,8 +668,8 @@
         return;
       }
       state.modal=null;
-      toast(p.endpoint==="invite"?"邀请邮件已发送":"保存成功");
       await load();
+      toast(p.endpoint==="invite"?"邀请邮件已发送":"保存成功");
     }catch(e){toast(e.message,true);}
   }
   async function deleteEntry(id){
