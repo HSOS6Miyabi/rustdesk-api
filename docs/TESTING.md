@@ -22,8 +22,8 @@ node --test resources/admin/browser.e2e.cjs
 
 ```bash
 git submodule update --init --recursive
-cargo test --locked --lib --tests
-cargo build --locked --bins
+cargo test --lib --tests
+cargo build --bins
 python3 scripts/test_runtime.py target/debug/hbbs target/debug/hbbr
 python3 scripts/test_webrtc_rendezvous.py
 ```
@@ -91,7 +91,7 @@ node --test resources/admin/browser.e2e.cjs
 
 SMTP 测试在本地启动临时邮件服务并检查实际发送内容。密码恢复测试验证到期、重复使用、密码修改和原有登录会话撤销。邀请测试覆盖邮件链接、群组归属、用户注册、撤销和重复使用。
 
-最新代码的综合 CI：[GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)。
+当前客户端构建和邮件通知等功能的综合 CI：[GitHub Actions #42620320903](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320903)。
 
 正式投入使用前，应使用实际 SMTP 服务提供商测试发送、接收、TLS 连接与外部可访问的邀请链接。
 
@@ -140,8 +140,8 @@ node --test resources/admin/browser.e2e.cjs
 Server：
 
 ```bash
-cargo test --locked --lib --tests
-cargo build --locked --bins
+cargo test --lib --tests
+cargo build --bins
 python3 scripts/test_managed_relays.py target/debug/hbbs
 ```
 
@@ -160,8 +160,8 @@ node --test resources/admin/browser.e2e.cjs
 Server：
 
 ```bash
-cargo test --locked --lib --tests
-cargo build --locked --bins
+cargo test --lib --tests
+cargo build --bins
 python3 scripts/test_managed_relays.py target/debug/hbbs
 ```
 
@@ -205,11 +205,48 @@ node --test resources/admin/browser.e2e.cjs
 Server：
 
 ```bash
-cargo test --locked --lib --tests
-cargo build --locked --bins
+cargo test --lib --tests
+cargo build --bins
 python3 scripts/test_connection_access.py target/debug/hbbs
 ```
 
 API 测试覆盖设备所有者、指定用户、主要群组和附加群组、允许与禁止规则的优先级、无效登录令牌、未知设备和删除数据后的关联规则清理。
 
 Server 测试启动真实 hbbs 和模拟 API，验证已授权的 `PunchHoleRequest`、`RequestRelay` 能够发送到被控设备；不符合规则的请求不会转发，API 无法访问时也不会允许新连接。
+
+
+## 客户端构建器和独立 API 令牌
+
+```bash
+go test ./service -run 'TestClientBuild' -count=1
+go test ./http/middleware -run 'TestAutomationTokenRequiresScopeAndAdministrator' -count=1
+go test ./http/router -run 'TestAutomationDeviceInventoryAndRouteIsolation' -count=1
+node --test resources/admin/app.test.cjs resources/admin/browser.e2e.cjs
+python3 scripts/verify_upstream_client_commands.py
+```
+
+`.github/workflows/verify-client-build.yml` 实际下载 RustDesk 1.5.1 的 Windows x64 与 ARM64 官方 EXE，检查大小、SHA-256、文件类型，以及服务器配置编码和安装程序内容保持不变。管理界面的浏览器测试检查安装配置保存、构建历史、桌面和移动端页面。生成的截图由 GitHub Actions 的 `rustdesk-admin-browser-screenshots` 文件提供。
+
+## 邮件事件通知、设备策略与导出
+
+```bash
+go test ./service -run 'TestNotification|TestClientSecurityPolicyOptions' -count=1
+go test ./http/controller/admin -run 'TestDeviceExport|TestAuditExport' -count=1
+node --test resources/admin/app.test.cjs resources/admin/browser.e2e.cjs
+```
+
+邮件通知测试使用模拟 SMTP，检查收件人、事件过滤、重复通知、重试和记录保存。策略测试检查访问模式、键盘鼠标、剪贴板、文件传输与连接确认设置的发送和撤销。导出测试检查设备归属、日期、来源和 CSV 内容。
+
+## SQLite、MySQL 和 PostgreSQL 数据升级
+
+```bash
+go test ./service -run '^TestDatabaseMigrationAcrossDrivers$' -count=1 -v
+```
+
+本地仅配置 SQLite 时会运行 SQLite 测试。在 CI 的 `.github/workflows/verify-database-upgrades.yml` 中，会同时启动 MySQL 8.4 和 PostgreSQL 16 临时数据库，并设置 `RUSTDESK_TEST_MYSQL_DSN`、`RUSTDESK_TEST_POSTGRES_DSN`，验证旧结构迁移到版本 282、现有数据保存及重复迁移行为。对应运行：[数据库检查 #42620320922](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320922)。
+
+## Server 普通进程与 Docker 双架构部署
+
+配套 Server 仓库的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上分别编译两个项目。检查脚本 `scripts/test_native_stack.py` 运行独立 API、`hbbs`、`hbbr` 并重启两次，检查管理页面、WebClient、通信端口和数据保存；`scripts/test_persistent_container.py` 验证 Docker 容器重新创建后账户、数据库和公钥保持一致。
+
+对应运行：[双架构部署检查 #42618003889](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42618003889)，已通过。正式公网与真实客户端连接仍需另行完成。
