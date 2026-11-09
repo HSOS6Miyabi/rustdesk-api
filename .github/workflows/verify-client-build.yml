@@ -1,0 +1,62 @@
+name: Verify official client installer inputs
+
+on:
+  pull_request:
+    paths:
+      - 'service/client_build*.go'
+      - 'model/client_build.go'
+      - 'resources/admin/app.js'
+      - '.github/workflows/verify-client-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rustdesk-official-client-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-windows-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+          cache: true
+      - name: Check installer profiles and artifact checksum logic
+        run: go test ./service -run '^TestClientBuild' -count=1 -v
+      - name: Verify pinned official Windows executables
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import urllib.request
+
+          release = "https://github.com/rustdesk/rustdesk/releases/download/1.5.1/"
+          files = (
+              ("rustdesk-1.5.1-x86_64.exe", 26211184,
+               "319206042390ebfcba934cf0baa2f612f34de463c78c843b7cb8c22097c4bf7b"),
+              ("rustdesk-1.5.1-aarch64.exe", 24252784,
+               "54de7328a4a2bff0b9e60d1268f7b239c45d11ab4dff4fed0c88a8a3b0fbe516"),
+          )
+          for filename, expected_size, expected_hash in files:
+              with urllib.request.urlopen(release + filename, timeout=120) as response:
+                  digest = hashlib.sha256()
+                  size = 0
+                  prefix = b""
+                  while True:
+                      chunk = response.read(1024 * 1024)
+                      if not chunk:
+                          break
+                      if not prefix:
+                          prefix = chunk[:2]
+                      size += len(chunk)
+                      if size > expected_size:
+                          raise RuntimeError(f"{filename}: file exceeds the pinned size")
+                      digest.update(chunk)
+              if prefix != b"MZ" or size != expected_size or digest.hexdigest() != expected_hash:
+                  raise RuntimeError(f"{filename}: PE header, size or SHA-256 differs")
+              print(f"{filename}: official PE installer verified, {size} bytes, SHA-256 {expected_hash}")
+          PY
