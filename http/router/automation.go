@@ -19,6 +19,7 @@ func AutomationRoutes(engine *gin.Engine) {
 	}
 	peers := &admin.Peer{}
 	read("/devices", "devices.read", peers.List)
+	read("/devices/export", "devices.read", peers.ExportCSV)
 	read("/devices/:id", "devices.read", peers.Detail)
 	write("/devices/create", "devices.manage", peers.Create)
 	write("/devices/update", "devices.manage", peers.Update)
