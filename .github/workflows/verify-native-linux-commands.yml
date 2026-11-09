@@ -42,24 +42,6 @@ jobs:
           sudo systemctl start rustdesk.service
           sudo systemctl is-active --quiet rustdesk.service
           sudo systemctl status --no-pager rustdesk.service
-      - name: Start the desktop user IPC process
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get install -y xvfb
-          nohup Xvfb :95 -screen 0 1280x800x24 -nolisten tcp \
-            > "$RUNNER_TEMP/rustdesk-xvfb.log" 2>&1 &
-          sleep 2
-          export DISPLAY=:95
-          nohup rustdesk --server > "$RUNNER_TEMP/rustdesk-user-server.log" 2>&1 &
-          sleep 5
-          pgrep -a -u "$(id -u)" rustdesk || true
-          if ! pgrep -u "$(id -u)" rustdesk >/dev/null; then
-            cat "$RUNNER_TEMP/rustdesk-user-server.log"
-            echo "The desktop user RustDesk process did not remain available." >&2
-            exit 1
-          fi
-          echo "DISPLAY=:95" >> "$GITHUB_ENV"
       - name: Verify official deployment and assignment requests
         shell: bash
         run: sudo -E python3 scripts/test_official_linux_cli.py

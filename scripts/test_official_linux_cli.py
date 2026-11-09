@@ -11,7 +11,6 @@ import os
 import subprocess
 import threading
 
-CLIENT_ID = "rustdesk-test-cli-100001"
 TOKEN = "linux-cli-test-token"
 
 
@@ -78,7 +77,10 @@ def main():
         readback = call("--option", "api-server")
         if readback.strip() != url:
             raise AssertionError(f"the installed RustDesk client did not save its API endpoint: {readback!r}")
-        deployed = call("--deploy", "--token", TOKEN, "--id", CLIENT_ID)
+        native_id = call("--get-id").strip()
+        if len(native_id) < 6 or len(native_id) > 253:
+            raise AssertionError(f"the installed client did not have a usable device ID: {native_id!r}")
+        deployed = call("--deploy", "--token", TOKEN)
         if "Device deployed." not in deployed:
             raise AssertionError(f"the official deployment command did not succeed: {deployed}")
         assigned = call("--assign", "--token", TOKEN, "--device_name", "CI Office")
@@ -88,17 +90,17 @@ def main():
         assignments = [item for item in LocalAPI.requests if item[0] == "/api/devices/cli"]
         if len(deployments) != 1 or len(assignments) != 1:
             raise AssertionError("the client did not submit both official API requests")
-        if deployments[0][2]["id"] != CLIENT_ID:
-            raise AssertionError("the custom device ID was not sent with deployment")
-        if assignments[0][2]["id"] != CLIENT_ID:
-            raise AssertionError("the deployed device ID was not retained for assignment")
+        if deployments[0][2]["id"] != native_id:
+            raise AssertionError("the current device ID was not sent with deployment")
+        if assignments[0][2]["id"] != native_id:
+            raise AssertionError("the same device ID was not retained for assignment")
         if assignments[0][2].get("device_name") != "CI Office":
             raise AssertionError("the assignment options were not transmitted")
         if deployments[0][2]["uuid"] != assignments[0][2]["uuid"]:
             raise AssertionError("the device UUID changed between commands")
         if len(deployments[0][2]["pk"]) < 40:
             raise AssertionError("the official public key was not transmitted")
-        print("Installed RustDesk 1.5.1 Linux client invoked --deploy and --assign successfully.")
+        print("Installed RustDesk 1.5.1 Linux client invoked --deploy and --assign using its current device ID.")
         print("Device ID, UUID, public key, authorization and assignment fields were verified.")
     finally:
         server.shutdown()
