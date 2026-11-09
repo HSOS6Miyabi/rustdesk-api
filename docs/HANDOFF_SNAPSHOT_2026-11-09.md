@@ -11,7 +11,7 @@
 | 最后核实的功能提交 | [`e898985f8b2242e0a4f5e28c1eed2a6ced17b37e`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e898985f8b2242e0a4f5e28c1eed2a6ced17b37e) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
 | 草稿拉取请求 | [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 目标默认分支 | `master` | `forapi` |
-| 原有正式版本 | `v3.0.0-api.96` | `v1.1.17-api.9` |
+| 最近已发布的预发布版本 | `v3.0.0-api.102` | `v1.1.17-api.20` |
 
 当前 API 数据库迁移版本为 **282**。开发分支中的代码未合并至默认分支，也未为本阶段创建正式 Release 或正式容器镜像。除非维护者明确批准首个里程碑发布，两个 PR 保持 Draft，禁止自动合并、打发行标签和上传正式镜像。
 

@@ -26,7 +26,7 @@
 | 最近通过自动测试的代码提交 | [`e898985f8b2242e0a4f5e28c1eed2a6ced17b37e`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e898985f8b2242e0a4f5e28c1eed2a6ced17b37e) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 综合 CI 检查 | [42652681801：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801) | [42649189875：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42649189875) |
-| 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
+| 最近已发布的预发布版本 | `v3.0.0-api.102`（2026-11-08） | `v1.1.17-api.20`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
 以上是已通过完整自动化测试的功能代码提交。文档修改可以产生更新的分支提交；部署时应同时查看两仓库分支最新提交、对应的 CI 结果和本台账记录。**API 与 Server 开发分支必须配合部署，不能直接把未发布的 API 功能与旧版 Server 混用并假定兼容。**
