@@ -293,7 +293,7 @@ curl -X POST -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
 
 自动化路由与现有控制台使用相同的请求字段及响应格式。可用资源路径：
 
-- `GET /devices`、`GET /devices/:id`；`POST /devices/create`、`/devices/update`、`/devices/delete`、`/devices/batch-delete`
+- `GET /devices`、`GET /devices/:id`；`POST /devices/create`、`/devices/update`、`/devices/transfer`、`/devices/delete`、`/devices/batch-delete`
 - `GET /deployments`；`POST /deployments/status`
 - `GET /relays`；`POST /relays/create`、`/relays/update`、`/relays/delete`
 - `GET /sessions`、`/sessions/disconnects`；`POST /sessions/disconnect`
@@ -686,7 +686,19 @@ X-RustDesk-Internal-Key: <内部通信密钥>
 
 `scope_type` 为 `global`、`group` 或 `individual`。全局角色的 `scope_id` 使用 0；用户组角色填写用户组编号，指定账户角色填写用户编号。
 
-限定用户组或指定账户的角色目前仅允许 `users.view` 和 `devices.view`，并且在用户和设备列表、详情接口中限制可见记录。其他权限需要全局角色。
+限定用户组或指定账户的角色支持 `users.view`、`users.edit`、`users.delete`、`devices.view`、`devices.edit_info`、`devices.delete` 和 `devices.transfer`。列表与详情仅显示允许查看的账户及设备。修改账户时不得变更其所属用户组或管理员身份，删除账户时不得删除系统管理员；编辑和删除设备时检查当前所有者是否属于授权范围。批量删除设备会先检查所有目标的归属，有任何无权限的设备则不执行删除。
+
+转移设备所有者时，需要同时有权管理原所有者和目标所有者，客户端登记记录中的所有者也会同步修改。控制台“设备管理”可直接执行转移；还可调用：
+
+```http
+POST /api/admin/peer/transfer
+api-token: <后台登录令牌>
+Content-Type: application/json
+
+{"row_id":18,"user_id":12}
+```
+
+单台设备的 `row_id` 是设备数据库记录编号，`user_id` 是目标用户编号。适用于全局管理员和具备 `devices.transfer` 权限的指定范围管理员。其他修改、删除接口保持原有数据格式，具体的目标归属由服务器检查。
 
 角色分配接口：
 
