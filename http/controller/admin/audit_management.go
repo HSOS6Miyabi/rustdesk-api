@@ -83,7 +83,7 @@ func (a *AuditManagement) SaveRetention(c *gin.Context){
 func exportColumns(kind string) (interface{},[]string,error) {
 	switch kind {
 	case "audit_conn":
-		return &model.AuditConn{},[]string{"id","peer_id","from_peer","from_account","to_account","from_user_id","to_user_id","ip","conn_id","session_id","conn_audit_ref","primary_auth","two_factor","type","close_time","created_at"},nil
+		return &model.AuditConn{},[]string{"id","peer_id","from_peer","from_account","to_account","from_user_id","to_user_id","ip","conn_id","session_id","conn_audit_ref","primary_auth","two_factor","type","close_time","created_at","note","note_updated_by"},nil
 	case "audit_file":
 		return &model.AuditFile{},[]string{"id","peer_id","from_peer","from_account","to_account","conn_id","path","type","ip","num","created_at"},nil
 	case "audit_alarm":

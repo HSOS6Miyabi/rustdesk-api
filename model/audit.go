@@ -28,6 +28,8 @@ type AuditConn struct {
 	Uuid      string `json:"uuid" gorm:"default:'';not null;"`
 	CloseTime int64  `json:"close_time" gorm:"default:0;not null;"`
 	Direction string `json:"direction,omitempty" gorm:"-"`
+	Note string `json:"note" gorm:"type:text;not null;default:''"`
+	NoteUpdatedBy uint `json:"note_updated_by" gorm:"not null;default:0"`
 	TimeModel
 }
 

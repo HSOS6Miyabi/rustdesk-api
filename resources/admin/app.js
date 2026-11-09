@@ -21,7 +21,7 @@
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
     server: {name:"服务器管理",icon:"terminal",section:"系统管理",admin:true},
-    myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
+    myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
     mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     myalarms: {name:"我的安全告警",icon:"shield",section:"我的审计记录",endpoint:"my/audit_alarm",readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["conn_id","连接编号"],["info","告警详情"],["created_at","时间"]]},
     alarms: {name:"安全告警",icon:"shield",section:"系统管理",endpoint:"audit_alarm",admin:true,readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["from_user_id","发起方用户 ID"],["to_user_id","接收方用户 ID"],["conn_id","连接编号"],["source_ip","来源 IP"],["info","告警详情"],["created_at","时间"]]},
@@ -33,7 +33,7 @@
     retention: {name:"日志保留设置",icon:"settings",section:"系统管理",admin:true},
     myloginlogs: {name:"我的登录记录",icon:"clock",section:"我的审计记录",endpoint:"my/login_log",readonly:true,columns:[["id","编号"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
-    connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
+    connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
     transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     invitations: {name:"成员邮件邀请",icon:"users",section:"成员管理",endpoint:"invite",admin:true,columns:[["id","编号"],["email","收件邮箱"],["group_id","用户组 ID"],["expires_at","有效期截止"],["accepted_at","接受时间"],["revoked_at","撤销时间"]],fields:[["email","成员邮箱","email",true],["group_id","加入的用户组 ID（默认 1）","number"],["expires_in_days","有效天数（默认 7）","number"]]},
     mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
@@ -328,6 +328,7 @@
       if(row.revoked_at)return '<span class="pill muted">已撤销</span>';
       return '<button class="btn btn-sm btn-danger" data-action="invitation-revoke" data-id="'+esc(row.id)+'">撤销邀请</button>';
     }
+    if(state.page==="connections")return '<button type="button" class="btn btn-sm" data-action="audit-note" data-id="'+esc(row.id)+'">编辑备注</button>';
     if(state.page==="apiTokens"){
       return row.revoked_at?'<span class="pill muted">已撤销</span>':
         '<button type="button" class="btn btn-sm btn-danger" data-action="revoke-api-token" data-id="'+esc(row.id)+'">撤销令牌</button>';
@@ -517,6 +518,15 @@
       return modal(importing?"导入地址簿 CSV":"导出地址簿 CSV","仅处理指定账户的地址簿条目。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+
         '<button class="btn btn-primary" data-action="csv-submit">'+(importing?"导入 CSV":"下载 CSV")+'</button>');
+    }
+    if(m.kind==="audit-note"){
+      const body='<form id="audit-note-form">'+
+        '<div class="field"><label for="audit-note-input">连接备注</label>'+
+        '<textarea id="audit-note-input" name="note" rows="7" maxlength="2000" placeholder="填写连接用途、问题描述或处理记录">'+esc(m.data.note||"")+'</textarea>'+
+        '<small>最多 2000 字。内容将显示在连接记录中，并可随 CSV 导出。</small></div></form>';
+      return modal("编辑连接备注","连接编号："+m.data.id,body,
+        '<button type="button" class="btn" data-action="close-modal">取消</button>'+
+        '<button type="button" class="btn btn-primary" data-action="audit-note-save">保存备注</button>');
     }
     if(m.kind==="created-api-token"){
       const body='<div class="field"><label for="api-token-secret">请保存以下令牌</label>'+
@@ -716,6 +726,20 @@
       return;
     }
     if(a==="csv-submit"){await transferAddressBookCSV();return;}
+    if(a==="audit-note"){
+      const record=state.rows.find(x=>String(x.id)===String(el.dataset.id));
+      if(record){state.modal={kind:"audit-note",data:record};render();}
+      return;
+    }
+    if(a==="audit-note-save"){
+      if(state.modal?.kind!=="audit-note")return;
+      const note=document.getElementById("audit-note-input")?.value;
+      try{
+        await request("/audit_conn/note","POST",{id:Number(state.modal.data.id),note});
+        state.modal=null;toast("连接备注已保存");await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="invitation-revoke"){
       const row=state.rows.find(x=>String(x.id)===String(el.dataset.id));
       if(!row||!window.confirm("确定撤销发送到 "+row.email+" 的邀请吗？"))return;
