@@ -25,6 +25,7 @@ func ApiInit(g *gin.Engine) {
 	g.POST("/internal/v1/device/authorize", (&api.DeviceCommands{}).AuthorizeRegistration)
 	g.GET("/internal/v1/relay/nodes", (&api.InternalRelay{}).Nodes)
 	g.GET("/internal/v1/control/permissions", (&api.InternalControl{}).Permissions)
+	g.POST("/internal/v1/connection/authorize", (&api.InternalConnectionAccess{}).Authorize)
 
 	frg := g.Group("/api")
 

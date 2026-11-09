@@ -33,6 +33,7 @@ func Init(g *gin.Engine) {
 	RelayNodesBind(adg)
 	ControlRolesBind(adg)
 	AdminRolesBind(adg)
+	AccessRulesBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
@@ -516,4 +517,13 @@ func AdminRolesBind(rg *gin.RouterGroup) {
 	ar.POST("/create",assignments.Create)
 	ar.POST("/update",assignments.Update)
 	ar.POST("/delete",assignments.Delete)
+}
+
+func AccessRulesBind(rg *gin.RouterGroup) {
+	rules:=&admin.AccessRules{}
+	r:=rg.Group("/access_rule").Use(middleware.AdminPrivilege())
+	r.GET("/list",rules.List)
+	r.POST("/create",rules.Create)
+	r.POST("/update",rules.Update)
+	r.POST("/delete",rules.Delete)
 }

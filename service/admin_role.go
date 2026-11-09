@@ -29,6 +29,7 @@ var adminPermissionNames = []string{
 	"api_tokens.view","api_tokens.edit","smtp.view","smtp.edit",
 	"relay_nodes.view","relay_nodes.edit",
 	"device_deployment.view","device_deployment.edit",
+	"access_rules.view","access_rules.edit",
 	"sessions.view","sessions.edit",
 }
 

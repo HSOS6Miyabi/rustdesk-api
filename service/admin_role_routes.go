@@ -57,6 +57,9 @@ func AdminPermissionForRoute(method,path string)string{
 	case strings.HasPrefix(p,"/control_role/")||strings.HasPrefix(p,"/control_assignment/"):
 		if read{return "control_roles.view"}
 		if write{return "control_roles.edit"}
+	case strings.HasPrefix(p,"/access_rule/"):
+		if read{return "access_rules.view"}
+		if write{return "access_rules.edit"}
 	case strings.HasPrefix(p,"/relay/"):
 		if read{return "relay_nodes.view"}
 		if write{return "relay_nodes.edit"}
