@@ -174,6 +174,17 @@ func SaveMailSettings(input MailSettingsInput) (*PublicMailSettings,error){
 }
 
 func sendSMTP(settings *model.SMTPSetting,to,subject,body string) error{
+	if settings==nil{return errors.New("SMTP settings are required")}
+	return sendSMTPWithTLS(settings,to,subject,body,&tls.Config{
+		ServerName:settings.Host,MinVersion:tls.VersionTLS12,
+	})
+}
+
+// sendSMTPWithTLS shares the production SMTP implementation with tests that
+// supply a private certificate authority for their isolated mail server.
+func sendSMTPWithTLS(settings *model.SMTPSetting,to,subject,body string,tlsOptions *tls.Config) error{
+	if settings==nil||tlsOptions==nil{return errors.New("SMTP TLS settings are required")}
+	if tlsOptions.MinVersion<tls.VersionTLS12{return errors.New("SMTP requires TLS 1.2 or newer")}
 	if !settings.Enabled{return errors.New("SMTP email service is disabled")}
 	recipient,err:=mail.ParseAddress(strings.TrimSpace(to))
 	if err!=nil||recipient.Address!=strings.TrimSpace(to){return errors.New("invalid recipient email address")}
@@ -182,7 +193,6 @@ func sendSMTP(settings *model.SMTPSetting,to,subject,body string) error{
 	}
 	addr:=net.JoinHostPort(settings.Host,strconv.Itoa(settings.Port))
 	dialer:=&net.Dialer{Timeout:8*time.Second}
-	tlsOptions:=&tls.Config{ServerName:settings.Host,MinVersion:tls.VersionTLS12}
 	var conn net.Conn
 	if settings.Security=="tls"{
 		conn,err=tls.DialWithDialer(dialer,"tcp",addr,tlsOptions)
