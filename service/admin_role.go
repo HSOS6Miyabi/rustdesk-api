@@ -20,7 +20,7 @@ const (
 var adminPermissionNames = []string{
 	"users.view","users.create","users.delete","users.edit",
 	"users.edit_password","users.force_logout","users.manage_2fa",
-	"devices.view","devices.create","devices.edit_info","devices.delete",
+	"devices.view","devices.create","devices.edit_info","devices.delete","devices.transfer",
 	"user_groups.view","user_groups.edit","device_groups.view",
 	"device_groups.edit","audits.view","audits.edit",
 	"strategies.view","strategies.edit",
@@ -60,7 +60,13 @@ func ParseAdminRolePermissions(input string)(string,error){
 
 func roleSupportsScope(permission,scope string)bool{
 	if scope==AdminScopeGlobal{return true}
-	return permission=="users.view"||permission=="devices.view"
+	switch permission {
+	case "users.view", "users.edit", "users.delete",
+		"devices.view", "devices.edit_info", "devices.delete", "devices.transfer":
+		return true
+	default:
+		return false
+	}
 }
 
 func ValidateAdminRole(role *model.AdminRole)error{
