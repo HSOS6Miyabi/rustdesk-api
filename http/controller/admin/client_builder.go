@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"mime"
 	"net/http"
 	"strconv"
 
@@ -62,9 +63,12 @@ func (h *ClientBuilder) Retry(c *gin.Context) {
 func (h *ClientBuilder) Download(c *gin.Context) {
 	value,err:=strconv.ParseUint(c.Param("id"),10,32)
 	if err!=nil||value==0{response.Error(c,"构建任务编号无效");return}
-	filename,name,err:=service.ClientBuildFile(uint(value))
-	if err!=nil{c.JSON(http.StatusNotFound,gin.H{"error":"客户端安装包尚未生成或已被清理"});return}
+	file,name,size,err:=service.OpenVerifiedClientBuild(uint(value))
+	if err!=nil{c.JSON(http.StatusNotFound,gin.H{"error":"客户端安装文件尚未生成或无法验证"});return}
+	defer file.Close()
 	c.Header("Cache-Control","no-store")
 	c.Header("X-Content-Type-Options","nosniff")
-	c.FileAttachment(filename,name)
+	disposition:=mime.FormatMediaType("attachment",map[string]string{"filename":name})
+	c.DataFromReader(http.StatusOK,size,"application/octet-stream",file,
+		map[string]string{"Content-Disposition":disposition})
 }

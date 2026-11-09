@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -152,6 +153,20 @@ func TestClientBuildPackagesOfficialBytesWithoutModification(t *testing.T) {
 	}
 	if err:=os.WriteFile(path,fixture,0600);err!=nil{t.Fatal(err)}
 	if _,_,err:=ClientBuildFile(task.Id);err!=nil{t.Fatal(err)}
+	openFile,downloadName,downloadSize,err:=OpenVerifiedClientBuild(task.Id)
+	if err!=nil||downloadName!=task.Filename||downloadSize!=int64(len(fixture)){
+		t.Fatalf("verified streaming file is unavailable: %s %d %v",downloadName,downloadSize,err)
+	}
+	renamed:=path+".original"
+	if err:=os.Rename(path,renamed);err!=nil{t.Fatal(err)}
+	if err:=os.WriteFile(path,[]byte("different file"),0600);err!=nil{t.Fatal(err)}
+	streamed,err:=io.ReadAll(openFile)
+	openFile.Close()
+	if err!=nil||!bytes.Equal(streamed,fixture){
+		t.Fatal("installer streaming reopened an unverified replacement path")
+	}
+	if err:=os.Remove(path);err!=nil{t.Fatal(err)}
+	if err:=os.Rename(renamed,path);err!=nil{t.Fatal(err)}
 	link:=path+".backup"
 	if err:=os.Rename(path,link);err!=nil{t.Fatal(err)}
 	if err:=os.Symlink(link,path);err!=nil{t.Fatal(err)}

@@ -182,41 +182,51 @@ func clientBuildRoot()string {
 	return filepath.Join("data","client-builds")
 }
 
-func ClientBuildFile(taskID uint)(string,string,error){
-	if taskID==0{return "","",errors.New("invalid build ID")}
+// OpenVerifiedClientBuild returns the same validated file descriptor used
+// to stream an installer. The file path is never reopened after verification.
+func OpenVerifiedClientBuild(taskID uint)(*os.File,string,int64,error){
+	if taskID==0{return nil,"",0,errors.New("invalid build ID")}
 	var task model.ClientBuildTask
-	if err:=DB.First(&task,taskID).Error;err!=nil{return "","",err}
-	if task.Status!="ready"{return "","",errors.New("client package is not ready")}
+	if err:=DB.First(&task,taskID).Error;err!=nil{return nil,"",0,err}
+	if task.Status!="ready"{return nil,"",0,errors.New("client package is not ready")}
 	if task.Filename==""||strings.ContainsAny(task.Filename,"/\\") {
-		return "","",errors.New("invalid client package name")
+		return nil,"",0,errors.New("invalid client package name")
 	}
-	path:=filepath.Join(clientBuildRoot(),fmt.Sprintf("%d",task.Id),task.Filename)
-	info,err:=os.Lstat(path)
-	if err!=nil{return "","",err}
-	if !info.Mode().IsRegular()||info.Size()!=task.Bytes || task.Bytes<=0{
-		return "","",errors.New("client package is unavailable")
+	location:=filepath.Join(clientBuildRoot(),fmt.Sprintf("%d",task.Id),task.Filename)
+	info,err:=os.Lstat(location)
+	if err!=nil{return nil,"",0,err}
+	if !info.Mode().IsRegular()||info.Size()!=task.Bytes||task.Bytes<=0 {
+		return nil,"",0,errors.New("client package is unavailable")
 	}
-	if len(task.Sha256)!=64 {
-		return "","",errors.New("client package integrity record is missing")
-	}
+	if len(task.Sha256)!=64{return nil,"",0,errors.New("client package integrity record is missing")}
 	expected,err:=hex.DecodeString(task.Sha256)
-	if err!=nil || len(expected)!=sha256.Size {
-		return "","",errors.New("client package checksum is invalid")
+	if err!=nil||len(expected)!=sha256.Size{return nil,"",0,errors.New("client package checksum is invalid")}
+	file,err:=os.Open(location)
+	if err!=nil{return nil,"",0,err}
+	fail:=func(err error)(*os.File,string,int64,error){
+		file.Close()
+		return nil,"",0,err
 	}
-	file,err:=os.Open(path)
+	opened,err:=file.Stat()
+	if err!=nil{return fail(err)}
+	if !os.SameFile(info,opened)||opened.Size()!=task.Bytes{
+		return fail(errors.New("client package was changed during verification"))
+	}
+	checksum:=sha256.New()
+	if _,err:=io.Copy(checksum,file);err!=nil{return fail(err)}
+	if subtle.ConstantTimeCompare(checksum.Sum(nil),expected)!=1{
+		return fail(errors.New("client package integrity check failed"))
+	}
+	if _,err:=file.Seek(0,io.SeekStart);err!=nil{return fail(err)}
+	return file,task.Filename,task.Bytes,nil
+}
+
+// ClientBuildFile validates an installer and returns its current filesystem path.
+func ClientBuildFile(taskID uint)(string,string,error){
+	file,name,_,err:=OpenVerifiedClientBuild(taskID)
 	if err!=nil{return "","",err}
 	defer file.Close()
-	opened,err:=file.Stat()
-	if err!=nil{return "","",err}
-	if !os.SameFile(info,opened) || opened.Size()!=task.Bytes {
-		return "","",errors.New("client package was changed during verification")
-	}
-	h:=sha256.New()
-	if _,err:=io.Copy(h,file);err!=nil{return "","",err}
-	if subtle.ConstantTimeCompare(h.Sum(nil),expected)!=1 {
-		return "","",errors.New("client package integrity check failed")
-	}
-	return path,task.Filename,nil
+	return file.Name(),name,nil
 }
 
 // DropClientBuildProfile preserves historical task records and installers.
