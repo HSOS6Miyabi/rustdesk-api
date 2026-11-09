@@ -174,6 +174,8 @@ func AddressBookBind(rg *gin.RouterGroup) {
 		arp.GET("/trash/list", (&admin.AddressBookTrash{}).AdminList)
 		arp.POST("/trash/restore", (&admin.AddressBookTrash{}).AdminRestore)
 		arp.POST("/trash/purge", (&admin.AddressBookTrash{}).AdminPurge)
+		arp.POST("/trash/batchRestore", (&admin.AddressBookTrash{}).AdminBatchRestore)
+		arp.POST("/trash/batchPurge", (&admin.AddressBookTrash{}).AdminBatchPurge)
 
 	}
 }
@@ -310,6 +312,8 @@ func MyBind(rg *gin.RouterGroup) {
 		rg.GET("/my/address_book/trash/list", (&admin.AddressBookTrash{}).MyList)
 		rg.POST("/my/address_book/trash/restore", (&admin.AddressBookTrash{}).MyRestore)
 		rg.POST("/my/address_book/trash/purge", (&admin.AddressBookTrash{}).MyPurge)
+		rg.POST("/my/address_book/trash/batchRestore", (&admin.AddressBookTrash{}).MyBatchRestore)
+		rg.POST("/my/address_book/trash/batchPurge", (&admin.AddressBookTrash{}).MyBatchPurge)
 	}
 
 	{
