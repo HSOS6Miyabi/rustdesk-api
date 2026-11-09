@@ -139,25 +139,25 @@ def main():
                     raise AssertionError("Official deployment did not create the expected database row")
                 if len(base64.b64decode(row[0])) < 8 or len(base64.b64decode(row[1])) != 32:
                     raise AssertionError("Official client supplied an invalid identity")
+                with sqlite3.connect(root / "data/rustdeskapi.db", timeout=10) as db:
+                    created = db.execute(
+                        "SELECT uuid, user_id FROM peers WHERE id = ?",
+                        (device_id,),
+                    ).fetchone()
+                if created != (row[0], admin_id):
+                    raise AssertionError("Deployment did not create the owned device inventory")
                 result = client_cli("--deploy", "--token", token)
                 if "Device deployed." not in result:
                     raise AssertionError("Repeated deployment was not idempotent")
 
-                # A real registered device normally supplies this data through /api/sysinfo.
-                response = api_request(url, "/api/sysinfo", {
-                    "id": device_id, "uuid": row[0], "hostname": "ci-client",
-                    "os": "Linux", "version": "1.5.1",
-                })
-                if response != "SYSINFO_UPDATED":
-                    raise AssertionError(f"Official device record was not created: {response!r}")
                 result = client_cli(
                     "--assign", "--token", token, "--device_name", "CI Office",
                 )
                 if "Done!" not in result:
-                    raise AssertionError("Official assignment did not return success")
+                    raise AssertionError("Official assignment before sysinfo did not succeed")
                 with sqlite3.connect(root / "data/rustdeskapi.db", timeout=10) as db:
                     registered = db.execute(
-                        "SELECT uuid, hostname FROM peers WHERE id = ?",
+                        "SELECT uuid, hostname, user_id FROM peers WHERE id = ?",
                         (device_id,),
                     ).fetchone()
                     deployment = db.execute(
@@ -165,11 +165,18 @@ def main():
                         "FROM device_deployments WHERE device_id = ?",
                         (device_id,),
                     ).fetchone()
-                if registered != (row[0], "CI Office") or deployment != row:
-                    raise AssertionError("Official CLI assignment changed the device identity or failed to save")
+                if registered != (row[0], "CI Office", admin_id) or deployment != row:
+                    raise AssertionError("Official assignment did not preserve device identity and owner")
+
+                response = api_request(url, "/api/sysinfo", {
+                    "id": device_id, "uuid": row[0], "hostname": "CI Office",
+                    "os": "Linux", "version": "1.5.1",
+                })
+                if response != "SYSINFO_UPDATED":
+                    raise AssertionError(f"Approved device sysinfo request was rejected: {response!r}")
                 print(
-                    "Official Linux 1.5.1 client: real API deployment and assignment succeeded; "
-                    "SQLite identity, owner, repeat deployment and device name verified."
+                    "Official Linux 1.5.1 client: actual API deployment and direct assignment passed; "
+                    "owned inventory, identity, repeated deployment and sysinfo verified."
                 )
             except Exception:
                 stream.flush()
