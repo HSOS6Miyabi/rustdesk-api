@@ -522,3 +522,43 @@ POST /api/admin/audit_conn/note
 ```
 
 成功后才会签发普通 `access_token`。网页 `/api/admin/login` 采用相同的双阶段流程。每个验证码有效期 10 分钟，尝试次数和申请频率受限制。TOTP 已启用的账户优先使用 TOTP。
+
+## 多中继节点配置
+
+系统管理员在“中继节点管理”中设置节点，提供以下接口：
+
+- `GET /api/admin/relay/list`：查看中继节点。
+- `POST /api/admin/relay/create`：增加节点。
+- `POST /api/admin/relay/update`：修改节点，正文包含 `id`。
+- `POST /api/admin/relay/delete`：删除节点，正文例如 `{"id":7}`。
+
+创建示例：
+
+```json
+{
+  "name":"办公区域 A",
+  "address":"relay-a.example.com:21117",
+  "subnets":"203.0.113.0/24\n2001:db8:1::/48",
+  "priority":10,
+  "enabled":true
+}
+```
+
+`address` 为公开的中继地址，支持主机名、IP 地址或主机名与端口组合。IPv6 地址和端口组合使用方括号形式，例如 `[2001:db8::1]:21117`。
+
+`subnets` 为 IP 网络范围，可用换行或逗号分隔；留空表示普通候选节点。最多 64 个范围，IPv4、IPv6 均支持。`priority` 允许 0 至 10000，数值较小的节点优先。
+
+受信任的 `hbbs` 使用内部接口：
+
+```http
+GET /internal/v1/relay/nodes
+X-RustDesk-Internal-Key: <内部通信密钥>
+```
+
+返回：
+
+```json
+{"nodes":[{"address":"relay-a.example.com:21117","priority":10,"subnets":["203.0.113.0/24","2001:db8:1::/48"]}]}
+```
+
+该接口只返回已启用节点，供 `hbbs` 定期同步，不提供公共访问。

@@ -104,3 +104,19 @@ export RUSTDESK_API_MAIL_ENCRYPTION_KEY="替换成至少32个随机字符的长�
 管理员在“SMTP 邮件服务”中设置邮件服务器，普通用户在“个人设置”中确认自己的账户邮箱，并选择“发送邮箱验证码并启用”。需要真实发送邮件才能完成绑定。
 
 启用 TOTP 的用户优先使用 TOTP。若用户更改了账户邮箱，需要在个人设置重新验证该邮箱后才能继续使用邮箱验证码登录。
+
+## 多中继服务器
+
+API 数据库自动增加 `relay_nodes` 表，迁移版本为 276。已有服务器和设备记录不会更改。
+
+管理员可以在 Web 控制台“中继节点管理”中增删节点。如果不需要集中管理多个中继，可以不配置任何节点，继续使用原有 `hbbs -r` 参数。
+
+启用自动同步时，在 `hbbs` 环境中配置：
+
+```bash
+export RUSTDESK_API_RELAY_NODES_URL="http://127.0.0.1:21114/internal/v1/relay/nodes"
+export RUSTDESK_API_INTERNAL_KEY="与 API 一致的内部访问密钥"
+export RUSTDESK_API_RELAY_SYNC_SECONDS=30
+```
+
+建议将 API 内部接口放在受保护的网络中。多台服务器之间通信应使用 HTTPS。默认 30 秒同步一次，允许配置 10 至 3600 秒。动态配置全部清除后将恢复原有中继地址设置。

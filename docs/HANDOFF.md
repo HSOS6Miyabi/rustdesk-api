@@ -136,3 +136,22 @@ node --test resources/admin/browser.e2e.cjs
 ```
 
 具体提交见 [实施台账](IMPLEMENTATION_LEDGER.md)。
+
+## 多中继节点配置
+
+API：
+
+- `model/relay_node.go`、`service/relay_node.go`：节点数据、地址和 CIDR 验证、优先级。
+- `http/controller/admin/relay_node.go`：管理员增删修改及查询节点。
+- `http/controller/api/internal_relay.go`：供 Server 读取的内部配置接口。
+- `resources/admin/app.js`：中继节点管理页面。
+
+Server：
+
+- `src/relay_policy.rs`：获取 API 配置、解析 CIDR 和选择中继节点。
+- `src/rendezvous_server.rs`：定时同步节点，执行在线检查及故障时替代选择。
+- `scripts/test_managed_relays.py`：运行真实 `hbbs`、临时 API 和中继进行功能测试。
+
+两端使用相同的 `RUSTDESK_API_INTERNAL_KEY`；Server 通过 `RUSTDESK_API_RELAY_NODES_URL` 查找内部接口。未配置同步地址时保留原有中继选择方法。
+
+接手时应检查 API 和 Server 两个草稿 PR 的最新 CI，并运行上述真实服务测试。服务器区域自动识别（GeoLite2）仍在待开发范围中。

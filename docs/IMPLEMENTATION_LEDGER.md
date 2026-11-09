@@ -232,3 +232,45 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 - [网页邮箱验证及登录测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42563796255)，按最新综合测试结果核对。
 
 与此前相同，日常提交不创建 GitHub Release 或发行版 Docker 镜像。
+
+## 2026-11-09：多中继节点管理及网络优先选择
+
+这一功能适合在多个地区部署 `hbbr` 的小型团队。管理员在 Web 控制台配置节点，`hbbs` 可定时读取 API 并根据连接双方的 IP 网络优先选择中继。没有配置托管中继时，继续使用现有 `--relay-servers` 设置。
+
+| 仓库 | 提交 | 实施内容 |
+| --- | --- | --- |
+| API | [33476e0](https://github.com/HSOS6Miyabi/rustdesk-api/commit/33476e0b87e92adb9695fc3806dc928a314412a3) | 中继节点表、创建修改删除、地址和 CIDR 校验、内部同步接口 |
+| API | [850db22](https://github.com/HSOS6Miyabi/rustdesk-api/commit/850db223278dbf1fb4fd311a54e71f0c9823dd71) | 中继节点管理页面、优先级和 IP 网络编辑 |
+| API | [83d2628](https://github.com/HSOS6Miyabi/rustdesk-api/commit/83d26283346bdb839f045a44c76655f24fafca5a) | SQLite 节点管理、禁用、内部联系服务身份验证及浏览器测试 |
+| API | [c76f5cf](https://github.com/HSOS6Miyabi/rustdesk-api/commit/c76f5cffee49946e6de57c7fa80f1ab22171e435) | 列表刷新完成后显示保存提示 |
+| API | [d892c04](https://github.com/HSOS6Miyabi/rustdesk-api/commit/d892c0404806cb1649d51a7a9cf7b5e8e4f1629a) | 中继节点管理页面保存和关闭编辑窗口的自动化检查 |
+| Server | [6183fb1](https://github.com/HSOS6Miyabi/rustdesk-server/commit/6183fb15f9969fc64cd2868d2ed48a6fb4306c15) | IP 网络选择策略，保留未配置时的轮流选择逻辑 |
+| Server | [cf3b616](https://github.com/HSOS6Miyabi/rustdesk-server/commit/cf3b6162831416e4af2ed2086f3e117f5c9b5d54) | hbbs 定期获取 API 节点配置，更新活动中继列表 |
+| Server | [1a82c2c](https://github.com/HSOS6Miyabi/rustdesk-server/commit/1a82c2c3668ae4c8057466f25cbd853246f68a41) | 真实 hbbs 进程、临时中继服务器与内部 API 的联调测试 |
+| Server | [1dd7c0e](https://github.com/HSOS6Miyabi/rustdesk-server/commit/1dd7c0e85c10bf71f2bcfe86eebead8e09d4c495) | 中继离线后的替代选择、全部节点不可用时回到原有地址 |
+
+### 运行设置
+
+API 新增 `relay_nodes` 表，数据库迁移版本为 276。节点启用状态、优先级和 CIDR 范围由管理员在“中继节点管理”页面修改。
+
+Server 读取以下环境变量：
+
+```bash
+export RUSTDESK_API_RELAY_NODES_URL="http://127.0.0.1:21114/internal/v1/relay/nodes"
+export RUSTDESK_API_INTERNAL_KEY="与 API 使用相同的内部服务密钥"
+export RUSTDESK_API_RELAY_SYNC_SECONDS=30
+```
+
+`RUSTDESK_API_RELAY_NODES_URL` 不配置时，`hbbs` 继续使用启动参数和原有中继服务器列表。服务器定期同步成功后，不需要重启即可使用新节点。使用公开主机部署时，应通过 HTTPS 或受保护的内部网络访问 API。
+
+### 选择方式与测试
+
+优先选择能够匹配连接双方 IP 网络范围的在线节点。双方均匹配时优先于只有一方匹配的节点；匹配程度一致时，优先级数字较小的节点优先。如果没有匹配规则，则在活动节点之间轮流选择。
+
+已有中继节点健康检查继续检查 TCP 端口。节点不可达时自动选择其他活动节点；托管配置全部取消时恢复 `hbbs` 启动时的中继配置。
+
+- [API 中继管理、内部同步及浏览器测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42565133053)，通过。
+- [Server IP 网络规则与动态同步的自动化测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42564891450)，通过。
+- [Server 中继断线替代选择测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42565263648)，执行结果见工作流。
+
+IP 网络规则由管理员维护，尚需增加 GeoLite2 数据库查询，以便自动识别公开 IP 的地理位置。

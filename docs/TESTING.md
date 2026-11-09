@@ -126,3 +126,23 @@ node --test resources/admin/browser.e2e.cjs
 ```
 
 测试覆盖邮件验证码生成与发送、用户邮箱绑定、验证码单次使用、有效期和验证尝试次数、账户邮箱改变后的处理，以及官方客户端和网页双阶段登录的实际 HTTP 响应。正式部署前还需要使用实际邮件服务商和 RustDesk 客户端进行网络测试。
+
+## 多中继节点管理与动态选择
+
+API：
+
+```bash
+go test ./service -run TestRelayNodeManagementAndSubnetValidation -count=1
+go test ./http/controller/api -run TestInternalRelayNodeListingRequiresSharedKey -count=1
+node --test resources/admin/browser.e2e.cjs
+```
+
+Server：
+
+```bash
+cargo test --locked --lib --tests
+cargo build --locked --bins
+python3 scripts/test_managed_relays.py target/debug/hbbs
+```
+
+实际服务测试将启动临时 API 与中继节点，检查 IP 网络偏好、动态刷新、节点断线后的替代选择以及恢复启动时配置的中继地址。

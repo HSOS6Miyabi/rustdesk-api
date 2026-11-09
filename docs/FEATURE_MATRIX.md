@@ -26,7 +26,7 @@
 | 独立 API 管理令牌 | 开发分支已实现设备命令权限与到期管理 | `service/api_token.go`、`http/middleware/device_command_auth.go` | 扩充可用接口与权限类别 |
 | 管理员角色、控制角色 | 待实现 | API 与服务端 | 分级权限管理 |
 | 服务器执行的连接访问规则 | 待实现 | API 与 `hbbs` | 可选严格模式 |
-| 地理位置中继选择 | 待实现 | `hbbs` | 节点管理与故障替换 |
+| 多中继节点及网络优先选择 | 开发分支已实现管理、IP 网络匹配与自动故障替换 | `service/relay_node.go`、Server `src/relay_policy.rs` | GeoLite2 自动地理位置查询 |
 | 自定义客户端构建器 | 待实现 | 独立构建工作流 | 各系统安装包 |
 
 相关代码与测试：API 草稿 PR [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)，Server 草稿 PR [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。
@@ -51,3 +51,5 @@
 以上功能均在 GitHub 草稿 PR 中开发。当前公开 Release 仍应按照其对应版本的功能说明使用。
 
 - 普通用户个人设置：可启用 TOTP、查看剩余恢复码数量、重新生成恢复码或解除双重认证。
+
+- 中继节点管理：按区域配置中继地址、优先级、CIDR 网络范围及启停，支持 hbbs 自动同步与在线节点替代选择。
