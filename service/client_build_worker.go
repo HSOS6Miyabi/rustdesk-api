@@ -1,10 +1,6 @@
 package service
 
 import (
-	"archive/zip"
-	"encoding/json"
-	"net/url"
-	"path"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
