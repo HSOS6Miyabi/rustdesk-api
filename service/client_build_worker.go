@@ -48,19 +48,19 @@ func officialClientBuildSource(platform,version string)(clientBuildSource,error)
 	case "linux-arm64":
 		return clientBuildSource{
 			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.deb",
-			SHA256:"d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc466348669",
+			SHA256:"d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc4663486696018465",
 			Size:23594612,
 		},nil
 	case "macos-x64":
 		return clientBuildSource{
 			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.dmg",
-			SHA256:"457e4e786426d51714f8d08ce8d90815635bcd1923ab682ebfc5bc546e5b4399",
+			SHA256:"457e45a26d3f0919221e6db3dfb8c6a12ca65190307b53a907c3c51b762eb008",
 			Size:37691902,
 		},nil
 	case "macos-arm64":
 		return clientBuildSource{
 			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.dmg",
-			SHA256:"1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c3ffd70d7b",
+			SHA256:"1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c2303ffd70d7b",
 			Size:30548457,
 		},nil
 	default:

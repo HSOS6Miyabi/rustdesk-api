@@ -49,11 +49,11 @@ jobs:
               ("rustdesk-1.5.1-x86_64.deb", 25337156,
                "b5d682ad90cb7571ecbdbf26eef58d3c4514e726a74ef6d08ce3f0b114ef0bd9"),
               ("rustdesk-1.5.1-aarch64.deb", 23594612,
-               "d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc466348669"),
+               "d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc4663486696018465"),
               ("rustdesk-1.5.1-x86_64.dmg", 37691902,
-               "457e4e786426d51714f8d08ce8d90815635bcd1923ab682ebfc5bc546e5b4399"),
+               "457e45a26d3f0919221e6db3dfb8c6a12ca65190307b53a907c3c51b762eb008"),
               ("rustdesk-1.5.1-aarch64.dmg", 30548457,
-               "1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c3ffd70d7b"),
+               "1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c2303ffd70d7b"),
           )
           for filename, expected_size, expected_hash in files:
               with urllib.request.urlopen(release + filename, timeout=120) as response:

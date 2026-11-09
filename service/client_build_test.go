@@ -90,7 +90,14 @@ func TestClientBuildRejectsUnsupportedAndMaliciousSettings(t *testing.T) {
 		}
 	}
 	for _,platform:=range []string{"windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64"}{
-		if _,err:=officialClientBuildSource(platform,currentClientVersion);err!=nil{t.Fatal(err)}
+		source,err:=officialClientBuildSource(platform,currentClientVersion)
+		if err!=nil{t.Fatal(err)}
+		if source.Size<=0 || len(source.SHA256)!=64 {
+			t.Fatalf("official installer metadata is incomplete for %s: %+v",platform,source)
+		}
+		if bytes,err:=hex.DecodeString(source.SHA256);err!=nil||len(bytes)!=32 {
+			t.Fatalf("official installer checksum is invalid for %s: %v",platform,err)
+		}
 	}
 	if _,err:=officialClientBuildSource("android",currentClientVersion);err==nil{
 		t.Fatal("unsupported installer platform was accepted")
