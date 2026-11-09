@@ -771,32 +771,11 @@ test("administrator can configure Windows installers and inspect email delivery 
     const profileForm=page.locator("#client-profile-form");
     const invalid=await profileForm.evaluate(form=>[...form.elements].filter(
       field=>!field.checkValidity()).map(field=>field.name));
-    assert.deepEqual(invalid,[],"all installer profile fields must be valid before submission");
-    const browserErrors=[];
-    page.on("pageerror",error=>browserErrors.push(error.message));
-    const observedRequests=[];
-    page.on("request",req=>observedRequests.push({method:req.method(),url:req.url(),body:req.postData()}));
-    await page.evaluate(()=>{
-      window.__clientFormSubmissions=[];
-      document.addEventListener("submit",event=>{
-        window.__clientFormSubmissions.push(event.target.id);
-      },true);
-    });
+    assert.deepEqual(invalid,[],"client installer profile inputs must be valid");
+    const saved=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/client_builder/profiles")&&req.method()==="POST");
     await profileForm.locator('button[data-action="client-save"]').click();
-    await page.waitForTimeout(800);
-    const submitted=observedRequests.find(request=>
-      request.url.endsWith("/api/admin/client_builder/profiles")&&request.method==="POST");
-    if(!submitted){
-      const details=await page.evaluate(()=>({
-        url:location.href,submits:window.__clientFormSubmissions||[],
-        form:document.getElementById("client-profile-form")?.outerHTML.slice(-400),
-        toasts:document.querySelector(".toast-wrap")?.innerText||""
-      }));
-      throw new Error("installer form did not create an API request: "+JSON.stringify({
-        details,requests:observedRequests,browserErrors
-      }));
-    }
-    const payload=JSON.parse(submitted.body);
+    const payload=(await saved).postDataJSON();
     assert.equal(payload.platform,"windows-x64");
     assert.equal(payload.host,"support.example.test:21116");
     assert.equal(payload.api_server,"https://support.example.test");
@@ -805,7 +784,7 @@ test("administrator can configure Windows installers and inspect email delivery 
     await page.locator('nav.side-scroll button[data-view="notifications"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="邮件事件通知");
     await page.getByText("temporary SMTP failure").first().waitFor();
-    assert.equal(await page.locator('button[data-action="notification-retry"]').count(),1);
+    assert.equal(await page.locator('.table-scroll button[data-action="notification-retry"]').count(),1);
     await page.screenshot({path:path.join(__dirname,"test-screenshots","notifications-desktop.png"),fullPage:true});
   }finally{await context.close();}
 });
