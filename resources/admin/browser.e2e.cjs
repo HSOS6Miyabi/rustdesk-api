@@ -111,6 +111,38 @@ function serve(req, res) {
        subnets:"203.0.113.0/24",countries:"JP",priority:10,enabled:true}
     ],total:1});
     if(route==="/relay/create"||route==="/relay/update"||route==="/relay/delete")return answer(res,{});
+    if(route==="/notification/settings")return answer(res,{
+      settings:{enabled:true,recipients:"staff@example.test",events:"login.failure,deployment.changed,audit.file"},
+      catalog:["audit.file","deployment.changed","login.failure","session.disconnect_requested","session.ended"]
+    });
+    if(route==="/notification/list")return answer(res,{
+      list:[
+        {id:10,event_type:"deployment.changed",recipient:"staff@example.test",
+          status:"sent",attempts:1,sent_at:1731000000,last_error:""},
+        {id:11,event_type:"audit.file",recipient:"staff@example.test",
+          status:"failed",attempts:3,sent_at:0,last_error:"temporary SMTP failure"}
+      ],total:2
+    });
+    if(route==="/notification/retry")return answer(res,{});
+    if(route==="/client_builder/profiles"){
+      if(req.method==="POST")return answer(res,{id:3});
+      return answer(res,{list:[
+        {id:2,name:"Office Windows",platform:"windows-x64",version:"1.5.1",
+          host:"desk.example.test:21116",
+          public_key:"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          api_server:"https://desk.example.test",relay_server:"relay.example.test:21117"}
+      ],total:1});
+    }
+    if(route==="/client_builder/tasks"){
+      if(req.method==="POST")return answer(res,{id:7,status:"pending"});
+      return answer(res,{list:[
+        {id:5,profile_id:2,platform:"windows-x64",version:"1.5.1",
+          status:"ready",filename:"rustdesk-licensed-fixture.exe",bytes:26211184},
+        {id:6,profile_id:2,platform:"windows-x64",version:"1.5.1",
+          status:"failed",error:"connection unavailable"}
+      ],total:2});
+    }
+    if(route==="/client_builder/tasks/retry"||route==="/client_builder/profiles/delete")return answer(res,{});
     if(route==="/mail/settings")return answer(res,{enabled:true,host:"smtp.example.test",port:587,security:"starttls",sender_email:"support@example.test",sender_name:"Support",password_configured:true});
     if(route==="/mail/test")return answer(res,{sent:true});
     if(route==="/api_token/list")return answer(res,{list:[],total:0});
@@ -718,4 +750,73 @@ test("administrator can create a device-group connection access rule",async()=>{
     assert.equal(body.enabled,true);
     await editor.waitFor({state:"detached"});
   }finally{await context.close();}
+});
+
+
+test("administrator can configure Windows installers and inspect email delivery on desktop",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="clientBuilder"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="客户端安装包构建");
+    await page.getByText("Office Windows",{exact:true}).first().waitFor();
+    assert.match(await page.locator(".content").innerText(),/安装包已准备好/);
+    assert.match(await page.locator(".content").innerText(),/处理失败/);
+    fs.mkdirSync(path.join(__dirname,"test-screenshots"),{recursive:true});
+    await page.screenshot({path:path.join(__dirname,"test-screenshots","client-builder-desktop.png"),fullPage:true});
+
+    await page.locator('input[name="name"]').fill("Support group");
+    await page.locator('input[name="host"]').fill("support.example.test:21116");
+    await page.locator('input[name="public_key"]').fill("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+    await page.locator('input[name="api_server"]').fill("https://support.example.test");
+    const saved=page.waitForRequest(req=>req.url().endsWith("/api/admin/client_builder/profiles")&&req.method()==="POST");
+    await page.locator('button[type="submit"][form]').count();
+    await page.locator('#client-profile-form button[type="submit"]').click();
+    const payload=(await saved).postDataJSON();
+    assert.equal(payload.platform,"windows-x64");
+    assert.equal(payload.host,"support.example.test:21116");
+    assert.equal(payload.api_server,"https://support.example.test");
+    assert.equal(payload.version,"1.5.1");
+    await page.getByText("客户端配置已保存").first().waitFor();
+    await page.locator('nav.side-scroll button[data-view="notifications"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="邮件事件通知");
+    await page.getByText("temporary SMTP failure").first().waitFor();
+    assert.equal(await page.locator('button[data-action="notification-retry"]').count(),1);
+    await page.screenshot({path:path.join(__dirname,"test-screenshots","notifications-desktop.png"),fullPage:true});
+  }finally{await context.close();}
+});
+
+test("client builder and email notifications remain readable on phone and tablet",async()=>{
+  const sizes=[
+    {width:375,height:812,label:"mobile"},
+    {width:768,height:1024,label:"tablet"}
+  ];
+  for(const {width,height,label} of sizes){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="clientBuilder"]').click();
+      await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="客户端安装包构建");
+      await page.getByText("Office Windows",{exact:true}).first().waitFor();
+      const dimensions=await page.evaluate(()=>({
+        scroll:document.documentElement.scrollWidth,width:window.innerWidth
+      }));
+      assert.ok(dimensions.scroll<=dimensions.width+2,
+        label+" client builder has horizontal page overflow: "+JSON.stringify(dimensions));
+      await page.screenshot({
+        path:path.join(__dirname,"test-screenshots","client-builder-"+label+".png"),fullPage:true
+      });
+      await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="notifications"]').click();
+      await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="邮件事件通知");
+      assert.match(await page.locator(".content").innerText(),/发送记录/);
+      const pageWidth=await page.evaluate(()=>({
+        scroll:document.documentElement.scrollWidth,width:window.innerWidth
+      }));
+      assert.ok(pageWidth.scroll<=pageWidth.width+2,
+        label+" notifications have horizontal page overflow: "+JSON.stringify(pageWidth));
+      await page.screenshot({
+        path:path.join(__dirname,"test-screenshots","notifications-"+label+".png"),fullPage:true
+      });
+    }finally{await context.close();}
+  }
 });
