@@ -251,12 +251,14 @@ func (us *UserService) Delete(u *model.User) error {
 		if err := tx.Where("type = ? AND to_id = ?",model.ShareAddressBookRuleTypePersonal,u.Id).
 			Delete(&model.AddressBookCollectionRule{}).Error; err != nil { return err }
 		for _, row := range []interface{}{
-			&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
+			&model.UserThird{},&model.AddressBookCollection{},
 			&model.AddressBookCollectionRule{},&model.Tag{},
 			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},&model.APIToken{},
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}
+		if err:=tx.Unscoped().Where("user_id = ?",u.Id).
+			Delete(&model.AddressBook{}).Error;err!=nil{return err}
 		if err := tx.Model(&model.Peer{}).Where("user_id = ?",u.Id).
 			Update("user_id",0).Error; err != nil { return err }
 		return tx.Delete(current).Error
