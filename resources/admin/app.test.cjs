@@ -493,7 +493,8 @@ test("audit CSV filters expose date, device and connection event options",async(
   await app.settle();
   await app.open("connections");
   assert.match(app.root.innerHTML,/筛选并导出 CSV/);
-  await app.action("audit-export");
-  assert.match(app.root.innerHTML,/开始日期/);
-  assert.match(app.root.innerHTML,/结束日期/);
+  await app.action("audit-export","audit_conn");
+  for(const label of ["开始日期","结束日期","目标设备 ID","来源设备 ID","连接事件"]){
+    assert.match(app.root.innerHTML,new RegExp(label));
+  }
 });
