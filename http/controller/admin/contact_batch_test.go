@@ -48,6 +48,7 @@ func TestContactBatchRestrictsOwnershipAndAppliesAtomically(t *testing.T) {
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
+		if response.Code != http.StatusOK { return response.Code }
 		var data struct{ Code int `json:"code"` }
 		if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
 			t.Fatalf("invalid JSON response: %s: %v", response.Body.String(), err)
