@@ -707,7 +707,7 @@ test("administrator can create a device-group connection access rule",async()=>{
     await editor.locator('select[name="effect"]').selectOption("allow");
     await editor.locator('input[name="enabled"]').check();
     const sending=page.waitForRequest(req=>req.url().endsWith("/api/admin/access_rule/create")&&req.method()==="POST");
-    await page.locator('button[form="edit-form"]').click();
+    await page.locator('button[data-action="submit-access-rule"]').click();
     const body=(await sending).postDataJSON();
     assert.equal(body.name,"Shared support group");
     assert.equal(body.source_type,"group");

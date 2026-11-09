@@ -674,6 +674,8 @@
         '<button class="btn btn-primary" type="button" data-action="submit-control-role">保存控制角色</button>':
         state.page==="adminRoles"?
         '<button class="btn btn-primary" type="button" data-action="submit-admin-role">保存管理员角色</button>':
+        state.page==="accessRules"?
+        '<button class="btn btn-primary" type="button" data-action="submit-access-rule">保存连接规则</button>':
         '<button class="btn btn-primary" type="submit" form="edit-form">保存</button>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+saveButton);
@@ -910,6 +912,11 @@
     }
     if(a==="forgot-password"){state.modal={kind:"forgot-password"};render();return;}
     if(a==="logout"){await logout();return;}
+    if(a==="submit-access-rule"){
+      const form=document.getElementById("edit-form");
+      if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
     if(a==="submit-admin-role"){
       const form=document.getElementById("edit-form");
       if(form&&form.reportValidity())await saveEditor(form);
