@@ -52,10 +52,11 @@ jobs:
           sleep 2
           export DISPLAY=:95
           nohup rustdesk --server > "$RUNNER_TEMP/rustdesk-user-server.log" 2>&1 &
-          server_pid=$!
           sleep 5
-          if ! kill -0 "$server_pid" 2>/dev/null; then
+          pgrep -a -u "$(id -u)" rustdesk || true
+          if ! pgrep -u "$(id -u)" rustdesk >/dev/null; then
             cat "$RUNNER_TEMP/rustdesk-user-server.log"
+            echo "The desktop user RustDesk process did not remain available." >&2
             exit 1
           fi
           echo "DISPLAY=:95" >> "$GITHUB_ENV"
