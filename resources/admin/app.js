@@ -3,6 +3,16 @@
   const root = document.getElementById("app");
   if (!root) return;
 
+  const controlPermissionFields = [
+    ["keyboard","键盘和鼠标"],["remote_printer","远程打印机"],
+    ["clipboard","剪贴板"],["file","文件传输"],
+    ["audio","音频"],["camera","摄像头"],
+    ["terminal","远程终端"],["tunnel","TCP 隧道"],
+    ["restart","远程重启"],["recording","会话录制"],
+    ["block_input","禁止远程设备本地输入"],["remote_modify","修改远程设置"],
+    ["privacy_mode","隐私模式"],["usb","USB 设备"]
+  ].map(([name,label])=>[name,label,"permission_state"]);
+  const permissionFieldNames=new Set(controlPermissionFields.map(field=>field[0]));
   const pages = {
     overview: {name:"概览",icon:"home",section:"工作空间"},
     devices: {name:"设备管理",icon:"monitor",section:"工作空间",endpoint:"peer",search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["note","设备备注"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","操作系统用户"],["os","操作系统"],["group_id","设备组 ID","number"],["note","设备备注","textarea"]]},
@@ -41,6 +51,13 @@
       fields:[["name","节点名称","text",true],["address","中继服务器地址","text",true],
         ["subnets","优先使用的 IP 网络（每行一个 CIDR）","textarea"],["countries","优先使用的国家代码（例如 JP,US）","textarea"],["priority","优先级（越小越高）","number"],
         ["enabled","是否启用","checkbox"]]},
+    controlRoles: {name:"远程控制角色",icon:"shield",section:"系统管理",endpoint:"control_role",admin:true,
+      columns:[["id","编号"],["name","角色名称"],["keyboard","键盘和鼠标"],["clipboard","剪贴板"],["file","文件传输"],["terminal","远程终端"],["remote_modify","修改远程设置"]],
+      fields:[["name","角色名称","text",true],...controlPermissionFields]},
+    controlAssignments: {name:"远程控制角色分配",icon:"grid",section:"系统管理",endpoint:"control_assignment",admin:true,
+      columns:[["id","编号"],["target_type","分配范围"],["target_id","设备或账户编号"],["role_id","控制角色编号"]],
+      fields:[["target_type","分配范围","control_target",true],["target_id","设备 ID 或用户/设备组编号","text",true],
+        ["role_id","控制角色编号","number",true]]},
     mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
@@ -84,6 +101,8 @@
   function colValue(v,k){
     if(k==="sources"&&Array.isArray(v))return v.map(x=>'<span class="pill '+(x.type==="contact"?"good":"")+'" style="margin:2px">'+esc(x.type==="contact"?"联系人："+x.name:"群组："+x.name)+'</span>').join("");
     if(k==="type"&&(v===1||v===2||v===3))return ["","普通组","共享组","公共锚点组"][v];
+    if(permissionFieldNames.has(k))return ["沿用设备设置","禁止","允许"][Number(v)]||"—";
+    if(k==="target_type")return ({device:"单台设备",user:"设备所有者",device_group:"设备组"}[v]||v);
     if(k==="direction")return v==="outgoing"?"我发起的连接":v==="incoming"?"连接我的设备":v==="both"?"双方均为我的设备":"—";
     if(k==="primary_auth")return (["未报告","点击授权","临时密码","永久密码","切换控制方向"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
     if(k==="two_factor")return (["未报告","TOTP 动态验证码","可信设备"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
@@ -394,7 +413,11 @@
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
-    const description=state.page==="relayNodes"?"配置多个 hbbr 节点及各自优先服务的 IP 网络。hbbs 会在启用自动同步后更新中继列表，并保留节点不可用时的替代选择。":isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="trash"?"找回误删的设备条目，也可以永久删除指定条目。删除整个地址簿分类时将永久清除该分类下的记录。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于官方客户端命令行的设备部署与分配。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
+    const description=state.page==="controlRoles"?
+      "为远程会话设置键盘、剪贴板、文件传输、终端等权限。未指定的操作沿用设备自身设置。":
+      state.page==="controlAssignments"?
+      "给设备、设备所有者或设备组分配控制角色。单台设备的设置优先级最高。":
+      state.page==="relayNodes"?"配置多个 hbbr 节点及各自优先服务的 IP 网络。hbbs 会在启用自动同步后更新中继列表，并保留节点不可用时的替代选择。":isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="trash"?"找回误删的设备条目，也可以永久删除指定条目。删除整个地址簿分类时将永久清除该分类下的记录。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于官方客户端命令行的设备部署与分配。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
     const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
     const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">下载 CSV（最多 10000 条）</button>':"";
     const csvActions=isBook?
@@ -519,7 +542,7 @@
   }
   function fieldInput(field,row){
     const [name,label,type="text",required=false]=field;
-    const value=row&&row[name]!==undefined?row[name]:type==="status"?1:type==="group_type"?1:type==="rule_type"?1:type==="rule"?1:type==="checkbox"?false:"";
+    const value=row&&row[name]!==undefined?row[name]:type==="status"?1:type==="group_type"?1:type==="rule_type"?1:type==="rule"?1:type==="checkbox"?false:type==="permission_state"?0:type==="control_target"?"device":"";
     let input;
     if(type==="checkbox")input='<label class="check"><input type="checkbox" name="'+esc(name)+'" '+(value?"checked":"")+'>启用</label>';
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
@@ -527,8 +550,8 @@
       const choices=[[0,"不限期限"],[1,"1 天"],[7,"7 天"],[30,"30 天"],[90,"90 天"]];
       input='<select name="'+esc(name)+'">'+choices.map(([days,text])=>'<option value="'+days+'" '+(Number(value)===days?"selected":"")+'>'+text+'</option>').join("")+'</select>';
     }
-    else if(["group_type","status","oauth_type","rule_type","rule"].includes(type)){
-      const opts={group_type:[[1,"普通组"],[2,"共享组"],[3,"公共锚点组"]],status:[[1,"已启用"],[2,"已停用"]],oauth_type:[["oidc","OIDC"],["github","GitHub"],["google","Google"],["linuxdo","Linux.do"]],rule_type:[[1,"用户"],[2,"群组"],[3,"所有用户"]],rule:[[1,"只读"],[2,"读写"],[3,"完全控制"]]}[type];
+    else if(["group_type","status","oauth_type","rule_type","rule","permission_state","control_target"].includes(type)){
+      const opts={group_type:[[1,"普通组"],[2,"共享组"],[3,"公共锚点组"]],status:[[1,"已启用"],[2,"已停用"]],oauth_type:[["oidc","OIDC"],["github","GitHub"],["google","Google"],["linuxdo","Linux.do"]],rule_type:[[1,"用户"],[2,"群组"],[3,"所有用户"]],rule:[[1,"只读"],[2,"读写"],[3,"完全控制"]],permission_state:[[0,"沿用设备设置"],[1,"禁止"],[2,"允许"]],control_target:[["device","单台设备"],["user","设备所有者"],["device_group","设备组"]]}[type];
       input='<select name="'+esc(name)+'">'+opts.map(o=>'<option value="'+esc(o[0])+'" '+(String(o[0])===String(value)?"selected":"")+'>'+esc(o[1])+'</option>').join("")+'</select>';
     }else input='<input name="'+esc(name)+'" type="'+esc(type)+'" value="'+esc(value)+'" '+(required?'required':"")+' autocomplete="off">';
     return '<div class="field '+(type==="textarea"?"full":"")+'"><label>'+esc(label)+(required?' <span class="required">*</span>':"")+'</label>'+input+(name==="auto_group_ids"?'<small>例如：2,3。登录后将自动加入这些组，并保留原有主要分组。</small>':"")+'</div>';
@@ -651,7 +674,7 @@
       const el=form.elements.namedItem(name);
       if(!el)continue;
       if(type==="checkbox")data[name]=el.checked;
-      else if(type==="number"||["status","group_type","rule_type","rule"].includes(type)){
+      else if(type==="number"||["status","group_type","rule_type","rule","permission_state"].includes(type)){
         if(el.value.trim()!==""||required)data[name]=Number(el.value||0);
       }else data[name]=el.value.trim();
     }
