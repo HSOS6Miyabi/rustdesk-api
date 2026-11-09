@@ -474,3 +474,26 @@ test("personal address book sharing supports multiple account operations", async
   await app.action("rules-batch-revoke");
   assert.match(app.root.innerHTML, /只能修改您本人拥有的地址簿/);
 });
+
+test("device list exposes filtered CSV export for authorized users", async () => {
+  const app=createConsole();
+  app.fixtures["/user/current"].route_names=["devices.view"];
+  app.fixtures["/peer/list"]={list:[{row_id:11,id:"managed-desk",hostname:"Managed"}],total:1};
+  await app.settle();
+  await app.open("devices");
+  assert.match(app.root.innerHTML,/导出设备清单 CSV/);
+  const privateUser=createConsole();
+  await privateUser.settle();
+  await privateUser.open("devices");
+  assert.doesNotMatch(privateUser.root.innerHTML,/导出设备清单 CSV/);
+});
+
+test("audit CSV filters expose date, device and connection event options",async()=>{
+  const app=createConsole(true);
+  await app.settle();
+  await app.open("connections");
+  assert.match(app.root.innerHTML,/筛选并导出 CSV/);
+  await app.action("audit-export");
+  assert.match(app.root.innerHTML,/开始日期/);
+  assert.match(app.root.innerHTML,/结束日期/);
+});
