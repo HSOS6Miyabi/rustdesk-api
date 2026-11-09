@@ -45,6 +45,16 @@ func (us *GroupService) Delete(u *model.Group) error {
 			Delete(&model.GroupMembership{}).Error; err != nil { return err }
 		if err := tx.Where("group_id = ?", u.Id).
 			Delete(&model.GroupAnchor{}).Error; err != nil { return err }
+		if tx.Migrator().HasTable(&model.AdminRole{}) {
+			var scoped []uint
+			if err:=tx.Model(&model.AdminRole{}).
+				Where("scope_type = ? AND scope_id = ?",AdminScopeGroup,u.Id).
+				Pluck("id",&scoped).Error;err!=nil{return err}
+			if len(scoped)>0{
+				if err:=tx.Where("role_id IN ?",scoped).Delete(&model.AdminRoleAssignment{}).Error;err!=nil{return err}
+				if err:=tx.Where("id IN ?",scoped).Delete(&model.AdminRole{}).Error;err!=nil{return err}
+			}
+		}
 		return tx.Delete(u).Error
 	})
 }

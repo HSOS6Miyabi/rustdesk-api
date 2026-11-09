@@ -16,6 +16,7 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 		&model.UserToken{},&model.ShareRecord{},&model.APIToken{},
 		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
 		&model.PasswordResetToken{},&model.UserInvitation{},&model.ControlRole{},&model.ControlRoleAssignment{},
+		&model.AdminRole{},&model.AdminRoleAssignment{},
 		&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
@@ -49,6 +50,9 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	if err:=DB.Create(&model.ControlRoleAssignment{
 		TargetType:"user",TargetId:strconv.FormatUint(uint64(owner.Id),10),RoleId:role.Id,
 	}).Error;err!=nil{t.Fatal(err)}
+	adminRole:=&model.AdminRole{Name:"One account",Permissions:"users.view",ScopeType:AdminScopeIndividual,ScopeId:owner.Id,Enabled:true}
+	if err:=DB.Create(adminRole).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.Create(&model.AdminRoleAssignment{UserId:owner.Id,RoleId:adminRole.Id}).Error;err!=nil{t.Fatal(err)}
 	if err:=DB.Create(&model.UserToken{UserId:owner.Id,Token:"old-session",ExpiredAt:4102444800}).Error;err!=nil{
 		t.Fatal(err)
 	}
@@ -117,6 +121,14 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 		Where("target_type = ? AND target_id = ?","user",strconv.FormatUint(uint64(owner.Id),10)).
 		Count(&count).Error;err!=nil||count!=0{
 		t.Fatalf("deleted account still has assigned control role: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AdminRoleAssignment{}).Where("user_id = ?",owner.Id).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account still has management role assignment: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AdminRole{}).Where("id = ?",adminRole.Id).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account retained individual management role: %d %v",count,err)
 	}
 	var preservedPeer model.Peer
 	if err:=DB.Where("id = ?",peer.Id).First(&preservedPeer).Error;err!=nil||preservedPeer.UserId!=0 {
