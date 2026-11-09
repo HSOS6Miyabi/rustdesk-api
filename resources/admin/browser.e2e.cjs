@@ -37,6 +37,10 @@ function serve(req, res) {
     if(route==="/group/list")return answer(res, {
       list:[{id:1,name:"系统分组",type:1,owner_user_id:0}],total:1
     });
+    if(route==="/audit_conn/list")return answer(res,{list:[
+      {id:21,peer_id:"managed-desk",from_peer:"helpdesk",note:"现场支持",created_at:1710000000}
+    ],total:1});
+    if(route==="/audit_conn/note")return answer(res,{});
     if(route==="/my/audit_conn/list")return answer(res, {
       list:[{id:1,from_peer:"123456",from_account:"owner",
         peer_id:"654321",to_account:"alice",direction:"outgoing",created_at:1710000000}],total:1
@@ -432,5 +436,20 @@ test("invited member can register from a team email link",async()=>{
     await page.locator('#invited-password-confirm').fill("NewPassword123");
     await page.locator('button[form="accept-invitation-form"]').click();
     await page.getByText("账户已创建，请使用新账户登录").waitFor();
+  }finally{await context.close();}
+});
+
+test("administrator can save a connection audit note",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="connections"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="全部连接记录");
+    await page.getByText("managed-desk",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="audit-note"]').first().click();
+    await page.locator('#audit-note-input').waitFor({state:"visible"});
+    assert.equal(await page.locator('#audit-note-input').inputValue(),"现场支持");
+    await page.locator('#audit-note-input').fill("远程维护完成");
+    await page.locator('button[data-action="audit-note-save"]').click();
+    await page.getByText("连接备注已保存").waitFor();
   }finally{await context.close();}
 });

@@ -40,6 +40,7 @@ function createConsole(isAdmin = false, overrides = {}) {
         to_account: "another-user", direction: "outgoing", created_at: 1710000000
       }], total: 1
     },
+    "/audit_conn/list": { list: [{ id:21, peer_id:"managed-desk", from_peer:"helpdesk", note:"现场支持" }], total:1 },
     "/my/audit_file/list": {
       list: [{ id: 18, from_peer: "123456", peer_id: "654321", from_account: "demo-user",
         to_account: "another-user", path: "/home/file", direction: "outgoing" }], total: 1
@@ -275,4 +276,13 @@ test("team invitation management is limited to administrators",async()=>{
   await admin.action("create");
   assert.match(admin.root.innerHTML,/成员邮箱/);
   assert.match(admin.root.innerHTML,/发送邀请/);
+});
+
+test("administrator can edit connection notes in the audit list",async()=>{
+  const admin=createConsole(true);
+  await admin.settle();
+  await admin.open("connections");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/audit_conn/list"));
+  assert.match(admin.root.innerHTML,/连接备注/);
+  assert.match(admin.root.innerHTML,/编辑备注/);
 });
