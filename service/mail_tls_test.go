@@ -139,7 +139,7 @@ func TestSMTPRealTLSAndSTARTTLSWithAuthentication(t *testing.T){
 		t.Run(mode,func(t *testing.T){
 			fixture:=startSMTPTLSFixture(t,mode,"smtp-test-user","smtp-test-secret")
 			t.Setenv("RUSTDESK_API_MAIL_ENCRYPTION_KEY","local-tls-test-key-123456789")
-			password,err=encryptMailPassword("smtp-test-secret")
+			password,err:=encryptMailPassword("smtp-test-secret")
 			if err!=nil{t.Fatal(err)}
 			settings:=&model.SMTPSetting{
 				Enabled:true,Host:"127.0.0.1",Port:fixture.port,
