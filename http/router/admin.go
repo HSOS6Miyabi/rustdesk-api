@@ -30,6 +30,7 @@ func Init(g *gin.Engine) {
 	UserBind(adg)
 	TOTPBind(adg)
 	EmailVerificationBind(adg)
+	RelayNodesBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
@@ -471,4 +472,13 @@ func EmailVerificationBind(rg *gin.RouterGroup) {
 	r.POST("/setup",controller.Setup)
 	r.POST("/enable",controller.Enable)
 	r.POST("/disable",controller.Disable)
+}
+
+func RelayNodesBind(rg *gin.RouterGroup) {
+	controller:=&admin.RelayNodes{}
+	r:=rg.Group("/relay").Use(middleware.AdminPrivilege())
+	r.GET("/list",controller.List)
+	r.POST("/create",controller.Create)
+	r.POST("/update",controller.Update)
+	r.POST("/delete",controller.Delete)
 }

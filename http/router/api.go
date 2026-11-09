@@ -23,6 +23,7 @@ func ApiInit(g *gin.Engine) {
 	g.LoadHTMLGlob("resources/templates/*")
 
 	g.POST("/internal/v1/device/authorize", (&api.DeviceCommands{}).AuthorizeRegistration)
+	g.GET("/internal/v1/relay/nodes", (&api.InternalRelay{}).Nodes)
 
 	frg := g.Group("/api")
 
