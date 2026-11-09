@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 280
+const DatabaseVersion = 281
 
 // @title 管理系统API
 // @version 1.0
@@ -212,6 +212,7 @@ func InitGlobal() {
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
 	service.StartAuditMaintenance()
+	service.StartNotificationWorker()
 }
 
 func DatabaseAutoUpdate() {
@@ -319,6 +320,8 @@ func Migrate(version uint) {
 		&model.DeviceDisconnectRequest{},
 		&model.APIToken{},
 		&model.SMTPSetting{},
+		&model.NotificationSetting{},
+		&model.NotificationDelivery{},
 		&model.PasswordResetToken{},
 		&model.UserInvitation{},
 		&model.UserTOTP{},
