@@ -458,3 +458,19 @@ test("deployment manager exposes batch approval and revocation", async () => {
   await app.action("deployment-batch-revoke");
   assert.match(app.root.innerHTML, /撤销后设备将无法在严格登记模式下重新登记/);
 });
+
+test("personal address book sharing supports multiple account operations", async () => {
+  const app = createConsole();
+  app.fixtures["/my/address_book_collection_rule/list"] = {list: [], total: 0};
+  await app.settle();
+  await app.open("myRules");
+  assert.match(app.root.innerHTML, /批量共享地址簿/);
+  assert.match(app.root.innerHTML, /批量撤销共享/);
+  await app.action("rules-batch-share");
+  for (const label of ["地址簿编号", "目标用户编号", "只读", "可读写", "完全控制"]) {
+    assert.match(app.root.innerHTML, new RegExp(label));
+  }
+  await app.action("close-modal");
+  await app.action("rules-batch-revoke");
+  assert.match(app.root.innerHTML, /只能修改您本人拥有的地址簿/);
+});
