@@ -99,7 +99,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,mfa:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -145,9 +145,13 @@
     const current=state.modal;
     if(!current)return "";
     if(current.kind==="mfa-login"){
-      const body='<form id="mfa-login-form"><div class="field"><label for="mfa-login-code">动态验证码或一次性恢复码</label>'+
+      const emailMethod=current.method==="email_check";
+      const label=emailMethod?"邮箱验证码":"动态验证码或一次性恢复码";
+      const tip=emailMethod?"请输入发送到该账户邮箱的 6 位验证码。":
+        "使用身份验证器中的 6 位验证码，或之前保存的恢复码。";
+      const body='<form id="mfa-login-form"><div class="field"><label for="mfa-login-code">'+label+'</label>'+
         '<input id="mfa-login-code" name="code" autocomplete="one-time-code" minlength="6" maxlength="20" required autofocus>'+
-        '<small>使用身份验证器中的 6 位验证码，或之前保存的恢复码。</small></div></form>';
+        '<small>'+tip+'</small></div></form>';
       return modal("双重认证","账户："+current.username,body,
         '<button type="button" class="btn" data-action="close-modal">取消</button>'+
         '<button type="submit" class="btn btn-primary" form="mfa-login-form">完成登录</button>');
@@ -258,9 +262,10 @@
     const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
     try{
       const result=await request("/login","POST",data);
-      if(result?.type==="tfa_check"){
+      if(result?.type==="tfa_check"||result?.type==="email_check"){
         if(!result.secret||!result.user?.name)throw Error("双重认证请求不完整");
-        state.modal={kind:"mfa-login",username:result.user.name,secret:result.secret};
+        state.modal={kind:"mfa-login",username:result.user.name,secret:result.secret,
+          method:result.tfa_type||result.type};
         render();
         return;
       }
@@ -304,7 +309,9 @@
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
       }else if(k==="profile"){
-        state.mfa=await request("/mfa/status");
+        const results=await Promise.all([request("/mfa/status"),request("/mfa/email/status")]);
+        state.mfa=results[0];
+        state.emailVerification=results[1];
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
       }else if(k==="retention"){
@@ -480,9 +487,19 @@
       '<button type="button" class="btn" data-action="mfa-regenerate">重新生成恢复码</button>'+
       '<button type="button" class="btn btn-danger" data-action="mfa-disable">解除双重认证</button>':
       '<button type="button" class="btn btn-primary" data-action="mfa-setup">启用 TOTP 双重认证</button>';
+    const email=state.emailVerification||{};
+    const emailDescription=email.email?
+      "当前邮箱："+esc(email.email)+(email.enabled?"（已启用登录验证）":"（尚未启用邮箱登录验证）"):
+      "当前账户没有有效的邮箱地址，请联系管理员设置邮箱。";
+    const emailButton=email.enabled?
+      '<button type="button" class="btn btn-danger" data-action="email-verification-disable">关闭邮箱登录验证</button>':
+      '<button type="button" class="btn btn-primary" data-action="email-verification-setup" '+
+      (!email.mail_configured||!email.email?'disabled':'')+'>发送邮箱验证码并启用</button>';
     return pageHeading("个人设置","管理自己的登录密码与可选双重认证。")+
       '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>'+
-      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips" style="display:flex;gap:10px;flex-wrap:wrap">'+mfaActions+'</div></section>';
+      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips" style="display:flex;gap:10px;flex-wrap:wrap">'+mfaActions+'</div></section>'+
+      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div><div class="tips" style="display:grid;gap:10px"><p>启用后将通过邮件接收登录验证码。已启用 TOTP 的账户优先使用身份验证器。</p>'+
+      emailButton+(!email.mail_configured?'<p>管理员尚未启用 SMTP 邮件服务。</p>':'')+'</div></section>';
   }
   function renderPage(){
     if(state.page==="overview")return overview();
@@ -543,6 +560,15 @@
       return modal(importing?"导入地址簿 CSV":"导出地址簿 CSV","仅处理指定账户的地址簿条目。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+
         '<button class="btn btn-primary" data-action="csv-submit">'+(importing?"导入 CSV":"下载 CSV")+'</button>');
+    }
+    if(m.kind==="email-verification"){
+      const body='<p>验证码已发送到当前账户邮箱，有效期为 10 分钟。</p>'+
+        '<form id="email-verification-form"><div class="field">'+
+        '<label for="email-verification-code">6 位邮箱验证码</label>'+
+        '<input id="email-verification-code" name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required></div></form>';
+      return modal("启用邮箱登录验证","验证邮箱后，后续密码登录将发送一次性验证码。",body,
+        '<button type="button" class="btn" data-action="close-modal">取消</button>'+
+        '<button type="submit" class="btn btn-primary" form="email-verification-form">启用邮箱验证</button>');
     }
     if(m.kind==="mfa-setup"){
       const body='<p>在身份验证器中添加账户，输入下面的密钥或导入配置链接，再填写当前 6 位验证码。</p>'+
@@ -776,6 +802,23 @@
       return;
     }
     if(a==="csv-submit"){await transferAddressBookCSV();return;}
+    if(a==="email-verification-setup"){
+      try{
+        const setup=await request("/mfa/email/setup","POST",{});
+        state.modal={kind:"email-verification",secret:setup.secret};
+        render();toast("邮箱验证码已发送");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="email-verification-disable"){
+      if(!window.confirm("关闭后将使用现有的密码登录方式。确认关闭邮箱验证吗？"))return;
+      try{
+        await request("/mfa/email/disable","POST",{});
+        state.emailVerification=await request("/mfa/email/status");
+        render();toast("邮箱登录验证已关闭");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="mfa-setup"){
       try{
         const setup=await request("/mfa/setup","POST",{});
@@ -887,15 +930,17 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
     event.preventDefault();
     if(f.id==="mfa-login-form"){
       const pending=state.modal;
       if(pending?.kind!=="mfa-login")return;
       try{
         const result=await request("/login","POST",{
-          username:pending.username,type:"tfa_code",secret:pending.secret,
-          tfaCode:f.elements.code.value.trim(),platform:"web"
+          username:pending.username,
+          type:pending.method==="email_check"?"email_code":"tfa_code",
+          secret:pending.secret,tfaCode:f.elements.code.value.trim(),
+          verificationCode:f.elements.code.value.trim(),platform:"web"
         });
         if(!result?.token)throw Error("登录未返回访问令牌");
         state.modal=null;state.token=result.token;
@@ -904,6 +949,17 @@
         if(returnToWebClient())return;
         state.page="overview";location.hash="#/overview";render();await load();
         toast("登录成功");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(f.id==="email-verification-form"){
+      if(state.modal?.kind!=="email-verification")return;
+      try{
+        await request("/mfa/email/enable","POST",{
+          secret:state.modal.secret,code:f.elements.code.value.trim()
+        });
+        state.emailVerification=await request("/mfa/email/status");
+        state.modal=null;render();toast("邮箱登录验证已启用");
       }catch(err){toast(err.message,true);}
       return;
     }
