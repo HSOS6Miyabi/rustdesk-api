@@ -109,6 +109,18 @@ jobs:
           path: resources/admin/test-screenshots/
           if-no-files-found: warn
           retention-days: 14
+      - name: Retain browser test assets for reproducibility
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-admin-browser-fixtures
+          path: |
+            resources/admin/index.html
+            resources/admin/style.css
+            resources/admin/app.js
+            resources/admin/favicon.svg
+            resources/admin/browser.e2e.cjs
+          retention-days: 3
       - name: Test WebRTC media transport in Chromium
         run: node --test resources/admin/browser.webrtc.e2e.cjs
 
