@@ -15,6 +15,7 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 		&model.UserToken{},&model.ShareRecord{},&model.APIToken{},
 		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
 		&model.PasswordResetToken{},&model.UserInvitation{},
+		&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
 		cleanup()
@@ -50,6 +51,9 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 		&model.TOTPRecoveryCode{UserId:owner.Id,CodeHash:"sample-recovery-hash"},
 		&model.TOTPLoginChallenge{UserId:owner.Id,TokenHash:"sample-challenge-hash",ExpiresAt:4102444800},
 		&model.PasswordResetToken{UserId:owner.Id,TokenHash:"sample-password-reset",ExpiresAt:4102444800},
+		&model.EmailLoginSetting{UserId:owner.Id,Enabled:true,VerifiedEmail:"owner@example.test"},
+		&model.EmailCodeChallenge{UserId:owner.Id,Email:"owner@example.test",Purpose:"login",
+			TokenHash:"sample-email-token-hash",CodeHash:"sample-email-code-hash",ExpiresAt:4102444800},
 		&model.UserInvitation{Email:"invited@example.test",CreatedBy:owner.Id,GroupId:2,
 			TokenHash:"sample-invitation",ExpiresAt:4102444800},
 	}{
@@ -87,7 +91,7 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	}
 	for _,table:=range []interface{}{
 		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
-		&model.PasswordResetToken{},
+		&model.PasswordResetToken{},&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 	}{
 		if err:=DB.Model(table).Where("user_id = ?",owner.Id).Count(&count).Error;err!=nil||count!=0{
 			t.Fatalf("user authentication data remains in %T: %d %v",table,count,err)
