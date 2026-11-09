@@ -257,3 +257,17 @@ go test ./service -run '^TestDatabaseMigrationAcrossDrivers$' -count=1 -v
 `service/database_restore_test.go` 在停止数据库连接后执行 SQLite 文件备份和恢复。`scripts/test_database_restore.sh` 由 GitHub Actions 在临时 MySQL 8.4、PostgreSQL 16 服务中调用数据库原生导出工具，在独立数据库恢复后验证历史记录。对应 [CI #42627684759](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684759)，结果为成功。
 
 测试环境由工作流自行建立，相关命令及生产备份注意事项见 [数据库备份恢复说明](DATABASE_BACKUP_RESTORE.md)。正式数据库恢复应当另行进行，并保留数据库、Server 身份文件和客户端构建文件。
+
+
+## 官方 Linux 客户端与实际 API
+
+GitHub Actions 的 `.github/workflows/verify-native-linux-commands.yml` 使用已核对 SHA-256 的 RustDesk 1.5.1 Linux 官方安装文件，启动系统服务，编译本仓库 `cmd/apimain.go`，再运行：
+
+```bash
+python3 -m py_compile scripts/test_official_linux_real_api.py
+sudo -E python3 scripts/test_official_linux_real_api.py /path/to/apimain
+```
+
+此检查在独立的临时 API 数据库中创建短期测试会话，验证 `--deploy`、重复部署、紧接着执行 `--assign`、设备所有者与身份信息、`/api/sysinfo` 以及 SQLite 保存结果。
+
+已完成的测试：[GitHub Actions #42646358750](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358750)。Server 的双架构联合检查见 [Server #42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607)。

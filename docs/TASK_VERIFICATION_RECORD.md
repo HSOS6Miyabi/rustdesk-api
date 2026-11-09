@@ -13,15 +13,15 @@
 | API Go、WebClient、Chromium 桌面和平板及手机交互 | [42635225816](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225816) |
 | 官方安装文件、客户端命令和 Linux/macOS 配置包 | [42635225753](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225753) |
 | SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42635225555](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225555) |
-| Server Rust 单元、协议和实际服务检查 | [42634291061](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291061) |
-| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42634291214](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291214) |
-| 官方 1.5.1 客户端可执行文件跨系统启动 | [42635225301](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225301)，三种桌面系统及 Android 模拟器成功 |
+| Server Rust 单元、协议和实际服务检查 | [42647450900](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
+| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607) |
+| 官方 1.5.1 客户端可执行文件跨系统启动 | [42646358634](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358634)，三种桌面系统及 Android 模拟器成功 |
 
 ### T001：官方设备分配、设备部署与撤销许可
 
-**当前状态：服务端和实际 hbbs 协议测试通过；官方 Linux 客户端 1.5.1 已向隔离本地 API 成功执行部署与分配命令；完整 API、Server、客户端远程重连待检查。**
+**当前状态：官方 Linux 1.5.1 客户端与实际 API 的部署、重复部署、直接分配及数据保存测试通过；真实 API 与 hbbs 的登记、撤销、身份冲突及恢复许可测试通过；双设备远程重连待检查。**
 
-代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。
+代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。新增 API `scripts/test_official_linux_real_api.py` 和 Server `scripts/test_real_api_registration.py` 在实际运行的服务中检查设备所属用户、身份信息及撤销许可；相关检查分别见 API #42646358750 和 Server #42647450607。
 
 **实际检查方法：** 在隔离测试环境启用 `REQUIRE_DEVICE_DEPLOYMENT`，分别用已安装的官方 1.5.1 客户端运行 `--deploy --token <测试令牌>`、`--assign --token <测试令牌> --device_name Office-PC`。记录设备 ID、UUID、公钥、API 返回、数据库所有者和客户端重新连接结果。测试重复部署、不同 UUID、公钥冲突及撤销后重新注册。令牌仅用于测试，完成后立即撤销。
 
@@ -39,7 +39,7 @@
 
 ### T003：远程控制角色与十四项客户端权限
 
-**当前状态：控制角色 API、Protobuf 编码与实际 hbbs 信令转发检查通过；真实远程会话待执行。**
+**当前状态：控制角色 API、Protobuf 编码和实际 hbbs 信令检查通过；与实际 API 的权限读取和传递已通过 AMD64/ARM64 测试；真实远程会话待执行。**
 
 API 文件：`service/control_role.go`。Server 文件：`src/control_roles.rs`。实际服务测试：`scripts/test_control_roles.py`。在未分配角色时保留客户端原有权限。
 
@@ -49,9 +49,9 @@ API 文件：`service/control_role.go`。Server 文件：`src/control_roles.rs`�
 
 ### T004：严格模式组合运行
 
-**当前状态：真实 hbbs 的严格登记、JWT、集中连接规则和控制角色同场组合测试已通过；配套真实 API、客户端直连与公网中继仍需检查。**
+**当前状态：真实 API、hbbs、JWT、账户访问规则、控制角色及中继信令的组合检查已在 AMD64/ARM64 通过；真实客户端直连、远程桌面及公网中继仍需检查。**
 
-Server 的 `scripts/test_device_deployment.py`、`scripts/test_connection_access.py` 与 `scripts/test_runtime.py` 分别检查登记、授权和通信。组合镜像及 API 启动已经通过 AMD64/ARM64 CI。
+Server 的 `scripts/test_real_api_strict_combination.py` 在实际 API 与 hbbs 中检查有效 JWT、非法签名、失效会话、允许及禁止规则、控制权限与 API 中断，`scripts/test_real_api_registration.py` 检查设备身份及许可。两种架构的完整组合构建、服务通信、容器重新创建与数据保存检查已在 CI #42647450607 通过。
 
 **实际检查方法：** 在一套隔离部署中同时开启 `REQUIRE_DEVICE_DEPLOYMENT=Y`、`MUST_LOGIN=Y` 和集中连接访问规则，验证合法设备经直连或中继连接成功，未部署设备、失效账户、无许可用户以及 API 服务暂时不可用时的处理；分别检查 WebSocket、WebRTC 客户端。
 
@@ -109,7 +109,7 @@ Server 脚本：`scripts/test_native_stack.py`、`scripts/test_container_image.p
 
 ### T010：官方客户端与协议版本兼容
 
-**当前状态：官方 1.4.5、1.5.0、1.5.1 源代码字段已检查；官方 1.5.1 在 Windows、Linux、macOS 的运行和 Android 模拟器启动已通过，Linux 设备部署与分配命令已执行；真实账号登录与旧版本兼容待检查。**
+**当前状态：官方 1.4.5、1.5.0、1.5.1 源代码字段已检查；官方 1.5.1 在 Windows、Linux、macOS 的运行和 Android 模拟器启动已通过，Linux 客户端已对实际 API 完成部署与分配；真实账号登录和旧版本远程连接仍需检查。**
 
 文件：`scripts/verify_upstream_client_commands.py` 和 `.github/workflows/verify-client-runtime.yml`。源码检查覆盖 `--assign`、`--deploy` 的请求字段及预期返回码，以及 `--option` 的管理员权限要求。
 

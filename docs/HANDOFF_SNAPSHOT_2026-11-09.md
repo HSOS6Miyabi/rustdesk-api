@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 仓库 | [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
-| 最后核实的功能提交 | [`31dbf4b7db0dd79f3cb3fda4b6ac2a1f6efb73d1`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/31dbf4b7db0dd79f3cb3fda4b6ac2a1f6efb73d1) | [`66a2093127b452f2783d80386d2fd12c6501cae5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/66a2093127b452f2783d80386d2fd12c6501cae5) |
+| 最后核实的功能提交 | [`dc0a998369d0d1cee8d9daba7a837b9a2ba966f0`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/dc0a998369d0d1cee8d9daba7a837b9a2ba966f0) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
 | 草稿拉取请求 | [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 目标默认分支 | `master` | `forapi` |
 | 原有正式版本 | `v3.0.0-api.96` | `v1.1.17-api.9` |
@@ -19,15 +19,15 @@
 
 | 检查内容 | GitHub Actions |
 | --- | --- |
-| API Go、Chromium 管理页面、WebClient、WebRTC | [#42635225816](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225816) |
-| 官方六种桌面安装文件 SHA-256、配置脚本 | [#42635225753](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225753) |
-| 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与隔离本地 API 通信 | [#42635225633](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225633) |
-| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42635225555](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225555) |
-| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42635225301](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225301) |
-| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42634291061](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291061) |
-| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42634291214](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291214) |
+| API Go、Chromium 管理页面、WebClient、WebRTC | [#42646358717](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358717) |
+| 官方六种桌面安装文件 SHA-256、配置脚本 | [#42646358868](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358868) |
+| 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与实际 API 通信 | [#42646358750](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358750) |
+| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42646358726](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358726) |
+| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42646358634](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358634) |
+| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42647450900](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
+| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607) |
 
-上述成功记录均对应本节的已核实功能提交。交接文档变动之后的提交需要另行查看新一轮检查。真实公网、真实账户和两台设备间的实际远程控制仍需专门测试。
+上述成功记录均对应本节的已核实功能提交。交接文档变动之后的提交需要另行查看新一轮检查。真实公网、多平台账户登录和两台设备间的实际远程控制仍需专门测试。
 
 ## 三、功能交付范围
 
@@ -39,16 +39,16 @@
 
 | 编号 | 优先级 | 当前结果与交接任务 |
 | --- | --- | --- |
-| T001 | P0 | API/Server 协议测试和官方 Linux 命令已通过；使用真实 API、hbbs、hbbr 和终端设备验证分配、部署、撤销、重连 |
+| T001 | P0 | 实际 API 与 hbbs 的登记、撤销、身份冲突检查通过；官方 Linux 1.5.1 客户端与实际 API 的部署和直接分配通过；双终端远程重连待检查 |
 | T002 | P0 | 登录与双重认证代码测试通过；在 Windows/Linux/macOS/Android/iOS 可用环境检查密码、TOTP、邮箱、OIDC/LDAP 与恢复码 |
 | T003 | P0 | 14 项控制角色信令检查通过；用两台真实设备验证各权限的允许、禁止及默认行为 |
-| T004 | P0 | 一次真实 hbbs 的严格登记、JWT、访问许可和控制角色组合检查通过；继续使用完整真实 API 与客户端测试直连、中继、WebSocket 和 WebRTC |
+| T004 | P0 | 实际 API 与 hbbs 的 JWT、连接权限、控制角色和中继请求组合在 AMD64/ARM64 通过；真实客户端的直连、中继及 WebRTC 远程会话待检查 |
 | T005 | P0 | MMDB、Country CSV、节点失效和 reload-geo 测试通过；使用实际 GeoLite2 文件与两个地区的公网中继完成实测 |
 | T006 | P0 | 三种临时数据库迁移与恢复检查通过；从正式业务环境获取受保护备份并在独立环境恢复 |
 | T007 | P0 | 模拟 SMTP 及隐式 TLS、STARTTLS、身份认证测试通过；完成实际邮箱的邀请、找回密码、验证码与通知收件 |
 | T008 | P0 | AMD64/ARM64 普通进程、Docker 与重启测试通过；在目标主机检查域名、证书、权限、数据目录及恢复 |
 | T009 | P0 | Chromium 桌面、平板、手机操作及截图通过；使用真实管理账户检查完整页面与中文提示 |
-| T010 | P0 | 官方 1.4.5/1.5.0/1.5.1 源代码字段检查、1.5.1 多系统启动和 Linux 设备命令通过；继续真实客户端登录、双重认证和 Protobuf 兼容 |
+| T010 | P0 | 官方 1.4.5/1.5.0/1.5.1 源代码字段检查、1.5.1 多系统启动和 Linux 客户端与实际 API 的设备命令通过；继续验证登录、双重认证及多版本远程连接 |
 | T011 | P0 | 双架构编译和部署预演通过，未发行正式安装包或镜像 |
 | T012 | P0 | 台账和草稿 PR 已整理；待所有 P0 实测结果和维护者批准后再决定是否发布 |
 | T013 | P1 | 六种官方安装文件及任务管理通过测试；检查每种目标系统的实际安装、配置、签名和远程连接 |

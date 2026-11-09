@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`31dbf4b7db0dd79f3cb3fda4b6ac2a1f6efb73d1`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/31dbf4b7db0dd79f3cb3fda4b6ac2a1f6efb73d1) | [`66a2093127b452f2783d80386d2fd12c6501cae5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/66a2093127b452f2783d80386d2fd12c6501cae5) |
+| 最近通过自动测试的代码提交 | [`dc0a998369d0d1cee8d9daba7a837b9a2ba966f0`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/dc0a998369d0d1cee8d9daba7a837b9a2ba966f0) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42635225816：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225816) | [42634291061：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291061) |
+| 综合 CI 检查 | [42646358717：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358717) | [42647450900：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
 | 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -46,8 +46,8 @@ CI 已实际通过的内容：
 | 编号 | 功能 | 当前状态 | 主要代码或说明 |
 | --- | --- | --- | --- |
 | F01 | 原有账户密码、OIDC、LDAP、群组、公共锚点组、联系人单向共享 | 原有功能保留，自动测试通过 | `service/user.go`、`service/group_access.go`、`service/oauth.go`、`service/ldap.go` |
-| F02 | 官方客户端 `--assign`、`--deploy` | 已实现接口和集成测试；真实客户端安装与部署待验证 | `http/controller/api/device_commands.go` |
-| F03 | 可选严格设备预先登记及撤销许可 | 已实现且真实 `hbbs` 进程测试通过；真实客户端待验证 | API `model/device_deployment.go`；Server `src/device_deployment.rs` |
+| F02 | 官方客户端 `--assign`、`--deploy` | 官方 Linux 1.5.1 已安装并与实际 API 完成部署、分配和数据保存检查；其他系统的实际安装待验证 | `http/controller/api/device_commands.go` |
+| F03 | 可选严格设备预先登记及撤销许可 | 实际 API 与 `hbbs` 联合登记、撤销及恢复许可在两种架构通过；真实跨设备连接待验证 | API `model/device_deployment.go`；Server `src/device_deployment.rs` |
 | F04 | `MUST_LOGIN` 下的连接和中继令牌校验 | 已实现，Server 协议测试通过 | Server `src/jwt.rs`、`src/rendezvous_server.rs` |
 | F05 | 设备、所属用户、设备组三层策略 | 已实现，含访问模式、键盘鼠标、剪贴板、文件传输及连接确认方式，Go 与浏览器测试通过 | `service/device_policy.go`、`service/device_policy_target.go` |
 | F06 | 活动远程连接与向客户端发送结束请求 | 已实现且心跳与浏览器测试通过；真实桌面会话待验证 | `service/session_management.go` |
@@ -72,16 +72,16 @@ CI 已实际通过的内容：
 
 | 任务编号 | 优先级 | 状态 | 具体工作 | 完成判断 |
 | --- | --- | --- | --- | --- |
-| T001 | P0 | 官方客户端 Linux 设备部署与分配已在隔离本地 API 上通过；真实完整服务器重连待检查 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
+| T001 | P0 | 官方 Linux 1.5.1 与实际 API 的部署、直接分配及数据库检查通过；真实 API 与 hbbs 的登记、冲突、撤销及恢复许可检查通过；双设备重连待检查 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
 | T002 | P0 | 待执行 | 实测 Windows、Linux、macOS 及可用的 Android/iOS 客户端登录；分别检查密码、TOTP、邮箱验证码、OIDC/LDAP、恢复码及退出登录 | 支持的客户端版本与测试结果逐项记入记录；异常可重现并修复 |
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
-| T004 | P0 | 同一 hbbs 中严格登记、JWT、连接规则与控制角色组合测试通过；实际客户端和完整 API 集成待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
+| T004 | P0 | 实际 API、hbbs、JWT、连接访问规则、控制角色、中继信令与 API 中断的联合测试在 AMD64 和 ARM64 通过；实际远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
 | T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 282，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 多设备自动测试及截图已完成；人工使用检查待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
-| T010 | P0 | 官方多平台 1.5.1 启动和 Android 模拟器已通过，Linux --deploy/--assign 测试通过；真实登录及多版本连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
+| T010 | P0 | 官方 1.5.1 多系统启动和 Android 模拟器测试通过，Linux 客户端与实际 API 的部署、分配通过；真实登录及多版本远程连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
@@ -99,7 +99,7 @@ P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继�
 
 ### 5. 重要实现细节与当前限制
 
-**官方客户端兼容。** `/api/devices/cli` 和 `/api/devices/deploy` 已接入，端到端自动测试使用 Gin/SQLite 和真实 `hbbs`，最终还应使用官方客户端命令进行完整操作。独立 API 令牌支持设备分配、部署及细分的自动化管理权限，通过 `Authorization: Bearer rdapi_...` 调用 `/api/automation/v1`。管理接口每次验证令牌权限和所属账户的系统管理员身份，令牌摘要与普通登录令牌分开保存。
+**官方客户端兼容。** `/api/devices/cli` 和 `/api/devices/deploy` 已接入，官方 Linux 1.5.1 客户端已对实际 API 完成部署和设备分配，实际 API 与 `hbbs` 已完成登记与授权通信。仍需使用两台终端检查真实远程控制和重新连接。独立 API 令牌支持设备分配、部署及细分的自动化管理权限，通过 `Authorization: Bearer rdapi_...` 调用 `/api/automation/v1`。管理接口每次验证令牌权限和所属账户的系统管理员身份，令牌摘要与普通登录令牌分开保存。
 
 **设备策略与控制角色。** 两者分别管理：设备策略经客户端心跳应用，优先级为单设备、用户、设备组；控制角色在连接协商时写入 `ControlPermissions`，按目标设备、所属用户、设备组选择。实际客户端的控制操作仍需验证。
 
@@ -111,7 +111,7 @@ P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继�
 
 **多中继。** `hbbs` 可根据活动中继、CIDR 网络规则和 GeoLite2 国家数据选择节点；管理员指定的 CIDR 规则优先。GeoLite2 Country MMDB 文件或 CSV 目录由部署者自行提供，程序未包含正式地理位置数据库。未配置托管中继时使用原有中继配置。
 
-**数据库与兼容。** 当前 API 迁移版本 280；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
+**数据库与兼容。** 当前 API 迁移版本 282；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
 
 ### 6. 双仓库代码索引
 
@@ -767,3 +767,23 @@ Chromium 检查已保存客户端构建器及邮件通知的桌面、平板、�
 数据库检查包含旧结构升级、SQLite 停止连接后的文件恢复、MySQL 的 `mysqldump` 导出与恢复，以及 PostgreSQL 的 `pg_dump`、`pg_restore`。恢复后检查历史策略、审计记录与客户端构建任务。
 
 正式发布前还需要使用实际部署环境和真实业务数据的备份恢复，以及实际客户端与公共网络的端到端测试。草稿 PR 和正式版本保持原有状态。
+
+
+## 2026-11-09：官方 Linux 客户端与实际 API、Server 的联合检查
+
+本阶段完成官方 Linux 1.5.1 客户端到实际 API 的设备部署、重复部署、直接设备分配及数据库保存检查。API 在批准设备部署后立即创建对应的设备管理记录，并在账户分配时同步更新设备所属用户和登记记录。严格登记模式下，设备系统信息上传需要与批准的设备身份一致，撤销许可的设备无法继续修改管理信息。
+
+Server 新增两组实际 API 联合测试。第一组检查设备未登记、正常登记、设备标识或公钥冲突、重复部署、撤销与恢复许可、API 中断；第二组在同一运行环境开启严格登记、JWT、集中连接许可及控制角色，检查已授权与未授权账户、访问规则、控制权限、中继信令、令牌撤销与 API 中断。测试使用临时 SQLite 数据库和独立生成的通信密钥。
+
+| 检查 | 已确认通过的 GitHub Actions |
+| --- | --- |
+| 官方 Linux 客户端 1.5.1 对实际 API 进行部署和直接分配 | [API #42646358750](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358750) |
+| Go 测试、管理页面及 WebClient | [API #42646358717](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358717) |
+| SQLite、MySQL 8.4、PostgreSQL 16 升级与恢复 | [API #42646358726](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358726) |
+| Windows、Linux、macOS 及 Android 模拟器官方客户端启动 | [API #42646358634](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358634) |
+| Server 严格模式及 Rust 自动测试 | [Server #42647450900](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
+| AMD64/ARM64 实际 API、hbbs、hbbr、严格授权及 Docker 组合部署 | [Server #42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607) |
+
+关键实现和测试：API 的 `http/controller/api/device_commands.go`、`peer.go`、`managed_sysinfo_test.go`、`scripts/test_official_linux_real_api.py`；Server 的 `scripts/test_real_api_registration.py`、`scripts/test_real_api_strict_combination.py` 和 `.github/workflows/milestone-preflight.yml`。
+
+T001、T004 的自动化集成检查已经补充。实际双设备远程控制、跨地区公网中继、真实邮箱收发、正式数据恢复、多平台登录与安装等检查继续按照 T001–T022 逐项执行。开发分支与两个草稿 PR 保持原有发布状态。
