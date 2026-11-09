@@ -16,8 +16,23 @@ import (
 
 const apiTokenPrefix = "rdapi_"
 var apiTokenPermissions = map[string]bool{
-	"devices.assign":true,
-	"devices.deploy":true,
+	"devices.assign": true,
+	"devices.deploy": true,
+	"devices.read": true,
+	"devices.manage": true,
+	"deployments.read": true,
+	"deployments.manage": true,
+	"relays.read": true,
+	"relays.manage": true,
+	"sessions.read": true,
+	"sessions.disconnect": true,
+	"control_roles.read": true,
+	"control_roles.manage": true,
+	"access_rules.read": true,
+	"access_rules.manage": true,
+	"policies.read": true,
+	"policies.manage": true,
+	"audits.read": true,
 }
 
 func normalizeAPITokenPermissions(requested []string) (string,error) {
