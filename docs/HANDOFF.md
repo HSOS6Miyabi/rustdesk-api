@@ -70,3 +70,25 @@
 - 公共锚点组的原有可见范围保持有效。
 
 相关提交和测试结果记录于 [IMPLEMENTATION_LEDGER.md](IMPLEMENTATION_LEDGER.md)。
+
+## 本轮新增的地址簿与邮件功能
+
+- `service/address_book_csv.go`、`http/controller/admin/address_book_csv.go`：UTF-8 CSV 导入导出、账户访问范围与事务保存。
+- `service/address_book_trash.go`、`http/controller/admin/address_book_trash.go`：误删条目恢复与永久删除。
+- `model/addressBook.go`：新增软删除时间；历史记录保持可用。
+- `service/mail.go`、`http/controller/admin/mail.go`：SMTP 连接方式、密码加密与测试邮件。
+- `service/password_recovery.go`：邮箱密码恢复、单次使用链接与会话撤销。
+- `service/user_invitation.go`、`http/controller/admin/invitation.go`：团队邮件邀请、按指定群组创建账户。
+- `resources/admin/app.js`：CSV、回收站、SMTP、邀请及密码恢复的页面。
+
+### 环境配置
+
+在使用带密码的 SMTP 服务前设置 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，至少 16 个字符，升级和重启后继续使用同一个值。SMTP 服务地址、端口、连接方式、发件地址和公开控制台 URL 由管理员在网页中设置。密码恢复和邀请链接依赖公开控制台 URL。
+
+新功能测试记录：[API 综合测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)。
+
+### 接手后的优先工作
+
+读取 [功能清单](FEATURE_MATRIX.md) 中尚未完成的功能，首先检查 TOTP、邮箱登录验证、控制角色、多中继服务器与自定义客户端功能，并继续保持功能实现、前端操作、自动测试和文档记录同步更新。
+
+两个仓库仍处于草稿 PR 阶段。版本确认之前不发布 Release。

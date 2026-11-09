@@ -328,3 +328,110 @@ RustDesk 1.5.x 客户端会向 `POST /api/heartbeat` 发送设备 ID、设备 UU
 当用户同时满足多个规则时，优先使用指定用户的规则；没有指定用户的规则时，使用其所有所属群组中权限最高的规则；仍无群组规则时使用所有用户的规则。用户的主要群组和附加群组都参与计算。
 
 RustDesk 客户端通过 `POST /api/ab/shared/profiles` 获取共享地址簿和最终权限。公共锚点组已有的账户可见范围限制仍然生效。
+
+## CSV 地址簿导入与导出
+
+普通成员管理自己的地址簿：
+
+- `GET /api/admin/my/address_book/export`
+- `POST /api/admin/my/address_book/import`
+
+系统管理员管理自己或指定账户的地址簿：
+
+- `GET /api/admin/address_book/export?user_id=5`
+- `POST /api/admin/address_book/import?user_id=5`
+
+使用后台登录会话的 `api-token` 请求头。导出返回带 UTF-8 标记的 CSV 文件。导入请求正文是 UTF-8 CSV，Content-Type 为 `text/csv`。
+
+CSV 标题支持以下字段：
+
+```csv
+id,alias,hostname,username,platform,collection_id,tags,note,force_always_relay
+desk-123456,办公室电脑,office-pc,staff,Windows,0,work;remote,远程协助,true
+```
+
+`id` 必填，`collection_id` 默认为 0，标签使用分号分隔。CSV 不能超过 4 MB，最多 5000 条。已有的相同设备 ID 和地址簿编号会更新常用信息，同时保留连接密码、认证信息及其他客户端设置。
+
+导入成功返回 `data.created` 和 `data.updated`。如果有格式错误或地址簿不属于指定账户，全部导入操作取消。
+
+## 地址簿回收站
+
+普通账户：
+
+- `GET /api/admin/my/address_book/trash/list`
+- `POST /api/admin/my/address_book/trash/restore`
+- `POST /api/admin/my/address_book/trash/purge`
+
+系统管理员也可使用 `/api/admin/address_book/trash/...`，通过查询参数或请求正文的 `user_id` 指定账户。
+
+恢复或永久删除时提交：
+
+```json
+{"row_id":12}
+```
+
+删除单个条目后，它会出现在回收站。恢复后原有密码及设备设置仍被保留。已有同名条目时会拒绝恢复。删除整个地址簿分类会永久删除该分类的所有条目，包括此前放入回收站的记录。
+
+## 邮件服务
+
+以下管理接口需要管理员登录：
+
+- `GET /api/admin/mail/settings`：查看 SMTP 配置，返回 `password_configured` 表明是否设置密码。
+- `POST /api/admin/mail/settings`：保存邮件服务设置。
+- `POST /api/admin/mail/test`：向指定邮箱发送测试邮件。
+
+示例：
+
+```json
+{
+  "enabled": true,
+  "host": "smtp.example.com",
+  "port": 587,
+  "security": "starttls",
+  "username": "helpdesk@example.com",
+  "password": "通过管理后台输入 SMTP 密码",
+  "sender_email": "helpdesk@example.com",
+  "sender_name": "RustDesk 团队",
+  "base_url": "https://remote.example.com"
+}
+```
+
+`security` 支持 `starttls`、`tls`、`none`。修改配置时 `password` 留空可保留已有密码，`clear_password: true` 用于清除已保存密码。密码原文不会在查询接口中返回。
+
+发送测试邮件的请求正文为 `{"to":"member@example.com"}`。
+
+## 密码恢复
+
+无需登录：
+
+- `POST /api/admin/password/forgot`，正文 `{"email":"member@example.com"}`
+- `POST /api/admin/password/reset`，正文 `{"token":"邮件链接中的凭据","password":"新密码"}`
+
+恢复链接有效期为 15 分钟，每个链接使用一次。完成后会撤销该账户现有登录会话。邮箱不存在时，申请接口仍返回同一提示，避免暴露账户信息。
+
+## 成员邀请
+
+管理员接口：
+
+- `GET /api/admin/invite/list`：查看邀请列表。
+- `POST /api/admin/invite/create`：发送邀请邮件。
+- `POST /api/admin/invite/revoke`：撤销邀请。
+
+邀请示例：
+
+```json
+{"email":"new.member@example.com","group_id":2,"expires_in_days":7}
+```
+
+有效天数范围为 1 至 30，默认 7。收件人打开 `/_admin/#/invite?token=...` 创建账户。无需登录的接受接口是 `POST /api/admin/invite/accept`：
+
+```json
+{
+  "token": "邀请链接中的凭据",
+  "username": "new.member",
+  "nickname": "新成员",
+  "password": "新账号密码"
+}
+```
+
+邀请仅能使用一次，注册的账户被加入邀请时指定的用户组。

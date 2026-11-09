@@ -62,3 +62,19 @@ export RUSTDESK_API_INTERNAL_URL="http://127.0.0.1:21114/internal/v1/device/auth
 `device_policies.status` 用于启用或停用策略。历史策略默认启用，原有直接设备分配保持有效。
 
 普通账户会话令牌和 API 管理令牌分别保存。升级后可在“API 管理令牌”页面按需创建新的自动化令牌。已有账户登录方式不改变。
+
+## 地址簿数据恢复和邮件功能
+
+数据库自动为 `address_books` 增加 `deleted_at` 字段。删除单个条目时记录删除时间；旧数据继续正常显示。删除整个地址簿分类会清除其所有相关条目，恢复操作需在分类仍然存在时进行。
+
+新增表：`smtp_settings`、`password_reset_tokens`、`user_invitations`。这些表不会修改原有账户密码和群组关系。
+
+若使用 SMTP 账号密码，启动 API 前设置：
+
+```bash
+export RUSTDESK_API_MAIL_ENCRYPTION_KEY="更换为长期保存的随机密钥，至少16个字符"
+```
+
+同一安装应长期保留此值，备份恢复时需要一起恢复。SMTP 密码仅以加密内容保存，重新配置密码时才会替换。邮件设置的 `base_url` 需要填写用户能实际访问的 Web 控制台地址，例如 `https://remote.example.com`。
+
+忘记密码和邀请账户依靠 SMTP 发送邮件。未设置 SMTP 时，原有用户仍可通过已启用的登录方式访问系统。

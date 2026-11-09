@@ -109,4 +109,50 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 - [多群组和公开规则测试通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42522474127)。
 - [原生共享地址簿接口集成测试通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42522571693)。
 
-详见 [API 使用说明](API.md)、[测试说明](TESTING.md) 及 [功能清单](FEATURE_MATRIX.md)。地址簿批量导入、回收站等扩展功能仍保留在开发计划中。
+详见 [API 使用说明](API.md)、[测试说明](TESTING.md) 及 [功能清单](FEATURE_MATRIX.md)。后续还可补充更多第三方地址簿导入格式和批量共享功能。
+
+## 2026-11-09：地址簿导入导出、恢复、SMTP 与账户邮件功能
+
+本次继续开发以小型团队日常使用为重点，所有程序均保留在 `development/m1-device-management`，两个草稿 PR 均不发布发行版。
+
+### 已提交的功能
+
+| 仓库 | 提交 | 内容 |
+| --- | --- | --- |
+| API | [a002498](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a0024985c0bb07e3627a25f9a56e7455addf45b1) | 地址簿 CSV 导入导出，按用户限制访问，最多 5000 条、4 MB，导入事务处理 |
+| API | [d30ad8c](https://github.com/HSOS6Miyabi/rustdesk-api/commit/d30ad8c9cc91aea2f3172aa48f41bf7c1374a8b0) | CSV 导入导出、中文内容、重复记录与跨用户访问的测试 |
+| API | [2a43f80](https://github.com/HSOS6Miyabi/rustdesk-api/commit/2a43f80d1db8c06282aa4a10f8b5b700b2edd804) | 管理控制台 CSV 导入导出按钮及浏览器操作 |
+| API | [c07cc6f](https://github.com/HSOS6Miyabi/rustdesk-api/commit/c07cc6f2df867f4aaddf84b146b2806bcbf4780d) | 地址簿分类编号导入测试 |
+| API | [21f70c7](https://github.com/HSOS6Miyabi/rustdesk-api/commit/21f70c7977d4c9ae1fea9f2f7535d41053fcd282) | 地址簿条目回收站与删除整个分类时的记录处理 |
+| API | [918089c](https://github.com/HSOS6Miyabi/rustdesk-api/commit/918089c83023bd1023deb114efcbb3df764e189e) | 恢复、彻底删除、查询回收站接口及账户删除关联处理 |
+| API | [6e13012](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6e130123e3d06d524cc7accd78592ca20a7cc95c) | 回收站管理界面与浏览器测试 |
+| API | [6885810](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6885810b0643aa5972c498f1aa9a2636e32e80b7) | 恢复设备配置、归属验证、重名检查及分类删除的测试 |
+| API | [d7997c0](https://github.com/HSOS6Miyabi/rustdesk-api/commit/d7997c012dcf5287e40a6b4e53bd8736279b1f3b) | SMTP 服务器配置、密码加密存储、发送邮件与测试接口 |
+| API | [df0f509](https://github.com/HSOS6Miyabi/rustdesk-api/commit/df0f509a01ca9ce60282dab31ddf96dee4c817cf) | 模拟 SMTP 服务器发送测试、加密保存和配置修改 |
+| API | [1a06af2](https://github.com/HSOS6Miyabi/rustdesk-api/commit/1a06af26d5c28fa2b24700c939fcb90c8fca6ab0) | SMTP 管理页面及发送测试邮件操作 |
+| API | [78358d8](https://github.com/HSOS6Miyabi/rustdesk-api/commit/78358d887f827537e980b5607af55743b2a53f92) | 密码恢复请求、15 分钟一次性链接、旧会话撤销 |
+| API | [6eb9ee6](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6eb9ee61b7650afbf92d0f9e3455b755969914cb) | 邮件恢复完整服务测试与账户状态处理 |
+| API | [200cfad](https://github.com/HSOS6Miyabi/rustdesk-api/commit/200cfad69ec2cdd1b6b781ce46990a39ffe48a8c) | 网页登录入口和密码恢复表单 |
+| API | [a922f32](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a922f3235e537dd82cd2bdfc4e796c357277b55f) | 登录页面与恢复表单浏览器测试 |
+| API | [2a42e2d](https://github.com/HSOS6Miyabi/rustdesk-api/commit/2a42e2d4bd1f66470e936433c54a181025b6679d) | 团队邮箱邀请、按指定群组注册和邀请撤销 |
+| API | [c482a4b](https://github.com/HSOS6Miyabi/rustdesk-api/commit/c482a4b4d29cc366031ac712d325db558db98c0f) | 邀请邮件与注册、失效、撤销的自动测试 |
+| API | [0a37914](https://github.com/HSOS6Miyabi/rustdesk-api/commit/0a37914e573fa8d2b5e7a3048e0b7da0a0858316) | 管理员邀请页面、登录页面处理邮件链接 |
+| API | [453ce53](https://github.com/HSOS6Miyabi/rustdesk-api/commit/453ce536e146dd1f9ac9179638409a23d6262848) | 邀请发送、撤销及注册页面的浏览器自动化测试 |
+
+### 数据库及部署
+
+地址簿条目新增 `deleted_at`，普通删除后可从回收站恢复。删除整个地址簿分类时，其关联的活动条目和已删除条目都会被彻底清除。
+
+新增 `smtp_settings`、`password_reset_tokens`、`user_invitations`。已有用户、密码与群组保持原样。SMTP 邮箱凭据使用 `RUSTDESK_API_MAIL_ENCRYPTION_KEY` 加密保存。更换该密钥前，应在管理控制台重新配置 SMTP 密码。
+
+密码恢复仅修改本地账户密码，并撤销该账户已有登录会话；OIDC 与 LDAP 的身份配置保持不变。邮件邀请创建的新账户会归属于指定用户组。
+
+### 最新测试状态
+
+- [地址簿 CSV 完整测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42558570753)，通过。
+- [回收站恢复及管理界面测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42559071829)，通过。
+- [SMTP 配置及邮件传送测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42559555373)，通过。
+- [密码恢复服务测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42559793707)，通过。
+- [邀请注册、邮件找回及管理页面的最新综合测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)，通过。
+
+当前开发仓库对应 Server 开发提交仍是 [902293d](https://github.com/HSOS6Miyabi/rustdesk-server/commit/902293d49f17d831922237718ff389b3a1178267)。未创建里程碑版本标签或新的 Release。

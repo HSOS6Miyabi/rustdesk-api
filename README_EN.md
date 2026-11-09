@@ -1,3 +1,10 @@
+> The active milestone branch also supports address-book CSV import/export,
+> recovery of deleted entries, SMTP settings with encrypted credentials,
+> email password recovery, and invitation-based team registration.
+> Configure `RUSTDESK_API_MAIL_ENCRYPTION_KEY` to store SMTP passwords.
+> Full API and deployment instructions are in [docs/API.md](docs/API.md)
+> and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 > **Maintained fork:** This repository is developed together with
 > [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server).
 > Development changes are maintained in `development/m1-device-management` and

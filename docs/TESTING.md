@@ -68,3 +68,29 @@ node --test resources/admin/app.test.cjs
 ```
 
 测试覆盖用户的主要群组和附加群组、不同共享对象的权限优先级、成员退出群组后权限变化，以及 RustDesk 原生 `/api/ab/shared/profiles` 响应的最终权限。
+
+## 地址簿 CSV 与回收站
+
+```bash
+go test ./service -run 'TestAddressBookCSV|TestAddressBookTrash|TestDeletingCollection' -count=1
+go test ./http/controller/admin -run 'TestAddressBookCSVController|TestAddressBookTrashHTTP' -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+CSV 测试覆盖中文、数据导出、公式字符处理、跨用户导入限制、重复导入和事务提交。回收站测试验证恢复原始设备设置、拒绝重复恢复、永久删除和删除分类时的清理。
+
+## SMTP、密码恢复与成员邀请
+
+```bash
+go test ./service -run 'TestSMTP|TestPasswordRecovery|TestTeamInvitation' -count=1
+go test ./http/controller/admin -run 'TestPublicPasswordRecovery|TestInvitationPublicRegistration' -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+SMTP 测试在本地启动临时邮件服务并检查实际发送内容。密码恢复测试验证到期、重复使用、密码修改和原有登录会话撤销。邀请测试覆盖邮件链接、群组归属、用户注册、撤销和重复使用。
+
+最新代码的综合 CI：[GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)。
+
+正式投入使用前，应使用实际 SMTP 服务提供商测试发送、接收、TLS 连接与外部可访问的邀请链接。
