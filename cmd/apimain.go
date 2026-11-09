@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 278
+const DatabaseVersion = 279
 
 // @title 管理系统API
 // @version 1.0
@@ -329,6 +329,8 @@ func Migrate(version uint) {
 		&model.RelayNode{},
 		&model.ControlRole{},
 		&model.ControlRoleAssignment{},
+		&model.AdminRole{},
+		&model.AdminRoleAssignment{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},

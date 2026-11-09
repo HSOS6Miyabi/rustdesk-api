@@ -32,6 +32,7 @@ func Init(g *gin.Engine) {
 	EmailVerificationBind(adg)
 	RelayNodesBind(adg)
 	ControlRolesBind(adg)
+	AdminRolesBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
@@ -494,6 +495,22 @@ func ControlRolesBind(rg *gin.RouterGroup) {
 	ro.GET("/effective",roles.Effective)
 	assignments:=&admin.ControlAssignments{}
 	ar:=rg.Group("/control_assignment").Use(middleware.AdminPrivilege())
+	ar.GET("/list",assignments.List)
+	ar.POST("/create",assignments.Create)
+	ar.POST("/update",assignments.Update)
+	ar.POST("/delete",assignments.Delete)
+}
+
+func AdminRolesBind(rg *gin.RouterGroup) {
+	roles:=&admin.AdminRoles{}
+	r:=rg.Group("/admin_role").Use(middleware.AdminPrivilege())
+	r.GET("/catalog",roles.Catalog)
+	r.GET("/list",roles.List)
+	r.POST("/create",roles.Create)
+	r.POST("/update",roles.Update)
+	r.POST("/delete",roles.Delete)
+	assignments:=&admin.AdminRoleAssignments{}
+	ar:=rg.Group("/admin_role_assignment").Use(middleware.AdminPrivilege())
 	ar.GET("/list",assignments.List)
 	ar.POST("/create",assignments.Create)
 	ar.POST("/update",assignments.Update)
