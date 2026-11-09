@@ -48,6 +48,19 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
     "/notification/settings": {settings:{enabled:true,recipients:"team@example.test",events:"login.failure,audit.file"},catalog:["login.failure","audit.file"]},
     "/notification/list": {list:[{id:4,event_type:"audit.file",recipient:"team@example.test",status:"failed",attempts:3,last_error:"SMTP unreachable"}],total:1},
+    "/client_builder/profiles": {list:[{
+      id:2,name:"Office installer",platform:"windows-x64",version:"1.5.1",
+      host:"desk.example.com:21116",public_key:"AA==",api_server:"https://desk.example.com",
+      relay_server:""
+    }],total:1},
+    "/client_builder/tasks": {list:[{
+      id:15,profile_id:2,platform:"windows-x64",version:"1.5.1",
+      status:"ready",filename:"rustdesk-licensed-verified.exe",sha256:"sample",bytes:26
+    },{
+      id:16,profile_id:2,platform:"windows-x64",version:"1.5.1",
+      status:"failed",error:"download unavailable"
+    }],total:2},
+
 
     "/access_rule/list": {list:[{id:8,name:"Office support",source_type:"group",source_id:2,target_type:"device_group",target_id:"3",effect:"allow",enabled:true}],total:1},
     "/admin_role/list": {list:[{id:12,name:"Read-only devices",permissions:"devices.view",scope_type:"global",scope_id:0,enabled:true}],total:1},
@@ -528,4 +541,24 @@ test("device strategy form offers supported access and approval policies",async(
     "密码或手动确认","仅密码","仅手动确认"]){
     assert.match(app.root.innerHTML,new RegExp(label));
   }
+});
+
+test("visual client builder shows official Windows configurations, tasks and downloads",async()=>{
+  const ordinary=createConsole();
+  await ordinary.settle();
+  assert.doesNotMatch(ordinary.root.innerHTML,/客户端安装包构建/);
+  const admin=createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML,/客户端安装包构建/);
+  await admin.open("clientBuilder");
+  for(const label of ["客户端预设配置","Office installer","Windows x64","Windows ARM64",
+    "服务器公钥","创建安装包任务","安装包已准备好","下载安装程序","重新处理"]){
+    assert.match(admin.root.innerHTML,new RegExp(label));
+  }
+  assert.ok(admin.calls.some(x=>x.endpoint==="/client_builder/profiles"));
+  assert.ok(admin.calls.some(x=>x.endpoint==="/client_builder/tasks"));
+  await admin.action("client-edit",2);
+  assert.match(admin.root.innerHTML,/desk.example.com:21116/);
+  await admin.action("client-new");
+  assert.match(admin.root.innerHTML,/新建配置/);
 });
