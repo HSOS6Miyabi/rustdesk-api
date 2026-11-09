@@ -125,6 +125,7 @@
       fields:[["target_type","分配范围","control_target",true],["target_id","设备 ID 或用户/设备组编号","text",true],
         ["role_id","控制角色编号","number",true]]},
     mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
+    clientBuilder: {name:"客户端安装包构建",icon:"package",section:"系统管理",admin:true},
     notifications: {name:"邮件事件通知",icon:"bell",section:"系统管理",endpoint:"notification",admin:true,readonly:true,columns:[["id","编号"],["event_type","事件类型"],["recipient","收件邮箱"],["status","发送状态"],["attempts","尝试次数"],["sent_at","发送时间"],["last_error","最近一次错误"]]},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔，例如 devices.read）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
@@ -195,7 +196,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -425,6 +426,13 @@
         state.emailVerification=results[1];
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
+      }else if(k==="clientBuilder"){
+        const [profiles,tasks]=await Promise.all([
+          request("/client_builder/profiles?page=1&page_size=100"),
+          request("/client_builder/tasks?page=1&page_size=50")
+        ]);
+        state.clientProfiles=profiles.list||[];
+        state.clientTasks=tasks.list||[];
       }else if(k==="notifications"){
         const [config,history]=await Promise.all([
           request("/notification/settings"),
@@ -603,6 +611,50 @@
       toast("已生成 CSV 文件");
     }catch(err){toast(err.message,true);}
   }
+  function clientBuilderPage(){
+    const current=state.clientEditing||{},profiles=state.clientProfiles||[],tasks=state.clientTasks||[];
+    const textField=(name,title,required=false)=>
+      '<div class="field"><label for="client-'+name+'">'+title+'</label>'+
+      '<input id="client-'+name+'" name="'+name+'" value="'+esc(current[name]||"")+'" '+
+      (required?"required":"")+' autocomplete="off"></div>';
+    const fields='<form id="client-profile-form" class="tips">'+
+      '<input type="hidden" name="id" value="'+esc(current.id||"")+'">'+
+      '<div class="form-grid">'+textField("name","配置名称",true)+
+      '<div class="field"><label for="client-platform">客户端平台</label><select name="platform" id="client-platform">'+
+      [["windows-x64","Windows x64"],["windows-arm64","Windows ARM64"]].map(([id,label])=>
+        '<option value="'+id+'" '+((current.platform||"windows-x64")===id?"selected":"")+'>'+label+'</option>').join("")+
+      '</select></div>'+
+      textField("host","RustDesk ID 服务器地址（可带端口）",true)+
+      textField("public_key","服务器公钥（Base64，32 字节）",true)+
+      textField("api_server","API 地址（可留空）")+
+      textField("relay_server","中继服务器地址（可留空）")+
+      '</div><div class="head-actions"><button class="btn btn-primary" type="submit">保存配置</button>'+
+      '<button class="btn" type="button" data-action="client-new">新建配置</button></div></form>';
+    const profileList=profiles.map(profile=>'<div class="status-row"><span><strong>'+esc(profile.name)+'</strong>'+
+      '<span class="cell-sub">'+esc(profile.platform)+' · '+esc(profile.host)+'</span></span>'+
+      '<span class="head-actions">'+
+      '<button class="btn btn-sm" data-action="client-edit" data-id="'+esc(profile.id)+'">编辑</button>'+
+      '<button class="btn btn-sm btn-primary" data-action="client-build" data-id="'+esc(profile.id)+'">创建安装包任务</button>'+
+      '<button class="btn btn-sm btn-danger" data-action="client-delete" data-id="'+esc(profile.id)+'">删除配置</button>'+
+      '</span></div>').join("")||'<p class="tips">暂无客户端配置，可以填写上方表单创建。</p>';
+    const status={pending:"等待处理",building:"正在获取官方安装包",ready:"安装包已准备好",failed:"处理失败"};
+    const history=tasks.map(task=>'<div class="status-row"><span><strong>任务 #'+esc(task.id)+'</strong>'+
+      '<span class="cell-sub">'+esc(task.platform)+' · RustDesk '+esc(task.version)+' · '+esc(status[task.status]||task.status)+
+      (task.error?' · '+esc(task.error):'')+'</span></span>'+
+      (task.status==="ready"?'<button class="btn btn-sm" data-action="client-download" data-id="'+esc(task.id)+'">下载安装程序</button>':
+       task.status==="failed"?'<button class="btn btn-sm" data-action="client-retry" data-id="'+esc(task.id)+'">重新处理</button>':
+       '<span class="pill muted">'+esc(status[task.status]||"处理中")+'</span>')+
+      '</div>').join("")||'<p class="tips">尚未创建安装包任务。</p>';
+    return pageHeading("客户端安装包构建",
+      "选择官方 RustDesk 1.5.1 Windows 安装程序，在保留原程序内容的前提下生成包含服务器配置的文件名。",
+      '<button type="button" class="btn" data-action="refresh">刷新任务状态</button>')+
+      '<section class="panel"><div class="panel-header"><h2 class="panel-title">客户端预设配置</h2></div>'+fields+'</section>'+
+      '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">已保存的配置</h2></div>'+
+      '<div class="tips">'+profileList+'</div></section>'+
+      '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">历史构建任务及安装包</h2></div>'+
+      '<div class="tips">'+history+'</div></section>'+
+      '<p class="subtitle" style="margin-top:12px">安装程序来自官方发布文件，下载时验证 SHA-256。macOS 和 Linux 安装包仍需后续构建适配及真实设备测试。</p>';
+  }
   function notificationsPage(){
     const p=pages.notifications, settings=state.notifications?.settings||{};
     const configured=new Set(String(settings.events||"").split(","));
@@ -692,6 +744,7 @@
     if(state.page==="retention")return retentionPage();
     if(state.page==="mail")return mailPage();
     if(state.page==="notifications")return notificationsPage();
+    if(state.page==="clientBuilder")return clientBuilderPage();
     if(state.page==="profile")return profile();
     return genericList();
   }
@@ -1247,6 +1300,55 @@
       if(device){state.modal={kind:"transfer-device",device};render();}
       return;
     }
+    if(a==="client-new"){state.clientEditing=null;render();return;}
+    if(a==="client-edit"){
+      const profile=state.clientProfiles.find(item=>String(item.id)===String(el.dataset.id));
+      if(profile){state.clientEditing={...profile};render();}
+      return;
+    }
+    if(a==="client-delete"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0||!window.confirm("确定删除此配置吗？历史任务和安装包仍会保留。"))return;
+      try{
+        await request("/client_builder/profiles/delete","POST",{id});
+        if(state.clientEditing?.id===id)state.clientEditing=null;
+        toast("客户端配置已删除");await load();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
+    if(a==="client-build"){
+      const profile_id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(profile_id)||profile_id<=0)return;
+      try{await request("/client_builder/tasks","POST",{profile_id});toast("安装包任务已创建");await load();}
+      catch(e){toast(e.message,true);}
+      return;
+    }
+    if(a==="client-retry"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0)return;
+      try{await request("/client_builder/tasks/retry","POST",{id});toast("任务已重新提交");await load();}
+      catch(e){toast(e.message,true);}
+      return;
+    }
+    if(a==="client-download"){
+      const task=state.clientTasks.find(item=>String(item.id)===String(el.dataset.id));
+      if(!task||task.status!=="ready")return;
+      try{
+        const reply=await fetch(API+"/client_builder/tasks/"+encodeURIComponent(task.id)+"/download",{
+          headers:{"api-token":state.token,"Accept":"application/octet-stream"},
+          cache:"no-store",credentials:"same-origin"
+        });
+        if(!reply.ok)throw Error("安装包下载失败，HTTP "+reply.status);
+        const body=await reply.blob(),url=URL.createObjectURL(body);
+        try{
+          const link=document.createElement("a");
+          link.href=url;link.download=task.filename;
+          document.body.append(link);link.click();link.remove();
+        }finally{URL.revokeObjectURL(url);}
+        toast("安装程序已下载，请确认服务器地址后安装");
+      }catch(e){toast(e.message,true);}
+      return;
+    }
     if(a==="notification-retry"){
       const id=Number(el.dataset.id);
       if(!Number.isSafeInteger(id)||id<=0)return;
@@ -1377,7 +1479,7 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
     event.preventDefault();
     if(f.id==="mfa-login-form"){
       const pending=state.modal;
@@ -1494,6 +1596,20 @@
       return;
     }
     if(f.id==="login-form")await handleLogin(f);
+    if(f.id==="client-profile-form"){
+      const form={};
+      for(const name of ["name","platform","host","public_key","api_server","relay_server"]){
+        form[name]=f.elements[name].value.trim();
+      }
+      const id=Number(f.elements.id.value);
+      if(Number.isSafeInteger(id)&&id>0)form.id=id;
+      form.version="1.5.1";
+      try{
+        await request("/client_builder/profiles","POST",form);
+        state.clientEditing=null;toast("客户端配置已保存");await load();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
     if(f.id==="notification-form"){
       const events=[...f.querySelectorAll('input[name="event"]:checked')].map(x=>x.value);
       try{
