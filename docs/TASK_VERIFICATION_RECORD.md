@@ -145,9 +145,9 @@ Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构�
 
 ### T014：设备安全策略扩充
 
-**当前状态：Go、管理界面与心跳响应自动测试通过；真实官方客户端设置效果待检查。**
+**当前状态：Go、管理界面、设备心跳和严格登记许可检查通过；真实官方客户端设置效果待检查。**
 
-API 的 `service/device_policy.go`、`model/device_policy.go` 增加访问模式、键盘鼠标、剪贴板、文件传输和连接确认方式，并记录受服务器管理的配置项，支持取消策略时清除。
+API 的 `service/device_policy.go`、`model/device_policy.go` 增加访问模式、键盘鼠标、剪贴板、文件传输和连接确认方式，并记录受服务器管理的配置项，支持取消策略时清除。`http/controller/api/index.go` 会核对严格登记设备的部署许可，未登记或已撤销许可的设备无法继续通过心跳获取策略与会话管理指令。
 
 **完成条件：** 管理页面可修改选项，真实客户端心跳后正确更新；撤销时恢复预期行为。
 

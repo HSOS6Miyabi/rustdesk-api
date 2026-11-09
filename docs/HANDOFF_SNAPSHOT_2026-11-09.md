@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 仓库 | [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
-| 最后核实的功能提交 | [`e898985f8b2242e0a4f5e28c1eed2a6ced17b37e`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e898985f8b2242e0a4f5e28c1eed2a6ced17b37e) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
+| 最后核实的功能提交 | [`3d5f4db168d6182ffcca103eb5bfa37388920df3`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/3d5f4db168d6182ffcca103eb5bfa37388920df3) | [`fcf6bd0481d68ef28974ab8a4cf3015246886339`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/fcf6bd0481d68ef28974ab8a4cf3015246886339) |
 | 草稿拉取请求 | [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 目标默认分支 | `master` | `forapi` |
 | 最近已发布的预发布版本 | `v3.0.0-api.102` | `v1.1.17-api.20` |
@@ -19,13 +19,13 @@
 
 | 检查内容 | GitHub Actions |
 | --- | --- |
-| API Go、Chromium 管理页面、WebClient、WebRTC | [#42652681801](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801) |
+| API Go、Chromium 管理页面、WebClient、WebRTC | [#42655936250](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250) |
 | 官方六种桌面安装文件 SHA-256、配置脚本 | [#42646358868](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358868) |
-| 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与实际 API 通信 | [#42652682083](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652682083) |
-| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42652681804](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681804) |
-| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42646358634](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358634) |
-| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42647450900](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
-| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607) |
+| 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与实际 API 通信 | [#42655936037](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936037) |
+| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42655936179](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936179) |
+| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42655936464](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936464) |
+| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42654932922](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42654932922) |
+| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42654932747](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42654932747) |
 
 上述成功记录均对应本节的已核实功能提交。交接文档变动之后的提交需要另行查看新一轮检查。真实公网、多平台账户登录和两台设备间的实际远程控制仍需专门测试。
 
@@ -52,7 +52,7 @@
 | T011 | P0 | 双架构编译和部署预演通过，未发行正式安装包或镜像 |
 | T012 | P0 | 台账和草稿 PR 已整理；待所有 P0 实测结果和维护者批准后再决定是否发布 |
 | T013 | P1 | 六种官方安装文件及任务管理通过测试；检查每种目标系统的实际安装、配置、签名和远程连接 |
-| T014 | P1 | 安全策略心跳、更新和清除测试通过；在真实客户端检查策略是否生效 |
+| T014 | P1 | 安全策略心跳、更新、清除及严格登记许可检查通过；在真实客户端检查策略是否生效 |
 | T015 | P1 | 独立 API 令牌权限、有效期及撤销已实现，自动测试通过 |
 | T016 | P1 | 管理员按用户及用户组范围操作已实现；设备转移同步调整归属并撤销原设备会话，自动测试通过 |
 | T017 | P1 | 联系人、共享地址簿、部署许可和回收站批量处理已实现，自动测试通过 |

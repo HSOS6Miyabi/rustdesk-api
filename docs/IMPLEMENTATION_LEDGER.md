@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`e898985f8b2242e0a4f5e28c1eed2a6ced17b37e`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e898985f8b2242e0a4f5e28c1eed2a6ced17b37e) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
+| 最近通过自动测试的代码提交 | [`3d5f4db168d6182ffcca103eb5bfa37388920df3`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/3d5f4db168d6182ffcca103eb5bfa37388920df3) | [`fcf6bd0481d68ef28974ab8a4cf3015246886339`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/fcf6bd0481d68ef28974ab8a4cf3015246886339) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42652681801：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801) | [42649189875：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42649189875) |
+| 综合 CI 检查 | [42655936250：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250) | [42654932922：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42654932922) |
 | 最近已发布的预发布版本 | `v3.0.0-api.102`（2026-11-08） | `v1.1.17-api.20`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -49,7 +49,7 @@ CI 已实际通过的内容：
 | F02 | 官方客户端 `--assign`、`--deploy` | 官方 Linux 1.5.1 已安装并与实际 API 完成部署、分配和数据保存检查；其他系统的实际安装待验证 | `http/controller/api/device_commands.go` |
 | F03 | 可选严格设备预先登记及撤销许可 | 实际 API 与 `hbbs` 联合登记、撤销及恢复许可在两种架构通过；真实跨设备连接待验证 | API `model/device_deployment.go`；Server `src/device_deployment.rs` |
 | F04 | `MUST_LOGIN` 下的连接和中继令牌校验 | 已实现，Server 协议测试通过 | Server `src/jwt.rs`、`src/rendezvous_server.rs` |
-| F05 | 设备、所属用户、设备组三层策略 | 已实现，含访问模式、键盘鼠标、剪贴板、文件传输及连接确认方式，Go 与浏览器测试通过 | `service/device_policy.go`、`service/device_policy_target.go` |
+| F05 | 设备、所属用户、设备组三层策略 | 已实现，含访问模式、键盘鼠标、剪贴板、文件传输及连接确认方式；严格登记设备的心跳许可验证、Go 与浏览器测试通过 | `service/device_policy.go`、`service/device_policy_target.go` |
 | F06 | 活动远程连接与向客户端发送结束请求 | 已实现且心跳与浏览器测试通过；真实桌面会话待验证 | `service/session_management.go` |
 | F07 | 独立 API 管理令牌 | 已实现创建、到期、撤销、细分操作权限及专用自动化管理接口，测试通过 | `service/api_token.go`、`http/middleware/automation_auth.go`、`http/router/automation.go` |
 | F08 | 共享地址簿、附加群组、所有用户共享 | 已实现且接口测试通过 | `service/addressBook.go`、`http/controller/api/ab.go` |
@@ -85,7 +85,7 @@ CI 已实际通过的内容：
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
-| T014 | P1 | 已实现并通过心跳及界面自动测试；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
+| T014 | P1 | 已实现，严格登记模式的心跳许可及撤销检查、策略与界面自动测试通过；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
 | T016 | P1 | 已实现，CI 通过；设备转移同时撤销相关旧会话 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
 | T017 | P1 | 已实现，CI 通过 | 联系人、共享地址簿、设备部署和回收站的批量导入、共享、恢复及整理 | 管理界面能批量处理，失败时明确说明未成功的项目 |
@@ -802,3 +802,19 @@ T001、T004 的自动化集成检查已经补充。实际双设备远程控制�
 | SQLite、MySQL 8.4、PostgreSQL 16 升级及恢复 | [#42652681804](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681804) |
 
 本次保持数据库迁移版本 282。两份开发拉取请求继续保留草稿状态。
+
+
+## 2026-11-10：严格设备登记与安全策略心跳
+
+启用 `REQUIRE_DEVICE_DEPLOYMENT` 后，API 在处理设备心跳时检查设备编号、UUID 及设备部署许可状态。已获批准的设备可以获取对应策略；未登记、已撤销许可或身份不匹配的设备将收到空的策略响应。相同设备 UUID 的有效 Base64 编码形式可以正常识别。原有未启用严格登记的心跳行为继续保留。
+
+实现位置：`http/controller/api/index.go`。回归测试：`http/controller/api/device_policy_heartbeat_test.go`，包含未登记、已批准、等价 UUID 编码、错误身份及撤销许可后的策略响应。
+
+| 自动检查 | 结果 |
+| --- | --- |
+| Go 测试、WebClient 和管理界面浏览器交互 | [API #42655936250](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250)：成功 |
+| 官方 Linux 客户端与实际 API | [API #42655936037](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936037)：成功 |
+| SQLite、MySQL 8.4、PostgreSQL 16 数据库 | [API #42655936179](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936179)：成功 |
+| Windows、Linux、macOS、Android 模拟器客户端启动 | [API #42655936464](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936464)：成功 |
+
+此功能属于 T001 与 T014 的自动化检查范围。设备端实际应用策略及两台终端的远程连接行为继续按逐项测试记录检查。

@@ -284,3 +284,15 @@ go test ./http/controller/admin -run '^TestScopedAdministratorsCanModifyOnlyAssi
 ```
 
 测试覆盖设备所有者变化、与设备编号或 UUID 关联的会话撤销、其他设备会话保留，以及同一所有者重复分配的结果。最新综合测试记录：[GitHub Actions #42652681801](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801)。
+
+
+## 严格登记模式的设备心跳
+
+```bash
+go test ./http/controller/api -run '^TestManagedHeartbeatChecksApprovedDeployment$' -count=1
+go test ./http/controller/api -run '^TestDeviceHeartbeatReturnsNativeRustDeskStrategyOnlyForMatchingUUID$' -count=1
+```
+
+测试使用临时 SQLite，验证批准设备策略下发、未登记和撤销许可后的空响应、UUID 身份核查，以及未启用严格登记时的已有心跳行为。
+
+[GitHub Actions #42655936250](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250) 已完成 Go、WebClient 和浏览器测试。
