@@ -32,6 +32,16 @@ HTTP 响应中的 `code: 0` 表示操作成功。管理员接口统一以 `/api/
 
 删除后，对方将无法再通过联系人共享列表看到您的设备。
 
+### 批量添加或撤销联系人
+
+`POST /api/admin/contact/batch`，例如：
+
+```json
+{"user_ids":[12,13,14],"action":"add"}
+```
+
+将 `action` 改成 `remove` 即可批量撤销。一次最多处理 100 个不同账户。批量添加时所有目标账户必须有效且已启用；所有修改使用同一数据库事务。
+
 ## 共享设备
 
 `GET /api/admin/shared_devices/list?page=1&page_size=20&source_type=all&source_id=0&search=`
@@ -294,7 +304,7 @@ curl -X POST -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
 自动化路由与现有控制台使用相同的请求字段及响应格式。可用资源路径：
 
 - `GET /devices`、`GET /devices/:id`；`POST /devices/create`、`/devices/update`、`/devices/transfer`、`/devices/delete`、`/devices/batch-delete`
-- `GET /deployments`；`POST /deployments/status`
+- `GET /deployments`；`POST /deployments/status`、`/deployments/batch-status`
 - `GET /relays`；`POST /relays/create`、`/relays/update`、`/relays/delete`
 - `GET /sessions`、`/sessions/disconnects`；`POST /sessions/disconnect`
 - `GET /control-roles`、`/control-assignments`、`/control-roles/effective`；对应的 `/create`、`/update`、`/delete` 使用 `POST`
@@ -348,6 +358,7 @@ curl -X POST -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
 - `POST /api/admin/my/address_book_collection_rule/create`
 - `POST /api/admin/my/address_book_collection_rule/update`
 - `POST /api/admin/my/address_book_collection_rule/delete`
+- `POST /api/admin/my/address_book_collection_rule/batch`：批量向指定账户共享地址簿或撤销共享。
 
 共享到所有用户时：
 
@@ -363,6 +374,14 @@ curl -X POST -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
 `type`：`1` 表示指定用户，`2` 表示指定用户组，`3` 表示所有用户。`type=3` 时 `to_id` 必须为 `0`。
 
 `rule`：`1` 为只读，`2` 为读写，`3` 为完全控制。
+
+批量共享示例：
+
+```json
+{"collection_id":12,"target_user_ids":[21,22],"action":"share","rule":2}
+```
+
+撤销共享使用 `{"collection_id":12,"target_user_ids":[21,22],"action":"revoke"}`。每次最多指定 100 位用户，必须拥有相关地址簿；若有任何目标账户无效，整批共享不会执行。
 
 当用户同时满足多个规则时，优先使用指定用户的规则；没有指定用户的规则时，使用其所有所属群组中权限最高的规则；仍无群组规则时使用所有用户的规则。用户的主要群组和附加群组都参与计算。
 
@@ -771,3 +790,29 @@ Content-Type: application/json
 ```
 
 普通客户端不需要直接调用此内部接口。必须通过 hbbs 配置 `RUSTDESK_API_CONNECTION_ACCESS_URL` 才会启用服务器连接访问检查。
+
+## 批量设备部署许可
+
+管理员可使用 `POST /api/admin/device_deployment/batchStatus` 修改最多 200 条设备部署记录：
+
+```json
+{"ids":[4,7,11],"status":"revoked"}
+```
+
+`status` 支持 `approved`（批准）和 `revoked`（撤销）。服务器在同一数据库事务中检查全部记录，任一编号不存在时不修改任何记录。持有 `deployments.manage` 权限的独立 API 令牌可调用 `POST /api/automation/v1/deployments/batch-status`，请求内容相同。
+
+## 批量恢复及永久删除地址簿记录
+
+在“地址簿回收站”页面可执行整批操作，对应接口为：
+
+- `POST /api/admin/my/address_book/trash/batchRestore`
+- `POST /api/admin/my/address_book/trash/batchPurge`
+- `POST /api/admin/address_book/trash/batchRestore` 与 `batchPurge`（管理员）
+
+请求示例：
+
+```json
+{"row_ids":[14,17,23]}
+```
+
+一次可处理最多 200 条记录。个人接口只处理当前账户的回收站。管理员接口可通过 `user_id` 指定所有者。恢复前检查原分类、设备 ID 是否冲突以及记录归属，任何不满足条件的记录都会取消整批恢复。批量永久删除会检查所有目标记录已处于回收站，删除操作不可恢复。
