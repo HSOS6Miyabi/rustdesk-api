@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 273
+const DatabaseVersion = 274
 
 // @title 管理系统API
 // @version 1.0
@@ -321,6 +321,9 @@ func Migrate(version uint) {
 		&model.SMTPSetting{},
 		&model.PasswordResetToken{},
 		&model.UserInvitation{},
+		&model.UserTOTP{},
+		&model.TOTPRecoveryCode{},
+		&model.TOTPLoginChallenge{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
@@ -328,6 +331,7 @@ func Migrate(version uint) {
 	)
 	if err != nil {
 		global.Logger.Error("migrate err :=>", err)
+		return
 	}
 	global.DB.Create(&model.Version{Version: version})
 	//如果是初次则创建一个默认用户
