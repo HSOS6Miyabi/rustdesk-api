@@ -16,6 +16,7 @@ func DeviceDeploymentBind(rg *gin.RouterGroup) {
 	r := rg.Group("/device_deployment").Use(middleware.AdminPrivilege())
 	r.GET("/list", handler.List)
 	r.POST("/status", handler.SetStatus)
+	r.POST("/batchStatus", handler.SetBatchStatus)
 }
 
 func (h *DeviceDeployment) List(c *gin.Context) {
