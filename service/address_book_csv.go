@@ -167,6 +167,9 @@ func ImportAddressBookCSV(ownerID uint, reader io.Reader) (AddressBookImportResu
 	rows, err := parseAddressBookCSV(reader)
 	if err != nil { return result, err }
 	err = DB.Transaction(func(tx *gorm.DB) error {
+		var ownerCount int64
+		if err := tx.Model(&model.User{}).Where("id = ?",ownerID).Count(&ownerCount).Error;err!=nil{return err}
+		if ownerCount!=1{return errors.New("account does not exist")}
 		collections := make(map[uint]bool)
 		for _, row := range rows {
 			if row.CollectionID == 0 || collections[row.CollectionID] { continue }
