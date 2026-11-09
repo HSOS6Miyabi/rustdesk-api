@@ -18,7 +18,7 @@
 | 设备策略心跳同步 | 开发分支已实现三级分配及优先级 | `service/device_policy.go`、`service/device_policy_target.go` | 扩充更多客户端设置项 |
 | 官方客户端 `--assign` | 已实现 API 接口及集成测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端完成分配操作测试（T001） |
 | 官方客户端 `--deploy` | 已实现 API 接口和真实 hbbs 测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端测试安装、部署与撤销（T001） |
-| 管理设备部署记录 | 开发分支已实现撤销和恢复许可 | `http/controller/admin/device_deployment.go` | 批量管理 |
+| 管理设备部署记录 | 开发分支已实现批准、撤销及批量状态修改，自动化测试通过 | `http/controller/admin/device_deployment.go`、`device_deployment_batch.go` | 真实客户端完整操作 |
 | 严格设备注册（可选） | 开发分支已实现并通过实际服务进程测试 | API 与 `rustdesk-server` | 真实客户端安装测试 |
 | SMTP 邮件发送和管理 | 开发分支已实现 SMTP 设置、凭据加密和测试邮件 | `service/mail.go`、`http/controller/admin/mail.go` | 更多邮件发送通知 |
 | 邮箱验证码登录 | 开发分支已实现可选启用、邮件绑定和原生客户端验证流程 | `service/email_login.go`、`http/controller/admin/email_verification.go` | 更多邮件模板及实际客户端测试 |
@@ -27,9 +27,11 @@
 | TOTP 与恢复码 | 开发分支已实现，完成 Go、原生客户端协议及浏览器自动化测试 | `service/totp.go`、`http/controller/admin/totp.go` | 实际客户端多平台测试 |
 | 独立 API 管理令牌 | 开发分支已实现设备命令权限与到期管理 | `service/api_token.go`、`http/middleware/device_command_auth.go` | 扩充可用接口与权限类别 |
 | 远程控制角色 | 开发分支已实现 14 项官方客户端会话权限、设备/用户/设备组分配、hbbs 协议传递 | `service/control_role.go`、Server `src/control_roles.rs` | 真实桌面连接及各操作权限测试 |
-| 管理员分级角色 | 开发分支已实现多角色授权、细分操作权限及限定用户/群组的查看范围 | `service/admin_role.go`、`http/middleware/admin_privilege.go` | 增加更多限定范围的修改操作 |
+| 管理员分级角色 | 开发分支已实现多角色授权和限定用户/群组范围的用户、设备管理及所有者转移 | `service/admin_role.go`、`http/controller/admin/peer_transfer.go` | 真实团队管理测试 |
 | 服务器执行的连接访问规则 | 开发分支已实现可选严格模式、用户与群组规则、普通连接与中继授权 | `service/connection_access.go`、Server `src/connection_access.rs` | 跨平台客户端实际连接测试 |
-| 多中继节点与 GeoLite2 国家识别 | 开发分支已实现 IP 网络、国家代码选择、自动同步和节点故障替换 | `service/relay_node.go`、Server `src/relay_policy.rs`、`src/geoip_country.rs` | 真实跨地区连接测试、可选 MMDB 文件支持 |
+| 多中继节点与 GeoLite2 国家识别 | 开发分支已实现 IP 网络、国家代码选择、自动同步、节点故障替换与 MMDB/CSV 读取 | `service/relay_node.go`、Server `src/relay_policy.rs`、`src/geoip_country.rs` | 真实跨地区连接测试 |
+| 独立 API 令牌与自动化管理 | 开发分支已实现细分操作权限、有效期、撤销及管理员身份复核，Go 和浏览器测试通过 | `http/router/automation.go`、`http/middleware/automation_auth.go` | 对接实际自动化脚本 |
+| 批量联系人、共享、部署和回收站管理 | 开发分支已实现，支持事务检查与管理界面操作，Go 和浏览器测试通过 | `service/address_book_batch.go`、`http/controller/admin/contact_batch.go` | 在真实团队数据上检查操作 |
 | 自定义客户端构建器 | 待实现 | 独立构建工作流 | 各系统安装包 |
 
 相关代码与测试：API 草稿 PR [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)，Server 草稿 PR [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。
