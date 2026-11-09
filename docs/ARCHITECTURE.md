@@ -93,3 +93,11 @@ TOTP 密钥保存在 `UserTOTP`，恢复码哈希保存在 `TOTPRecoveryCode`。
 `hbbs` 的 `relay_policy` 模块定期读取内部配置，并将节点列表交给已有的中继连通性检查程序。连接双方 IP 所属网络用于选择优先中继；没有可适用的规则时使用活动节点轮流选择。托管配置全部取消后，恢复启动时的 `--relay-servers` 设置。
 
 普通安装和 Docker 安装都可以使用。动态同步依赖 Server 进程中的 `RUSTDESK_API_RELAY_NODES_URL` 环境变量；该地址缺失时继续使用原有模式。
+
+## GeoLite2 Country IP 地理位置查询
+
+管理员通过 API 的 `RelayNode.Countries` 保存国家代码。hbbs 将 GeoLite2 Country CSV 解析为 IPv4、IPv6 网络与两位国家代码的对应关系，按前缀长度从长到短寻找最精确的匹配；对应国家信息只保留在本地内存中。
+
+中继选择先考虑节点是否在线，再根据精确 CIDR 范围或国家代码与连接双方 IP 地址的匹配程度进行选择。管理员直接输入的 CIDR 范围优先于自动推断的国家。国家信息缺失时继续执行已有节点选择流程。
+
+GeoLite2 Country CSV 文件由服务器管理员获取，hbbs 可通过 `RUSTDESK_GEOIP_CSV_DIR` 指定文件目录。

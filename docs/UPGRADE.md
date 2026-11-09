@@ -107,7 +107,7 @@ export RUSTDESK_API_MAIL_ENCRYPTION_KEY="替换成至少32个随机字符的长�
 
 ## 多中继服务器
 
-API 数据库自动增加 `relay_nodes` 表，迁移版本为 276。已有服务器和设备记录不会更改。
+API 数据库自动增加 `relay_nodes` 表，新增国家代码字段后的迁移版本为 277。已有服务器和设备记录不会更改。
 
 管理员可以在 Web 控制台“中继节点管理”中增删节点。如果不需要集中管理多个中继，可以不配置任何节点，继续使用原有 `hbbs -r` 参数。
 
@@ -120,3 +120,21 @@ export RUSTDESK_API_RELAY_SYNC_SECONDS=30
 ```
 
 建议将 API 内部接口放在受保护的网络中。多台服务器之间通信应使用 HTTPS。默认 30 秒同步一次，允许配置 10 至 3600 秒。动态配置全部清除后将恢复原有中继地址设置。
+
+## GeoLite2 Country CSV 地理位置识别
+
+仅使用国家级节点偏好时需要此项设置。获取官方 [GeoLite2 Country CSV](https://dev.maxmind.com/geoip/docs/databases/city-and-country/)，解压后将以下三个文件放在 hbbs 可读取的同一目录：
+
+- `GeoLite2-Country-Locations-en.csv`
+- `GeoLite2-Country-Blocks-IPv4.csv`
+- `GeoLite2-Country-Blocks-IPv6.csv`
+
+为 hbbs 设置：
+
+```bash
+export RUSTDESK_GEOIP_CSV_DIR="/opt/rustdesk/geoip"
+```
+
+重启 hbbs 后自动读取数据。更新 GeoLite2 文件后，可通过原有的本地服务端控制接口发送 `reload-geo`，无需重启服务端。
+
+没有提供 Country CSV 时，系统保持原有 CIDR 规则和中继选择功能。GeoLite2 Country CSV 数据的下载及使用应遵守 MaxMind 的授权要求。

@@ -251,7 +251,7 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 
 ### 运行设置
 
-API 新增 `relay_nodes` 表，数据库迁移版本为 276。节点启用状态、优先级和 CIDR 范围由管理员在“中继节点管理”页面修改。
+API 新增 `relay_nodes` 表，初始数据库迁移版本为 276。节点启用状态、优先级和 CIDR 范围由管理员在“中继节点管理”页面修改。国家代码字段在数据库迁移版本 277 中增加。
 
 Server 读取以下环境变量：
 
@@ -273,4 +273,47 @@ export RUSTDESK_API_RELAY_SYNC_SECONDS=30
 - [Server IP 网络规则与动态同步的自动化测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42564891450)，通过。
 - [Server 中继断线替代选择测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42565263648)，执行结果见工作流。
 
-IP 网络规则由管理员维护，尚需增加 GeoLite2 数据库查询，以便自动识别公开 IP 的地理位置。
+管理员可以继续维护 IP 网络规则，也可以通过 GeoLite2 Country CSV 自动识别 IP 所属国家。具体实现与测试记录见下文。
+
+## 2026-11-09：GeoLite2 Country CSV 地理位置选择
+
+本轮增加国家级 IP 地理位置识别。管理员可给每个中继设置 `countries`（两位 ISO 国家代码），RustDesk Server 从服务器本地的 GeoLite2 Country CSV 文件读取 IPv4/IPv6 网络和国家关系。精确 CIDR 规则具有更高选择优先级。未启用国家匹配时，继续使用现有中继规则。
+
+### 实施及测试记录
+
+| 仓库 | 提交 | 实现内容 |
+| --- | --- | --- |
+| API | [e986914](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e986914be9379d5d36d7c77eb5f4532898fc7a1a) | 节点国家代码字段、输入规范化、Web 管理页面和内部 API 的国家列表 |
+| API | [ec007b5](https://github.com/HSOS6Miyabi/rustdesk-api/commit/ec007b5030664a01f2e0962d05dcaae9333080d4) | 提升数据库迁移版本至 277，兼容已存在节点的数据 |
+| Server | [fc0b3ce](https://github.com/HSOS6Miyabi/rustdesk-server/commit/fc0b3ce3831981c47984f10120b1abe70aa7196f) | 加载 MaxMind GeoLite2 Country 的 Locations-en 和 IPv4/IPv6 Blocks CSV |
+| Server | [f3b67c0](https://github.com/HSOS6Miyabi/rustdesk-server/commit/f3b67c0aac07007f7eaf13ae3a28b626968946e6) | 根据国家代码和精确 CIDR 规则选择节点 |
+| Server | [ab61a6f](https://github.com/HSOS6Miyabi/rustdesk-server/commit/ab61a6f9f7ef574cdd48930ffaf2865dd14aa26d) | hbbs 启动时读取国家数据库，支持运行时 `reload-geo` 命令 |
+| Server | [9429bda](https://github.com/HSOS6Miyabi/rustdesk-server/commit/9429bda97a5c07b8b2539fc413512f4109928bef) | 真实 hbbs 进程测试：国家选择、热更新、节点断线与原有中继恢复 |
+
+### 配置说明
+
+MaxMind 官方 GeoLite2 Country CSV 解压目录应包含 `GeoLite2-Country-Locations-en.csv`、`GeoLite2-Country-Blocks-IPv4.csv` 和 `GeoLite2-Country-Blocks-IPv6.csv`。
+
+```bash
+export RUSTDESK_GEOIP_CSV_DIR="/opt/rustdesk/geoip"
+```
+
+从 [MaxMind 开发者文档](https://dev.maxmind.com/geoip/docs/databases/city-and-country/)了解 Country CSV 格式和获取方法。用户自行获取、存储并更新数据库。程序不随安装包分发 GeoLite2 数据。
+
+运行中的 hbbs 可通过本地控制命令 `reload-geo` 重新读取文件。未配置 `RUSTDESK_GEOIP_CSV_DIR` 时，国家代码规则不参与选择，仍然使用精确 CIDR、节点优先级及原有轮流选择方式。
+
+### 选择规则
+
+1. 已启用且可连接的节点进入候选列表。
+2. 如果有节点的 CIDR 范围匹配连接双方的地址，优先使用精确网络匹配。
+3. 没有精确网络匹配时，使用 GeoLite2 推断的两位国家代码匹配节点。
+4. 匹配客户端数量相同，优先使用优先级数字较小的节点；都不匹配则轮流选择。
+5. 节点不可连接时改选其他可用节点，动态配置被清空时恢复旧的中继地址。
+
+### 测试结果
+
+- [API 国家代码、IPv4/IPv6 CIDR、内部配置和浏览器测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42567027724)，通过。
+- [Rust 单元测试及 GeoLite2 CSV 读取测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42567365799)，通过。
+- [真实 hbbs 的 GeoLite2 国家级中继选择和数据重新载入测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42567610418)，通过。
+
+对应的两个仓库最新功能提交分别为 API `ec007b5` 与 Server `9429bda`。继续开发时应先读取各自分支的最新提交，再执行相应测试。

@@ -208,3 +208,17 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 配置一致的密钥"
 分离部署时将同步地址换成实际的内部 API 地址，并使用受信任的网络或 HTTPS。默认约 30 秒同步一次。
 
 未配置上述同步地址时，仍使用原有中继地址及配置方式，不影响单中继部署。
+
+## 17. 根据 GeoLite2 自动选择国家级中继
+
+在“中继节点管理”中填写各节点的国家代码，例如日本 `JP`、美国 `US` 或加拿大 `CA`。如已有精确的办公室 IP 网络范围，可以继续设置 CIDR，此规则将优先使用。
+
+从 [MaxMind 官方文档](https://dev.maxmind.com/geoip/docs/databases/city-and-country/)获取 GeoLite2 Country CSV，把 `Locations-en` 和 IPv4、IPv6 的 `Blocks` 三个 CSV 文件放入服务器的同一目录，然后设置：
+
+```bash
+export RUSTDESK_GEOIP_CSV_DIR="/opt/rustdesk/geoip"
+```
+
+hbbs 启动后会读取这些数据，在匹配国家的活动中继之间选择节点。GeoLite2 文件更新后，可以通过本地服务管理接口使用 `reload-geo` 重新加载。没有国家数据库时仍可使用现有 CIDR 和轮流选择方式。
+
+Docker 安装需要将 GeoLite2 文件目录挂载给运行 hbbs 的容器，并将 `RUSTDESK_GEOIP_CSV_DIR` 设置为容器内路径。

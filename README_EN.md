@@ -1,3 +1,9 @@
+> Optional country-based relay selection is supported through GeoLite2 Country
+> CSV files. Configure `RUSTDESK_GEOIP_CSV_DIR` on hbbs and add ISO country
+> codes to managed relay nodes in the API console. Country files are supplied
+> locally by the administrator and are not included with this repository.
+> See [deployment instructions](docs/DEPLOYMENT.md).
+
 > The active milestone branch also supports address-book CSV import/export,
 > recovery of deleted entries, SMTP settings with encrypted credentials,
 > email password recovery, and invitation-based team registration.

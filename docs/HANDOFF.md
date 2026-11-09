@@ -155,3 +155,13 @@ Server：
 两端使用相同的 `RUSTDESK_API_INTERNAL_KEY`；Server 通过 `RUSTDESK_API_RELAY_NODES_URL` 查找内部接口。未配置同步地址时保留原有中继选择方法。
 
 接手时应检查 API 和 Server 两个草稿 PR 的最新 CI，并运行上述真实服务测试。服务器区域自动识别（GeoLite2）仍在待开发范围中。
+
+## GeoLite2 国家识别
+
+API 的 `RelayNode.Countries` 以逗号分隔保存两位国家代码，`EnabledRelayNodes` 向 hbbs 传输 `countries: ["JP","US"]`。该字段由数据库迁移版本 277 建立。
+
+Server 的 `src/geoip_country.rs` 读取 GeoLite2 Country CSV，`src/relay_policy.rs` 结合国家代码与精确 CIDR 规则选择中继。`src/rendezvous_server.rs` 在启动时载入数据，并使用本地控制命令 `reload-geo` 重新载入数据。
+
+需要测试配置同步、地理位置选择和断线替代选择时，运行 `python3 scripts/test_managed_relays.py target/debug/hbbs`。
+
+本功能的对应提交和 CI 详见 [实施台账](IMPLEMENTATION_LEDGER.md)，在完成里程碑前两个 PR 继续保持草稿状态。

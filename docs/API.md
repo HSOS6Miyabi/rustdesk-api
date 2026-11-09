@@ -539,6 +539,7 @@ POST /api/admin/audit_conn/note
   "name":"办公区域 A",
   "address":"relay-a.example.com:21117",
   "subnets":"203.0.113.0/24\n2001:db8:1::/48",
+  "countries":"JP,US",
   "priority":10,
   "enabled":true
 }
@@ -546,7 +547,7 @@ POST /api/admin/audit_conn/note
 
 `address` 为公开的中继地址，支持主机名、IP 地址或主机名与端口组合。IPv6 地址和端口组合使用方括号形式，例如 `[2001:db8::1]:21117`。
 
-`subnets` 为 IP 网络范围，可用换行或逗号分隔；留空表示普通候选节点。最多 64 个范围，IPv4、IPv6 均支持。`priority` 允许 0 至 10000，数值较小的节点优先。
+`subnets` 为精确 IP 网络范围，可用换行或逗号分隔；留空表示不使用此条件。`countries` 为两位 ISO 3166-1 国家代码，可用逗号或换行分隔，输入时不区分大小写。例如 `JP,US,CA`。每项最多 64 个，系统自动删除重复代码。`priority` 允许 0 至 10000，数值较小的节点优先。GeoLite2 Country CSV 提供国家识别后，hbbs 可根据客户端 IP 地址自动匹配。
 
 受信任的 `hbbs` 使用内部接口：
 
@@ -558,7 +559,9 @@ X-RustDesk-Internal-Key: <内部通信密钥>
 返回：
 
 ```json
-{"nodes":[{"address":"relay-a.example.com:21117","priority":10,"subnets":["203.0.113.0/24","2001:db8:1::/48"]}]}
+{"nodes":[{"address":"relay-a.example.com:21117","priority":10,"subnets":["203.0.113.0/24","2001:db8:1::/48"],"countries":["JP","US"]}]}
 ```
 
 该接口只返回已启用节点，供 `hbbs` 定期同步，不提供公共访问。
+
+GeoLite2 数据在 hbbs 的本地文件目录中读取，API 只向 hbbs 传输中继节点偏好，内部接口不会上传 GeoLite2 数据文件。

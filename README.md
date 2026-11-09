@@ -110,3 +110,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 ## 多中继服务器
 
 开发分支支持在 Web 管理控制台配置多个中继节点，并为每个节点设置优先使用的 IP 网络范围。`hbbs` 可以从 API 定期同步配置，在可用中继之间进行自动选择，并在节点断开连接时选择其他可用节点。具体设置参见 [部署说明](docs/DEPLOYMENT.md)。
+
+## GeoLite2 国家级中继选择
+
+为中继节点添加 `JP`、`US` 等国家代码后，hbbs 可以结合本地 GeoLite2 Country CSV，自动判断客户端 IP 所属国家并选择合适的中继节点。精确 CIDR 范围仍具有更高优先级。参见 [部署说明](docs/DEPLOYMENT.md)。
