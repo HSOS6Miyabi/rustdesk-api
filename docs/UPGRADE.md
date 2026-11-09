@@ -162,3 +162,18 @@ export RUSTDESK_API_CONTROL_CACHE_SECONDS=5
 如果需要限制查看范围，选择“指定用户组”或“指定用户”，并填写对应编号。限定范围目前适用于用户目录、设备目录的查看操作。需要编辑或删除等操作时选择全局角色并勾选相应权限。
 
 成员丢失双重认证凭据时，具备相应权限的管理员可以在“用户账户”中选择“重置双重认证”，系统会清除原有第二因素及登录会话。
+
+## 可选的服务器连接访问规则
+
+API 数据库迁移版本为 280，新增 `access_rules`。旧的账户、设备和群组资料保持不变。新安装默认没有连接规则，且 hbbs 不会主动启用严格模式。
+
+管理员先在“连接访问规则”中建立许可，确保需要远程连接的用户能够访问对应设备。完成后在 hbbs 环境中设置：
+
+```bash
+export RUSTDESK_API_CONNECTION_ACCESS_URL="http://127.0.0.1:21114/internal/v1/connection/authorize"
+export RUSTDESK_API_INTERNAL_KEY="与 API 一致的密钥"
+```
+
+启用严格模式需要客户端使用有效的账户登录令牌，并且目标设备已在 API 中登记。API 不可用时新的严格模式连接会被拒绝。关闭模式只需取消 `RUSTDESK_API_CONNECTION_ACCESS_URL` 并重启 hbbs。
+
+单台服务器可使用本地地址；Docker 或独立服务器部署必须使用 hbbs 实际可访问的 API 地址。跨服务器部署推荐使用受保护的网络或 HTTPS。

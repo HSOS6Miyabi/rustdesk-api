@@ -397,3 +397,55 @@ Server 需设置 `RUSTDESK_API_CONTROL_ROLE_URL` 才会查询控制角色。设�
 - 最新开发提交的全部自动化测试参见 [API 草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)。
 
 本模块只修改 API 和管理控制台，不需要改变当前 Server 二进制程序。
+
+## 2026-11-09：服务器执行的可选连接访问规则
+
+本阶段实现按用户、用户组和目标设备范围管理远程连接许可。通过管理员 Web 控制台配置规则，并在 hbbs 收到普通远程连接或中继请求时调用 OSS API 检查。此功能面向需要集中控制设备访问的小型团队，默认保持关闭。
+
+### 两个仓库的具体提交
+
+| 仓库 | 提交 | 功能 |
+| --- | --- | --- |
+| API | [146ab63](https://github.com/HSOS6Miyabi/rustdesk-api/commit/146ab634d546185ad6e1ee91343c2188ce1bddee) | 建立 `AccessRule`、连接访问判断、管理员管理接口及内部授权接口 |
+| API | [95d62ac](https://github.com/HSOS6Miyabi/rustdesk-api/commit/95d62ac3497b87b01669b3d1afcc246291892be6) | 注册管理路由与 `POST /internal/v1/connection/authorize`，数据库迁移版本 280 |
+| API | [087b43e](https://github.com/HSOS6Miyabi/rustdesk-api/commit/087b43ec9c4ed747bb6c03d1f132d01b0d3d5a15) | 用户、群组、设备授权以及内部接口的 Go 集成测试 |
+| API | [3f0ce67](https://github.com/HSOS6Miyabi/rustdesk-api/commit/3f0ce67964bb602f6a006436c77eb44105e6e0e9) | 管理界面新增“连接访问规则”及条件编辑 |
+| API | [f92b362](https://github.com/HSOS6Miyabi/rustdesk-api/commit/f92b3621be1702b8bb68ed6c91c7e694812d484c) | 管理页面的规则编辑自动化测试 |
+| API | [6b62ea6](https://github.com/HSOS6Miyabi/rustdesk-api/commit/6b62ea6f9dfad169a52a0ac64d470837d1d2055b) | 规则编辑提交和浏览器自动化测试 |
+| API | [9788dc5](https://github.com/HSOS6Miyabi/rustdesk-api/commit/9788dc51550ca9d592ad4851d842f44d2070eaaa) | 删除账户、用户组、设备或设备组时清理相关访问规则 |
+| API | [97cb3e1](https://github.com/HSOS6Miyabi/rustdesk-api/commit/97cb3e1b43c88e49fbc0cc30e34443ddc2f37fcb) | 清理规则后的 Go 测试 |
+| Server | [8aff47f](https://github.com/HSOS6Miyabi/rustdesk-server/commit/8aff47fbf25227078821ff2058cdf161b30368a1) | hbbs 向 API 发出授权请求；仅按配置启用严格检查 |
+| Server | [3ceef25](https://github.com/HSOS6Miyabi/rustdesk-server/commit/3ceef2570694ca8d2e78467d0147b375a3647dab) | 普通连接 `PunchHoleRequest` 与中继 `RequestRelay` 的访问检查 |
+| Server | [0fa1e56](https://github.com/HSOS6Miyabi/rustdesk-server/commit/0fa1e56e873f000bf13e88b9a31dfaab37c17a50) | 真实 hbbs 与模拟 API 的连接许可测试 |
+| Server | [4ba02a9](https://github.com/HSOS6Miyabi/rustdesk-server/commit/4ba02a96a0b4eca0aab7bd77ed5c4bafe6d2d0b7) | 实际客户端协议拒绝信息及完整运行测试 |
+
+### 数据和权限处理
+
+新增 `access_rules` 表，数据库迁移版本为 280。每条规则包括来源类型、来源账户或用户组、目标类型、目标 ID、允许或禁止操作以及启用状态。
+
+来源类型支持所有已登录用户、指定用户、指定用户组。目标类型支持所有已登记设备、指定设备 ID、指定设备所有者、指定设备组。
+
+启用严格模式后，所有普通连接和中继请求都需要有效的账户登录令牌。设备所有者可以访问自己的已登记设备；其他连接必须匹配至少一条允许规则。若同时匹配允许和禁止规则，禁止规则优先。未匹配规则时拒绝访问。
+
+群组来源同时考虑用户的主要群组和附加群组。该检查使用 API 中的已登记设备信息及登录会话，在数据库中修改或撤销账户令牌后，下一次连接请求将应用新结果。
+
+### Server 设置
+
+只有在 hbbs 进程中设置 `RUSTDESK_API_CONNECTION_ACCESS_URL` 时才开启严格模式：
+
+```bash
+export RUSTDESK_API_CONNECTION_ACCESS_URL="http://127.0.0.1:21114/internal/v1/connection/authorize"
+export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
+```
+
+Server 通过带内部密钥的 POST 请求，将设备 ID 和客户端登录令牌发送给 API。授权接口只向 hbbs 提供，返回 `allow` 和原因。API 无法访问、登录令牌无效或没有许可时，严格模式拒绝新的连接请求。
+
+未设置 `RUSTDESK_API_CONNECTION_ACCESS_URL` 时，现有普通连接和中继工作方式保持不变。需要注意：这里管理的是通过 hbbs 协商的连接请求，直接通过 IP 地址建立的连接仍由客户端和目标设备控制。
+
+### 自动化测试
+
+- [API 授权规则服务、内部接口及数据库测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42577911849)：通过。
+- [API 管理页面及 Chromium 浏览器测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42578812266)：通过。
+- [Server 普通连接、中继连接及 API 无法访问的实际进程测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42578682536)：通过。
+
+真实桌面客户端的各类网络环境、登录方式及直接 IP 连接仍应在里程碑发布前检查。

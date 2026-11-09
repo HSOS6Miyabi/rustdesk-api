@@ -207,3 +207,25 @@ node --test resources/admin/browser.e2e.cjs
 ```
 
 完成后根据 [实施台账](IMPLEMENTATION_LEDGER.md) 更新最新提交与 CI。
+
+## 可选的服务器连接访问检查
+
+API：
+
+- `model/access_rule.go`、`service/connection_access.go`：规则结构、引用验证、用户和群组访问判断。
+- `http/controller/admin/access_rule.go`：管理员增删修改规则。
+- `http/controller/api/internal_connection_access.go`：检查设备 ID 和账户令牌的内部接口。
+- `resources/admin/app.js`：连接访问规则管理页面。
+- 数据库迁移版本 280，表名 `access_rules`。
+
+Server：
+
+- `src/connection_access.rs`：按需调用内部 API，返回连接许可。
+- `src/rendezvous_server.rs`：普通连接及中继请求的授权检查。
+- `scripts/test_connection_access.py`：启动真实 hbbs 测试连接许可及 API 不可用的情况。
+
+启用需要在 hbbs 中设置 `RUSTDESK_API_CONNECTION_ACCESS_URL` 和 `RUSTDESK_API_INTERNAL_KEY`，其中内部密钥必须与 API 相同。
+
+模式默认关闭。开启前先在管理页面添加需要的允许规则，并确认测试账户能够成功登录。严格模式下只有有效账户登录令牌才能参与访问判断；目标设备须在 API 中登记。设备所有者可以访问自己设备，其他账户按规则判断，明确禁止优先于允许。
+
+提交和测试记录参见 [实施台账](IMPLEMENTATION_LEDGER.md)。实际桌面客户端测试应包括连接转发、中继连接及没有登录的客户端。

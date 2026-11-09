@@ -1,3 +1,10 @@
+> Optional strict connection access is available. When enabled on hbbs with
+> `RUSTDESK_API_CONNECTION_ACCESS_URL`, authenticated clients must be permitted
+> by device ownership or an explicit administrator rule before hbbs forwards
+> their connection requests. The feature is disabled by default. See
+> [deployment instructions](docs/DEPLOYMENT.md) and
+> [API documentation](docs/API.md).
+
 > This development branch supports delegated administrator roles with multiple
 > role assignments per user. Global roles can grant selected administration
 > operations; user- and group-scoped roles currently provide read-only access

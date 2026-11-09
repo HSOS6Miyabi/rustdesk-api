@@ -190,3 +190,26 @@ node --test resources/admin/browser.e2e.cjs
 测试检查同一用户的多个角色合并、全局权限、指定账户与用户组的查看范围、拒绝查看其他账户设备、角色启停和删除、管理员角色创建页面及已获授权成员的导航。用户双重认证重置测试还检查现有会话是否撤销。
 
 正式部署前需要使用拥有不同角色的真实账户检查管理页面以及不同设备归属情况下的数据范围。
+
+## 服务器执行的连接访问规则
+
+API：
+
+```bash
+go test ./service -run 'TestConnectionAccess' -count=1
+go test ./http/controller/api -run TestInternalConnectionAuthorizationChecksRuleAndToken -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+Server：
+
+```bash
+cargo test --locked --lib --tests
+cargo build --locked --bins
+python3 scripts/test_connection_access.py target/debug/hbbs
+```
+
+API 测试覆盖设备所有者、指定用户、主要群组和附加群组、允许与禁止规则的优先级、无效登录令牌、未知设备和删除数据后的关联规则清理。
+
+Server 测试启动真实 hbbs 和模拟 API，验证已授权的 `PunchHoleRequest`、`RequestRelay` 能够发送到被控设备；不符合规则的请求不会转发，API 无法访问时也不会允许新连接。

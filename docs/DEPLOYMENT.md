@@ -245,3 +245,20 @@ Server 默认缓存角色查询结果 5 秒，使用 `RUSTDESK_API_CONTROL_CACHE
 如果成员无法使用身份验证器或原来的邮箱验证方式，具有 `users.manage_2fa` 全局权限的管理员可以重置其双重认证，帮助成员重新配置。
 
 此功能只需要 API 和现有数据库，无需新增 Server 环境变量。
+
+## 20. 可选的连接访问规则
+
+管理员在“连接访问规则”页面选择来源用户、用户组以及可访问的设备范围，可以按规则允许或禁止连接。建议先创建团队需要的允许规则，再开启严格模式。
+
+在 hbbs 环境中设置：
+
+```bash
+export RUSTDESK_API_CONNECTION_ACCESS_URL="http://127.0.0.1:21114/internal/v1/connection/authorize"
+export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
+```
+
+开启后，普通连接和中继连接会使用客户端当前账户令牌向 API 询问访问权限。目标设备必须已登记，账户必须已登录。没有匹配的允许规则时会拒绝跨账户连接；设备所有者始终可以连接自己设备。
+
+如果 API 与 hbbs 在不同主机或容器，请使用可从 hbbs 访问的 API 内部地址。API 暂时不可用时，严格模式会拒绝新的连接。未设置 `RUSTDESK_API_CONNECTION_ACCESS_URL` 时，仍使用原有连接方式。
+
+此功能控制经过 hbbs 协商的连接，直接通过 IP 地址连接设备的方式继续由客户端处理。

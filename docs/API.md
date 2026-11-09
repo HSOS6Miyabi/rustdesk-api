@@ -673,3 +673,50 @@ POST /api/admin/user/mfa/reset
 ```
 
 请求正文为 `{"id":12}`。此操作清除目标账户的 TOTP、恢复码和邮箱登录验证设置，同时撤销其原有登录会话。成员随后可通过仍可使用的登录方式重新登录并设置双重认证。
+
+## 服务器连接访问规则
+
+管理员可以在“连接访问规则”页面建立访问许可。接口需要相应的管理权限：
+
+- `GET /api/admin/access_rule/list`：列出全部规则。
+- `POST /api/admin/access_rule/create`：创建规则。
+- `POST /api/admin/access_rule/update`：修改规则，附加 `id`。
+- `POST /api/admin/access_rule/delete`：删除规则，提交 `{"id":5}`。
+
+示例：允许指定用户组中的成员访问一个设备组：
+
+```json
+{
+  "name":"技术支持访问办公室设备",
+  "source_type":"group",
+  "source_id":2,
+  "target_type":"device_group",
+  "target_id":"3",
+  "effect":"allow",
+  "enabled":true
+}
+```
+
+来源 `source_type` 支持 `all`、`user`、`group`。选择 `all` 时 `source_id=0`；选择用户或群组时填写对应编号。
+
+目标 `target_type` 支持 `all`、`device`、`user`、`device_group`。选择单台设备时在 `target_id` 写设备 ID，选择设备所有者或设备组时填写其编号，选择所有设备时 `target_id` 留空。
+
+`effect` 可以是 `allow`（允许）或 `deny`（禁止）。若同一连接符合多条规则，禁止规则优先。设备所有者始终可以连接自己已登记的设备。没有匹配允许规则时，启用严格模式的 hbbs 会拒绝连接。
+
+hbbs 使用受内部密钥保护的接口判断每次新连接：
+
+```http
+POST /internal/v1/connection/authorize
+X-RustDesk-Internal-Key: <内部通信密钥>
+Content-Type: application/json
+
+{"device_id":"desk-123456","token":"客户端当前账户登录令牌"}
+```
+
+响应例如：
+
+```json
+{"allow":true,"reason":"matching_allow","rule_id":5}
+```
+
+普通客户端不需要直接调用此内部接口。必须通过 hbbs 配置 `RUSTDESK_API_CONNECTION_ACCESS_URL` 才会启用服务器连接访问检查。
