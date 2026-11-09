@@ -1,0 +1,140 @@
+package service
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/lejianwen/rustdesk-api/v2/model"
+)
+
+func validClientProfile() *model.ClientBuildProfile {
+	return &model.ClientBuildProfile{
+		Name:"Office support",Platform:"windows-x64",Version:currentClientVersion,
+		Host:"desk.example.com:21116",
+		PublicKey:base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7},32)),
+		APIServer:"https://desk.example.com",RelayServer:"relay.example.com:21117",
+	}
+}
+
+func TestClientBuildSettingsAndImmutableTask(t *testing.T) {
+	cleanup:=setupGroupDB(t)
+	defer cleanup()
+	if err:=DB.AutoMigrate(&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{t.Fatal(err)}
+	profile:=validClientProfile()
+	if err:=SaveClientBuildProfile(profile);err!=nil{t.Fatal(err)}
+	name,err:=BuildClientFilename(profile)
+	if err!=nil || !strings.HasPrefix(name,"rustdesk-licensed-")||!strings.HasSuffix(name,".exe"){
+		t.Fatalf("invalid official RustDesk custom-client filename: %s %v",name,err)
+	}
+	encoded:=strings.TrimSuffix(strings.TrimPrefix(name,"rustdesk-licensed-"),".exe")
+	runes:=[]byte(encoded)
+	for i,j:=0,len(runes)-1;i<j;i,j=i+1,j-1{runes[i],runes[j]=runes[j],runes[i]}
+	raw,err:=base64.RawURLEncoding.DecodeString(string(runes))
+	if err!=nil{t.Fatal(err)}
+	var embedded clientServerSettings
+	if err:=json.Unmarshal(raw,&embedded);err!=nil{t.Fatal(err)}
+	if embedded.Host!=profile.Host||embedded.Key!=profile.PublicKey||
+		embedded.API!=profile.APIServer||embedded.Relay!=profile.RelayServer {
+		t.Fatalf("embedded server profile mismatch: %+v",embedded)
+	}
+	task,err:=QueueClientBuild(profile.Id,3)
+	if err!=nil||task.Status!="pending"||task.Filename!=name{t.Fatalf("build was not queued: %+v %v",task,err)}
+	profile.Host="second.example.com:21116"
+	if err:=SaveClientBuildProfile(profile);err!=nil{t.Fatal(err)}
+	var frozen model.ClientBuildTask
+	if err:=DB.First(&frozen,task.Id).Error;err!=nil{t.Fatal(err)}
+	if !strings.Contains(frozen.ConfigSnapshot,"desk.example.com:21116") ||
+		strings.Contains(frozen.ConfigSnapshot,"second.example.com") {
+		t.Fatalf("queued build changed after profile edit: %+v",frozen)
+	}
+	records,total,err:=ListClientBuildTasks(1,20)
+	if err!=nil||total!=1||len(records)!=1{t.Fatalf("build history unavailable: %d %v",total,err)}
+	if err:=RetryClientBuild(task.Id);err==nil{t.Fatal("pending job was incorrectly retried")}
+	if err:=DB.Model(task).Update("status","failed").Error;err!=nil{t.Fatal(err)}
+	if err:=RetryClientBuild(task.Id);err!=nil{t.Fatal(err)}
+	if err:=DB.First(&frozen,task.Id).Error;err!=nil || frozen.Status!="pending"{
+		t.Fatalf("failed build did not return to the queue: %+v %v",frozen,err)
+	}
+	if err:=DropClientBuildProfile(profile.Id);err!=nil{t.Fatal(err)}
+	if records,total,err:=ListClientBuildTasks(1,20);err!=nil||total!=1||len(records)!=1{
+		t.Fatalf("deleting a profile destroyed build history: %d %v",total,err)
+	}
+}
+
+func TestClientBuildRejectsUnsupportedAndMaliciousSettings(t *testing.T) {
+	for _,modify:=range []func(*model.ClientBuildProfile){
+		func(p *model.ClientBuildProfile){p.Platform="linux-x64"},
+		func(p *model.ClientBuildProfile){p.Version="unknown"},
+		func(p *model.ClientBuildProfile){p.Host="desk.example.com\r\nInvalid: header"},
+		func(p *model.ClientBuildProfile){p.Host="https://evil.example.com/path"},
+		func(p *model.ClientBuildProfile){p.PublicKey="short"},
+		func(p *model.ClientBuildProfile){p.APIServer="https://admin:password@desk.example.com"},
+		func(p *model.ClientBuildProfile){p.RelayServer="relay.example.com,api=attacker"},
+		func(p *model.ClientBuildProfile){p.Name=""}, 
+	}{
+		p:=validClientProfile()
+		modify(p)
+		if err:=ValidateClientBuildProfile(p);err==nil{
+			t.Fatalf("invalid custom profile was accepted: %+v",p)
+		}
+	}
+	for _,platform:=range []string{"windows-x64","windows-arm64"}{
+		if _,err:=officialClientBuildSource(platform,currentClientVersion);err!=nil{t.Fatal(err)}
+	}
+	if _,err:=officialClientBuildSource("linux-x64",currentClientVersion);err==nil{
+		t.Fatal("unsupported installer platform was accepted")
+	}
+}
+
+func TestClientBuildPackagesOfficialBytesWithoutModification(t *testing.T) {
+	cleanup:=setupGroupDB(t)
+	defer cleanup()
+	if err:=DB.AutoMigrate(&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{t.Fatal(err)}
+	t.Setenv("RUSTDESK_CLIENT_BUILD_DIR",t.TempDir())
+	profile:=validClientProfile()
+	if err:=SaveClientBuildProfile(profile);err!=nil{t.Fatal(err)}
+	task,err:=QueueClientBuild(profile.Id,5)
+	if err!=nil{t.Fatal(err)}
+	fixture:=[]byte("mock signed RustDesk Windows executable content")
+	digest:=sha256.Sum256(fixture)
+	hash:=hex.EncodeToString(digest[:])
+	mock:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+		w.Header().Set("Content-Type","application/octet-stream")
+		_,_ = w.Write(fixture)
+	}))
+	defer mock.Close()
+	source:=clientBuildSource{URL:mock.URL,SHA256:hash,Size:int64(len(fixture))}
+	returned,size,err:=writeClientPackage(task,source,mock.Client())
+	if err!=nil||returned!=hash||size!=int64(len(fixture)){
+		t.Fatalf("client artifact generation failed: %s %d %v",returned,size,err)
+	}
+	path:=filepath.Join(clientBuildRoot(),fmtTaskID(task.Id),task.Filename)
+	stored,err:=os.ReadFile(path)
+	if err!=nil{t.Fatal(err)}
+	if !bytes.Equal(stored,fixture){t.Fatal("building changed the official installer contents")}
+	if err:=DB.Model(task).Updates(map[string]interface{}{
+		"status":"ready","sha256":hash,"bytes":size,
+	}).Error;err!=nil{t.Fatal(err)}
+	pathFromService,name,err:=ClientBuildFile(task.Id)
+	if err!=nil||name!=task.Filename||pathFromService!=path{
+		t.Fatalf("authenticated file lookup failed: %s %s %v",pathFromService,name,err)
+	}
+	source.SHA256=strings.Repeat("0",64)
+	if _,_,err:=writeClientPackage(task,source,mock.Client());err==nil{
+		t.Fatal("invalid official download checksum was accepted")
+	}
+	after,err:=os.ReadFile(path)
+	if err!=nil||!bytes.Equal(after,fixture){t.Fatal("checksum rejection modified the installed artifact")}
+}
+
+func fmtTaskID(id uint)string{return strconv.FormatUint(uint64(id),10)}
