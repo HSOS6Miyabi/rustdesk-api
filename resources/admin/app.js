@@ -520,7 +520,10 @@
     const trashBatchActions=state.page==="trash"?
       '<button type="button" class="btn" data-action="trash-batch-restore">批量恢复</button>'+
       '<button type="button" class="btn" data-action="trash-batch-purge">批量永久删除</button>':"";
-    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions+trashBatchActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const deploymentBatchActions=state.page==="deployed"?
+      '<button type="button" class="btn" data-action="deployment-batch-approve">批量批准部署</button>'+
+      '<button type="button" class="btn" data-action="deployment-batch-revoke">批量撤销部署</button>':"";
+    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions+trashBatchActions+deploymentBatchActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -751,6 +754,16 @@
         '<small>令牌原文仅显示一次，关闭页面后无法再次查看。</small></div>';
       return modal("API 管理令牌已创建","可用于已授权的 RustDesk 客户端命令及自动化管理接口。",body,
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
+    }
+    if(m.kind==="deployment-batch"){
+      const revoke=m.action==="revoked";
+      const body='<div class="field"><label for="deployment-batch-ids">设备部署记录编号（最多 200 条）</label>'+
+        '<textarea id="deployment-batch-ids" rows="5" placeholder="例如：8,13,19" required></textarea>'+
+        '<small>在设备部署列表中查看编号，按逗号、空格或换行分隔。</small></div>';
+      return modal(revoke?"批量撤销设备部署":"批量批准设备部署",
+        revoke?"撤销后设备将无法在严格登记模式下重新登记。":"选中设备将被批准登记。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" data-action="deployment-batch-submit">确认修改</button>');
     }
     if(m.kind==="contact-batch"){
       const remove=m.action==="remove";
@@ -1119,6 +1132,26 @@
         toast("结束连接请求已提交，客户端下次发送心跳时会收到通知");
         await load();
       }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="deployment-batch-approve"||a==="deployment-batch-revoke"){
+      state.modal={kind:"deployment-batch",action:a==="deployment-batch-revoke"?"revoked":"approved"};
+      render();return;
+    }
+    if(a==="deployment-batch-submit"){
+      if(state.modal?.kind!=="deployment-batch")return;
+      const field=document.getElementById("deployment-batch-ids");
+      if(!field)return;
+      const ids=[...new Set(field.value.trim().split(/[,，\s]+/).filter(Boolean).map(Number))];
+      if(!ids.length||ids.length>200||ids.some(id=>!Number.isSafeInteger(id)||id<=0)){
+        toast("请输入 1 至 200 个有效的设备部署记录编号",true);return;
+      }
+      const status=state.modal.action;
+      if(status==="revoked"&&!window.confirm("确认批量撤销选中设备的登记许可吗？"))return;
+      try{
+        await request("/device_deployment/batchStatus","POST",{ids,status});
+        state.modal=null;toast("设备部署状态已批量更新");await load();
+      }catch(e){toast(e.message,true);}
       return;
     }
     if(a==="deployment-toggle"){
