@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -67,5 +68,85 @@ func TestDeviceHeartbeatReturnsNativeRustDeskStrategyOnlyForMatchingUUID(t *test
 	}
 	if unchanged:=check("uuid-registered",version);len(unchanged)!=0{
 		t.Fatalf("same policy must not be sent again: %v",unchanged)
+	}
+}
+
+
+func TestManagedHeartbeatChecksApprovedDeployment(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:managed_heartbeat_approval?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil { t.Fatal(err) }
+	conn, err := db.DB()
+	if err != nil { t.Fatal(err) }
+	defer conn.Close()
+	conn.SetMaxOpenConns(1)
+	if err := db.AutoMigrate(
+		&model.User{}, &model.Peer{}, &model.DeviceDeployment{},
+		&model.DevicePolicy{}, &model.DevicePolicyAssignment{},
+		&model.DeviceActiveConnection{}, &model.DeviceDisconnectRequest{},
+	); err != nil { t.Fatal(err) }
+
+	oldDB, oldService, oldLogger, oldConfig, oldGlobalConfig := service.DB, service.AllService, service.Logger, service.Config, global.Config
+	service.New(&config.Config{}, db, log.New(), nil, nil)
+	service.AllService.PeerService = &service.PeerService{}
+	global.Config.App.RequireDeviceDeployment = true
+	defer func() {
+		service.DB, service.AllService, service.Logger, service.Config, global.Config =
+			oldDB, oldService, oldLogger, oldConfig, oldGlobalConfig
+	}()
+
+	adminFlag := true
+	owner := &model.User{
+		Username: "managed-owner", Status: model.COMMON_STATUS_ENABLE,
+		IsAdmin: &adminFlag,
+	}
+	if err := db.Create(owner).Error; err != nil { t.Fatal(err) }
+	uuidData := []byte("managed-heartbeat-device-uuid")
+	uuid := base64.StdEncoding.EncodeToString(uuidData)
+	peer := &model.Peer{Id: "managed-heartbeat-device", Uuid: uuid, UserId: owner.Id}
+	if err := db.Create(peer).Error; err != nil { t.Fatal(err) }
+	policy := &model.DevicePolicy{Name: "Managed heartbeat policy", IdWhitelist: "managed-allow"}
+	if err := service.SaveDevicePolicy(policy); err != nil { t.Fatal(err) }
+	if err := service.SaveDevicePolicyAssignment(&model.DevicePolicyAssignment{
+		DeviceId: peer.Id, PolicyId: policy.Id,
+	}); err != nil { t.Fatal(err) }
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/api/heartbeat", (&Index{}).Heartbeat)
+	check := func(requestUUID string) map[string]json.RawMessage {
+		t.Helper()
+		body, err := json.Marshal(map[string]interface{}{
+			"id": peer.Id, "uuid": requestUUID, "ver": 10501, "modified_at": 0,
+		})
+		if err != nil { t.Fatal(err) }
+		req := httptest.NewRequest(http.MethodPost, "/api/heartbeat", bytes.NewReader(body))
+		out := httptest.NewRecorder()
+		router.ServeHTTP(out, req)
+		if out.Code != http.StatusOK { t.Fatalf("heartbeat returned HTTP %d", out.Code) }
+		var result map[string]json.RawMessage
+		if err := json.Unmarshal(out.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+		return result
+	}
+	if response := check(uuid); len(response) != 0 {
+		t.Fatalf("undeployed device received policy: %v", response)
+	}
+	deployment := &model.DeviceDeployment{
+		DeviceId: peer.Id, Uuid: uuid, PublicKey: base64.StdEncoding.EncodeToString([]byte("01234567890123456789012345678901")),
+		OwnerUserId: owner.Id, Status: "approved",
+	}
+	if err := db.Create(deployment).Error; err != nil { t.Fatal(err) }
+	if response := check(uuid); response["strategy"] == nil {
+		t.Fatalf("approved device did not receive policy: %v", response)
+	}
+	if response := check(base64.RawStdEncoding.EncodeToString(uuidData)); response["strategy"] == nil {
+		t.Fatalf("equivalent UUID encoding was rejected: %v", response)
+	}
+	if response := check(base64.StdEncoding.EncodeToString([]byte("different-managed-device-uuid"))); len(response) != 0 {
+		t.Fatalf("unregistered identity received policy: %v", response)
+	}
+	if err := db.Model(&model.DeviceDeployment{}).Where("device_id = ?", peer.Id).
+		Update("status", "revoked").Error; err != nil { t.Fatal(err) }
+	if response := check(uuid); len(response) != 0 {
+		t.Fatalf("revoked device received policy or session commands: %v", response)
 	}
 }

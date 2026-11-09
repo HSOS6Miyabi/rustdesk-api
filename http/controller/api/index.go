@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/lejianwen/rustdesk-api/v2/global"
 	requstform "github.com/lejianwen/rustdesk-api/v2/http/request/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	"github.com/lejianwen/rustdesk-api/v2/model"
@@ -54,8 +55,8 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
-	// Only a heartbeat with the device's registered UUID can receive its assigned policy.
-	if peer.Uuid == "" || peer.Uuid != info.Uuid {
+	// Check the device identity and managed deployment before returning policies.
+	if !heartbeatDeviceAuthorized(peer, info.Uuid) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
@@ -75,6 +76,35 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		data["disconnect"]=commands
 	}
 	c.JSON(http.StatusOK,data)
+}
+
+func heartbeatDeviceAuthorized(peer *model.Peer, presentedUUID string) bool {
+	if peer == nil || peer.RowId == 0 || peer.Uuid == "" || presentedUUID == "" {
+		return false
+	}
+	identityMatches := peer.Uuid == presentedUUID
+	if !identityMatches {
+		stored, validStored := normalizedBase64(peer.Uuid, 8, 128)
+		presented, validPresented := normalizedBase64(presentedUUID, 8, 128)
+		identityMatches = validStored && validPresented && stored == presented
+	}
+	if !identityMatches {
+		return false
+	}
+	if !global.Config.App.RequireDeviceDeployment {
+		return true
+	}
+	storedUUID, valid := normalizedBase64(peer.Uuid, 8, 128)
+	if !valid {
+		return false
+	}
+	var deployment model.DeviceDeployment
+	if err := service.DB.Select("uuid", "status", "owner_user_id").
+		Where("device_id = ?", peer.Id).Take(&deployment).Error; err != nil {
+		return false
+	}
+	return deployment.Status == "approved" && deployment.OwnerUserId != 0 &&
+		deployment.Uuid == storedUUID
 }
 
 // Version 版本
