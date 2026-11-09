@@ -13,6 +13,49 @@
     ["privacy_mode","隐私模式"],["usb","USB 设备"]
   ].map(([name,label])=>[name,label,"permission_state"]);
   const permissionFieldNames=new Set(controlPermissionFields.map(field=>field[0]));
+  const administratorPermissions = [
+    ["users.view","查看用户"],["users.create","创建用户"],["users.delete","删除用户"],
+    ["users.edit","编辑用户信息"],["users.edit_password","修改用户密码"],
+    ["users.force_logout","结束账户会话"],["users.manage_2fa","管理双重认证"],
+    ["devices.view","查看设备"],["devices.create","创建设备"],
+    ["devices.edit_info","修改设备信息"],["devices.delete","删除设备"],
+    ["user_groups.view","查看用户分组"],["user_groups.edit","管理用户分组"],
+    ["device_groups.view","查看设备组"],["device_groups.edit","管理设备组"],
+    ["audits.view","查看连接和操作记录"],["audits.edit","管理审计记录"],
+    ["strategies.view","查看设备策略"],["strategies.edit","管理设备策略"],
+    ["control_roles.view","查看控制角色"],["control_roles.edit","管理控制角色"],
+    ["contacts.view","查看联系人"],["contacts.edit","管理联系人"],
+    ["address_books.view","查看地址簿"],["address_books.edit","管理地址簿"],
+    ["api_tokens.view","查看 API 令牌"],["api_tokens.edit","管理 API 令牌"],
+    ["smtp.view","查看 SMTP 设置"],["smtp.edit","修改 SMTP 设置"],
+    ["relay_nodes.view","查看中继节点"],["relay_nodes.edit","管理中继节点"],
+    ["device_deployment.view","查看设备部署"],["device_deployment.edit","管理设备部署"],
+    ["sessions.view","查看活动连接"],["sessions.edit","结束活动连接"]
+  ];
+  const pagePrivileges = {
+    users:{view:"users.view",create:"users.create",edit:"users.edit",delete:"users.delete"},
+    devices:{view:"devices.view",create:"devices.create",edit:"devices.edit_info",delete:"devices.delete"},
+    groups:{view:"user_groups.view",create:"user_groups.edit",edit:"user_groups.edit",delete:"user_groups.edit"},
+    devicegroups:{view:"device_groups.view",create:"device_groups.edit",edit:"device_groups.edit",delete:"device_groups.edit"},
+    connections:{view:"audits.view",edit:"audits.edit"},
+    transfers:{view:"audits.view",edit:"audits.edit"},
+    alarms:{view:"audits.view",edit:"audits.edit"},
+    operations:{view:"audits.view"},
+    loginlogs:{view:"audits.view",edit:"audits.edit"},
+    policies:{view:"strategies.view",create:"strategies.edit",edit:"strategies.edit",delete:"strategies.edit"},
+    policyAssignments:{view:"strategies.view",create:"strategies.edit",edit:"strategies.edit",delete:"strategies.edit"},
+    userPolicyAssignments:{view:"strategies.view",create:"strategies.edit",edit:"strategies.edit",delete:"strategies.edit"},
+    groupPolicyAssignments:{view:"strategies.view",create:"strategies.edit",edit:"strategies.edit",delete:"strategies.edit"},
+    controlRoles:{view:"control_roles.view",create:"control_roles.edit",edit:"control_roles.edit",delete:"control_roles.edit"},
+    controlAssignments:{view:"control_roles.view",create:"control_roles.edit",edit:"control_roles.edit",delete:"control_roles.edit"},
+    relayNodes:{view:"relay_nodes.view",create:"relay_nodes.edit",edit:"relay_nodes.edit",delete:"relay_nodes.edit"},
+    apiTokens:{view:"api_tokens.view",create:"api_tokens.edit",delete:"api_tokens.edit"},
+    mail:{view:"smtp.view",edit:"smtp.edit"},
+    deployed:{view:"device_deployment.view",edit:"device_deployment.edit"},
+    activeSessions:{view:"sessions.view",edit:"sessions.edit"},
+    disconnectHistory:{view:"sessions.view"},
+    sessions:{view:"users.force_logout"},
+  };
   const pages = {
     overview: {name:"概览",icon:"home",section:"工作空间"},
     devices: {name:"设备管理",icon:"monitor",section:"工作空间",endpoint:"peer",search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["note","设备备注"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","操作系统用户"],["os","操作系统"],["group_id","设备组 ID","number"],["note","设备备注","textarea"]]},
@@ -51,6 +94,14 @@
       fields:[["name","节点名称","text",true],["address","中继服务器地址","text",true],
         ["subnets","优先使用的 IP 网络（每行一个 CIDR）","textarea"],["countries","优先使用的国家代码（例如 JP,US）","textarea"],["priority","优先级（越小越高）","number"],
         ["enabled","是否启用","checkbox"]]},
+    adminRoles: {name:"管理员角色",icon:"shield",section:"系统管理",endpoint:"admin_role",admin:true,
+      columns:[["id","编号"],["name","角色名称"],["scope_type","管理范围"],["scope_id","范围编号"],["permissions","允许的操作"],["enabled","是否启用"]],
+      fields:[["name","角色名称","text",true],["permissions","管理权限","admin_permissions",true],
+        ["scope_type","权限适用范围","admin_scope",true],["scope_id","指定用户或群组编号（全局填 0）","number"],
+        ["enabled","启用此角色","checkbox"]]},
+    adminRoleAssignments: {name:"管理员角色分配",icon:"users",section:"系统管理",endpoint:"admin_role_assignment",admin:true,
+      columns:[["id","编号"],["user_id","成员用户 ID"],["role_id","管理员角色 ID"]],
+      fields:[["user_id","成员用户 ID","number",true],["role_id","管理员角色 ID","number",true]]},
     controlRoles: {name:"远程控制角色",icon:"shield",section:"系统管理",endpoint:"control_role",admin:true,
       columns:[["id","编号"],["name","角色名称"],["keyboard","键盘和鼠标"],["clipboard","剪贴板"],["file","文件传输"],["terminal","远程终端"],["remote_modify","修改远程设置"]],
       fields:[["name","角色名称","text",true],...controlPermissionFields]},
@@ -103,6 +154,7 @@
     if(k==="type"&&(v===1||v===2||v===3))return ["","普通组","共享组","公共锚点组"][v];
     if(permissionFieldNames.has(k))return ["沿用设备设置","禁止","允许"][Number(v)]||"—";
     if(k==="target_type")return ({device:"单台设备",user:"设备所有者",device_group:"设备组"}[v]||v);
+    if(k==="scope_type")return ({global:"全部账户",group:"指定用户组",individual:"指定用户"}[v]||v);
     if(k==="direction")return v==="outgoing"?"我发起的连接":v==="incoming"?"连接我的设备":v==="both"?"双方均为我的设备":"—";
     if(k==="primary_auth")return (["未报告","点击授权","临时密码","永久密码","切换控制方向"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
     if(k==="two_factor")return (["未报告","TOTP 动态验证码","可信设备"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
@@ -150,9 +202,24 @@
     const node=document.createElement("div");node.className="toast"+(error?" error":"");node.role="status";node.textContent=String(message);
     wrap.append(node);setTimeout(()=>node.remove(),4300);
   }
-  function available(k){return pages[k]&&(!pages[k].admin||state.isAdmin);}
+  function hasPrivilege(permission){
+    if(state.isAdmin)return true;
+    return !!permission&&Array.isArray(state.user?.route_names)&&state.user.route_names.includes(permission);
+  }
+  function canPageAction(k,action){
+    if(state.isAdmin)return true;
+    return hasPrivilege(pagePrivileges[k]?.[action]);
+  }
+  function available(k){
+    const page=pages[k];
+    return !!page&&(!page.admin||state.isAdmin||canPageAction(k,"view"));
+  }
   function activeKey(){return state.page==="addressbooks"&&state.bookTab==="collections"?"collections":state.page;}
-  function endpoint(k) {const p=pages[k];return !state.isAdmin&&["peer","address_book","address_book_collection","tag","login_log"].includes(p.endpoint)?"/my/"+p.endpoint:"/"+p.endpoint;}
+  function endpoint(k) {
+    const p=pages[k];
+    const delegatedDeviceView=k==="devices"&&hasPrivilege("devices.view");
+    return !state.isAdmin&&!delegatedDeviceView&&["peer","address_book","address_book_collection","tag","login_log"].includes(p.endpoint)?"/my/"+p.endpoint:"/"+p.endpoint;
+  }
   function pageHeading(title,subtitle,actions=""){
     return '<div class="page-head"><div><p class="eyebrow">RUSTDESK / CONTROL CENTER</p><h1>'+esc(title)+'</h1><p class="subtitle">'+esc(subtitle)+'</p></div><div class="head-actions">'+actions+'</div></div>';
   }
@@ -386,10 +453,16 @@
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
     let out="";
-    if(state.isAdmin||state.page!=="devices")out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
-    if(state.page==="users"){out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';}
+    const editable=pages[state.page]?.admin?canPageAction(state.page,"edit"):
+      (state.isAdmin||state.page!=="devices");
+    if(editable)out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
+    if(state.page==="users"&&hasPrivilege("users.edit_password")){
+      out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
+    }
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
-    if(state.isAdmin||state.page!=="devices")out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
+    const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):
+      (state.isAdmin||state.page!=="devices");
+    if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
     return out;
   }
   function table(p,rows){
@@ -408,7 +481,8 @@
   }
   function genericList(){
     const p=pages[activeKey()];
-    const add=p.readonly||state.page==="devices"&&!state.isAdmin?"":'<button class="btn btn-primary" data-action="create">'+icon("plus",16)+'新增'+esc(p.name)+'</button>';
+    const add=p.readonly||state.page==="devices"&&!canPageAction("devices","create")||
+      (p.admin&&!canPageAction(state.page,"create"))?"":'<button class="btn btn-primary" data-action="create">'+icon("plus",16)+'新增'+esc(p.name)+'</button>';
     const search='<div class="table-toolbar"><div class="search">'+icon("search",16)+'<input id="table-search" aria-label="搜索" placeholder="'+(p.search?"按关键词搜索…":"筛选本页内容…")+'" value="'+esc(state.query)+'"></div><span class="toolbar-meta">共 '+state.total+' 项</span></div>';
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
@@ -542,16 +616,24 @@
   }
   function fieldInput(field,row){
     const [name,label,type="text",required=false]=field;
-    const value=row&&row[name]!==undefined?row[name]:type==="status"?1:type==="group_type"?1:type==="rule_type"?1:type==="rule"?1:type==="checkbox"?false:type==="permission_state"?0:type==="control_target"?"device":"";
+    const value=row&&row[name]!==undefined?row[name]:type==="status"?1:type==="group_type"?1:type==="rule_type"?1:type==="rule"?1:
+      type==="checkbox"?(name==="enabled"&&state.page==="adminRoles"):type==="permission_state"?0:type==="control_target"?"device":type==="admin_scope"?"global":"";
     let input;
     if(type==="checkbox")input='<label class="check"><input type="checkbox" name="'+esc(name)+'" '+(value?"checked":"")+'>启用</label>';
+    else if(type==="admin_permissions"){
+      const enabled=new Set(String(value||"").split(",").map(x=>x.trim()));
+      input='<div class="option-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:8px">'+
+        administratorPermissions.map(([permission,title])=>
+          '<label class="check"><input type="checkbox" name="permissions" value="'+esc(permission)+'" '+
+          (enabled.has(permission)?"checked":"")+'>'+esc(title)+'</label>').join("")+'</div>';
+    }
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
     else if(type==="trusted_days"){
       const choices=[[0,"不限期限"],[1,"1 天"],[7,"7 天"],[30,"30 天"],[90,"90 天"]];
       input='<select name="'+esc(name)+'">'+choices.map(([days,text])=>'<option value="'+days+'" '+(Number(value)===days?"selected":"")+'>'+text+'</option>').join("")+'</select>';
     }
-    else if(["group_type","status","oauth_type","rule_type","rule","permission_state","control_target"].includes(type)){
-      const opts={group_type:[[1,"普通组"],[2,"共享组"],[3,"公共锚点组"]],status:[[1,"已启用"],[2,"已停用"]],oauth_type:[["oidc","OIDC"],["github","GitHub"],["google","Google"],["linuxdo","Linux.do"]],rule_type:[[1,"用户"],[2,"群组"],[3,"所有用户"]],rule:[[1,"只读"],[2,"读写"],[3,"完全控制"]],permission_state:[[0,"沿用设备设置"],[1,"禁止"],[2,"允许"]],control_target:[["device","单台设备"],["user","设备所有者"],["device_group","设备组"]]}[type];
+    else if(["group_type","status","oauth_type","rule_type","rule","permission_state","control_target","admin_scope"].includes(type)){
+      const opts={group_type:[[1,"普通组"],[2,"共享组"],[3,"公共锚点组"]],status:[[1,"已启用"],[2,"已停用"]],oauth_type:[["oidc","OIDC"],["github","GitHub"],["google","Google"],["linuxdo","Linux.do"]],rule_type:[[1,"用户"],[2,"群组"],[3,"所有用户"]],rule:[[1,"只读"],[2,"读写"],[3,"完全控制"]],permission_state:[[0,"沿用设备设置"],[1,"禁止"],[2,"允许"]],control_target:[["device","单台设备"],["user","设备所有者"],["device_group","设备组"]],admin_scope:[["global","全部账户"],["group","指定用户组"],["individual","指定用户"]]}[type];
       input='<select name="'+esc(name)+'">'+opts.map(o=>'<option value="'+esc(o[0])+'" '+(String(o[0])===String(value)?"selected":"")+'>'+esc(o[1])+'</option>').join("")+'</select>';
     }else input='<input name="'+esc(name)+'" type="'+esc(type)+'" value="'+esc(value)+'" '+(required?'required':"")+' autocomplete="off">';
     return '<div class="field '+(type==="textarea"?"full":"")+'"><label>'+esc(label)+(required?' <span class="required">*</span>':"")+'</label>'+input+(name==="auto_group_ids"?'<small>例如：2,3。登录后将自动加入这些组，并保留原有主要分组。</small>':"")+'</div>';
@@ -675,7 +757,12 @@
       const [name,,type="text",required=false]=f;
       const el=form.elements.namedItem(name);
       if(!el)continue;
-      if(type==="checkbox")data[name]=el.checked;
+      if(type==="admin_permissions"){
+        const checked=[...form.querySelectorAll('input[name="permissions"]:checked')].map(input=>input.value);
+        if(checked.length===0){toast("请至少选择一项管理权限",true);return;}
+        data[name]=checked.join(",");
+      }
+      else if(type==="checkbox")data[name]=el.checked;
       else if(type==="number"||["status","group_type","rule_type","rule","permission_state"].includes(type)){
         if(el.value.trim()!==""||required)data[name]=Number(el.value||0);
       }else data[name]=el.value.trim();
