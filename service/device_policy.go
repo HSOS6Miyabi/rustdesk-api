@@ -51,6 +51,22 @@ func normalIPWhitelist(value string) (string,error) {
 	return strings.Join(out,","),nil
 }
 
+func validPolicyValue(value string, allowed ...string) bool {
+	if value == "" { return true }
+	for _, candidate := range allowed { if value == candidate { return true } }
+	return false
+}
+
+func extraClientPolicyOptions(policy *model.DevicePolicy) map[string]string {
+	return map[string]string{
+		"access-mode": policy.AccessMode,
+		"enable-keyboard": policy.EnableKeyboard,
+		"enable-clipboard": policy.EnableClipboard,
+		"enable-file-transfer": policy.EnableFileTransfer,
+		"approve-mode": policy.ApprovalMode,
+	}
+}
+
 func ValidateDevicePolicy(policy *model.DevicePolicy) error {
 	if policy==nil{return errors.New("policy is required")}
 	policy.Name=strings.TrimSpace(policy.Name)
@@ -64,6 +80,13 @@ func ValidateDevicePolicy(policy *model.DevicePolicy) error {
 	ips,err:=normalIPWhitelist(policy.IpWhitelist)
 	if err!=nil{return err}
 	policy.IdWhitelist,policy.IpWhitelist=ids,ips
+	if !validPolicyValue(policy.AccessMode,"custom","full","view") ||
+		!validPolicyValue(policy.EnableKeyboard,"Y","N") ||
+		!validPolicyValue(policy.EnableClipboard,"Y","N") ||
+		!validPolicyValue(policy.EnableFileTransfer,"Y","N") ||
+		!validPolicyValue(policy.ApprovalMode,"password","click","password-click") {
+		return errors.New("invalid client security policy option")
+	}
 	if policy.TrustDurationDays!=0 && policy.TrustDurationDays!=1 &&
 		policy.TrustDurationDays!=7 && policy.TrustDurationDays!=30 && policy.TrustDurationDays!=90 {
 		return errors.New("invalid trusted-device duration")
@@ -79,6 +102,11 @@ func SaveDevicePolicy(policy *model.DevicePolicy) error {
 		"name":policy.Name,"status":policy.Status,"id_whitelist":policy.IdWhitelist,
 		"ip_whitelist":policy.IpWhitelist,"enable_web_rtc":policy.EnableWebRTC,
 		"trust_duration_days":policy.TrustDurationDays,"revision":policy.Revision,
+		"access_mode":policy.AccessMode,
+		"enable_keyboard":policy.EnableKeyboard,
+		"enable_clipboard":policy.EnableClipboard,
+		"enable_file_transfer":policy.EnableFileTransfer,
+		"approval_mode":policy.ApprovalMode,
 	})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return errors.New("device policy was not found")}
@@ -150,6 +178,9 @@ func EffectiveDevicePolicyDetails(deviceId string,userId uint,admin bool) (map[s
 		"enable-webrtc":map[bool]string{true:"Y",false:"N"}[resolved.Policy.EnableWebRTC],
 		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
 	}
+	for key,value := range extraClientPolicyOptions(resolved.Policy) {
+		if value != "" { options[key] = value }
+	}
 	return options,true,resolved.Source,resolved.Policy.Id,nil
 }
 
@@ -166,6 +197,8 @@ func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]int
 			"strategy":map[string]interface{}{"config_options":map[string]string{
 				"id-whitelist":"","whitelist":"",
 				"trusted-device-expiration-days":"",
+				"access-mode":"","enable-keyboard":"","enable-clipboard":"",
+				"enable-file-transfer":"","approve-mode":"",
 			}},
 		},nil
 	}
@@ -175,6 +208,9 @@ func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]int
 		"id-whitelist":resolved.Policy.IdWhitelist,
 		"whitelist":resolved.Policy.IpWhitelist,
 		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
+	}
+	for key,value := range extraClientPolicyOptions(resolved.Policy) {
+		if value != "" { options[key] = value }
 	}
 	return map[string]interface{}{
 		"modified_at":revision,
