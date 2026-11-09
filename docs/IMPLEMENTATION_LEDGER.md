@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`b0c03830d95cc97d9162447b99d5bf2c44f266c8`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/b0c03830d95cc97d9162447b99d5bf2c44f266c8) | [`6b064a21872e59b7e578c45238177c64079dac82`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/6b064a21872e59b7e578c45238177c64079dac82) |
+| 最近通过自动测试的代码提交 | [`35f2c5f2ba40e4c66e3858e793906aa81b5cc15f`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/35f2c5f2ba40e4c66e3858e793906aa81b5cc15f) | [`80bfc40582d1c0c2daada7bafd7fdeeed94555bb`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/80bfc40582d1c0c2daada7bafd7fdeeed94555bb) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42620320903：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320903) | [42618004098：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42618004098) |
+| 综合 CI 检查 | [42627684694：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684694) | [42620496880：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42620496880) |
 | 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -77,11 +77,11 @@ CI 已实际通过的内容：
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
 | T004 | P0 | 待执行 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
-| T006 | P0 | 三种数据库模拟升级通过；正式数据备份与恢复待检查 | 在 SQLite、MySQL、PostgreSQL 上从旧版本数据备份升级至数据库版本 280，重点检查新增字段、群组关系、历史设备、审计和回收站 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
+| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 282，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 多设备自动测试及截图已完成；人工使用检查待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
-| T010 | P0 | 官方客户端 1.4.5/1.5.0/1.5.1 的命令字段检查通过；真实客户端测试待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
+| T010 | P0 | 官方客户端 1.4.5/1.5.0/1.5.1 的设备命令及 1.5.1 设置命令检查通过；真实客户端测试待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
@@ -754,3 +754,16 @@ Server 通过普通进程启动 API、`hbbs`、`hbbr`，检查 TCP、UDP、WebSo
 Chromium 检查已保存客户端构建器及邮件通知的桌面、平板、手机截图。多平台真实设备登录、远程操作及其他语言支持仍按 T002、T003、T009、T010 和 T022 检查。
 
 两个仓库继续使用草稿 PR，未创建新版本标签、Release 或正式 Docker 镜像。
+
+
+## 2026-11-09：安装配置核对与数据库恢复演练
+
+六平台客户端安装文件制作已完善核对流程。Linux、macOS 的设置脚本在执行每条 RustDesk `--option` 命令后，再次读取对应设置。如果客户端未安装、权限不足或设置未成功保存，脚本会停止并显示错误。源代码兼容性检查确认 RustDesk 1.5.1 的 `--option` 需要客户端已经安装并具备管理权限，且支持读取及写入。安装文件下载使用完成 SHA-256 核对的同一文件对象，避免重新打开可能已被替换的路径。
+
+- [API 综合检查 #42627684694](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684694)：Go 编译、浏览器管理页面及其他测试通过。
+- [官方安装文件和客户端命令检查 #42627684647](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684647)：通过。
+- [数据库迁移与恢复检查 #42627684759](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684759)：在临时 SQLite、MySQL 8.4 和 PostgreSQL 16 环境通过。数据库恢复演练使用单独的目标数据库，保留原始数据；具体操作见 [数据库备份恢复说明](DATABASE_BACKUP_RESTORE.md)。
+
+数据库检查包含旧结构升级、SQLite 停止连接后的文件恢复、MySQL 的 `mysqldump` 导出与恢复，以及 PostgreSQL 的 `pg_dump`、`pg_restore`。恢复后检查历史策略、审计记录与客户端构建任务。
+
+正式发布前还需要使用实际部署环境和真实业务数据的备份恢复，以及实际客户端与公共网络的端到端测试。草稿 PR 和正式版本保持原有状态。

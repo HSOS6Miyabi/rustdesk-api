@@ -194,4 +194,4 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 一致的密钥"
 
 管理员在“客户端安装包构建”页面准备 Windows、Linux、macOS 的官方客户端文件。数据库保存配置、SHA-256 和任务状态，生成的安装程序默认存放于 `data/client-builds`。升级与备份时，应同时保留数据库和该目录。普通服务器运行和 Docker 挂载方式见 [客户端构建器说明](CLIENT_BUILDER.md)。
 
-自动化模拟升级已覆盖 SQLite、MySQL 8.4 与 PostgreSQL 16，并检查旧设备策略及审计记录。正式部署前仍需使用真实数据库备份执行升级与恢复演练。
+自动化模拟升级已覆盖 SQLite、MySQL 8.4 与 PostgreSQL 16，并检查旧设备策略及审计记录。临时 SQLite、MySQL 8.4、PostgreSQL 16 已通过数据库升级及备份恢复检查。正式部署前仍需使用实际数据库备份执行恢复演练，步骤见 [数据库备份恢复说明](DATABASE_BACKUP_RESTORE.md)。

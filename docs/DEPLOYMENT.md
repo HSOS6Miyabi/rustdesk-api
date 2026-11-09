@@ -280,3 +280,8 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
 管理员可以在“客户端安装包构建”页面准备 Windows、Linux、macOS 的 x64 或 ARM64 官方 RustDesk 1.5.1 安装文件。系统保存服务器配置并创建处理任务，从 GitHub 获取对应文件并核对 SHA-256。Windows 通过文件名携带配置，Linux/macOS 使用 ZIP 保存原始安装文件和设置脚本；所有官方安装文件内容保持不变。
 
 普通服务器运行时，默认文件目录为 `data/client-builds`，可设置 `RUSTDESK_CLIENT_BUILD_DIR` 修改目录。Docker 镜像默认将数据保存在 `/app/data/client-builds`，需要持久挂载 `/app/data`。维护和备份时同时保存数据库和构建文件，避免任务记录与文件不一致。详细操作见 [客户端构建器说明](CLIENT_BUILDER.md)。
+
+
+## 数据库和数据文件备份
+
+正式更新 API、Server 或 Docker 镜像之前，应同时备份数据库、Server 身份密钥、API 配置以及客户端构建文件。SQLite、MySQL、PostgreSQL 的备份和恢复命令见 [数据库备份恢复说明](DATABASE_BACKUP_RESTORE.md)。先在独立测试环境恢复并检查业务数据，再安排正式系统升级。

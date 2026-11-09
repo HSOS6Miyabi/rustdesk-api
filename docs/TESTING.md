@@ -225,7 +225,7 @@ node --test resources/admin/app.test.cjs resources/admin/browser.e2e.cjs
 python3 scripts/verify_upstream_client_commands.py
 ```
 
-`.github/workflows/verify-client-build.yml` 实际下载 RustDesk 1.5.1 的 Windows EXE、Linux DEB 和 macOS DMG（x64 与 ARM64），检查大小、SHA-256、文件类型和原始安装程序内容保持不变。Linux/macOS 的 ZIP 及配置脚本还通过 Go 单元测试和 Linux 模拟安装命令检查。管理界面的浏览器测试检查安装配置保存、构建历史、桌面和移动端页面。生成的截图由 GitHub Actions 的 `rustdesk-admin-browser-screenshots` 文件提供。
+`.github/workflows/verify-client-build.yml` 实际下载 RustDesk 1.5.1 的 Windows EXE、Linux DEB 和 macOS DMG（x64 与 ARM64），检查大小、SHA-256、文件类型和原始安装程序内容保持不变。Linux/macOS 的 ZIP 及配置脚本还通过 Go 单元测试和 Linux 模拟安装命令检查，确认客户端设置能够写入及读取，保存未生效时正确停止。管理界面的浏览器测试检查安装配置保存、构建历史、桌面和移动端页面。生成的截图由 GitHub Actions 的 `rustdesk-admin-browser-screenshots` 文件提供。
 
 ## 邮件事件通知、设备策略与导出
 
@@ -250,3 +250,10 @@ go test ./service -run '^TestDatabaseMigrationAcrossDrivers$' -count=1 -v
 配套 Server 仓库的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上分别编译两个项目。检查脚本 `scripts/test_native_stack.py` 运行独立 API、`hbbs`、`hbbr` 并重启两次，检查管理页面、WebClient、通信端口和数据保存；`scripts/test_persistent_container.py` 验证 Docker 容器重新创建后账户、数据库和公钥保持一致。
 
 对应运行：[双架构部署检查 #42618003889](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42618003889)，已通过。正式公网与真实客户端连接仍需另行完成。
+
+
+### 数据库备份恢复检查
+
+`service/database_restore_test.go` 在停止数据库连接后执行 SQLite 文件备份和恢复。`scripts/test_database_restore.sh` 由 GitHub Actions 在临时 MySQL 8.4、PostgreSQL 16 服务中调用数据库原生导出工具，在独立数据库恢复后验证历史记录。对应 [CI #42627684759](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684759)，结果为成功。
+
+测试环境由工作流自行建立，相关命令及生产备份注意事项见 [数据库备份恢复说明](DATABASE_BACKUP_RESTORE.md)。正式数据库恢复应当另行进行，并保留数据库、Server 身份文件和客户端构建文件。
