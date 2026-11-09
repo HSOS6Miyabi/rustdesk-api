@@ -123,6 +123,49 @@ func (a *AuditManagement) Export(c *gin.Context){
 		if err!=nil{response.Fail(c,101,"无效的起始记录编号");return}
 		query=query.Where("id < ?",id)
 	}
+	if start:=strings.TrimSpace(c.Query("from_date")); start!="" {
+		date,e:=time.Parse("2006-01-02",start)
+		if e!=nil{response.Fail(c,101,"无效的开始日期");return}
+		query=query.Where("created_at >= ?",date)
+	}
+	if end:=strings.TrimSpace(c.Query("to_date")); end!="" {
+		date,e:=time.Parse("2006-01-02",end)
+		if e!=nil{response.Fail(c,101,"无效的结束日期");return}
+		query=query.Where("created_at < ?",date.AddDate(0,0,1))
+	}
+	if peer:=strings.TrimSpace(c.Query("peer_id"));peer!="" {
+		if len(peer)>128{response.Fail(c,101,"设备 ID 过长");return}
+		switch kind{
+		case "audit_conn","audit_file","audit_alarm":
+			query=query.Where("peer_id LIKE ?","%"+peer+"%")
+		default:
+			response.Fail(c,101,"当前类别不支持设备筛选");return
+		}
+	}
+	if fromPeer:=strings.TrimSpace(c.Query("from_peer"));fromPeer!="" {
+		if len(fromPeer)>128{response.Fail(c,101,"来源设备 ID 过长");return}
+		switch kind {
+		case "audit_conn","audit_file":
+			query=query.Where("from_peer LIKE ?","%"+fromPeer+"%")
+		default:
+			response.Fail(c,101,"当前类别不支持来源设备筛选");return
+		}
+	}
+	if fromUser:=strings.TrimSpace(c.Query("from_user_id"));fromUser!=""{
+		if kind!="audit_conn"&&kind!="audit_file"&&kind!="audit_alarm"{
+			response.Fail(c,101,"当前类别不支持来源账户筛选");return
+		}
+		userID,e:=strconv.ParseUint(fromUser,10,32)
+		if e!=nil||userID==0{response.Fail(c,101,"无效的来源账户编号");return}
+		query=query.Where("from_user_id = ?",userID)
+	}
+	if action:=strings.TrimSpace(c.Query("action"));action!="" {
+		if kind!="audit_conn" || (action!="new"&&action!="close") {
+			response.Fail(c,101,"当前类别不支持此连接事件筛选");return
+		}
+		query=query.Where("action = ?",action)
+	}
+	// All filters are applied before the limited row query is executed.
 	rows,err:=query.Rows()
 	if err!=nil{response.Fail(c,101,err.Error());return}
 	defer rows.Close()
