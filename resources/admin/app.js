@@ -512,7 +512,9 @@
       "给设备、设备所有者或设备组分配控制角色。单台设备的设置优先级最高。":
       state.page==="relayNodes"?"配置多个 hbbr 节点及各自优先服务的 IP 网络。hbbs 会在启用自动同步后更新中继列表，并保留节点不可用时的替代选择。":isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="trash"?"找回误删的设备条目，也可以永久删除指定条目。删除整个地址簿分类时将永久清除该分类下的记录。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于设备部署、只读查询和自动化管理。权限名称及接口请参阅 API 文档。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
     const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
-    const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">下载 CSV（最多 10000 条）</button>':"";
+    const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">筛选并导出 CSV</button>':
+      state.page==="devices"&&canPageAction("devices","view")?
+        '<button type="button" class="btn" data-action="devices-export">导出设备清单 CSV</button>':"";
     const csvActions=isBook?
       '<button type="button" class="btn" data-view="trash">查看回收站</button>'+
       '<button type="button" class="btn" data-action="csv-import">导入 CSV</button>'+
@@ -565,9 +567,10 @@
     return pageHeading("日志保留设置","按日志类型设置自动清理期限。新安装默认永久保留，最长可设置 3650 天。")+
       '<section class="panel" style="max-width:860px"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="form-grid">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
   }
-  async function exportAudit(kind){
+  async function exportAudit(kind, filters={}){
     try{
-      const result=await fetch(API+"/audit/export?kind="+encodeURIComponent(kind),{
+      const params=new URLSearchParams({kind,...filters});
+      const result=await fetch(API+"/audit/export?"+params.toString(),{
         method:"GET",headers:{"api-token":state.token,"Accept":"text/csv"},
         cache:"no-store",credentials:"same-origin"
       });
@@ -757,6 +760,22 @@
         '<small>令牌原文仅显示一次，关闭页面后无法再次查看。</small></div>';
       return modal("API 管理令牌已创建","可用于已授权的 RustDesk 客户端命令及自动化管理接口。",body,
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
+    }
+    if(m.kind==="audit-export"){
+      const field=(id,label,type="text")=>'<div class="field"><label for="audit-filter-'+id+'">'+label+'</label><input id="audit-filter-'+id+'" type="'+type+'"></div>';
+      const body='<div class="form-grid">'+
+        field("from_date","开始日期","date")+field("to_date","结束日期","date")+
+        (["audit_conn","audit_file","audit_alarm"].includes(m.kindName)?
+          field("peer_id","目标设备 ID"):"")+
+        (["audit_conn","audit_file"].includes(m.kindName)?
+          field("from_peer","来源设备 ID"):"")+
+        (m.kindName==="audit_conn"?'<div class="field"><label for="audit-filter-action">连接事件</label>'+
+           '<select id="audit-filter-action"><option value="">全部</option><option value="new">连接建立</option>'+
+           '<option value="close">连接结束</option></select></div>':"")+
+        '</div>';
+      return modal("筛选并导出审计记录","最多导出最近的 10000 条匹配记录。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" data-action="audit-export-submit">下载 CSV</button>');
     }
     if(m.kind==="rules-batch"){
       const revoke=m.action==="revoke";
@@ -1212,7 +1231,40 @@
       return;
     }
     if(a==="webclient"){window.location.assign("/webclient2/");return;}
-    if(a==="audit-export"){await exportAudit(el.dataset.id);return;}
+    if(a==="devices-export"){
+      const params=new URLSearchParams();
+      if(state.query)params.set("search",state.query);
+      const route="/peer/export"+(params.toString()?"?"+params:"");
+      try{
+        const reply=await fetch(API+route,{
+          headers:{"api-token":state.token,"Accept":"text/csv"},
+          cache:"no-store",credentials:"same-origin"
+        });
+        if(!reply.ok)throw Error("设备导出失败，HTTP "+reply.status);
+        const data=await reply.blob(),url=URL.createObjectURL(data);
+        try{
+          const link=document.createElement("a");
+          link.href=url;link.download="rustdesk-devices.csv";
+          document.body.append(link);link.click();link.remove();
+        }finally{URL.revokeObjectURL(url);}
+        toast("设备清单 CSV 已生成");
+      }catch(error){toast(error.message,true);}
+      return;
+    }
+    if(a==="audit-export"){
+      state.modal={kind:"audit-export",kindName:el.dataset.id};render();return;
+    }
+    if(a==="audit-export-submit"){
+      if(state.modal?.kind!=="audit-export")return;
+      const filters={};
+      for(const name of ["from_date","to_date","peer_id","from_peer","action"]){
+        const value=document.getElementById("audit-filter-"+name)?.value?.trim();
+        if(value)filters[name]=value;
+      }
+      const kind=state.modal.kindName;
+      state.modal=null;render();await exportAudit(kind,filters);
+      return;
+    }
     if(a==="captcha"){await captcha();render();return;}
     if(a==="oidc"){await oidc(el.dataset.id);return;}
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
