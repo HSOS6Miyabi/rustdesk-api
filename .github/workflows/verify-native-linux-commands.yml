@@ -42,6 +42,20 @@ jobs:
           sudo systemctl start rustdesk.service
           sudo systemctl is-active --quiet rustdesk.service
           sudo systemctl status --no-pager rustdesk.service
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.10'
+      - name: Build the actual RustDesk API
+        shell: bash
+        run: |
+          set -euo pipefail
+          go build -trimpath -o "$RUNNER_TEMP/apimain" ./cmd/apimain.go
+          test -x "$RUNNER_TEMP/apimain"
       - name: Verify official deployment and assignment requests
         shell: bash
         run: sudo -E python3 scripts/test_official_linux_cli.py
+      - name: Verify the installed official client against the actual API
+        shell: bash
+        run: |
+          python3 -m py_compile scripts/test_official_linux_real_api.py
+          sudo -E python3 scripts/test_official_linux_real_api.py "$RUNNER_TEMP/apimain"
