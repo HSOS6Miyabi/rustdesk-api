@@ -428,3 +428,17 @@ test("personal address book recycle bin supports batch restoration and deletion"
   await app.action("trash-batch-purge");
   assert.match(app.root.innerHTML, /删除后无法恢复/);
 });
+
+test("personal contact manager exposes batch sharing controls", async () => {
+  const app = createConsole();
+  await app.settle();
+  await app.open("contacts");
+  assert.match(app.root.innerHTML, /批量添加联系人/);
+  assert.match(app.root.innerHTML, /批量撤销共享/);
+  await app.action("contact-batch-add");
+  assert.match(app.root.innerHTML, /联系人账户编号/);
+  assert.match(app.root.innerHTML, /每次最多处理 100 位用户/);
+  await app.action("close-modal");
+  await app.action("contact-batch-remove");
+  assert.match(app.root.innerHTML, /选中联系人将无法再通过联系人关系查看您的设备/);
+});
