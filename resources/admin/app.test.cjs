@@ -101,8 +101,8 @@ function createConsole(isAdmin = false, overrides = {}) {
       await settle();
       await settle();
     },
-    async action(name) {
-      const control = { dataset: { action: name } };
+    async action(name, id) {
+      const control = { dataset: { action: name, ...(id === undefined ? {} : { id: String(id) }) } };
       await events.click({ target: { closest: () => control } });
       await settle();
       await settle();
@@ -391,4 +391,23 @@ test("access rules expose source and target selectors without changing default b
   for(const text of ["所有已登录用户","指定用户组","指定所有者的设备","指定设备组","允许访问","禁止访问"]){
     assert.match(admin.root.innerHTML,new RegExp(text));
   }
+});
+
+test("device transfer control respects delegated permission and displays target account form", async () => {
+  const readonly = createConsole();
+  readonly.fixtures["/user/current"].route_names = ["devices.view"];
+  readonly.fixtures["/peer/list"] = {list: [{row_id: 15, id: "desk-15", user_id: 9, hostname: "Lab"}], total: 1};
+  await readonly.settle();
+  await readonly.open("devices");
+  assert.doesNotMatch(readonly.root.innerHTML, /转移设备/);
+
+  const delegated = createConsole();
+  delegated.fixtures["/user/current"].route_names = ["devices.view", "devices.transfer"];
+  delegated.fixtures["/peer/list"] = {list: [{row_id: 15, id: "desk-15", user_id: 9, hostname: "Lab"}], total: 1};
+  await delegated.settle();
+  await delegated.open("devices");
+  assert.match(delegated.root.innerHTML, /转移设备/);
+  await delegated.action("transfer-device", 15);
+  assert.match(delegated.root.innerHTML, /新所有者的用户编号/);
+  assert.match(delegated.root.innerHTML, /desk-15/);
 });
