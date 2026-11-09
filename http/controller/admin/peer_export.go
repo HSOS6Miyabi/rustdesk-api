@@ -37,9 +37,8 @@ func (ct *Peer) ExportCSV(c *gin.Context) {
 		query = query.Where("user_id = ?", ownerID)
 	}
 	if search != "" {
-		pattern := "%" + strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(search,
-			"\\", "\\\\"), "%", "\\%"), "_", "\\_") + "%"
-		query = query.Where("(id LIKE ? ESCAPE '\\' OR hostname LIKE ? ESCAPE '\\' OR alias LIKE ? ESCAPE '\\')",
+		pattern := "%" + search + "%"
+		query = query.Where("(id LIKE ? OR hostname LIKE ? OR alias LIKE ?)",
 			pattern, pattern, pattern)
 	}
 	if value, exists := c.Get("adminRoleScope"); exists {
