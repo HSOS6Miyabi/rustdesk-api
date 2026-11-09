@@ -271,3 +271,16 @@ sudo -E python3 scripts/test_official_linux_real_api.py /path/to/apimain
 此检查在独立的临时 API 数据库中创建短期测试会话，验证 `--deploy`、重复部署、紧接着执行 `--assign`、设备所有者与身份信息、`/api/sysinfo` 以及 SQLite 保存结果。
 
 已完成的测试：[GitHub Actions #42646358750](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358750)。Server 的双架构联合检查见 [Server #42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607)。
+
+
+## 设备所有者转移与登录会话
+
+在同一测试环境运行下列命令，检查命令行设备分配、管理员转移设备所有者，以及设备登录会话的保存与撤销：
+
+```bash
+go test ./service -run '^TestRevokeDeviceSessionsPreservesUnrelatedEmptyUUID$' -count=1
+go test ./http/controller/api -run '^TestManagedDeploymentCreatesOwnedPeerAndProtectsSysInfo$' -count=1
+go test ./http/controller/admin -run '^TestScopedAdministratorsCanModifyOnlyAssignedAccountsAndDevices$' -count=1
+```
+
+测试覆盖设备所有者变化、与设备编号或 UUID 关联的会话撤销、其他设备会话保留，以及同一所有者重复分配的结果。最新综合测试记录：[GitHub Actions #42652681801](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801)。

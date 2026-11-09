@@ -19,7 +19,7 @@
 
 ### T001：官方设备分配、设备部署与撤销许可
 
-**当前状态：官方 Linux 1.5.1 客户端与实际 API 的部署、重复部署、直接分配及数据保存测试通过；真实 API 与 hbbs 的登记、撤销、身份冲突及恢复许可测试通过；双设备远程重连待检查。**
+**当前状态：官方 Linux 1.5.1 客户端与实际 API 的部署、重复部署、直接分配及数据保存测试通过；真实 API 与 hbbs 的登记、撤销、身份冲突及恢复许可测试通过；设备所有者变更时的会话撤销测试通过；双设备远程重连待检查。**
 
 代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。新增 API `scripts/test_official_linux_real_api.py` 和 Server `scripts/test_real_api_registration.py` 在实际运行的服务中检查设备所属用户、身份信息及撤销许可；相关检查分别见 API #42646358750 和 Server #42647450607。
 
@@ -161,7 +161,7 @@ API 的 `service/device_policy.go`、`model/device_policy.go` 增加访问模式
 
 ### T016：指定账户及用户组范围内的管理操作
 
-**当前状态：已实现并通过自动化测试。**
+**当前状态：已实现并通过自动化测试；设备所有者转移后同步撤销目标设备的旧会话。**
 
 文件：`service/admin_role.go`、`http/middleware/admin_privilege.go`、`http/controller/admin/peer_transfer.go`。测试检查更新、删除与设备所有者转移，要求原所有者和目标所有者均在授权范围；设备转移同步修改部署记录。
 

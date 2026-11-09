@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`dc0a998369d0d1cee8d9daba7a837b9a2ba966f0`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/dc0a998369d0d1cee8d9daba7a837b9a2ba966f0) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
+| 最近通过自动测试的代码提交 | [`e898985f8b2242e0a4f5e28c1eed2a6ced17b37e`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/e898985f8b2242e0a4f5e28c1eed2a6ced17b37e) | [`eb4b586f9c65a1060dea8ce56b4809dec746c788`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/eb4b586f9c65a1060dea8ce56b4809dec746c788) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42646358717：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358717) | [42647450900：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
+| 综合 CI 检查 | [42652681801：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801) | [42649189875：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42649189875) |
 | 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -87,7 +87,7 @@ CI 已实际通过的内容：
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
 | T014 | P1 | 已实现并通过心跳及界面自动测试；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
-| T016 | P1 | 已实现，CI 通过 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
+| T016 | P1 | 已实现，CI 通过；设备转移同时撤销相关旧会话 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
 | T017 | P1 | 已实现，CI 通过 | 联系人、共享地址簿、设备部署和回收站的批量导入、共享、恢复及整理 | 管理界面能批量处理，失败时明确说明未成功的项目 |
 | T018 | P1 | 已实现，Rust CI 通过 | 可选 GeoLite2 MMDB 文件支持，并与现有 Country CSV 方式共存 | 两种数据库格式的国家判断结果一致，未配置时正常选择中继 |
 | T019 | P1 | 邮件通知及重试已实现，模拟 SMTP 测试通过；正式 SMTP 待检查 | 活动会话结束、登录异常、部署状态、文件传输等消息的邮件通知 | 管理员可选择通知项目，消息发送结果可以查询 |
@@ -787,3 +787,18 @@ Server 新增两组实际 API 联合测试。第一组检查设备未登记、�
 关键实现和测试：API 的 `http/controller/api/device_commands.go`、`peer.go`、`managed_sysinfo_test.go`、`scripts/test_official_linux_real_api.py`；Server 的 `scripts/test_real_api_registration.py`、`scripts/test_real_api_strict_combination.py` 和 `.github/workflows/milestone-preflight.yml`。
 
 T001、T004 的自动化集成检查已经补充。实际双设备远程控制、跨地区公网中继、真实邮箱收发、正式数据恢复、多平台登录与安装等检查继续按照 T001–T022 逐项执行。开发分支与两个草稿 PR 保持原有发布状态。
+
+
+## 2026-11-10：设备转移与会话权限检查
+
+设备所有者通过管理页面或官方客户端 `--assign` 发生变更时，系统在同一数据库事务中更新设备所属用户、同步设备登记记录，并撤销与该设备编号或有效 UUID 关联的旧登录会话。设备所有者保持不变时继续保留现有会话，其他设备的登录会话不受影响。
+
+代码位置：`service/device_sessions.go`、`http/controller/api/device_commands.go` 和 `http/controller/admin/peer_transfer.go`。相关测试包括 `service/device_sessions_test.go`、`http/controller/api/managed_sysinfo_test.go`、`http/controller/admin/admin_role_scoped_writes_test.go`。
+
+| 检查项目 | 已通过的 GitHub Actions |
+| --- | --- |
+| Go 单元、管理接口、WebClient 和浏览器交互 | [#42652681801](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681801) |
+| 官方 Linux 1.5.1 与实际 API 的设备部署和直接分配 | [#42652682083](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652682083) |
+| SQLite、MySQL 8.4、PostgreSQL 16 升级及恢复 | [#42652681804](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681804) |
+
+本次保持数据库迁移版本 282。两份开发拉取请求继续保留草稿状态。
