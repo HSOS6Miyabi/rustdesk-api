@@ -230,6 +230,18 @@ async function pageForViewport(width, height, admin=false) {
   return {context,page};
 }
 
+async function waitForMobileBreadcrumb(page) {
+  await page.waitForFunction(()=>{
+    const breadcrumb=document.querySelector(".breadcrumbs");
+    const title=breadcrumb?.querySelector(".crumb-current");
+    if(!breadcrumb?.isConnected||!title?.isConnected)return false;
+    const bounds=title.getBoundingClientRect();
+    return bounds.width>0&&bounds.height>0&&bounds.height<=22&&
+      [...breadcrumb.querySelectorAll("span:not(.crumb-current)")].
+        every(element=>getComputedStyle(element).display==="none");
+  },null,{timeout:10000});
+}
+
 test.before(async()=>{
   server=http.createServer(serve);
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -801,19 +813,7 @@ test("client builder and email notifications remain readable on phone and tablet
       await page.locator('nav.side-scroll button[data-view="clientBuilder"]').click();
       await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="客户端安装包构建");
       await page.getByText("Office Windows",{exact:true}).first().waitFor();
-      if(width<=600){
-        const navigation=await page.locator(".breadcrumbs").evaluate(element=>{
-          const current=element.querySelector(".crumb-current");
-          return {
-            leadingHidden:[...element.querySelectorAll("span:not(.crumb-current)")].
-              every(span=>getComputedStyle(span).display==="none"),
-            titleHeight:current.getBoundingClientRect().height,
-            titleVisible:current.getBoundingClientRect().width>0
-          };
-        });
-        assert.ok(navigation.leadingHidden&&navigation.titleVisible&&navigation.titleHeight<=22,
-          "mobile header navigation should stay on one line: "+JSON.stringify(navigation));
-      }
+      if(width<=600)await waitForMobileBreadcrumb(page);
       const dimensions=await page.evaluate(()=>({
         scroll:document.documentElement.scrollWidth,width:window.innerWidth
       }));
@@ -826,19 +826,7 @@ test("client builder and email notifications remain readable on phone and tablet
       await page.locator('nav.side-scroll button[data-view="notifications"]').click();
       await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="邮件事件通知");
       assert.match(await page.locator(".content").innerText(),/发送记录/);
-      if(width<=600){
-        const navigation=await page.locator(".breadcrumbs").evaluate(element=>{
-          const current=element.querySelector(".crumb-current");
-          return {
-            leadingHidden:[...element.querySelectorAll("span:not(.crumb-current)")].
-              every(span=>getComputedStyle(span).display==="none"),
-            titleHeight:current.getBoundingClientRect().height,
-            titleVisible:current.getBoundingClientRect().width>0
-          };
-        });
-        assert.ok(navigation.leadingHidden&&navigation.titleVisible&&navigation.titleHeight<=22,
-          "mobile header navigation should stay on one line: "+JSON.stringify(navigation));
-      }
+      if(width<=600)await waitForMobileBreadcrumb(page);
       const pageWidth=await page.evaluate(()=>({
         scroll:document.documentElement.scrollWidth,width:window.innerWidth
       }));
