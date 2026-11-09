@@ -338,6 +338,7 @@ func MyBind(rg *gin.RouterGroup) {
 		rg.POST("/my/address_book_collection_rule/create", cont.Create)
 		rg.POST("/my/address_book_collection_rule/update", cont.Update)
 		rg.POST("/my/address_book_collection_rule/delete", cont.Delete)
+		rg.POST("/my/address_book_collection_rule/batch", (&admin.AddressBookCollectionRule{}).BatchPersonalShares)
 	}
 	{
 		cont := &my.Peer{}
