@@ -1,6 +1,6 @@
 # RustDesk OSS API 与 Server 完整实施台账
 
-## 接手总览（截至 2026 年 11 月 9 日）
+## 接手总览（截至 2026 年 11 月 10 日）
 
 本文件是两仓库的**统一实施台账和工作交接入口**。最新交接快照：[HANDOFF_SNAPSHOT_2026-11-09.md](HANDOFF_SNAPSHOT_2026-11-09.md)；逐项状态、验证步骤和待办条件：[TASK_VERIFICATION_RECORD.md](TASK_VERIFICATION_RECORD.md)。本节记录当前结果与后续事项，后面的“历史实施记录”保留每项功能的具体提交、测试、设计和数据库修改过程。接手人员应先读取本节，再查阅历史记录中的相关功能。
 
@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`3d5f4db168d6182ffcca103eb5bfa37388920df3`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/3d5f4db168d6182ffcca103eb5bfa37388920df3) | [`fcf6bd0481d68ef28974ab8a4cf3015246886339`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/fcf6bd0481d68ef28974ab8a4cf3015246886339) |
+| 最近通过自动测试的代码提交 | [`05f9bfafbcac4848e02e9227d3e41dfc09f95e21`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/05f9bfafbcac4848e02e9227d3e41dfc09f95e21) | [`10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42655936250：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250) | [42654932922：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42654932922) |
+| 综合 CI 检查 | [42666929269：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269) | [42666030849：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666030849) |
 | 最近已发布的预发布版本 | `v3.0.0-api.102`（2026-11-08） | `v1.1.17-api.20`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -48,7 +48,7 @@ CI 已实际通过的内容：
 | F01 | 原有账户密码、OIDC、LDAP、群组、公共锚点组、联系人单向共享 | 原有功能保留，自动测试通过 | `service/user.go`、`service/group_access.go`、`service/oauth.go`、`service/ldap.go` |
 | F02 | 官方客户端 `--assign`、`--deploy` | 官方 Linux 1.5.1 已安装并与实际 API 完成部署、分配和数据保存检查；其他系统的实际安装待验证 | `http/controller/api/device_commands.go` |
 | F03 | 可选严格设备预先登记及撤销许可 | 实际 API 与 `hbbs` 联合登记、撤销及恢复许可在两种架构通过；真实跨设备连接待验证 | API `model/device_deployment.go`；Server `src/device_deployment.rs` |
-| F04 | `MUST_LOGIN` 下的连接和中继令牌校验 | 已实现，Server 协议测试通过 | Server `src/jwt.rs`、`src/rendezvous_server.rs` |
+| F04 | `MUST_LOGIN` 下的连接和中继令牌校验 | 已实现，JWT 独立标识与真实登录登出联合测试通过 | Server `src/jwt.rs`、`src/rendezvous_server.rs` |
 | F05 | 设备、所属用户、设备组三层策略 | 已实现，含访问模式、键盘鼠标、剪贴板、文件传输及连接确认方式；严格登记设备的心跳许可验证、Go 与浏览器测试通过 | `service/device_policy.go`、`service/device_policy_target.go` |
 | F06 | 活动远程连接与向客户端发送结束请求 | 已实现且心跳与浏览器测试通过；真实桌面会话待验证 | `service/session_management.go` |
 | F07 | 独立 API 管理令牌 | 已实现创建、到期、撤销、细分操作权限及专用自动化管理接口，测试通过 | `service/api_token.go`、`http/middleware/automation_auth.go`、`http/router/automation.go` |
@@ -73,14 +73,14 @@ CI 已实际通过的内容：
 | 任务编号 | 优先级 | 状态 | 具体工作 | 完成判断 |
 | --- | --- | --- | --- | --- |
 | T001 | P0 | 官方 Linux 1.5.1 与实际 API 的部署、直接分配及数据库检查通过；真实 API 与 hbbs 的登记、冲突、撤销及恢复许可检查通过；双设备重连待检查 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
-| T002 | P0 | 待执行 | 实测 Windows、Linux、macOS 及可用的 Android/iOS 客户端登录；分别检查密码、TOTP、邮箱验证码、OIDC/LDAP、恢复码及退出登录 | 支持的客户端版本与测试结果逐项记入记录；异常可重现并修复 |
+| T002 | P0 | 实际 API 进程密码登录、登出和 JWT 唯一性检查通过；真实多系统客户端待检查 | 实测 Windows、Linux、macOS 及可用的 Android/iOS 客户端登录；分别检查密码、TOTP、邮箱验证码、OIDC/LDAP、恢复码及退出登录 | 支持的客户端版本与测试结果逐项记入记录；异常可重现并修复 |
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
-| T004 | P0 | 实际 API、hbbs、JWT、连接访问规则、控制角色、中继信令与 API 中断的联合测试在 AMD64 和 ARM64 通过；实际远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
+| T004 | P0 | 实际 API 与 hbbs 的 JWT 登录、撤销、连接规则、控制角色、WebRTC SDP/ICE 和中继信令在 AMD64、ARM64 通过；真实远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
 | T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 282，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
-| T009 | P0 | Chromium 多设备自动测试及截图已完成；人工使用检查待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
+| T009 | P0 | Chromium 桌面、平板和手机交互及截图检查通过；手机导航布局已检查；实际环境管理员操作待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
 | T010 | P0 | 官方 1.5.1 多系统启动和 Android 模拟器测试通过，Linux 客户端与实际 API 的部署、分配通过；真实登录及多版本远程连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
@@ -93,7 +93,7 @@ CI 已实际通过的内容：
 | T019 | P1 | 邮件通知及重试已实现，模拟 SMTP 测试通过；正式 SMTP 待检查 | 活动会话结束、登录异常、部署状态、文件传输等消息的邮件通知 | 管理员可选择通知项目，消息发送结果可以查询 |
 | T020 | P1 | 设备和审计筛选、CSV 导出及备注功能已实现，自动测试通过 | 为设备、共享地址簿及连接审计增加更实用的筛选、导出及备注管理 | 小型团队可快速查询、导出和维护历史记录 |
 | T021 | P2 | 官方 1.5.1 功能候选已整理；持续版本检查保留 | 官方商业版新增功能与 RustDesk 客户端更新情况，定期更新功能清单 | 每个新增候选功能附使用场景、客户端版本和预计修改位置 |
-| T022 | P2 | 中文管理界面及移动端新增页面测试通过；其他语言继续完善 | 文档与界面的多语言、移动端操作、管理表格可读性 | 中文文档完整，其他语言与终端界面符合目标用户需求 |
+| T022 | P2 | 中文管理界面与手机顶部导航自动检查通过；其他语言和无障碍操作继续完善 | 文档与界面的多语言、移动端操作、管理表格可读性 | 中文文档完整，其他语言与终端界面符合目标用户需求 |
 
 P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继续在开发分支增加其他功能。**完成代码自动化测试与完成真实客户端验证分别记录，不得互相代替。**
 
@@ -818,3 +818,22 @@ T001、T004 的自动化集成检查已经补充。实际双设备远程控制�
 | Windows、Linux、macOS、Android 模拟器客户端启动 | [API #42655936464](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936464)：成功 |
 
 此功能属于 T001 与 T014 的自动化检查范围。设备端实际应用策略及两台终端的远程连接行为继续按逐项测试记录检查。
+
+
+## 2026-11-10：账户令牌、实际登录与移动端管理页面
+
+API 为每次签发的 JWT 设置独立随机标识。即使同一账户在很短时间内连续登录，系统也会签发不同令牌。退出登录后，已撤销的令牌在后续重新登录时仍保持失效状态，Server 可以继续验证现有 JWT 签名及账户身份。
+
+相关实现位于 `lib/jwt/jwt.go`，自动测试位于 `lib/jwt/jwt_test.go`。Server 的 `scripts/test_real_api_strict_combination.py` 使用真实 API 的密码登录及退出登录接口验证 JWT、设备访问许可、控制角色、WebRTC SDP/ICE 信令和撤销后的连接行为。测试账户、数据库和密钥均在隔离运行环境中创建。
+
+管理控制台的手机布局已调整顶部导航文字显示。Chromium 通过桌面、平板及手机尺寸检查客户端安装包和邮件通知界面，并保存实际页面截图。手机端顶部导航可保持单行显示。
+
+| 检查内容 | GitHub Actions 结果 |
+| --- | --- |
+| API Go、JWT、WebClient、Chromium 与移动端布局 | [#42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269)：成功 |
+| 官方 Linux 1.5.1 客户端与实际 API | [#42666929312](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929312)：成功 |
+| Windows、Linux、macOS 与 Android 模拟器启动 | [#42666929318](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929318)：成功 |
+| 三种数据库升级与恢复 | [#42666929781](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929781)：成功 |
+| Server 实际账户登录、JWT、WebRTC 与双架构组合部署 | [#42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144)：成功 |
+
+T002、T004、T009、T022 的相应自动化检查已完成。真实终端的登录与远程控制、实际 SMTP、跨地区中继及生产数据恢复仍按逐项任务记录检查。两个开发 PR 均保持草稿状态。

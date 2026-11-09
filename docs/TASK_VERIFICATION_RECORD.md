@@ -1,6 +1,6 @@
 # RustDesk API 与 Server 全部工作事项及测试记录
 
-记录日期：2026 年 11 月 9 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 和 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `development/m1-device-management` 分支。详细实施历史见 [统一实施台账](IMPLEMENTATION_LEDGER.md)；本文件负责逐项登记 T001–T022 的检查范围、已完成工作、剩余条件及最终完成判断。
+记录日期：2026 年 11 月 10 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 和 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `development/m1-device-management` 分支。详细实施历史见 [统一实施台账](IMPLEMENTATION_LEDGER.md)；本文件负责逐项登记 T001–T022 的检查范围、已完成工作、剩余条件及最终完成判断。
 
 当前 API 数据库版本为 **282**。两个开发 PR 分别为 [API #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 和 [Server #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)，均保持草稿状态。正式发布须另行获得维护者明确确认。
 
@@ -10,18 +10,18 @@
 
 | 检查项目 | 已通过的自动化运行 |
 | --- | --- |
-| API Go、WebClient、Chromium 桌面和平板及手机交互 | [42635225816](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225816) |
-| 官方安装文件、客户端命令和 Linux/macOS 配置包 | [42635225753](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225753) |
-| SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42635225555](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225555) |
-| Server Rust 单元、协议和实际服务检查 | [42647450900](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450900) |
-| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42647450607](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42647450607) |
-| 官方 1.5.1 客户端可执行文件跨系统启动 | [42646358634](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358634)，三种桌面系统及 Android 模拟器成功 |
+| API Go、WebClient、Chromium 桌面和平板及手机交互 | [42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269) |
+| 官方安装文件、客户端命令和 Linux/macOS 配置包 | [42666929902](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929902) |
+| SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42666929781](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929781) |
+| Server Rust 单元、协议和实际服务检查 | [42666030849](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666030849) |
+| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144) |
+| 官方 1.5.1 客户端可执行文件跨系统启动 | [42666929318](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929318)，三种桌面系统及 Android 模拟器成功 |
 
 ### T001：官方设备分配、设备部署与撤销许可
 
 **当前状态：官方 Linux 1.5.1 客户端与实际 API 的部署、重复部署、直接分配及数据保存测试通过；真实 API 与 hbbs 的登记、撤销、身份冲突及恢复许可测试通过；设备所有者变更时的会话撤销测试通过；双设备远程重连待检查。**
 
-代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。新增 API `scripts/test_official_linux_real_api.py` 和 Server `scripts/test_real_api_registration.py` 在实际运行的服务中检查设备所属用户、身份信息及撤销许可；相关检查分别见 API #42646358750 和 Server #42647450607。
+代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。新增 API `scripts/test_official_linux_real_api.py` 和 Server `scripts/test_real_api_registration.py` 在实际运行的服务中检查设备所属用户、身份信息及撤销许可；相关检查分别见 API #42646358750 和 Server #42666031144。
 
 **实际检查方法：** 在隔离测试环境启用 `REQUIRE_DEVICE_DEPLOYMENT`，分别用已安装的官方 1.5.1 客户端运行 `--deploy --token <测试令牌>`、`--assign --token <测试令牌> --device_name Office-PC`。记录设备 ID、UUID、公钥、API 返回、数据库所有者和客户端重新连接结果。测试重复部署、不同 UUID、公钥冲突及撤销后重新注册。令牌仅用于测试，完成后立即撤销。
 
@@ -29,9 +29,9 @@
 
 ### T002：不同系统客户端登录
 
-**当前状态：API 登录、TOTP、邮箱验证码与身份认证的后端测试已通过；多系统正式客户端测试待执行。**
+**当前状态：实际 API 的密码登录、错误密码、退出登录、JWT 唯一性与会话撤销联合测试通过；TOTP、邮箱验证码及恢复码的接口测试通过；多系统正式客户端与外部身份服务待检查。**
 
-现有账户、OIDC、LDAP、TOTP、邮箱验证码和恢复码代码位于 `service/user.go`、`service/totp.go`、`service/email_login.go`、`service/oauth.go`、`service/ldap.go`。相关 Go 与浏览器测试已纳入 API CI。
+账户、OIDC、LDAP、TOTP、邮箱验证码和恢复码代码位于 `service/user.go`、`service/totp.go`、`service/email_login.go`、`service/oauth.go`、`service/ldap.go`。JWT 随机唯一标识位于 `lib/jwt/jwt.go`。Server 的 `scripts/test_real_api_strict_combination.py` 通过实际 API 登录与登出接口检查会话有效性、JWT 签名和重新登录后的令牌撤销。API 综合检查 #42666929269 和 Server 双架构检查 #42666031144 已通过。
 
 **实际检查方法：** 使用独立测试账户，分别在 Windows、Linux、macOS、Android 和可用的 iOS 设备记录客户端版本与登录结果。依次检查密码登录、错误密码、TOTP 成功与拒绝、邮箱验证码过期和重复使用、恢复码一次性使用、OIDC/LDAP 跳转、退出登录及会话失效。外部身份提供者必须先由维护者配置测试账号。不得在记录中保存密码、恢复码及原始令牌。
 
@@ -49,9 +49,9 @@ API 文件：`service/control_role.go`。Server 文件：`src/control_roles.rs`�
 
 ### T004：严格模式组合运行
 
-**当前状态：真实 API、hbbs、JWT、账户访问规则、控制角色及中继信令的组合检查已在 AMD64/ARM64 通过；真实客户端直连、远程桌面及公网中继仍需检查。**
+**当前状态：真实 API、hbbs、JWT 登录与登出、账户访问规则、控制角色、中继请求以及 WebRTC SDP/ICE 信令的组合检查已在 AMD64/ARM64 通过；真实客户端直连、远程桌面和公网中继仍需检查。**
 
-Server 的 `scripts/test_real_api_strict_combination.py` 在实际 API 与 hbbs 中检查有效 JWT、非法签名、失效会话、允许及禁止规则、控制权限与 API 中断，`scripts/test_real_api_registration.py` 检查设备身份及许可。两种架构的完整组合构建、服务通信、容器重新创建与数据保存检查已在 CI #42647450607 通过。
+Server 的 `scripts/test_real_api_strict_combination.py` 在实际 API 与 hbbs 中检查有效 JWT、非法签名、失效会话、允许及禁止规则、控制权限与 API 中断，`scripts/test_real_api_registration.py` 检查设备身份及许可。两种架构的完整组合构建、服务通信、容器重新创建与数据保存检查已在 CI #42666031144 通过。
 
 **实际检查方法：** 在一套隔离部署中同时开启 `REQUIRE_DEVICE_DEPLOYMENT=Y`、`MUST_LOGIN=Y` 和集中连接访问规则，验证合法设备经直连或中继连接成功，未部署设备、失效账户、无许可用户以及 API 服务暂时不可用时的处理；分别检查 WebSocket、WebRTC 客户端。
 
@@ -99,7 +99,7 @@ Server 脚本：`scripts/test_native_stack.py`、`scripts/test_container_image.p
 
 ### T009：管理控制台界面
 
-**当前状态：Chromium 桌面、平板、手机交互测试及实际截图已完成；正式浏览器人工操作仍需检查。**
+**当前状态：Chromium 桌面、平板、手机交互测试及实际截图已完成，手机顶部导航单行显示检查通过；正式环境管理员操作仍需检查。**
 
 文件：`resources/admin/app.js`、`resources/admin/app.test.cjs`、`resources/admin/browser.e2e.cjs`。CI 保存 `rustdesk-admin-browser-screenshots`，含安装包构建与邮件通知页面的桌面、平板和手机截图。已测试关键表单、任务操作及页面水平滚动范围。
 
@@ -209,7 +209,7 @@ Server 的 `src/geoip_country.rs` 支持两种格式，优先查询 MMDB，未�
 
 ### T022：中文、其他语言及移动端使用
 
-**当前状态：中文管理界面与新增页面的桌面、平板、手机检查已通过；其他语言覆盖与不同系统的无障碍操作仍需完善。**
+**当前状态：中文管理界面以及桌面、平板、手机交互检查已通过，手机顶部导航布局已验证；其他语言覆盖与不同系统的无障碍操作仍需完善。**
 
 当前文档提供中文版 API、部署、测试、备份及客户端安装说明；Chromium 已测试设备管理、邮件通知与安装包构建等新增界面。
 

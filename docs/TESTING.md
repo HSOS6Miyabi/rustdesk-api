@@ -296,3 +296,15 @@ go test ./http/controller/api -run '^TestDeviceHeartbeatReturnsNativeRustDeskStr
 测试使用临时 SQLite，验证批准设备策略下发、未登记和撤销许可后的空响应、UUID 身份核查，以及未启用严格登记时的已有心跳行为。
 
 [GitHub Actions #42655936250](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250) 已完成 Go、WebClient 和浏览器测试。
+
+
+## JWT 唯一性与实际 API 登录
+
+```bash
+go test ./lib/jwt -run '^TestLoginTokensAreUniqueAndSigned$' -count=1
+node --test resources/admin/browser.e2e.cjs
+```
+
+API 签发 JWT 时生成独立随机标识。上述 Go 测试连续生成并验证多个令牌。Server 的 `scripts/test_real_api_strict_combination.py` 启动真实 API 和 `hbbs`，完成密码登录、JWT 验证、登出、再次登录、旧令牌拒绝、访问规则与 WebRTC SDP/ICE 信令检查。
+
+管理控制台的 Chromium 测试同时检查手机端顶部导航保持单行显示，并保存桌面、平板与手机截图。最新成功记录：[API #42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269)、[Server #42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144)。

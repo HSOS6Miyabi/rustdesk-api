@@ -1,6 +1,6 @@
 # RustDesk 两仓库开发交接快照
 
-更新日期：2026 年 11 月 9 日。此文档是交接时的入口，后续开发者应先核对 GitHub 分支的当前提交和 CI，再按任务清单继续。详细记录见 [统一实施台账](IMPLEMENTATION_LEDGER.md) 和 [T001–T022 逐项测试记录](TASK_VERIFICATION_RECORD.md)。
+更新日期：2026 年 11 月 10 日。此文档是交接时的入口，后续开发者应先核对 GitHub 分支的当前提交和 CI，再按任务清单继续。详细记录见 [统一实施台账](IMPLEMENTATION_LEDGER.md) 和 [T001–T022 逐项测试记录](TASK_VERIFICATION_RECORD.md)。
 
 ## 一、两个仓库及发布状态
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 仓库 | [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
-| 最后核实的功能提交 | [`3d5f4db168d6182ffcca103eb5bfa37388920df3`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/3d5f4db168d6182ffcca103eb5bfa37388920df3) | [`fcf6bd0481d68ef28974ab8a4cf3015246886339`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/fcf6bd0481d68ef28974ab8a4cf3015246886339) |
+| 最后核实的功能提交 | [`05f9bfafbcac4848e02e9227d3e41dfc09f95e21`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/05f9bfafbcac4848e02e9227d3e41dfc09f95e21) | [`10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5) |
 | 草稿拉取请求 | [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 目标默认分支 | `master` | `forapi` |
 | 最近已发布的预发布版本 | `v3.0.0-api.102` | `v1.1.17-api.20` |
@@ -19,13 +19,13 @@
 
 | 检查内容 | GitHub Actions |
 | --- | --- |
-| API Go、Chromium 管理页面、WebClient、WebRTC | [#42655936250](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936250) |
-| 官方六种桌面安装文件 SHA-256、配置脚本 | [#42646358868](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42646358868) |
-| 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与实际 API 通信 | [#42655936037](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936037) |
-| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42655936179](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936179) |
-| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42655936464](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42655936464) |
-| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42654932922](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42654932922) |
-| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42654932747](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42654932747) |
+| API Go、Chromium 管理页面、WebClient、WebRTC | [#42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269) |
+| 官方六种桌面安装文件 SHA-256、配置脚本 | [#42666929902](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929902) |
+| 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与实际 API 通信 | [#42666929312](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929312) |
+| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42666929781](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929781) |
+| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42666929318](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929318) |
+| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42666030849](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666030849) |
+| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144) |
 
 上述成功记录均对应本节的已核实功能提交。交接文档变动之后的提交需要另行查看新一轮检查。真实公网、多平台账户登录和两台设备间的实际远程控制仍需专门测试。
 
@@ -40,14 +40,14 @@
 | 编号 | 优先级 | 当前结果与交接任务 |
 | --- | --- | --- |
 | T001 | P0 | 实际 API 与 hbbs 的登记、撤销、身份冲突检查通过；官方 Linux 1.5.1 客户端与实际 API 的部署和直接分配通过；双终端远程重连待检查 |
-| T002 | P0 | 登录与双重认证代码测试通过；在 Windows/Linux/macOS/Android/iOS 可用环境检查密码、TOTP、邮箱、OIDC/LDAP 与恢复码 |
+| T002 | P0 | 真实 API 进程的密码登录、错误密码、登出与 JWT 再次签发已通过；TOTP、邮箱和恢复码接口测试通过；各操作系统客户端登录及外部身份服务待实测 |
 | T003 | P0 | 14 项控制角色信令检查通过；用两台真实设备验证各权限的允许、禁止及默认行为 |
-| T004 | P0 | 实际 API 与 hbbs 的 JWT、连接权限、控制角色和中继请求组合在 AMD64/ARM64 通过；真实客户端的直连、中继及 WebRTC 远程会话待检查 |
+| T004 | P0 | AMD64/ARM64 上实际 API 与 hbbs 的登录授权、JWT、连接规则、控制角色、WebRTC SDP/ICE 和中继信令测试通过；真实远程控制和公网会话待检查 |
 | T005 | P0 | MMDB、Country CSV、节点失效和 reload-geo 测试通过；使用实际 GeoLite2 文件与两个地区的公网中继完成实测 |
 | T006 | P0 | 三种临时数据库迁移与恢复检查通过；从正式业务环境获取受保护备份并在独立环境恢复 |
 | T007 | P0 | 模拟 SMTP 及隐式 TLS、STARTTLS、身份认证测试通过；完成实际邮箱的邀请、找回密码、验证码与通知收件 |
 | T008 | P0 | AMD64/ARM64 普通进程、Docker 与重启测试通过；在目标主机检查域名、证书、权限、数据目录及恢复 |
-| T009 | P0 | Chromium 桌面、平板、手机操作及截图通过；使用真实管理账户检查完整页面与中文提示 |
+| T009 | P0 | Chromium 桌面、平板、手机交互和截图已检查，手机端顶部导航单行显示测试通过；目标环境管理账户操作仍待检查 |
 | T010 | P0 | 官方 1.4.5/1.5.0/1.5.1 源代码字段检查、1.5.1 多系统启动和 Linux 客户端与实际 API 的设备命令通过；继续验证登录、双重认证及多版本远程连接 |
 | T011 | P0 | 双架构编译和部署预演通过，未发行正式安装包或镜像 |
 | T012 | P0 | 台账和草稿 PR 已整理；待所有 P0 实测结果和维护者批准后再决定是否发布 |
@@ -60,7 +60,7 @@
 | T019 | P1 | 登录异常、设备部署、会话结束及文件传输通知已实现；真实收件计入 T007 |
 | T020 | P1 | 设备、地址簿与审计筛选、CSV 导出、连接备注已实现；真实团队使用检查待执行 |
 | T021 | P2 | 已整理官方 1.5.1 新功能候选；按新版本持续检查 |
-| T022 | P2 | 中文页面和移动浏览器测试通过；其他语言及无障碍操作持续完善 |
+| T022 | P2 | 中文页面与移动浏览器交互通过，手机端顶部导航已检查；其他语言及无障碍操作持续完善 |
 
 接手建议先完成 **T001、T004、T002、T003**，随后是 **T007、T005**，再完成正式数据、部署及用户界面检查 **T006、T008、T009、T010、T013、T014、T020**。最终仅在 **T012** 获得明确批准后执行发行。每项的实际执行步骤、源文件、预期结果与完成标准见 [T001–T022 逐项测试记录](TASK_VERIFICATION_RECORD.md)。
 
