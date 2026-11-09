@@ -108,7 +108,7 @@ func TestEmailLoginRespectsAccountEmailChangesAndRateLimits(t *testing.T) {
 		t.Fatal("old verification still applies to changed email")
 	}
 	now:=time.Now().Unix()
-	for i:=0;i<emailCodeHourlyLimit;i++ {
+	for i:=0;i<int(emailCodeHourlyLimit);i++ {
 		row:=&model.EmailCodeChallenge{
 			UserId:user.Id,Email:user.Email,Purpose:"login",
 			TokenHash:strings.Repeat(string(rune('a'+i)),64),
