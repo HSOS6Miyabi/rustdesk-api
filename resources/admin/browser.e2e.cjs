@@ -768,10 +768,19 @@ test("administrator can configure Windows installers and inspect email delivery 
     await page.locator('input[name="host"]').fill("support.example.test:21116");
     await page.locator('input[name="public_key"]').fill("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
     await page.locator('input[name="api_server"]').fill("https://support.example.test");
-    const saved=page.waitForRequest(req=>req.url().endsWith("/api/admin/client_builder/profiles")&&req.method()==="POST");
-    await page.locator('button[type="submit"][form]').count();
-    await page.locator('#client-profile-form button[type="submit"]').click();
-    const payload=(await saved).postDataJSON();
+    const profileForm=page.locator("#client-profile-form");
+    const invalid=await profileForm.evaluate(form=>[...form.elements].filter(
+      field=>!field.checkValidity()).map(field=>field.name));
+    assert.deepEqual(invalid,[],"all installer profile fields must be valid before submission");
+    const browserErrors=[];
+    page.on("pageerror",error=>browserErrors.push(error.message));
+    const saved=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/client_builder/profiles")&&req.method()==="POST",
+      {timeout:9000});
+    await profileForm.locator('button[type="submit"]').click();
+    let payload;
+    try{payload=(await saved).postDataJSON();}
+    catch(error){throw new Error("installer form did not submit: "+browserErrors.join("; ")+"; "+error.message);}
     assert.equal(payload.platform,"windows-x64");
     assert.equal(payload.host,"support.example.test:21116");
     assert.equal(payload.api_server,"https://support.example.test");
