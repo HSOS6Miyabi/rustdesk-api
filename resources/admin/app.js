@@ -299,7 +299,10 @@
     const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于官方客户端命令行的设备部署与分配。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
     const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
     const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">下载 CSV（最多 10000 条）</button>':"";
-    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const csvActions=isBook?
+      '<button type="button" class="btn" data-action="csv-import">导入 CSV</button>'+
+      '<button type="button" class="btn" data-action="csv-export">导出 CSV</button>':"";
+    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -398,6 +401,20 @@
         '<button class="btn btn-primary" type="submit" form="edit-form">保存</button>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+saveButton);
+    }
+    if(m.kind==="csv"){
+      const importing=m.operation==="import";
+      const ownerInput=state.isAdmin?'<div class="field"><label for="csv-owner">所属账户 ID</label>'+
+        '<input type="number" id="csv-owner" min="1" value="'+esc(state.user?.id||1)+'" required>'+
+        '<small>管理员可以指定需要管理的用户账户。</small></div>':"";
+      const upload=importing?'<div class="field"><label for="csv-file">选择 UTF-8 CSV 文件</label>'+
+        '<input id="csv-file" type="file" accept=".csv,text/csv" required>'+
+        '<small>最多 4 MB、5000 条设备。根据设备 ID 和地址簿编号更新同一条目，保留原有连接密码。</small></div>':
+        '<p>将导出设备 ID、别名、主机名、系统、标签、备注等字段。连接密码和认证信息不包含在导出文件中。</p>';
+      const body='<div class="form-grid">'+ownerInput+upload+'</div>';
+      return modal(importing?"导入地址簿 CSV":"导出地址簿 CSV","仅处理指定账户的地址簿条目。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" data-action="csv-submit">'+(importing?"导入 CSV":"下载 CSV")+'</button>');
     }
     if(m.kind==="created-api-token"){
       const body='<div class="field"><label for="api-token-secret">请保存以下令牌</label>'+
@@ -502,6 +519,47 @@
       state.modal=null;toast("群组成员已更新");await load();
     }catch(e){toast(e.message,true);}
   }
+  async function transferAddressBookCSV(){
+    const operation=state.modal?.operation;
+    if(state.modal?.kind!=="csv"||!["import","export"].includes(operation))return;
+    const ownerField=document.getElementById("csv-owner");
+    const owner=ownerField?Number(ownerField.value):null;
+    if(ownerField&&(!Number.isSafeInteger(owner)||owner<=0)){toast("请填写有效的所属账户 ID",true);return;}
+    const path=endpoint("addressbooks")+"/"+operation+(ownerField?"?user_id="+encodeURIComponent(owner):"");
+    const headers={"api-token":state.token,"Accept":operation==="import"?"application/json":"text/csv"};
+    let body;
+    if(operation==="import"){
+      const file=document.getElementById("csv-file")?.files?.[0];
+      if(!file){toast("请选择 CSV 文件",true);return;}
+      if(file.size>4*1024*1024){toast("CSV 文件不能超过 4 MB",true);return;}
+      body=await file.text();
+      headers["Content-Type"]="text/csv; charset=utf-8";
+    }
+    try{
+      const reply=await fetch(API+path,{
+        method:operation==="import"?"POST":"GET",headers,body,
+        cache:"no-store",credentials:"same-origin"
+      });
+      if(operation==="import"){
+        const res=await reply.json();
+        if(!reply.ok||res.code!==0)throw Error(res.error||res.message||"地址簿导入失败");
+        const result=res.data||{};
+        state.modal=null;
+        toast("CSV 导入完成：新增 "+(result.created||0)+" 条，更新 "+(result.updated||0)+" 条");
+        await load();
+      }else{
+        if(!reply.ok)throw Error("地址簿导出失败，HTTP "+reply.status);
+        const blob=await reply.blob(),url=URL.createObjectURL(blob);
+        try{
+          const link=document.createElement("a");
+          link.href=url;link.download="rustdesk-addressbook.csv";
+          document.body.append(link);link.click();link.remove();
+        }finally{URL.revokeObjectURL(url);}
+        state.modal=null;render();toast("CSV 文件已生成");
+      }
+    }catch(err){toast(err.message,true);}
+  }
+
   async function sendCommand(form){
     const idx=Number(form.elements.command.value),cmd=state.commands[idx];
     if(!cmd)return;
@@ -527,6 +585,12 @@
       if(form&&form.reportValidity())await saveEditor(form);
       return;
     }
+    if(a==="csv-import"||a==="csv-export"){
+      state.modal={kind:"csv",operation:a==="csv-import"?"import":"export"};
+      render();
+      return;
+    }
+    if(a==="csv-submit"){await transferAddressBookCSV();return;}
     if(a==="revoke-api-token"){
       const item=state.rows.find(x=>String(x.id)===String(el.dataset.id));
       if(!item||!window.confirm("撤销后使用此令牌的自动部署将停止。确定撤销吗？"))return;

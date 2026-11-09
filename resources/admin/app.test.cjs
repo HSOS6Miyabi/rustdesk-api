@@ -218,3 +218,14 @@ test("users can manage personal address book sharing including everyone",async()
   assert.match(app.root.innerHTML,/所有用户/);
   assert.match(app.root.innerHTML,/对象 ID（所有用户填 0）/);
 });
+
+test("address book CSV actions are accessible to personal users",async()=>{
+  const app=createConsole();
+  await app.settle();
+  await app.open("addressbooks");
+  assert.match(app.root.innerHTML,/导入 CSV/);
+  assert.match(app.root.innerHTML,/导出 CSV/);
+  await app.action("csv-import");
+  assert.match(app.root.innerHTML,/选择 UTF-8 CSV 文件/);
+  assert.match(app.root.innerHTML,/5000 条设备/);
+});

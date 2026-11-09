@@ -52,6 +52,13 @@ function serve(req, res) {
     ],total:1});
     if(route==="/session/disconnect")return answer(res, {status:"pending"});
     if(route==="/session/disconnect/list")return answer(res, {list:[],total:0});
+    if(route==="/my/address_book/import"||route==="/address_book/import")return answer(res,{created:1,updated:0});
+    if(route==="/my/address_book/export"||route==="/address_book/export"){
+      res.writeHead(200,{"Content-Type":"text/csv; charset=utf-8",
+        "Content-Disposition":"attachment; filename=rustdesk-addressbook.csv"});
+      res.end("id,alias\nbackup-001,测试设备\n");
+      return;
+    }
     if(route==="/my/login_log/list")return answer(res, {list:[],total:0});
     if(route==="/user/list")return answer(res, {
       list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
@@ -315,5 +322,25 @@ test("ordinary users can configure address books shared with everyone",async()=>
     assert.equal(await editor.locator('select[name="type"]').inputValue(),"3");
     assert.equal(await editor.locator('input[name="to_id"]').inputValue(),"0");
     assert.match(await page.locator("section.drawer").innerText(),/所有用户/);
+  }finally{await context.close();}
+});
+
+test("personal address book supports CSV upload and download",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="addressbooks"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="地址簿");
+    await page.locator('button[data-action="csv-import"]').click();
+    await page.locator('#csv-file').setInputFiles({
+      name:"devices.csv",mimeType:"text/csv",
+      buffer:Buffer.from("id,alias\ndesk-123,测试设备\n")
+    });
+    await page.locator('button[data-action="csv-submit"]').click();
+    await page.getByText(/CSV 导入完成：新增 1 条/).waitFor();
+    await page.locator('button[data-action="csv-export"]').click();
+    const downloaded=page.waitForEvent("download");
+    await page.locator('button[data-action="csv-submit"]').click();
+    const item=await downloaded;
+    assert.equal(item.suggestedFilename(),"rustdesk-addressbook.csv");
   }finally{await context.close();}
 });
