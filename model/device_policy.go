@@ -14,6 +14,7 @@ type DevicePolicy struct {
 	EnableClipboard string `json:"enable_clipboard" gorm:"not null;size:4;default:''"`
 	EnableFileTransfer string `json:"enable_file_transfer" gorm:"not null;size:4;default:''"`
 	ApprovalMode string `json:"approval_mode" gorm:"not null;size:24;default:''"`
+	ManagedClientKeys string `json:"-" gorm:"type:text;not null;default:''"`
 	Revision int64 `json:"revision" gorm:"not null;default:0"`
 	TimeModel
 }
