@@ -529,7 +529,9 @@
       if(!rows.length)return '<div class="empty"><h3>暂无联系人</h3><p>'+(canDelete?"您还没有主动向其他用户公开设备。":"目前没有用户向您公开设备。")+'</p></div>';
       return rows.map(x=>'<div class="status-row"><span><strong>'+esc(x.nickname||x.username)+'</strong><span class="cell-sub">@'+esc(x.username)+' · 用户 ID '+esc(x.user_id)+'</span></span>'+(canDelete?'<button class="btn btn-sm btn-danger" data-action="contact-delete" data-id="'+esc(x.user_id)+'">撤销共享</button>':'<button class="btn btn-sm" data-action="contact-devices" data-id="'+esc(x.user_id)+'">查看设备</button>')+'</div>').join("");
     }
-    return pageHeading("联系人","添加联系人即表示向对方开放您名下的所有设备，对方无须确认。")+
+    return pageHeading("联系人","添加联系人即表示向对方开放您名下的所有设备，对方无须确认。",
+      '<button class="btn" data-action="contact-batch-add">批量添加联系人</button>'+
+      '<button class="btn" data-action="contact-batch-remove">批量撤销共享</button>')+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">我向谁共享设备</h2><p class="panel-sub">只有您主动添加的人才能通过联系人关系查看您的设备</p></div></div><div class="tips">'+accountRows(v.outgoing||[],true)+'</div><form id="contact-form" class="table-toolbar" style="gap:10px"><div class="search">'+icon("search",16)+'<input required name="username" aria-label="用户名" placeholder="输入对方的用户名"></div><button type="submit" class="btn btn-primary">'+icon("plus",16)+'添加联系人</button></form></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">向我共享设备的人</h2><p class="panel-sub">这些用户已主动向您开放他们的设备</p></div></div><div class="tips">'+accountRows(v.incoming||[],false)+'</div></section></div>';
   }
   function shared(){
@@ -750,6 +752,16 @@
       return modal("API 管理令牌已创建","可用于已授权的 RustDesk 客户端命令及自动化管理接口。",body,
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
     }
+    if(m.kind==="contact-batch"){
+      const remove=m.action==="remove";
+      const body='<div class="field"><label for="contact-batch-ids">联系人账户编号</label>'+
+        '<textarea id="contact-batch-ids" rows="5" placeholder="例如：2,3,5" required></textarea>'+
+        '<small>每次最多处理 100 位用户，编号可通过用户列表或现有联系人查看。所有共享关系均属于当前账户。</small></div>';
+      return modal(remove?"批量撤销联系人共享":"批量添加联系人",
+        remove?"选中联系人将无法再通过联系人关系查看您的设备。":"添加后对方可查看您公开的设备。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" data-action="contact-batch-submit">'+(remove?"确认撤销":"批量添加")+'</button>');
+    }
     if(m.kind==="trash-batch"){
       const body='<div class="field"><label for="trash-batch-ids">地址簿记录编号（最多 200 条）</label>'+
         '<textarea id="trash-batch-ids" rows="5" placeholder="例如：12,15,19" required></textarea>'+
@@ -961,6 +973,27 @@
     if(a==="submit-api-token"){
       const form=document.getElementById("edit-form");
       if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
+    if(a==="contact-batch-add"||a==="contact-batch-remove"){
+      state.modal={kind:"contact-batch",action:a==="contact-batch-add"?"add":"remove"};
+      render();return;
+    }
+    if(a==="contact-batch-submit"){
+      if(state.modal?.kind!=="contact-batch")return;
+      const field=document.getElementById("contact-batch-ids");
+      if(!field)return;
+      const ids=[...new Set(field.value.trim().split(/[,，\s]+/).filter(Boolean).map(Number))];
+      if(!ids.length||ids.length>100||ids.some(id=>!Number.isSafeInteger(id)||id<=0)){
+        toast("请输入 1 至 100 个有效的账户编号",true);return;
+      }
+      const action=state.modal.action;
+      if(action==="remove"&&!window.confirm("确认撤销选中用户的设备共享吗？"))return;
+      try{
+        await request("/contact/batch","POST",{user_ids:ids,action});
+        state.modal=null;toast(action==="add"?"联系人已批量添加":"联系人共享已批量撤销");
+        await load();
+      }catch(err){toast(err.message,true);}
       return;
     }
     if(a==="trash-batch-restore"||a==="trash-batch-purge"){
