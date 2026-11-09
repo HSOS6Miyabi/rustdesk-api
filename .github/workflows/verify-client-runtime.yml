@@ -1,6 +1,9 @@
 name: Verify official client binaries on real operating systems
 
 on:
+  push:
+    branches:
+      - development/m1-device-management
   pull_request:
     paths:
       - '.github/workflows/verify-client-runtime.yml'
