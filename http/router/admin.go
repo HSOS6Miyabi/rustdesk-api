@@ -370,6 +370,7 @@ func ContactBind(rg *gin.RouterGroup) {
 	r.GET("/list", c.List)
 	r.POST("/add", c.Add)
 	r.POST("/delete", c.Delete)
+	r.POST("/batch", c.Batch)
 }
 
 func SharedDevicesBind(rg *gin.RouterGroup) {
