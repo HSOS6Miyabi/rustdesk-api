@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
@@ -62,5 +63,6 @@ func (h *DeviceDeployment) SetStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "设备部署记录不存在"})
 		return
 	}
+	service.NotifyEvent("deployment.changed",fmt.Sprintf("deployment:%d:%s",request.Id,request.Status),fmt.Sprintf("部署记录 %d 的状态调整为 %s",request.Id,request.Status))
 	response.Success(c, nil)
 }
