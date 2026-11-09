@@ -634,7 +634,7 @@
       textField("public_key","服务器公钥（Base64，32 字节）",true)+
       textField("api_server","API 地址（可留空）")+
       textField("relay_server","中继服务器地址（可留空）")+
-      '</div><div class="head-actions"><button class="btn btn-primary" type="submit">保存配置</button>'+
+      '</div><div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
       '<button class="btn" type="button" data-action="client-new">新建配置</button></div></form>';
     const profileList=profiles.map(profile=>'<div class="status-row"><span><strong>'+esc(profile.name)+'</strong>'+
       '<span class="cell-sub">'+esc(profile.platform)+' · '+esc(profile.host)+'</span></span>'+
@@ -1306,6 +1306,10 @@
       if(device){state.modal={kind:"transfer-device",device};render();}
       return;
     }
+    if(a==="client-save"){
+      await saveClientProfile(document.getElementById("client-profile-form"));
+      return;
+    }
     if(a==="client-new"){state.clientEditing=null;render();return;}
     if(a==="client-edit"){
       const profile=state.clientProfiles.find(item=>String(item.id)===String(el.dataset.id));
@@ -1483,6 +1487,22 @@
     if(a==="prev"&&state.pageNo>1){state.pageNo--;await load();return;}
     if(a==="next"&&state.pageNo*state.pageSize<state.total){state.pageNo++;await load();return;}
   });
+  async function saveClientProfile(f){
+    if(!f||!f.reportValidity())return;
+    const values=new FormData(f),form={};
+    for(const name of ["name","platform","host","public_key","api_server","relay_server"]){
+      form[name]=String(values.get(name)||"").trim();
+    }
+    const id=Number(values.get("id"));
+    if(Number.isSafeInteger(id)&&id>0)form.id=id;
+    form.version="1.5.1";
+    try{
+      await request("/client_builder/profiles","POST",form);
+      state.clientEditing=null;
+      toast("客户端配置已保存");
+      await load();
+    }catch(e){toast(e.message,true);}
+  }
   document.addEventListener("submit",async event=>{
     const f=event.target;
     if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
@@ -1602,21 +1622,7 @@
       return;
     }
     if(f.id==="login-form")await handleLogin(f);
-    if(f.id==="client-profile-form"){
-      const form={};
-      const values=new FormData(f);
-      for(const name of ["name","platform","host","public_key","api_server","relay_server"]){
-        form[name]=String(values.get(name)||"").trim();
-      }
-      const id=Number(values.get("id"));
-      if(Number.isSafeInteger(id)&&id>0)form.id=id;
-      form.version="1.5.1";
-      try{
-        await request("/client_builder/profiles","POST",form);
-        state.clientEditing=null;toast("客户端配置已保存");await load();
-      }catch(e){toast(e.message,true);}
-      return;
-    }
+    if(f.id==="client-profile-form"){await saveClientProfile(f);return;}
     if(f.id==="notification-form"){
       const events=[...f.querySelectorAll('input[name="event"]:checked')].map(x=>x.value);
       try{
