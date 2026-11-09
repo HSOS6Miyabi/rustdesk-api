@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
 )
@@ -153,3 +154,38 @@ func TestClientBuildPackagesOfficialBytesWithoutModification(t *testing.T) {
 }
 
 func fmtTaskID(id uint)string{return strconv.FormatUint(uint64(id),10)}
+
+
+func TestInterruptedClientInstallerTasksCanBeRetried(t *testing.T){
+	cleanup:=setupGroupDB(t)
+	defer cleanup()
+	if err:=DB.AutoMigrate(&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{t.Fatal(err)}
+	profile:=validClientProfile()
+	if err:=SaveClientBuildProfile(profile);err!=nil{t.Fatal(err)}
+	expired,err:=QueueClientBuild(profile.Id,3)
+	if err!=nil{t.Fatal(err)}
+	recent,err:=QueueClientBuild(profile.Id,3)
+	if err!=nil{t.Fatal(err)}
+	now:=time.Now().Unix()
+	for _,entry:=range []struct{ID uint;started int64}{
+		{expired.Id,now-900},{recent.Id,now-60},
+	}{
+		if err:=DB.Model(&model.ClientBuildTask{}).Where("id = ?",entry.ID).
+			Updates(map[string]interface{}{"status":"building","started_at":entry.started}).Error;err!=nil{t.Fatal(err)}
+	}
+	if err:=RecoverInterruptedClientBuilds(now);err!=nil{t.Fatal(err)}
+	var oldTask,newTask model.ClientBuildTask
+	if err:=DB.First(&oldTask,expired.Id).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.First(&newTask,recent.Id).Error;err!=nil{t.Fatal(err)}
+	if oldTask.Status!="failed"||oldTask.FinishedAt!=now||oldTask.Error==""{
+		t.Fatalf("abandoned build task remains blocked: %+v",oldTask)
+	}
+	if newTask.Status!="building"||newTask.Error!=""{
+		t.Fatalf("a recent build was interrupted incorrectly: %+v",newTask)
+	}
+	if err:=RetryClientBuild(oldTask.Id);err!=nil{t.Fatal(err)}
+	if err:=DB.First(&oldTask,expired.Id).Error;err!=nil{t.Fatal(err)}
+	if oldTask.Status!="pending"||oldTask.StartedAt!=0||oldTask.Error!=""{
+		t.Fatalf("interrupted installer was not returned to the queue: %+v",oldTask)
+	}
+}
