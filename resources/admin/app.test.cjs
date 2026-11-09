@@ -46,6 +46,7 @@ function createConsole(isAdmin = false, overrides = {}) {
         to_account: "another-user", path: "/home/file", direction: "outgoing" }], total: 1
     },
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
+    "/mfa/status": {enabled:false,pending:false,remaining_recovery_codes:0},
     "/my/login_log/list": { list: [], total: 0 },
     "/user/list": { list: [], total: 0 },
     "/peer/list": { list: [], total: 0 },
@@ -285,4 +286,13 @@ test("administrator can edit connection notes in the audit list",async()=>{
   assert.ok(admin.calls.some(x=>x.endpoint==="/audit_conn/list"));
   assert.match(admin.root.innerHTML,/连接备注/);
   assert.match(admin.root.innerHTML,/编辑备注/);
+});
+
+test("users can see optional authenticator setup in personal settings",async()=>{
+  const app=createConsole();
+  await app.settle();
+  await app.open("profile");
+  assert.ok(app.calls.some(x=>x.endpoint==="/mfa/status"));
+  assert.match(app.root.innerHTML,/双重认证（TOTP）/);
+  assert.match(app.root.innerHTML,/启用 TOTP 双重认证/);
 });

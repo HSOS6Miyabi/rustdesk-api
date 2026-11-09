@@ -21,6 +21,27 @@ function serve(req, res) {
   if(pathname.startsWith("/api/admin/")){
     const route = pathname.slice("/api/admin".length);
     const isAdmin = req.headers["api-token"] === "admin-token";
+    if(route==="/login"){
+      let payload="";
+      req.on("data",chunk=>payload+=chunk.toString());
+      req.on("end",()=>{
+        const input=JSON.parse(payload||"{}");
+        if(input.type==="tfa_code"){
+          return answer(res,{username:"admin",nickname:"Admin",route_names:["*"],token:"admin-token"});
+        }
+        return answer(res,{type:"tfa_check",tfa_type:"tfa_check",secret:"temporary-challenge",user:{name:input.username}});
+      });
+      return;
+    }
+    if(route==="/mfa/status")return answer(res,{enabled:false,pending:false,remaining_recovery_codes:0});
+    if(route==="/mfa/setup")return answer(res,{
+      secret:"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",uri:"otpauth://totp/RustDesk%20OSS%20API?secret=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",expires_at:1910000000
+    });
+    if(route==="/mfa/enable")return answer(res,{recovery_codes:[
+      "A1111111111111111111","B2222222222222222222","C3333333333333333333",
+      "D4444444444444444444","E5555555555555555555","F6666666666666666666"
+    ]});
+    if(route==="/mfa/disable"||route==="/mfa/recovery/regenerate")return answer(res,{recovery_codes:[]});
     if(route==="/config/admin")return answer(res, {title:"RustDesk 浏览器测试"});
     if(route==="/password/forgot"||route==="/password/reset")return answer(res,{});
     if(route==="/user/current")return answer(res, {
@@ -451,5 +472,38 @@ test("administrator can save a connection audit note",async()=>{
     await page.locator('#audit-note-input').fill("远程维护完成");
     await page.locator('button[data-action="audit-note-save"]').click();
     await page.getByText("连接备注已保存").waitFor();
+  }finally{await context.close();}
+});
+
+test("personal settings can enroll an authenticator and show recovery codes",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="profile"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="个人设置");
+    await page.locator('button[data-action="mfa-setup"]').click();
+    await page.locator('#mfa-activate-code').waitFor({state:"visible"});
+    assert.match(await page.locator("#modal-overlay").innerText(),/身份验证器密钥/);
+    await page.locator('#mfa-activate-code').fill("123456");
+    await page.locator('button[form="mfa-activate-form"]').click();
+    await page.getByText("保存双重认证恢复码").waitFor();
+    assert.match(await page.locator("#modal-overlay").innerText(),/A1111111111111111111/);
+    await page.locator('button[data-action="close-modal"]').last().click();
+    assert.equal(await page.locator("#modal-overlay").count(),0);
+  }finally{await context.close();}
+});
+
+test("web login accepts authenticator challenge before opening the console",async()=>{
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const page=await context.newPage();
+  try{
+    await page.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await page.locator('#username').fill("admin");
+    await page.locator('#password').fill("Password123");
+    await page.locator('#login-form button[type="submit"]').click();
+    await page.locator('#mfa-login-code').waitFor({state:"visible"});
+    await page.locator('#mfa-login-code').fill("123456");
+    await page.locator('button[form="mfa-login-form"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"admin-token");
   }finally{await context.close();}
 });
