@@ -48,11 +48,8 @@ func (ct *Peer) Transfer(c *gin.Context) {
 				return err
 			}
 		}
-		if current.Uuid != "" && tx.Migrator().HasTable(&model.UserToken{}) {
-			if err := tx.Where("device_uuid = ?", current.Uuid).
-				Delete(&model.UserToken{}).Error; err != nil {
-				return err
-			}
+		if err := service.RevokeDeviceSessions(tx, current.Id, current.Uuid); err != nil {
+			return err
 		}
 		return nil
 	})

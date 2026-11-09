@@ -130,9 +130,8 @@ func (d *DeviceCommands) Assign(c *gin.Context) {
 				return err
 			}
 		}
-		if ownerId != peer.UserId && tx.Migrator().HasTable(&model.UserToken{}) {
-			if err := tx.Where("device_id = ? OR device_uuid = ?", f.Id, peer.Uuid).
-				Delete(&model.UserToken{}).Error; err != nil {
+		if ownerId != peer.UserId {
+			if err := service.RevokeDeviceSessions(tx, f.Id, peer.Uuid); err != nil {
 				return err
 			}
 		}

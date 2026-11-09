@@ -122,6 +122,21 @@ func TestScopedAdministratorsCanModifyOnlyAssignedAccountsAndDevices(t *testing.
 		t.Fatalf("device editing did not maintain identity: %+v", check)
 	}
 
+	deviceToken := &model.UserToken{
+		UserId: allowed.Id, DeviceId: visible.Id, DeviceUuid: visible.Uuid,
+		Token: "visible-owner-session", ExpiredAt: 4102444800,
+	}
+	deviceIDToken := &model.UserToken{
+		UserId: allowed.Id, DeviceId: visible.Id, DeviceUuid: "",
+		Token: "visible-id-only-session", ExpiredAt: 4102444800,
+	}
+	otherToken := &model.UserToken{
+		UserId: private.Id, DeviceId: hidden.Id, DeviceUuid: "",
+		Token: "private-unrelated-session", ExpiredAt: 4102444800,
+	}
+	for _, token := range []*model.UserToken{deviceToken, deviceIDToken, otherToken} {
+		if err := db.Create(token).Error; err != nil { t.Fatal(err) }
+	}
 	denied(send("/api/admin/peer/transfer", map[string]interface{}{
 		"row_id": visible.RowId, "user_id": private.Id,
 	}))
@@ -135,6 +150,15 @@ func TestScopedAdministratorsCanModifyOnlyAssignedAccountsAndDevices(t *testing.
 	if check.UserId != recipient.Id { t.Fatalf("device ownership was not updated: %+v", check) }
 	if err := db.Where("device_id = ?", visible.Id).First(deployment).Error; err != nil { t.Fatal(err) }
 	if deployment.OwnerUserId != recipient.Id { t.Fatalf("deployment ownership was not updated: %+v", deployment) }
+	var sessionCount int64
+	if err := db.Model(&model.UserToken{}).Where("token IN ?", []string{deviceToken.Token, deviceIDToken.Token}).
+		Count(&sessionCount).Error; err != nil || sessionCount != 0 {
+		t.Fatalf("old device sessions remain: %d, %v", sessionCount, err)
+	}
+	if err := db.Model(&model.UserToken{}).Where("token = ?", otherToken.Token).
+		Count(&sessionCount).Error; err != nil || sessionCount != 1 {
+		t.Fatalf("unrelated account session was changed: %d, %v", sessionCount, err)
+	}
 
 	denied(send("/api/admin/peer/batchDelete", map[string]interface{}{
 		"row_ids": []uint{visible.RowId, hidden.RowId},
