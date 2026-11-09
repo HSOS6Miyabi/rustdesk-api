@@ -1,7 +1,7 @@
 package model
 
-// ClientBuildProfile describes the supported settings embedded into an
-// official RustDesk Windows client filename.
+// ClientBuildProfile stores settings for a verified official client installer.
+// Windows uses an embedded filename; Linux and macOS use a configuration script.
 type ClientBuildProfile struct {
 	IdModel
 	Name string `json:"name" gorm:"size:100;not null"`

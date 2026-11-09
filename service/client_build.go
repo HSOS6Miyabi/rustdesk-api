@@ -70,8 +70,9 @@ func ValidateClientBuildProfile(profile *model.ClientBuildProfile) error {
 	if profile.Name == "" || len([]rune(profile.Name)) > 100 {
 		return errors.New("profile name must contain 1 to 100 characters")
 	}
-	if profile.Platform!="windows-x64" && profile.Platform!="windows-arm64" {
-		return errors.New("supported platforms are Windows x64 and Windows ARM64")
+	switch profile.Platform {
+	case "windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64":
+	default: return errors.New("unsupported client platform")
 	}
 	if profile.Version=="" { profile.Version=currentClientVersion }
 	if profile.Version!=currentClientVersion { return errors.New("unsupported official client version") }
@@ -87,6 +88,13 @@ func ValidateClientBuildProfile(profile *model.ClientBuildProfile) error {
 
 func BuildClientFilename(profile *model.ClientBuildProfile) (string,error) {
 	if profile==nil{return "",errors.New("client build profile is required")}
+	switch profile.Platform {
+	case "linux-x64","linux-arm64","macos-x64","macos-arm64":
+		return fmt.Sprintf("rustdesk-%s-%s-configured.zip",profile.Version,profile.Platform),nil
+	case "windows-x64","windows-arm64":
+	default:
+		return "",errors.New("unsupported client platform")
+	}
 	payload,err:=json.Marshal(clientServerSettings{
 		Host:profile.Host,Key:profile.PublicKey,API:profile.APIServer,Relay:profile.RelayServer,
 	})

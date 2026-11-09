@@ -1,6 +1,10 @@
 package service
 
 import (
+	"archive/zip"
+	"encoding/json"
+	"net/url"
+	"path"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -39,6 +43,30 @@ func officialClientBuildSource(platform,version string)(clientBuildSource,error)
 			SHA256:"54de7328a4a2bff0b9e60d1268f7b239c45d11ab4dff4fed0c88a8a3b0fbe516",
 			Size:24252784,
 		},nil
+	case "linux-x64":
+		return clientBuildSource{
+			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.deb",
+			SHA256:"b5d682ad90cb7571ecbdbf26eef58d3c4514e726a74ef6d08ce3f0b114ef0bd9",
+			Size:25337156,
+		},nil
+	case "linux-arm64":
+		return clientBuildSource{
+			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.deb",
+			SHA256:"d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc466348669",
+			Size:23594612,
+		},nil
+	case "macos-x64":
+		return clientBuildSource{
+			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.dmg",
+			SHA256:"457e4e786426d51714f8d08ce8d90815635bcd1923ab682ebfc5bc546e5b4399",
+			Size:37691902,
+		},nil
+	case "macos-arm64":
+		return clientBuildSource{
+			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.dmg",
+			SHA256:"1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c3ffd70d7b",
+			Size:30548457,
+		},nil
 	default:
 		return clientBuildSource{},errors.New("unsupported client platform")
 	}
@@ -63,7 +91,8 @@ func buildClientHTTP() *http.Client {
 
 func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,client *http.Client)(string,int64,error){
 	if task==nil||task.Id==0||source.Size<=0||source.Size>100<<20 ||
-		len(source.SHA256)!=64 || !strings.HasSuffix(task.Filename,".exe") ||
+		len(source.SHA256)!=64 ||
+		(!strings.HasSuffix(task.Filename,".exe") && !strings.HasSuffix(task.Filename,".zip")) ||
 		len(task.Filename)>240 || strings.ContainsAny(task.Filename,"/\\") {
 		return "",0,errors.New("invalid client download information")
 	}
@@ -90,10 +119,13 @@ func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,cli
 	if count!=source.Size{return "",0,fmt.Errorf("official client size mismatch: expected %d, got %d",source.Size,count)}
 	digest:=hex.EncodeToString(hash.Sum(nil))
 	if !strings.EqualFold(digest,source.SHA256){return "",0,errors.New("official client checksum does not match")}
-	output:=filepath.Join(folder,task.Filename)
-	if err:=os.Rename(tmpPath,output);err!=nil{return "",0,err}
-	if err:=os.Chmod(output,0600);err!=nil{return "",0,err}
-	return digest,count,nil
+	if task.Platform=="windows-x64" || task.Platform=="windows-arm64" {
+		output:=filepath.Join(folder,task.Filename)
+		if err:=os.Rename(tmpPath,output);err!=nil{return "",0,err}
+		if err:=os.Chmod(output,0600);err!=nil{return "",0,err}
+		return digest,count,nil
+	}
+	return prepareClientArchive(task,source,tmpPath,folder)
 }
 
 func RecoverInterruptedClientBuilds(now int64)error{
