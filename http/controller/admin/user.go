@@ -151,6 +151,16 @@ func (ct *User) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
+	if hasScopedManagementRole(c) {
+		current := service.AllService.UserService.InfoById(f.Id)
+		if current.Id == 0 || !scopedManagement(c, current.Id) ||
+			service.AllService.UserService.IsAdmin(current) ||
+			current.GroupId != f.GroupId ||
+			(f.IsAdmin != nil && *f.IsAdmin != service.AllService.UserService.IsAdmin(current)) {
+			response.Fail(c, 403, "当前账户无权修改此用户或变更其管理范围")
+			return
+		}
+	}
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {
 		response.Fail(c, 101, errList[0])
@@ -189,6 +199,11 @@ func (ct *User) Delete(c *gin.Context) {
 		return
 	}
 	u := service.AllService.UserService.InfoById(f.Id)
+	if hasScopedManagementRole(c) && (u.Id == 0 || !scopedManagement(c, u.Id) ||
+		service.AllService.UserService.IsAdmin(u)) {
+		response.Fail(c, 403, "当前账户无权删除此用户")
+		return
+	}
 	if u.Id > 0 {
 		err := service.AllService.UserService.Delete(u)
 		if err == nil {
