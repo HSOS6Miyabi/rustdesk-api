@@ -12,7 +12,7 @@ func TestRelayNodeManagementAndSubnetValidation(t *testing.T){
 	if err:=DB.AutoMigrate(&model.RelayNode{});err!=nil{t.Fatal(err)}
 	east:=&model.RelayNode{
 		Name:"East relay",Address:"relay-east.example.test:21117",
-		Subnets:"203.0.113.0/24\n2001:db8:1::/48",Priority:10,Enabled:true,
+		Subnets:"203.0.113.0/24\n2001:db8:1::/48",Countries:"jp,US,JP",Priority:10,Enabled:true,
 	}
 	if err:=SaveRelayNode(east);err!=nil{t.Fatal(err)}
 	west:=&model.RelayNode{
@@ -22,7 +22,8 @@ func TestRelayNodeManagementAndSubnetValidation(t *testing.T){
 	if err:=SaveRelayNode(west);err!=nil{t.Fatal(err)}
 	active,err:=EnabledRelayNodes()
 	if err!=nil||len(active)!=2{t.Fatalf("enabled nodes: %v %v",active,err)}
-	if active[0].Address!=east.Address||len(active[0].Subnets)!=2{
+	if active[0].Address!=east.Address||len(active[0].Subnets)!=2||
+		len(active[0].Countries)!=2||active[0].Countries[0]!="JP"||active[0].Countries[1]!="US"{
 		t.Fatalf("active nodes were not normalized: %v",active)
 	}
 	if active[1].Address!=west.Address||active[1].Priority!=20{
@@ -46,6 +47,8 @@ func TestRelayNodeManagementAndSubnetValidation(t *testing.T){
 		{Name:"bad",Address:"bad host",Enabled:true},
 		{Name:"bad",Address:"relay.example.test:21117",Subnets:"203.0.113.7/99",Enabled:true},
 		{Name:"bad",Address:"relay.example.test:21117",Priority:-1,Enabled:true},
+		{Name:"bad",Address:"relay.example.test:21117",Countries:"USA",Enabled:true},
+		{Name:"bad",Address:"relay.example.test:21117",Countries:"J3",Enabled:true},
 	}{
 		if err:=SaveRelayNode(entry);err==nil{
 			t.Fatalf("invalid relay node accepted: %+v",entry)

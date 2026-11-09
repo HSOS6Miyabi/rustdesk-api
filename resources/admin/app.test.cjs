@@ -319,4 +319,5 @@ test("relay node settings provide multi-server and IP range controls",async()=>{
   await administrator.action("create");
   assert.match(administrator.root.innerHTML,/中继服务器地址/);
   assert.match(administrator.root.innerHTML,/IP 网络/);
+  assert.match(administrator.root.innerHTML,/国家代码/);
 });

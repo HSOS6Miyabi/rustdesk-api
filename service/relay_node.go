@@ -16,6 +16,7 @@ import (
 type InternalRelayNode struct {
 	Address string `json:"address"`
 	Subnets []string `json:"subnets"`
+	Countries []string `json:"countries"`
 	Priority int `json:"priority"`
 }
 
@@ -59,6 +60,26 @@ func normalizeRelaySubnets(value string)(string,error){
 	return strings.Join(out,","),nil
 }
 
+func normalizeRelayCountries(value string)(string,error){
+	parts:=strings.FieldsFunc(value,func(r rune)bool{return r==','||r==';'||r=='\n'||r=='\r'})
+	if len(parts)>64{return "",errors.New("at most 64 ISO country codes are allowed")}
+	seen:=make(map[string]bool)
+	codes:=make([]string,0,len(parts))
+	for _,part:=range parts{
+		code:=strings.ToUpper(strings.TrimSpace(part))
+		if code==""{continue}
+		if len(code)!=2||code[0]<'A'||code[0]>'Z'||code[1]<'A'||code[1]>'Z'{
+			return "",fmt.Errorf("invalid ISO country code: %s",code)
+		}
+		if !seen[code]{
+			seen[code]=true
+			codes=append(codes,code)
+		}
+	}
+	sort.Strings(codes)
+	return strings.Join(codes,","),nil
+}
+
 func SaveRelayNode(node *model.RelayNode)error{
 	if node==nil{return errors.New("relay server details are required")}
 	node.Address=strings.TrimSpace(node.Address)
@@ -72,10 +93,13 @@ func SaveRelayNode(node *model.RelayNode)error{
 	subnets,err:=normalizeRelaySubnets(node.Subnets)
 	if err!=nil{return err}
 	node.Subnets=subnets
+	countries,err:=normalizeRelayCountries(node.Countries)
+	if err!=nil{return err}
+	node.Countries=countries
 	if node.Id==0{return DB.Create(node).Error}
 	updates:=map[string]interface{}{
 		"name":node.Name,"address":node.Address,"subnets":node.Subnets,
-		"priority":node.Priority,"enabled":node.Enabled,
+		"priority":node.Priority,"enabled":node.Enabled,"countries":node.Countries,
 	}
 	result:=DB.Model(&model.RelayNode{}).Where("id = ?",node.Id).Updates(updates)
 	if result.Error!=nil{return result.Error}
@@ -113,6 +137,7 @@ func EnabledRelayNodes() ([]InternalRelayNode,error) {
 		if node.Subnets!=""{cidrs=strings.Split(node.Subnets,",")}
 		out=append(out,InternalRelayNode{
 			Address:node.Address,Subnets:cidrs,Priority:node.Priority,
+			Countries:func()[]string{if node.Countries==""{return []string{}};return strings.Split(node.Countries,",")}(),
 		})
 	}
 	return out,nil

@@ -84,7 +84,7 @@ function serve(req, res) {
     if(route==="/invite/create"||route==="/invite/revoke"||route==="/invite/accept")return answer(res,{});
     if(route==="/relay/list")return answer(res,{list:[
       {id:10,name:"East site",address:"relay-east.example.test:21117",
-       subnets:"203.0.113.0/24",priority:10,enabled:true}
+       subnets:"203.0.113.0/24",countries:"JP",priority:10,enabled:true}
     ],total:1});
     if(route==="/relay/create"||route==="/relay/update"||route==="/relay/delete")return answer(res,{});
     if(route==="/mail/settings")return answer(res,{enabled:true,host:"smtp.example.test",port:587,security:"starttls",sender_email:"support@example.test",sender_name:"Support",password_configured:true});
@@ -562,6 +562,7 @@ test("administrator can configure relay node preferences",async()=>{
     await page.locator('#edit-form input[name="name"]').fill("West site");
     await page.locator('#edit-form input[name="address"]').fill("relay-west.example.test:21117");
     await page.locator('#edit-form textarea[name="subnets"]').fill("198.51.100.0/24");
+    await page.locator('#edit-form textarea[name="countries"]').fill("US,CA");
     await page.locator('#edit-form input[name="priority"]').fill("20");
     await page.locator('#edit-form input[name="enabled"]').check();
     await page.locator('button[form="edit-form"]').click();

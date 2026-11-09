@@ -28,7 +28,7 @@ func TestInternalRelayNodeListingRequiresSharedKey(t *testing.T){
 	global.Config.App.InternalKey="relay-internal-test-key"
 	if err:=db.Create(&model.RelayNode{
 		Name:"Primary",Address:"relay-a.example.test:21117",
-		Subnets:"192.0.2.0/24,2001:db8::/32",Priority:5,Enabled:true,
+		Subnets:"192.0.2.0/24,2001:db8::/32",Countries:"JP,US",Priority:5,Enabled:true,
 	}).Error;err!=nil{t.Fatal(err)}
 	if err:=db.Create(&model.RelayNode{
 		Name:"Disabled",Address:"relay-b.example.test:21117",Priority:10,Enabled:false,
@@ -52,12 +52,13 @@ func TestInternalRelayNodeListingRequiresSharedKey(t *testing.T){
 		Nodes []struct{
 			Address string `json:"address"`
 			Subnets []string `json:"subnets"`
+			Countries []string `json:"countries"`
 			Priority int `json:"priority"`
 		} `json:"nodes"`
 	}
 	if err:=json.Unmarshal(result.Body.Bytes(),&body);err!=nil{t.Fatal(err)}
 	if len(body.Nodes)!=1||body.Nodes[0].Address!="relay-a.example.test:21117"||
-		body.Nodes[0].Priority!=5||len(body.Nodes[0].Subnets)!=2{
+		body.Nodes[0].Priority!=5||len(body.Nodes[0].Subnets)!=2||len(body.Nodes[0].Countries)!=2{
 		t.Fatalf("unexpected active relay node response: %+v",body)
 	}
 	if got:=result.Header().Get("Cache-Control");got!="no-store"{
