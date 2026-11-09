@@ -46,6 +46,8 @@ function createConsole(isAdmin = false, overrides = {}) {
         to_account: "another-user", path: "/home/file", direction: "outgoing" }], total: 1
     },
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
+    "/admin_role/list": {list:[{id:12,name:"Read-only devices",permissions:"devices.view",scope_type:"global",scope_id:0,enabled:true}],total:1},
+    "/admin_role_assignment/list": {list:[{id:4,user_id:15,role_id:12}],total:1},
     "/mfa/status": {enabled:false,pending:false,remaining_recovery_codes:0},
     "/mfa/email/status": {enabled:false,email:"owner@example.test",mail_configured:true},
     "/my/login_log/list": { list: [], total: 0 },
@@ -342,4 +344,35 @@ test("control roles expose all 14 native connection permissions",async()=>{
   assert.match(admin.root.innerHTML,/允许/);
   await admin.open("controlAssignments");
   assert.ok(admin.calls.some(call=>call.endpoint==="/control_assignment/list"));
+});
+
+test("full administrators can create scoped roles with a permission checklist",async()=>{
+  const app=createConsole(true);
+  await app.settle();
+  await app.open("adminRoles");
+  assert.ok(app.calls.some(x=>x.endpoint==="/admin_role/list"));
+  assert.match(app.root.innerHTML,/Read-only devices/);
+  await app.action("create");
+  assert.match(app.root.innerHTML,/管理权限/);
+  assert.match(app.root.innerHTML,/查看设备/);
+  assert.match(app.root.innerHTML,/修改设备信息/);
+  assert.match(app.root.innerHTML,/指定用户组/);
+  assert.match(app.root.innerHTML,/指定用户/);
+  await app.open("adminRoleAssignments");
+  assert.ok(app.calls.some(x=>x.endpoint==="/admin_role_assignment/list"));
+});
+test("delegated viewers see authorized directory pages without edit buttons",async()=>{
+  const app=createConsole();
+  app.fixtures["/user/current"].route_names=["users.view","devices.view"];
+  await app.settle();
+  await app.settle();
+  assert.match(app.root.innerHTML,/用户账户/);
+  assert.match(app.root.innerHTML,/设备管理/);
+  assert.doesNotMatch(app.root.innerHTML,/管理员角色分配/);
+  await app.open("users");
+  assert.ok(app.calls.some(x=>x.endpoint==="/user/list"));
+  assert.doesNotMatch(app.root.innerHTML,/新增用户账户/);
+  await app.open("devices");
+  assert.ok(app.calls.some(x=>x.endpoint==="/peer/list"));
+  assert.ok(!app.calls.some(x=>x.endpoint==="/my/peer/list"));
 });

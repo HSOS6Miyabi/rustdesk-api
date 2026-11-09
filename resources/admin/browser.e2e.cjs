@@ -54,7 +54,7 @@ function serve(req, res) {
     if(route==="/password/forgot"||route==="/password/reset")return answer(res,{});
     if(route==="/user/current")return answer(res, {
       username:isAdmin?"admin":"owner",nickname:isAdmin?"Administrator":"Owner",
-      route_names:isAdmin?["*"]:[],token:req.headers["api-token"]
+      route_names:isAdmin?["*"]:(req.headers["api-token"]==="delegated-token"?["users.view","devices.view"]:[]),token:req.headers["api-token"]
     });
     if(route==="/contact/list")return answer(res, {
       outgoing:[{user_id:11,username:"alice",nickname:"Alice"}],
@@ -82,6 +82,16 @@ function serve(req, res) {
       {id:17,email:"new.member@example.test",group_id:1,expires_at:1910000000,accepted_at:0,revoked_at:0}
     ],total:1});
     if(route==="/invite/create"||route==="/invite/revoke"||route==="/invite/accept")return answer(res,{});
+    if(route==="/admin_role/list")return answer(res,{list:[
+      {id:13,name:"Device support viewers",permissions:"devices.view",scope_type:"global",scope_id:0,enabled:true}
+    ],total:1});
+    if(route==="/admin_role_assignment/list")return answer(res,{list:[
+      {id:21,user_id:3,role_id:13}
+    ],total:1});
+    if(["/admin_role/create","/admin_role/update","/admin_role/delete",
+      "/admin_role_assignment/create","/admin_role_assignment/update","/admin_role_assignment/delete"].includes(route)){
+      return answer(res,{});
+    }
     if(route==="/control_role/list")return answer(res,{list:[
       {id:7,name:"Helpdesk role",keyboard:1,clipboard:2,file:1,terminal:1}
     ],total:1});
@@ -605,5 +615,55 @@ test("administrator can save a control role with native permissions",async()=>{
     await page.locator('nav.side-scroll button[data-view="controlAssignments"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="远程控制角色分配");
     await page.getByText("desk-001",{exact:true}).first().waitFor();
+  }finally{await context.close();}
+});
+
+test("full administrator configures management role permissions and scope",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="adminRoles"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="管理员角色");
+    await page.getByText("Device support viewers",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="create"]').click();
+    await page.locator('#edit-form input[name="name"]').fill("Helpdesk read only");
+    await page.locator('#edit-form input[name="permissions"][value="users.view"]').check();
+    await page.locator('#edit-form input[name="permissions"][value="devices.view"]').check();
+    await page.locator('#edit-form select[name="scope_type"]').selectOption("group");
+    await page.locator('#edit-form input[name="scope_id"]').fill("3");
+    await page.locator('#edit-form input[name="enabled"]').check();
+    const submit=page.waitForRequest(req=>req.url().endsWith("/api/admin/admin_role/create")&&req.method()==="POST");
+    await page.locator('button[form="edit-form"]').click();
+    const body=(await submit).postDataJSON();
+    assert.equal(body.name,"Helpdesk read only");
+    assert.ok(body.permissions.includes("users.view"));
+    assert.ok(body.permissions.includes("devices.view"));
+    assert.equal(body.scope_type,"group");
+    assert.equal(body.scope_id,3);
+    assert.equal(body.enabled,true);
+    await page.locator("#edit-form").waitFor({state:"detached"});
+    await page.locator('nav.side-scroll button[data-view="adminRoleAssignments"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="管理员角色分配");
+    await page.getByText("21",{exact:true}).first().waitFor();
+  }finally{await context.close();}
+});
+
+test("delegated viewer gets scoped directory navigation without management actions",async()=>{
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const page=await context.newPage();
+  try{
+    await page.addInitScript(()=>sessionStorage.setItem("rustdesk.console.token","delegated-token"));
+    await page.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await page.locator('nav.side-scroll button[data-view="users"]').waitFor();
+    assert.equal(await page.locator('nav.side-scroll button[data-view="adminRoles"]').count(),0);
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
+    assert.equal(await page.locator('button[data-action="create"]').count(),0);
+    await page.getByText("owner",{exact:true}).first().waitFor();
+    assert.equal(await page.locator('button[data-action="delete"]').count(),0);
+    const listing=page.waitForRequest(req=>
+      req.url().includes("/api/admin/peer/list")&&req.method()==="GET");
+    await page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await listing;
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
   }finally{await context.close();}
 });
