@@ -5,6 +5,9 @@ on:
     paths:
       - 'service/client_build*.go'
       - 'model/client_build.go'
+      - 'http/controller/api/device_commands.go'
+      - 'http/router/api.go'
+      - 'scripts/verify_upstream_client_commands.py'
       - 'resources/admin/app.js'
       - '.github/workflows/verify-client-build.yml'
   workflow_dispatch:
@@ -28,6 +31,8 @@ jobs:
           cache: true
       - name: Check installer profiles and artifact checksum logic
         run: go test ./service -run '^TestClientBuild' -count=1 -v
+      - name: Check native client CLI request fields across supported versions
+        run: python3 scripts/verify_upstream_client_commands.py
       - name: Verify pinned official Windows executables
         run: |
           python3 - <<'PY'
