@@ -32,6 +32,13 @@ func (ct *User) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.UserService.InfoById(uint(iid))
 	if u.Id > 0 {
+		if scopeAny,ok:=c.Get("adminRoleScope");ok {
+			scope,valid:=scopeAny.(service.AdminRoleAccess)
+			if !valid||!service.ScopeCanViewUser(scope,u.Id){
+				response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+				return
+			}
+		}
 		response.Success(c, u)
 		return
 	}
@@ -93,6 +100,27 @@ func (ct *User) List(c *gin.Context) {
 	if err := c.ShouldBindQuery(query); err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
+	}
+	if scopeAny,ok:=c.Get("adminRoleScope");ok {
+		scope,valid:=scopeAny.(service.AdminRoleAccess)
+		if !valid||(!scope.Global&&len(scope.UserIDs)==0){
+			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+			return
+		}
+		if !scope.Global{
+			records:=&model.UserList{}
+			records.Page=int64(query.Page)
+			records.PageSize=int64(query.PageSize)
+			tx:=service.DB.Model(&model.User{}).Where("id IN ?",scope.UserIDs)
+			if query.Username!=""{
+				tx=tx.Where("username LIKE ?","%"+query.Username+"%")
+			}
+			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
+			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize)).
+				Find(&records.Users).Error;err!=nil{response.Error(c,err.Error());return}
+			response.Success(c,records)
+			return
+		}
 	}
 	res := service.AllService.UserService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		if query.Username != "" {

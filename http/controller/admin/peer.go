@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"strconv"
 	"time"
+	"strings"
 )
 
 type Peer struct {
@@ -30,6 +31,13 @@ func (ct *Peer) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.PeerService.InfoByRowId(uint(iid))
 	if u.RowId > 0 {
+		if scopeAny,ok:=c.Get("adminRoleScope");ok {
+			scope,valid:=scopeAny.(service.AdminRoleAccess)
+			if !valid||!service.ScopeCanViewUser(scope,u.UserId){
+				response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+				return
+			}
+		}
 		response.Success(c, u)
 		return
 	}
@@ -89,6 +97,37 @@ func (ct *Peer) List(c *gin.Context) {
 	if err := c.ShouldBindQuery(query); err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
+	}
+	if scopeAny,ok:=c.Get("adminRoleScope");ok {
+		scope,valid:=scopeAny.(service.AdminRoleAccess)
+		if !valid||(!scope.Global&&len(scope.UserIDs)==0){
+			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+			return
+		}
+		if !scope.Global{
+			records:=&model.PeerList{}
+			records.Page=int64(query.Page)
+			records.PageSize=int64(query.PageSize)
+			tx:=service.DB.Model(&model.Peer{}).Where("user_id IN ?",scope.UserIDs)
+			if query.Id!=""{tx=tx.Where("id LIKE ?","%"+query.Id+"%")}
+			if query.Hostname!=""{tx=tx.Where("hostname LIKE ?","%"+query.Hostname+"%")}
+			if query.Username!=""{tx=tx.Where("username LIKE ?","%"+query.Username+"%")}
+			if query.Ip!=""{tx=tx.Where("last_online_ip LIKE ?","%"+query.Ip+"%")}
+			if query.Alias!=""{tx=tx.Where("alias LIKE ?","%"+query.Alias+"%")}
+			if query.TimeAgo!=0 {
+				lt:=time.Now().Unix()-int64(query.TimeAgo)
+				if query.TimeAgo>0{tx=tx.Where("last_online_time < ?",lt)
+				}else{tx=tx.Where("last_online_time > ?",lt)}
+			}
+			if query.Uuids!=""{
+				tx=tx.Where("uuid IN ?",strings.Split(query.Uuids,","))
+			}
+			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
+			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize)).
+				Find(&records.Peers).Error;err!=nil{response.Error(c,err.Error());return}
+			response.Success(c,records)
+			return
+		}
 	}
 	res := service.AllService.PeerService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		if query.TimeAgo > 0 {
