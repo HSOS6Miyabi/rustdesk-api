@@ -92,7 +92,17 @@ func TestOfficialLinuxAndMacInstallerPackagesPreserveOriginalFiles(t *testing.T)
 				binaryDir:=filepath.Join(directory,"bin")
 				if err:=os.MkdirAll(binaryDir,0700);err!=nil{t.Fatal(err)}
 				for name,body:=range map[string]string{
-					"sudo":"#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$RUSTDESK_INSTALL_TEST_LOG\"\n",
+					"sudo":"#!/bin/sh\nset -eu\n"+
+						"if [ \"$1\" = \"apt-get\" ]; then\n"+
+						"  printf '%s\\n' \"$*\" >> \"$RUSTDESK_INSTALL_TEST_LOG\"\n"+
+						"elif [ \"$2\" = \"--option\" ] && [ \"$#\" -eq 4 ]; then\n"+
+						"  printf '%s\\n' \"$*\" >> \"$RUSTDESK_INSTALL_TEST_LOG\"\n"+
+						"  if [ \"$RUSTDESK_INSTALL_TEST_IGNORE_WRITES\" != \"1\" ]; then\n"+
+						"    printf '%s\\n' \"$4\" > \"$RUSTDESK_INSTALL_TEST_STATE/$3\"\n"+
+						"  fi\n"+
+						"elif [ \"$2\" = \"--option\" ] && [ \"$#\" -eq 3 ]; then\n"+
+						"  cat \"$RUSTDESK_INSTALL_TEST_STATE/$3\" 2>/dev/null || true\n"+
+						"else\n  exit 1\nfi\n",
 					"rustdesk":"#!/bin/sh\nexit 0\n",
 				}{
 					if err:=os.WriteFile(filepath.Join(binaryDir,name),[]byte(body),0755);err!=nil{t.Fatal(err)}
@@ -100,11 +110,15 @@ func TestOfficialLinuxAndMacInstallerPackagesPreserveOriginalFiles(t *testing.T)
 				installScript:=filepath.Join(directory,tc.script)
 				if err:=os.WriteFile(installScript,script,0755);err!=nil{t.Fatal(err)}
 				logfile:=filepath.Join(directory,"commands.txt")
+				stateDirectory:=filepath.Join(directory,"state")
+				if err:=os.MkdirAll(stateDirectory,0700);err!=nil{t.Fatal(err)}
 				command:=exec.Command("sh",installScript)
 				command.Dir=directory
 				command.Env=append(os.Environ(),
 					"PATH="+binaryDir+string(os.PathListSeparator)+os.Getenv("PATH"),
-					"RUSTDESK_INSTALL_TEST_LOG="+logfile)
+					"RUSTDESK_INSTALL_TEST_LOG="+logfile,
+					"RUSTDESK_INSTALL_TEST_STATE="+stateDirectory,
+					"RUSTDESK_INSTALL_TEST_IGNORE_WRITES=0")
 				if output,err:=command.CombinedOutput();err!=nil{
 					t.Fatalf("simulated Linux setup did not finish: %v %s",err,output)
 				}
@@ -124,6 +138,32 @@ func TestOfficialLinuxAndMacInstallerPackagesPreserveOriginalFiles(t *testing.T)
 				}
 				if strings.Count(strings.TrimSpace(commands),"\n")!=4{
 					t.Fatalf("simulated setup ran an unexpected number of commands: %s",commands)
+				}
+				for _,setting:=range []struct{name,want string}{
+					{"custom-rendezvous-server",profile.Host},
+					{"key",profile.PublicKey},
+					{"api-server",profile.APIServer},
+					{"relay-server",profile.RelayServer},
+				}{
+					got,err:=os.ReadFile(filepath.Join(stateDirectory,setting.name))
+					if err!=nil||strings.TrimSpace(string(got))!=setting.want{
+						t.Fatalf("client configuration was not persisted for %s: %v",setting.name,err)
+					}
+				}
+				for _,entry:=range []string{
+					"custom-rendezvous-server","key","api-server","relay-server",
+				}{
+					if err:=os.Remove(filepath.Join(stateDirectory,entry));err!=nil{t.Fatal(err)}
+				}
+				rejected:=exec.Command("sh",installScript)
+				rejected.Dir=directory
+				rejected.Env=append(os.Environ(),
+					"PATH="+binaryDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+					"RUSTDESK_INSTALL_TEST_LOG="+logfile,
+					"RUSTDESK_INSTALL_TEST_STATE="+stateDirectory,
+					"RUSTDESK_INSTALL_TEST_IGNORE_WRITES=1")
+				if output,err:=rejected.CombinedOutput();err==nil{
+					t.Fatalf("setup reported success without saving options: %s",output)
 				}
 			}
 			if err:=DB.Model(task).Updates(map[string]interface{}{
