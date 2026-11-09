@@ -35,6 +35,7 @@ func Init(g *gin.Engine) {
 	admin.DeviceDeploymentBind(adg)
 	DeviceSessionsBind(adg)
 	APITokenBind(adg)
+	MailBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)
@@ -428,4 +429,12 @@ func APITokenBind(rg *gin.RouterGroup){
 	r.GET("/list",handler.List)
 	r.POST("/create",handler.Create)
 	r.POST("/delete",handler.Delete)
+}
+
+func MailBind(rg *gin.RouterGroup) {
+	controller:=&admin.Mail{}
+	r:=rg.Group("/mail").Use(middleware.AdminPrivilege())
+	r.GET("/settings",controller.Settings)
+	r.POST("/settings",controller.Save)
+	r.POST("/test",controller.Test)
 }
