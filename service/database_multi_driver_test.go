@@ -70,6 +70,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			}
 			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
 				&model.NotificationSetting{},&model.NotificationDelivery{},
+				&model.ClientBuildProfile{},&model.ClientBuildTask{},
 			);err!=nil{t.Fatalf("new schema migration failed: %v",err)}
 			var policy model.DevicePolicy
 			if err:=db.Where("id = ?",priorPolicy.Id).First(&policy).Error;err!=nil{t.Fatal(err)}
@@ -91,11 +92,31 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 				policy.AccessMode!="view"||policy.ManagedClientKeys!="access-mode"{
 				t.Fatalf("extended security fields are unavailable: %+v %v",policy,err)
 			}
-			for _,table:=range []interface{}{&model.NotificationSetting{},&model.NotificationDelivery{}}{
-				if !db.Migrator().HasTable(table){t.Fatalf("notification migration missing table %T",table)}
+			for _,table:=range []interface{}{
+				&model.NotificationSetting{},&model.NotificationDelivery{},
+				&model.ClientBuildProfile{},&model.ClientBuildTask{},
+			}{
+				if !db.Migrator().HasTable(table){t.Fatalf("database migration missing table %T",table)}
+			}
+			profile:=&model.ClientBuildProfile{
+				Name:"Support office",Platform:"windows-x64",Version:"1.5.1",
+				Host:"desk.example.test",PublicKey:"test-only-public-key",
+			}
+			if err:=db.Create(profile).Error;err!=nil{t.Fatal(err)}
+			task:=&model.ClientBuildTask{
+				ProfileID:profile.Id,RequestedBy:3,Status:"pending",
+				Platform:profile.Platform,Version:profile.Version,
+				ConfigSnapshot:`{"host":"desk.example.test"}`,Filename:"test-client.exe",
+			}
+			if err:=db.Create(task).Error;err!=nil{t.Fatal(err)}
+			var archived model.ClientBuildTask
+			if err:=db.Where("id = ?",task.Id).First(&archived).Error;err!=nil||
+				archived.ConfigSnapshot!=task.ConfigSnapshot||archived.Filename!=task.Filename {
+				t.Fatalf("client build history was not persisted: %+v %v",archived,err)
 			}
 			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
-				&model.NotificationSetting{},&model.NotificationDelivery{});err!=nil{
+				&model.NotificationSetting{},&model.NotificationDelivery{},
+				&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{
 				t.Fatalf("repeated migrations are not safe: %v",err)
 			}
 			var count int64
