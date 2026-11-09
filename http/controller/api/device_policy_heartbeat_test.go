@@ -146,6 +146,16 @@ func TestManagedHeartbeatChecksApprovedDeployment(t *testing.T) {
 		t.Fatalf("unregistered identity received policy: %v", response)
 	}
 	if err := db.Model(&model.DeviceDeployment{}).Where("device_id = ?", peer.Id).
+		Update("owner_user_id", owner.Id + 100).Error; err != nil { t.Fatal(err) }
+	if response := check(uuid); len(response) != 0 {
+		t.Fatalf("device with conflicting owner received policy: %v", response)
+	}
+	if err := db.Model(&model.DeviceDeployment{}).Where("device_id = ?", peer.Id).
+		Update("owner_user_id", owner.Id).Error; err != nil { t.Fatal(err) }
+	if response := check(uuid); response["strategy"] == nil {
+		t.Fatalf("restored ownership did not receive policy: %v", response)
+	}
+	if err := db.Model(&model.DeviceDeployment{}).Where("device_id = ?", peer.Id).
 		Update("status", "revoked").Error; err != nil { t.Fatal(err) }
 	if response := check(uuid); len(response) != 0 {
 		t.Fatalf("revoked device received policy or session commands: %v", response)

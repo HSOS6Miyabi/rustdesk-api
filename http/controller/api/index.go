@@ -104,7 +104,7 @@ func heartbeatDeviceAuthorized(peer *model.Peer, presentedUUID string) bool {
 		return false
 	}
 	return deployment.Status == "approved" && deployment.OwnerUserId != 0 &&
-		deployment.Uuid == storedUUID
+		deployment.OwnerUserId == peer.UserId && deployment.Uuid == storedUUID
 }
 
 // Version 版本
