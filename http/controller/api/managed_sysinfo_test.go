@@ -31,7 +31,7 @@ func TestManagedDeploymentCreatesOwnedPeerAndProtectsSysInfo(t *testing.T) {
 	sql.SetMaxOpenConns(1)
 	if err := db.AutoMigrate(
 		&model.User{}, &model.Peer{}, &model.LoginLog{},
-		&model.DeviceDeployment{},
+		&model.DeviceDeployment{}, &model.UserToken{},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -120,6 +120,20 @@ func TestManagedDeploymentCreatesOwnedPeerAndProtectsSysInfo(t *testing.T) {
 		t.Fatalf("duplicate deployment created %d device records: %v", count, err)
 	}
 
+	previousSession := &model.UserToken{
+		UserId: administrator.Id, DeviceId: id, DeviceUuid: uuid,
+		Token: "previous-device-session", ExpiredAt: 4102444800,
+	}
+	otherSession := &model.UserToken{
+		UserId: administrator.Id, DeviceId: "unrelated-device", DeviceUuid: "unrelated-uuid",
+		Token: "unrelated-device-session", ExpiredAt: 4102444800,
+	}
+	if err := db.Create(previousSession).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(otherSession).Error; err != nil {
+		t.Fatal(err)
+	}
 	assignment := map[string]string{
 		"id": id, "uuid": uuid, "user_name": target.Username, "device_name": "Assigned Desk",
 	}
@@ -132,6 +146,30 @@ func TestManagedDeploymentCreatesOwnedPeerAndProtectsSysInfo(t *testing.T) {
 	}
 	if deployment.OwnerUserId != target.Id {
 		t.Fatal("device deployment owner did not follow administrator assignment")
+	}
+	var remaining int64
+	if err := db.Model(&model.UserToken{}).Where("token = ?", previousSession.Token).
+		Count(&remaining).Error; err != nil || remaining != 0 {
+		t.Fatalf("previous device session remained active: %d, %v", remaining, err)
+	}
+	if err := db.Model(&model.UserToken{}).Where("token = ?", otherSession.Token).
+		Count(&remaining).Error; err != nil || remaining != 1 {
+		t.Fatalf("unrelated session was changed: %d, %v", remaining, err)
+	}
+	currentSession := &model.UserToken{
+		UserId: target.Id, DeviceId: id, DeviceUuid: uuid,
+		Token: "new-owner-device-session", ExpiredAt: 4102444800,
+	}
+	if err := db.Create(currentSession).Error; err != nil {
+		t.Fatal(err)
+	}
+	if response := send("/api/devices/cli", assignment); response.Code != http.StatusOK {
+		t.Fatalf("repeating an unchanged assignment was rejected: %d %s",
+			response.Code, response.Body.String())
+	}
+	if err := db.Model(&model.UserToken{}).Where("token = ?", currentSession.Token).
+		Count(&remaining).Error; err != nil || remaining != 1 {
+		t.Fatalf("unchanged ownership revoked an active session: %d, %v", remaining, err)
 	}
 	if response := send("/api/sysinfo", map[string]string{
 		"id": id, "uuid": base64.RawStdEncoding.EncodeToString([]byte("approved-device-uuid")),
