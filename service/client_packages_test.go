@@ -195,8 +195,11 @@ func TestClientSetupScriptQuotesPublicConfiguration(t *testing.T){
 		if strings.HasPrefix(platform,"macos"){filename="rustdesk-1.5.1-aarch64.dmg"}
 		_,script,_,err:=clientShellScript(platform,filename,settings)
 		if err!=nil{t.Fatal(err)}
-		if strings.Count(script," --option ")!=4{
-			t.Fatalf("expected four official client configuration commands: %s",script)
+		if strings.Count(script," --option ")!=8{
+			t.Fatalf("expected four setting commands and four verification commands: %s",script)
+		}
+		if strings.Count(script,"ACTUAL=$(sudo ")!=4{
+			t.Fatalf("client settings are not verified after saving: %s",script)
 		}
 	}
 	if !strings.Contains(clientShellQuote("a'b"),"'\\''"){
