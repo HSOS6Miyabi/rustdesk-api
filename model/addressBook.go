@@ -1,6 +1,9 @@
 package model
 
-import "github.com/lejianwen/rustdesk-api/v2/model/custom_types"
+import (
+	"github.com/lejianwen/rustdesk-api/v2/model/custom_types"
+	"gorm.io/gorm"
+)
 
 // final String id;
 // String hash; // personal ab hash password
@@ -38,6 +41,7 @@ type AddressBook struct {
 	SameServer       bool                   `json:"sameServer" gorm:"default:0;not null;"`
 	CollectionId     uint                   `json:"collection_id" gorm:"default:0;not null;index"`
 	Collection       *AddressBookCollection `json:"collection,omitempty"`
+	DeletedAt        gorm.DeletedAt `json:"-" gorm:"index"`
 	TimeModel
 }
 

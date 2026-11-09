@@ -303,12 +303,16 @@ func (s *AddressBookService) UpdateCollection(t *model.AddressBookCollection) er
 }
 
 func (s *AddressBookService) DeleteCollection(t *model.AddressBookCollection) error {
-	//删除集合下的所有规则、地址簿，再删除集合
-	tx := DB.Begin()
-	tx.Where("collection_id = ?", t.Id).Delete(&model.AddressBookCollectionRule{})
-	tx.Where("collection_id = ?", t.Id).Delete(&model.AddressBook{})
-	tx.Delete(t)
-	return tx.Commit().Error
+	if t == nil || t.Id == 0 { return errors.New("address book collection ID is required") }
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("collection_id = ?", t.Id).
+			Delete(&model.AddressBookCollectionRule{}).Error; err != nil { return err }
+		// Deleting a collection also removes any previously archived entries
+		// belonging to that collection, which cannot be restored afterwards.
+		if err := tx.Unscoped().Where("collection_id = ?", t.Id).
+			Delete(&model.AddressBook{}).Error; err != nil { return err }
+		return tx.Delete(t).Error
+	})
 }
 
 func (s *AddressBookService) RuleInfoById(u uint) *model.AddressBookCollectionRule {
