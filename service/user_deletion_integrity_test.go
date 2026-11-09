@@ -53,6 +53,7 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	adminRole:=&model.AdminRole{Name:"One account",Permissions:"users.view",ScopeType:AdminScopeIndividual,ScopeId:owner.Id,Enabled:true}
 	if err:=DB.Create(adminRole).Error;err!=nil{t.Fatal(err)}
 	if err:=DB.Create(&model.AdminRoleAssignment{UserId:owner.Id,RoleId:adminRole.Id}).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.Create(&model.AdminRoleAssignment{UserId:other.Id,RoleId:adminRole.Id}).Error;err!=nil{t.Fatal(err)}
 	if err:=DB.Create(&model.UserToken{UserId:owner.Id,Token:"old-session",ExpiredAt:4102444800}).Error;err!=nil{
 		t.Fatal(err)
 	}
@@ -129,6 +130,10 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	if err:=DB.Model(&model.AdminRole{}).Where("id = ?",adminRole.Id).
 		Count(&count).Error;err!=nil||count!=0{
 		t.Fatalf("deleted account retained individual management role: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AdminRoleAssignment{}).Where("role_id = ?",adminRole.Id).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted role retained assignments for other accounts: %d %v",count,err)
 	}
 	var preservedPeer model.Peer
 	if err:=DB.Where("id = ?",peer.Id).First(&preservedPeer).Error;err!=nil||preservedPeer.UserId!=0 {

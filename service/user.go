@@ -256,7 +256,6 @@ func (us *UserService) Delete(u *model.User) error {
 			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},&model.APIToken{},
 			&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},&model.PasswordResetToken{},
 			&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
-			&model.UserToken{},
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}

@@ -129,6 +129,7 @@ function serve(req, res) {
     ],total:1});
     if(route==="/my/address_book/trash/restore"||route==="/my/address_book/trash/purge")return answer(res,{});
     if(route==="/my/login_log/list")return answer(res, {list:[],total:0});
+    if(route==="/user/mfa/reset")return answer(res,{});
     if(route==="/user/list")return answer(res, {
       list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
     });
@@ -665,5 +666,23 @@ test("delegated viewer gets scoped directory navigation without management actio
     await page.locator('nav.side-scroll button[data-view="devices"]').click();
     await listing;
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
+  }finally{await context.close();}
+});
+
+test("administrator can reset a team member's lost second-factor credentials",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    page.on("dialog",dialog=>dialog.accept());
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
+    await page.getByText("owner",{exact:true}).first().waitFor();
+    const reset=page.locator('button[data-action="reset-user-mfa"]').first();
+    await reset.waitFor({state:"visible"});
+    const saved=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/user/mfa/reset")&&req.method()==="POST");
+    await reset.click();
+    const body=(await saved).postDataJSON();
+    assert.equal(body.id,3);
+    await page.getByText("用户双重认证已重置").waitFor();
   }finally{await context.close();}
 });
