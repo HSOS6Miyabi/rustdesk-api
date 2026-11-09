@@ -22,6 +22,7 @@ function serve(req, res) {
     const route = pathname.slice("/api/admin".length);
     const isAdmin = req.headers["api-token"] === "admin-token";
     if(route==="/config/admin")return answer(res, {title:"RustDesk 浏览器测试"});
+    if(route==="/password/forgot"||route==="/password/reset")return answer(res,{});
     if(route==="/user/current")return answer(res, {
       username:isAdmin?"admin":"owner",nickname:isAdmin?"Administrator":"Owner",
       route_names:isAdmin?["*"]:[],token:req.headers["api-token"]
@@ -377,5 +378,24 @@ test("administrator can edit SMTP settings and send a test email",async()=>{
     await page.getByText("测试邮件已发送").first().waitFor();
     await page.locator('nav.side-scroll button[data-view="policies"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备安全策略");
+  }finally{await context.close();}
+});
+
+test("password recovery and one-time reset forms work on the login screen",async()=>{
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const page=await context.newPage();
+  try{
+    await page.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await page.locator('button[data-action="forgot-password"]').waitFor({state:"visible"});
+    await page.locator('button[data-action="forgot-password"]').click();
+    await page.locator('#recovery-email').fill("someone@example.test");
+    await page.locator('button[form="forgot-password-form"]').click();
+    await page.getByText("如果邮箱已登记，将收到密码恢复邮件").waitFor();
+    await page.goto(baseUrl+"/_admin/#/password-reset?token=example-reset-token",{waitUntil:"networkidle"});
+    await page.locator('#recovery-new-password').waitFor({state:"visible"});
+    await page.locator('#recovery-new-password').fill("NewPassword123");
+    await page.locator('#recovery-confirm-password').fill("NewPassword123");
+    await page.locator('button[form="public-password-reset-form"]').click();
+    await page.getByText("密码已更新，请使用新密码登录").waitFor();
   }finally{await context.close();}
 });

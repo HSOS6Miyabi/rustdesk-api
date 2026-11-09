@@ -252,3 +252,13 @@ test("mail configuration is visible to administrators",async()=>{
   assert.match(admin.root.innerHTML,/SMTP 主机/);
   assert.match(admin.root.innerHTML,/STARTTLS/);
 });
+
+test("login screen includes password recovery by email",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""});
+  await app.settle();
+  await app.settle();
+  assert.match(app.root.innerHTML,/忘记密码/);
+  await app.action("forgot-password");
+  assert.match(app.root.innerHTML,/账户邮箱/);
+  assert.match(app.root.innerHTML,/发送恢复邮件/);
+});
