@@ -22,6 +22,9 @@ func ApiInit(g *gin.Engine) {
 	// 加载 HTML 模板
 	g.LoadHTMLGlob("resources/templates/*")
 
+	// Dedicated routes for scoped, administrator-owned automation tokens.
+	AutomationRoutes(g)
+
 	g.POST("/internal/v1/device/authorize", (&api.DeviceCommands{}).AuthorizeRegistration)
 	g.GET("/internal/v1/relay/nodes", (&api.InternalRelay{}).Nodes)
 	g.GET("/internal/v1/control/permissions", (&api.InternalControl{}).Permissions)
