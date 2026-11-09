@@ -74,7 +74,7 @@ func TestClientBuildSettingsAndImmutableTask(t *testing.T) {
 
 func TestClientBuildRejectsUnsupportedAndMaliciousSettings(t *testing.T) {
 	for _,modify:=range []func(*model.ClientBuildProfile){
-		func(p *model.ClientBuildProfile){p.Platform="linux-x64"},
+		func(p *model.ClientBuildProfile){p.Platform="android"},
 		func(p *model.ClientBuildProfile){p.Version="unknown"},
 		func(p *model.ClientBuildProfile){p.Host="desk.example.com\r\nInvalid: header"},
 		func(p *model.ClientBuildProfile){p.Host="https://evil.example.com/path"},
@@ -89,7 +89,7 @@ func TestClientBuildRejectsUnsupportedAndMaliciousSettings(t *testing.T) {
 			t.Fatalf("invalid custom profile was accepted: %+v",p)
 		}
 	}
-	for _,platform:=range []string{"windows-x64","windows-arm64"}{
+	for _,platform:=range []string{"windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64"}{
 		if _,err:=officialClientBuildSource(platform,currentClientVersion);err!=nil{t.Fatal(err)}
 	}
 	if _,err:=officialClientBuildSource("linux-x64",currentClientVersion);err==nil{
