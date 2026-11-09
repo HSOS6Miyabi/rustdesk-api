@@ -46,6 +46,9 @@ function createConsole(isAdmin = false, overrides = {}) {
         to_account: "another-user", path: "/home/file", direction: "outgoing" }], total: 1
     },
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
+    "/notification/settings": {settings:{enabled:true,recipients:"team@example.test",events:"login.failure,audit.file"},catalog:["login.failure","audit.file"]},
+    "/notification/list": {list:[{id:4,event_type:"audit.file",recipient:"team@example.test",status:"failed",attempts:3,last_error:"SMTP unreachable"}],total:1},
+
     "/access_rule/list": {list:[{id:8,name:"Office support",source_type:"group",source_id:2,target_type:"device_group",target_id:"3",effect:"allow",enabled:true}],total:1},
     "/admin_role/list": {list:[{id:12,name:"Read-only devices",permissions:"devices.view",scope_type:"global",scope_id:0,enabled:true}],total:1},
     "/admin_role_assignment/list": {list:[{id:4,user_id:15,role_id:12}],total:1},
@@ -496,5 +499,21 @@ test("audit CSV filters expose date, device and connection event options",async(
   await app.action("audit-export","audit_conn");
   for(const label of ["开始日期","结束日期","目标设备 ID","来源设备 ID","连接事件"]){
     assert.match(app.root.innerHTML,new RegExp(label));
+  }
+});
+
+test("notification settings and delivery history display per-event controls",async()=>{
+  const ordinary=createConsole();
+  await ordinary.settle();
+  assert.doesNotMatch(ordinary.root.innerHTML,/邮件事件通知/);
+  const admin=createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML,/邮件事件通知/);
+  await admin.open("notifications");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/notification/settings"));
+  assert.ok(admin.calls.some(x=>x.endpoint==="/notification/list"));
+  for(const name of ["启用邮件事件通知","通知收件邮箱","登录失败","设备登记状态变更",
+    "远程连接已结束","文件传输","发送记录","重新发送"]){
+    assert.match(admin.root.innerHTML,new RegExp(name));
   }
 });
