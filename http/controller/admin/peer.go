@@ -182,6 +182,15 @@ func (ct *Peer) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
+	if hasScopedManagementRole(c) {
+		current := service.AllService.PeerService.InfoByRowId(f.RowId)
+		if current.RowId == 0 || !scopedManagement(c, current.UserId) ||
+			(f.Id != "" && f.Id != current.Id) ||
+			(f.Uuid != "" && f.Uuid != current.Uuid) {
+			response.Fail(c, 403, "当前账户无权修改此设备或其身份信息")
+			return
+		}
+	}
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {
 		response.Fail(c, 101, errList[0])
@@ -220,6 +229,10 @@ func (ct *Peer) Delete(c *gin.Context) {
 		return
 	}
 	u := service.AllService.PeerService.InfoByRowId(f.RowId)
+	if hasScopedManagementRole(c) && (u.RowId == 0 || !scopedManagement(c, u.UserId)) {
+		response.Fail(c, 403, "当前账户无权删除此设备")
+		return
+	}
 	if u.RowId > 0 {
 		err := service.AllService.PeerService.Delete(u)
 		if err == nil {
@@ -252,6 +265,25 @@ func (ct *Peer) BatchDelete(c *gin.Context) {
 	if len(f.RowIds) == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
+	}
+	if hasScopedManagementRole(c) {
+		var peers []model.Peer
+		if err := service.DB.Where("row_id IN ?", f.RowIds).Find(&peers).Error; err != nil {
+			response.Fail(c, 101, err.Error())
+			return
+		}
+		unique := make(map[uint]struct{}, len(f.RowIds))
+		for _, id := range f.RowIds { unique[id] = struct{}{} }
+		if len(peers) != len(unique) {
+			response.Fail(c, 403, "部分设备不存在或不在允许的管理范围内")
+			return
+		}
+		for _, peer := range peers {
+			if !scopedManagement(c, peer.UserId) {
+				response.Fail(c, 403, "部分设备不在允许的管理范围内")
+				return
+			}
+		}
 	}
 	err := service.AllService.PeerService.BatchDelete(f.RowIds)
 	if err != nil {
