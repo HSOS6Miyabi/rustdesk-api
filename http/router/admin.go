@@ -43,6 +43,7 @@ func Init(g *gin.Engine) {
 	APITokenBind(adg)
 	MailBind(adg)
 	NotificationsBind(adg)
+	ClientBuilderBind(adg)
 	InvitationBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
@@ -544,4 +545,16 @@ func NotificationsBind(rg *gin.RouterGroup) {
 	r.POST("/settings", cont.Save)
 	r.GET("/list", cont.List)
 	r.POST("/retry", cont.Retry)
+}
+
+func ClientBuilderBind(rg *gin.RouterGroup) {
+	handler := &admin.ClientBuilder{}
+	r := rg.Group("/client_builder").Use(middleware.AdminPrivilege())
+	r.GET("/profiles", handler.Profiles)
+	r.POST("/profiles", handler.SaveProfile)
+	r.POST("/profiles/delete", handler.DeleteProfile)
+	r.GET("/tasks", handler.Tasks)
+	r.POST("/tasks", handler.Queue)
+	r.POST("/tasks/retry", handler.Retry)
+	r.GET("/tasks/:id/download", handler.Download)
 }
