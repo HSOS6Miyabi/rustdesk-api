@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -33,6 +34,7 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 	}
 	sort.Slice(keys,func(i,j int)bool{return keys[i]<keys[j]})
 	instructions:=make([]int32,0)
+	completed:=make([]string,0)
 	err:=DB.Transaction(func(tx *gorm.DB) error {
 		if len(records)>0 {
 			if err:=tx.Clauses(clause.OnConflict{
@@ -57,6 +59,7 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 				if request.Status=="delivered" {
 					fields["status"]="completed"
 					fields["completed_at"]=now
+					completed=append(completed,fmt.Sprintf("%d:%s:%d",request.Id,request.DeviceId,request.ConnId))
 				}
 				if err:=tx.Model(&request).Updates(fields).Error;err!=nil{return err}
 			default:
@@ -69,6 +72,7 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		return nil
 	})
 	if err!=nil{return nil,err}
+	for _,reference:=range completed {NotifyEvent("session.ended",reference,"远程会话已完成结束请求："+reference)}
 	return instructions,nil
 }
 
@@ -78,7 +82,7 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 		return errors.New("valid device, connection and requester are required")
 	}
 	now:=time.Now().Unix()
-	return DB.Transaction(func(tx *gorm.DB) error {
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		var connection model.DeviceActiveConnection
 		err:=tx.Where("device_id = ? AND conn_id = ? AND last_seen_at >= ?",
 			deviceID,connID,now-sessionAliveSeconds).First(&connection).Error
@@ -94,6 +98,8 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 			Status:"pending",ExpiresAt:now+disconnectExpiresSeconds,
 		}).Error
 	})
+	if err==nil {NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))}
+	return err
 }
 
 func ListActiveDeviceSessions(page,pageSize uint) ([]model.DeviceActiveConnection,int64,error) {
