@@ -306,3 +306,17 @@ test("personal profile shows optional emailed verification",async()=>{
   assert.match(app.root.innerHTML,/邮箱登录验证/);
   assert.match(app.root.innerHTML,/发送邮箱验证码并启用/);
 });
+
+test("relay node settings provide multi-server and IP range controls",async()=>{
+  const ordinary=createConsole();
+  await ordinary.settle();
+  assert.doesNotMatch(ordinary.root.innerHTML,/中继节点管理/);
+  const administrator=createConsole(true);
+  await administrator.settle();
+  assert.match(administrator.root.innerHTML,/中继节点管理/);
+  await administrator.open("relayNodes");
+  assert.ok(administrator.calls.some(x=>x.endpoint==="/relay/list"));
+  await administrator.action("create");
+  assert.match(administrator.root.innerHTML,/中继服务器地址/);
+  assert.match(administrator.root.innerHTML,/IP 网络/);
+});

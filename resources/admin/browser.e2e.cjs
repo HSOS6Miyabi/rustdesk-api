@@ -82,6 +82,11 @@ function serve(req, res) {
       {id:17,email:"new.member@example.test",group_id:1,expires_at:1910000000,accepted_at:0,revoked_at:0}
     ],total:1});
     if(route==="/invite/create"||route==="/invite/revoke"||route==="/invite/accept")return answer(res,{});
+    if(route==="/relay/list")return answer(res,{list:[
+      {id:10,name:"East site",address:"relay-east.example.test:21117",
+       subnets:"203.0.113.0/24",priority:10,enabled:true}
+    ],total:1});
+    if(route==="/relay/create"||route==="/relay/update"||route==="/relay/delete")return answer(res,{});
     if(route==="/mail/settings")return answer(res,{enabled:true,host:"smtp.example.test",port:587,security:"starttls",sender_email:"support@example.test",sender_name:"Support",password_configured:true});
     if(route==="/mail/test")return answer(res,{sent:true});
     if(route==="/api_token/list")return answer(res,{list:[],total:0});
@@ -544,5 +549,22 @@ test("web login can complete an email verification challenge",async()=>{
     await page.locator('button[form="mfa-login-form"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
     assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"admin-token");
+  }finally{await context.close();}
+});
+
+test("administrator can configure relay node preferences",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="relayNodes"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="中继节点管理");
+    await page.getByText("relay-east.example.test:21117",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="create"]').click();
+    await page.locator('#edit-form input[name="name"]').fill("West site");
+    await page.locator('#edit-form input[name="address"]').fill("relay-west.example.test:21117");
+    await page.locator('#edit-form textarea[name="subnets"]').fill("198.51.100.0/24");
+    await page.locator('#edit-form input[name="priority"]').fill("20");
+    await page.locator('#edit-form input[name="enabled"]').check();
+    await page.locator('button[form="edit-form"]').click();
+    await page.getByText("保存成功").waitFor();
   }finally{await context.close();}
 });
