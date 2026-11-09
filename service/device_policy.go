@@ -215,7 +215,7 @@ func EffectiveDevicePolicyDetails(deviceId string,userId uint,admin bool) (map[s
 		"enable-webrtc":map[bool]string{true:"Y",false:"N"}[resolved.Policy.EnableWebRTC],
 		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
 	}
-	for key,value := range extraClientPolicyOptions(resolved.Policy) {
+	for key,value := range extraClientPolicyOptions(&resolved.Policy) {
 		options[key] = value
 	}
 	return options,true,resolved.Source,resolved.Policy.Id,nil
@@ -246,7 +246,7 @@ func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]int
 		"whitelist":resolved.Policy.IpWhitelist,
 		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
 	}
-	for key,value := range extraClientPolicyOptions(resolved.Policy) {
+	for key,value := range extraClientPolicyOptions(&resolved.Policy) {
 		options[key] = value
 	}
 	return map[string]interface{}{
