@@ -135,6 +135,21 @@ func TestClientBuildPackagesOfficialBytesWithoutModification(t *testing.T) {
 	}
 	after,err:=os.ReadFile(path)
 	if err!=nil||!bytes.Equal(after,fixture){t.Fatal("checksum rejection modified the installed artifact")}
+
+	tampered:=append([]byte(nil),fixture...)
+	tampered[len(tampered)-1]^=1
+	if err:=os.WriteFile(path,tampered,0600);err!=nil{t.Fatal(err)}
+	if _,_,err:=ClientBuildFile(task.Id);err==nil{
+		t.Fatal("download accepted a client package whose bytes changed after preparation")
+	}
+	if err:=os.WriteFile(path,fixture,0600);err!=nil{t.Fatal(err)}
+	if _,_,err:=ClientBuildFile(task.Id);err!=nil{t.Fatal(err)}
+	link:=path+".backup"
+	if err:=os.Rename(path,link);err!=nil{t.Fatal(err)}
+	if err:=os.Symlink(link,path);err!=nil{t.Fatal(err)}
+	if _,_,err:=ClientBuildFile(task.Id);err==nil{
+		t.Fatal("download accepted a symlink instead of a verified package")
+	}
 }
 
 func fmtTaskID(id uint)string{return strconv.FormatUint(uint64(id),10)}
