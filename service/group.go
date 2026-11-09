@@ -45,6 +45,10 @@ func (us *GroupService) Delete(u *model.Group) error {
 			Delete(&model.GroupMembership{}).Error; err != nil { return err }
 		if err := tx.Where("group_id = ?", u.Id).
 			Delete(&model.GroupAnchor{}).Error; err != nil { return err }
+		if tx.Migrator().HasTable(&model.AccessRule{}) {
+			if err:=tx.Where("source_type = ? AND source_id = ?",accessSourceGroup,u.Id).
+				Delete(&model.AccessRule{}).Error;err!=nil{return err}
+		}
 		if tx.Migrator().HasTable(&model.AdminRole{}) {
 			var scoped []uint
 			if err:=tx.Model(&model.AdminRole{}).
@@ -99,6 +103,11 @@ func (us *GroupService) DeviceGroupDelete(u *model.DeviceGroup) error {
 		if err:=tx.Where("target_type = ? AND target_id = ?",controlTargetDeviceGroup,
 			strconv.FormatUint(uint64(u.Id),10)).
 			Delete(&model.ControlRoleAssignment{}).Error;err!=nil{return err}
+		if tx.Migrator().HasTable(&model.AccessRule{}) {
+			if err:=tx.Where("target_type = ? AND target_id = ?",accessTargetDeviceGroup,
+				strconv.FormatUint(uint64(u.Id),10)).
+				Delete(&model.AccessRule{}).Error;err!=nil{return err}
+		}
 		result:=tx.Delete(u)
 		if result.Error!=nil{return result.Error}
 		if result.RowsAffected==0{return gorm.ErrRecordNotFound}

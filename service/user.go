@@ -266,6 +266,15 @@ func (us *UserService) Delete(u *model.User) error {
 		if err:=tx.Where("target_type = ? AND target_id = ?",
 			controlTargetUser,strconv.FormatUint(uint64(u.Id),10)).
 			Delete(&model.ControlRoleAssignment{}).Error;err!=nil{return err}
+		if tx.Migrator().HasTable(&model.AccessRule{}) {
+			if err:=tx.Where("source_type = ? AND source_id = ?",accessSourceUser,u.Id).
+				Or("target_type = ? AND target_id = ?",accessTargetUser,strconv.FormatUint(uint64(u.Id),10)).
+				Delete(&model.AccessRule{}).Error;err!=nil{return err}
+			if len(ownedGroups)>0 {
+				if err:=tx.Where("source_type = ? AND source_id IN ?",accessSourceGroup,ownedGroups).
+					Delete(&model.AccessRule{}).Error;err!=nil{return err}
+			}
+		}
 		if tx.Migrator().HasTable(&model.AdminRoleAssignment{}) {
 			if err:=tx.Where("user_id = ?",u.Id).
 				Delete(&model.AdminRoleAssignment{}).Error;err!=nil{return err}
