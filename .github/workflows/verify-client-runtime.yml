@@ -115,7 +115,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           script: |
-            set -euo pipefail
+            set -eu
             adb install -r "$RUNNER_TEMP/rustdesk-1.5.1.apk"
             adb shell pm path com.carriez.flutter_hbb
             adb shell monkey -p com.carriez.flutter_hbb -c android.intent.category.LAUNCHER 1 > /tmp/rustdesk-android-launch.txt
