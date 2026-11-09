@@ -78,3 +78,7 @@ export RUSTDESK_API_MAIL_ENCRYPTION_KEY="更换为长期保存的随机密钥，
 同一安装应长期保留此值，备份恢复时需要一起恢复。SMTP 密码仅以加密内容保存，重新配置密码时才会替换。邮件设置的 `base_url` 需要填写用户能实际访问的 Web 控制台地址，例如 `https://remote.example.com`。
 
 忘记密码和邀请账户依靠 SMTP 发送邮件。未设置 SMTP 时，原有用户仍可通过已启用的登录方式访问系统。
+
+## 连接记录备注
+
+`audit_conns` 新增 `note` 和 `note_updated_by`。历史记录的备注默认为空，原有连接时间、身份信息及导出功能保留。管理员可在“全部连接记录”添加和查询备注。

@@ -11,7 +11,7 @@
 | 个人及共享地址簿 | 已实现个人、群组和所有用户共享，含附加群组权限 | `service/addressBook.go`、`http/controller/api/ab.go` | 继续增强客户端兼容 |
 | 地址簿 CSV 导入导出 | 开发分支已实现，支持普通账户及管理员 | `service/address_book_csv.go`、`http/controller/admin/address_book_csv.go` | 更多第三方格式 |
 | 地址簿回收站 | 开发分支已实现删除、恢复和彻底删除 | `service/address_book_trash.go`、`http/controller/admin/address_book_trash.go` | 批量恢复 |
-| 连接日志、文件传输及告警 | 已实现基本功能；开发分支支持远程结束会话 | `service/audit.go`、`service/session_management.go` | 会话备注和更多查询条件 |
+| 连接日志、文件传输及告警 | 已实现主要日志、远程结束会话与历史连接备注 | `service/audit.go`、`service/session_management.go`、`service/audit_note.go` | 更多查询条件 |
 | WebClient v2、WebSocket、WebRTC | 已实现基本功能 | `resources/web2`、`resources/web/js` | 实际设备回归测试 |
 | 设备策略心跳同步 | 开发分支已实现三级分配及优先级 | `service/device_policy.go`、`service/device_policy_target.go` | 扩充更多客户端设置项 |
 | 官方客户端 `--assign` | 开发中 | `http/controller/api/device_commands.go` | 执行集成测试及兼容性检查 |

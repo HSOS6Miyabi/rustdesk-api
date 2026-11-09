@@ -156,3 +156,18 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 - [邀请注册、邮件找回及管理页面的最新综合测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)，通过。
 
 当前开发仓库对应 Server 开发提交仍是 [902293d](https://github.com/HSOS6Miyabi/rustdesk-server/commit/902293d49f17d831922237718ff389b3a1178267)。未创建里程碑版本标签或新的 Release。
+
+## 2026-11-09：历史连接备注
+
+新增管理员在已有连接记录中填写与修改备注的功能，备注会随连接日志一起查询和导出。原有连接 ID、会话信息与认证记录保持不变。
+
+| 仓库 | 提交 | 具体内容 |
+| --- | --- | --- |
+| API | [507210f](https://github.com/HSOS6Miyabi/rustdesk-api/commit/507210f3183b534db3858be3ccdc6a82939c69d5) | 为连接审计记录增加备注、更新人编号、HTTP 接口与网页编辑功能 |
+| API | [9664256](https://github.com/HSOS6Miyabi/rustdesk-api/commit/9664256840d3c89edc188abbf729f77cc7b59413) | 测试备注保存、清除、非法长度、CSV 导出和 Chromium 页面操作 |
+
+数据库 `audit_conns` 增加 `note`、`note_updated_by`；使用现有数据库迁移方式，旧连接记录保持可用。
+
+管理员通过 `POST /api/admin/audit_conn/note` 修改备注，最多 2000 个字符。管理操作自动记录在原有操作日志中。备注同样包含在 `GET /api/admin/audit/export?kind=audit_conn` 的 CSV 文件中。
+
+自动化测试见 [API 草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 的最新提交及 [GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42561282556)。这部分仅修改 API，无须更新 Server。

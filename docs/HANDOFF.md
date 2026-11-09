@@ -92,3 +92,9 @@
 读取 [功能清单](FEATURE_MATRIX.md) 中尚未完成的功能，首先检查 TOTP、邮箱登录验证、控制角色、多中继服务器与自定义客户端功能，并继续保持功能实现、前端操作、自动测试和文档记录同步更新。
 
 两个仓库仍处于草稿 PR 阶段。版本确认之前不发布 Release。
+
+## 历史连接备注
+
+`model/audit.go` 的 `AuditConn` 保存 `note` 和 `note_updated_by`。`service/audit_note.go` 按连接记录编号修改备注。管理员 HTTP 接口位于 `http/controller/admin/audit_note.go`，管理页面位于 `resources/admin/app.js` 的“全部连接记录”。
+
+执行 `go test ./service -run TestConnectionAuditNotes -count=1` 和 `go test ./http/controller/admin -run TestConnectionAuditNoteHTTPAndCSV -count=1` 检查备注与 CSV 导出，另使用 Chromium 管理界面测试确认编辑功能。

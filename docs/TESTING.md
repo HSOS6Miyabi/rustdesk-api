@@ -94,3 +94,13 @@ SMTP 测试在本地启动临时邮件服务并检查实际发送内容。密码
 最新代码的综合 CI：[GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)。
 
 正式投入使用前，应使用实际 SMTP 服务提供商测试发送、接收、TLS 连接与外部可访问的邀请链接。
+
+## 远程连接审计备注
+
+```bash
+go test ./service -run TestConnectionAuditNotes -count=1
+go test ./http/controller/admin -run TestConnectionAuditNoteHTTPAndCSV -count=1
+node --test resources/admin/browser.e2e.cjs
+```
+
+检查备注添加、修改、清除、长度限制、管理员界面保存以及历史连接 CSV 导出。测试同时确认原始连接编号和远程设备信息保留。

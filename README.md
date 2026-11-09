@@ -94,3 +94,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 ## 邮件与地址簿增强
 
 此开发分支支持地址簿 CSV 导入导出和回收站恢复、SMTP 邮件服务、用户密码恢复以及成员邮件邀请。相关页面包括“地址簿”“地址簿回收站”“SMTP 邮件服务”和“成员邮件邀请”。使用 SMTP 密码时，需要设置 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，完整配置参见 [部署与配置](docs/DEPLOYMENT.md)。
+
+## 连接记录备注
+
+管理员可在“全部连接记录”中为历史远程连接添加备注，记录用途和处理过程。连接记录导出 CSV 时也包含备注，方便日常归档。

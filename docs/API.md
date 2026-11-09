@@ -435,3 +435,21 @@ desk-123456,办公室电脑,office-pc,staff,Windows,0,work;remote,远程协助,t
 ```
 
 邀请仅能使用一次，注册的账户被加入邀请时指定的用户组。
+
+## 历史远程连接备注
+
+管理员可以在“全部连接记录”中选择某条连接，编辑备注。接口为：
+
+```http
+POST /api/admin/audit_conn/note
+```
+
+请求正文：
+
+```json
+{"id":123,"note":"帮助成员安装办公软件，连接完成"}
+```
+
+备注最多 2000 个字符，提交空字符串可清除备注。仅修改备注与更新人编号，保留原始连接时间、认证信息及会话编号。
+
+查询 `GET /api/admin/audit_conn/list` 返回 `note`、`note_updated_by`；`GET /api/admin/audit/export?kind=audit_conn` 下载的 CSV 也包含这两个字段。
