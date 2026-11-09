@@ -49,8 +49,10 @@ func (ct *Login) Login(c *gin.Context) {
 	}
 
 
-	if f.Type=="tfa_code" {
-		u,err:=service.CompleteTOTPLoginChallenge(f.Secret,f.Username,f.TfaCode)
+	if f.Type=="tfa_code" || f.Type=="email_code" {
+		code:=f.TfaCode
+		if code==""{code=f.VerificationCode}
+		u,err:=service.CompleteSecondFactorLogin(f.Secret,f.Username,code)
 		if err!=nil{
 			loginLimiter.RecordFailedAttempt(clientIp)
 			response.Fail(c,101,"动态验证码、恢复码或验证请求无效")
@@ -112,6 +114,20 @@ func (ct *Login) Login(c *gin.Context) {
 		loginLimiter.RemoveAttempts(clientIp)
 		response.Success(c,gin.H{
 			"type":"tfa_check","tfa_type":"tfa_check","secret":challenge,
+			"user":gin.H{"name":u.Username,"email":u.Email},
+		})
+		return
+	}
+
+
+	emailEnabled,err:=service.EmailLoginEnabled(u.Id,u.Email)
+	if err!=nil{response.Fail(c,101,"无法读取邮箱验证设置");return}
+	if emailEnabled{
+		challenge,err:=service.BeginEmailLogin(u.Id)
+		if err!=nil{response.Fail(c,101,"无法发送邮箱登录验证码");return}
+		loginLimiter.RemoveAttempts(clientIp)
+		response.Success(c,gin.H{
+			"type":"email_check","tfa_type":"email_check","secret":challenge,
 			"user":gin.H{"name":u.Username,"email":u.Email},
 		})
 		return

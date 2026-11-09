@@ -9,6 +9,7 @@ type Login struct {
 	Type string `json:"type"`
 	Secret string `json:"secret"`
 	TfaCode string `json:"tfaCode"`
+	VerificationCode string `json:"verificationCode"`
 }
 
 type LoginLogQuery struct {

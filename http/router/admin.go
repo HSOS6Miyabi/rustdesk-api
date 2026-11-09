@@ -29,6 +29,7 @@ func Init(g *gin.Engine) {
 	//FileBind(adg)
 	UserBind(adg)
 	TOTPBind(adg)
+	EmailVerificationBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
@@ -461,4 +462,13 @@ func TOTPBind(rg *gin.RouterGroup){
 	r.POST("/enable",controller.Enable)
 	r.POST("/disable",controller.Disable)
 	r.POST("/recovery/regenerate",controller.RegenerateRecoveryCodes)
+}
+
+func EmailVerificationBind(rg *gin.RouterGroup) {
+	controller:=&admin.EmailVerification{}
+	r:=rg.Group("/mfa/email")
+	r.GET("/status",controller.Status)
+	r.POST("/setup",controller.Setup)
+	r.POST("/enable",controller.Enable)
+	r.POST("/disable",controller.Disable)
 }

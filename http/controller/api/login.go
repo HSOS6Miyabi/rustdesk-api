@@ -50,7 +50,7 @@ func (l *Login) Login(c *gin.Context) {
 	if f.Type=="tfa_code"||f.Type=="email_code" {
 		code:=f.TfaCode
 		if code==""{code=f.VerificationCode}
-		user,err:=service.CompleteTOTPLoginChallenge(f.Secret,f.Username,code)
+		user,err:=service.CompleteSecondFactorLogin(f.Secret,f.Username,code)
 		if err!=nil{
 			loginLimiter.RecordFailedAttempt(clientIp)
 			response.Error(c,"动态验证码、恢复码或验证请求无效")
@@ -100,6 +100,19 @@ func (l *Login) Login(c *gin.Context) {
 		if err!=nil{response.Error(c,"无法创建双重认证请求");return}
 		c.JSON(http.StatusOK,gin.H{
 			"type":"email_check","tfa_type":"tfa_check","secret":challenge,
+			"user":(&apiResp.UserPayload{}).FromUser(u),
+		})
+		return
+	}
+
+
+	emailEnabled,err:=service.EmailLoginEnabled(u.Id,u.Email)
+	if err!=nil{response.Error(c,"无法读取邮箱验证设置");return}
+	if emailEnabled{
+		challenge,err:=service.BeginEmailLogin(u.Id)
+		if err!=nil{response.Error(c,"无法发送邮箱登录验证码");return}
+		c.JSON(http.StatusOK,gin.H{
+			"type":"email_check","tfa_type":"email_check","secret":challenge,
 			"user":(&apiResp.UserPayload{}).FromUser(u),
 		})
 		return
