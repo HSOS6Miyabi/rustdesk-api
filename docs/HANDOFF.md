@@ -162,7 +162,7 @@ Server：
 
 API 的 `RelayNode.Countries` 以逗号分隔保存两位国家代码，`EnabledRelayNodes` 向 hbbs 传输 `countries: ["JP","US"]`。该字段由数据库迁移版本 277 建立。
 
-Server 的 `src/geoip_country.rs` 读取 GeoLite2 Country CSV，`src/relay_policy.rs` 结合国家代码与精确 CIDR 规则选择中继。`src/rendezvous_server.rs` 在启动时载入数据，并使用本地控制命令 `reload-geo` 重新载入数据。
+Server 的 `src/geoip_country.rs` 读取 GeoLite2 Country MMDB 或 CSV，`src/relay_policy.rs` 结合国家代码与精确 CIDR 规则选择中继。`src/rendezvous_server.rs` 在启动时载入数据，并使用本地控制命令 `reload-geo` 重新载入数据。
 
 需要测试配置同步、地理位置选择和断线替代选择时，运行 `python3 scripts/test_managed_relays.py target/debug/hbbs`。
 
@@ -197,7 +197,7 @@ API 数据库迁移版本为 278，包含 `control_roles`、`control_role_assign
 
 管理员角色在迁移版本 279 中增加了 `admin_roles`、`admin_role_assignments`；当前开发分支数据库迁移版本为 280。系统管理员默认仍拥有全部权限。一个用户可被分配多个角色。
 
-限定范围只读角色目前支持 `users.view` 和 `devices.view`。其他操作需要全局角色。新增其他管理端点时，应先为 `AdminPermissionForRoute` 添加相应权限，再根据操作对象限制可访问的数据，避免扩大角色权限。
+限定用户或用户组范围的角色支持查看、修改和删除所辖账户与设备，并可以在两个均属授权范围的账户之间转移设备。相关权限为 `users.view`、`users.edit`、`users.delete`、`devices.view`、`devices.edit_info`、`devices.delete` 和 `devices.transfer`。账户修改不得改变所属用户组或管理员身份，设备修改不得更换设备标识；批量删除和设备转移会检查目标归属。新增其他管理端点时，应先在 `AdminPermissionForRoute` 中登记权限，再逐项检查操作对象的归属。
 
 继续开发时运行：
 
@@ -231,3 +231,10 @@ Server：
 模式默认关闭。开启前先在管理页面添加需要的允许规则，并确认测试账户能够成功登录。严格模式下只有有效账户登录令牌才能参与访问判断；目标设备须在 API 中登记。设备所有者可以访问自己设备，其他账户按规则判断，明确禁止优先于允许。
 
 提交和测试记录参见 [实施台账](IMPLEMENTATION_LEDGER.md)。实际桌面客户端测试应包括连接转发、中继连接及没有登录的客户端。
+
+## 本阶段新增的自动化与批量管理
+
+独立 API 令牌的权限在 `service/api_token.go` 中登记，验证由 `http/middleware/automation_auth.go` 执行，独立管理接口由 `http/router/automation.go` 注册。令牌所绑定的账户需保持系统管理员身份，权限不足的请求由中间件拒绝。详细权限及请求路径见 [API.md](API.md)。
+
+新增批量管理分别由 `service/address_book_batch.go`、`http/controller/admin/contact_batch.go`、`http/controller/admin/address_book_rule_batch.go`、`http/controller/admin/device_deployment_batch.go` 处理；管理页面统一在 `resources/admin/app.js`。新增操作在数据库事务中处理，并限制每次处理数量。开发时同时运行后端 Go 测试与浏览器交互测试。
+
