@@ -23,20 +23,20 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 当前已检查的代码提交 | [`05941578ae484a8e6e3cd2aec64c2fa3170ed843`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/05941578ae484a8e6e3cd2aec64c2fa3170ed843) | [`79146fe486b545ecae3925916d848cac21be42ee`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/79146fe486b545ecae3925916d848cac21be42ee) |
+| 最近通过自动测试的代码提交 | [`b0c03830d95cc97d9162447b99d5bf2c44f266c8`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/b0c03830d95cc97d9162447b99d5bf2c44f266c8) | [`6b064a21872e59b7e578c45238177c64079dac82`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/6b064a21872e59b7e578c45238177c64079dac82) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 功能代码 CI 检查 | [42587648927：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42587648927) | [42588361437：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42588361437) |
+| 综合 CI 检查 | [42620320903：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320903) | [42618004098：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42618004098) |
 | 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
 以上是已通过完整自动化测试的功能代码提交。文档修改可以产生更新的分支提交；部署时应同时查看两仓库分支最新提交、对应的 CI 结果和本台账记录。**API 与 Server 开发分支必须配合部署，不能直接把未发布的 API 功能与旧版 Server 混用并假定兼容。**
 
-当前 API 数据库迁移版本：**280**。当前状态：代码仍在草稿 PR 内，没有合并，没有发行新版本，也没有更新正式发行镜像。
+当前 API 数据库迁移版本：**282**。当前状态：代码仍在草稿 PR 内，没有合并，没有发行新版本，也没有更新正式发行镜像。
 
 CI 已实际通过的内容：
 
-- API：Go 测试、Go 编译、JavaScript 语法检查与单元测试、WebClient 连接组件构建、WebRTC 协议测试、Chromium 的桌面/平板/手机管理页面检查和 WebRTC 媒体测试。
-- Server：Rust 测试和 `hbbs`/`hbbr` 编译；真实进程 TCP、UDP、WebSocket 及 WebRTC 信令；严格设备登记、多中继及 GeoLite2、控制角色、可选连接授权测试。
+- API：Go 测试、Go 编译、JavaScript 语法及交互测试、WebClient 构建与 WebRTC 检查、Chromium 桌面/平板/手机页面操作、三种数据库模拟升级及官方 Windows 客户端安装程序完整性检查。
+- Server：Rust 编译及单元测试；实际 `hbbs`/`hbbr` 的 TCP、UDP、WebSocket、WebRTC 信令、登记及访问权限检查；AMD64/ARM64 的普通进程部署、Docker 组合部署、重启和数据保持测试。
 - CI **没有**替代对正式 SMTP、实际多平台桌面客户端、真实互联网中继部署和生产数据库的检查。其具体待办项目列于下文。
 
 ### 3. 功能实施状态
@@ -49,7 +49,7 @@ CI 已实际通过的内容：
 | F02 | 官方客户端 `--assign`、`--deploy` | 已实现接口和集成测试；真实客户端安装与部署待验证 | `http/controller/api/device_commands.go` |
 | F03 | 可选严格设备预先登记及撤销许可 | 已实现且真实 `hbbs` 进程测试通过；真实客户端待验证 | API `model/device_deployment.go`；Server `src/device_deployment.rs` |
 | F04 | `MUST_LOGIN` 下的连接和中继令牌校验 | 已实现，Server 协议测试通过 | Server `src/jwt.rs`、`src/rendezvous_server.rs` |
-| F05 | 设备、所属用户、设备组三层策略 | 已实现且 Go 与浏览器测试通过；更多客户端设置项待扩展 | `service/device_policy.go`、`service/device_policy_target.go` |
+| F05 | 设备、所属用户、设备组三层策略 | 已实现，含访问模式、键盘鼠标、剪贴板、文件传输及连接确认方式，Go 与浏览器测试通过 | `service/device_policy.go`、`service/device_policy_target.go` |
 | F06 | 活动远程连接与向客户端发送结束请求 | 已实现且心跳与浏览器测试通过；真实桌面会话待验证 | `service/session_management.go` |
 | F07 | 独立 API 管理令牌 | 已实现创建、到期、撤销、细分操作权限及专用自动化管理接口，测试通过 | `service/api_token.go`、`http/middleware/automation_auth.go`、`http/router/automation.go` |
 | F08 | 共享地址簿、附加群组、所有用户共享 | 已实现且接口测试通过 | `service/addressBook.go`、`http/controller/api/ab.go` |
@@ -61,10 +61,10 @@ CI 已实际通过的内容：
 | F14 | 多中继节点、按 CIDR 和国家代码选择 | 已实现，含实际 `hbbs` 进程测试 | Server `src/relay_policy.rs`；API `service/relay_node.go` |
 | F15 | 本地 GeoLite2 Country MMDB/CSV 识别 IPv4/IPv6、`reload-geo` | 已实现双格式读取与示例数据库测试；正式数据库由部署者提供 | Server `src/geoip_country.rs` |
 | F16 | 服务器集中连接访问规则 | 已实现且真实服务测试通过；默认关闭；实际客户端待验证 | API `service/connection_access.go`；Server `src/connection_access.rs` |
-| F17 | 连接、文件、登录与操作审计、历史连接备注和导出 | 已实现现有及新增功能，自动测试通过 | `service/audit.go`、`service/audit_note.go` |
+| F17 | 连接、文件、登录与操作审计、历史连接备注和导出 | 已实现，含设备清单 CSV、审计日期和设备筛选、历史连接备注，自动测试通过 | `service/audit.go`、`service/audit_note.go`、`http/controller/admin/peer_export.go` |
 | F18 | WebClient v2、WebSocket 和 WebRTC | 现有功能保留，CI 编译和浏览器测试通过；真实设备待验证 | `resources/web2`、`resources/web/js` |
-| F19 | 可视化自定义客户端构建器 | **尚未实现** | 需要构建服务、任务状态、产物管理及客户端安装包测试 |
-| F20 | GeoLite2 MMDB 读取、更多策略和 API 令牌功能、批量管理增强 | MMDB、独立令牌与四类批量管理已实现并通过自动化测试；策略扩充仍在待办事项中 | 见 T014 与 T015–T018 |
+| F19 | 可视化自定义客户端构建器 | 已实现 Windows x64/ARM64 配置、任务记录、官方安装程序 SHA-256 验证和下载，自动测试通过；真实 Windows 安装待检 | `service/client_build.go`、`service/client_build_worker.go`、`http/controller/admin/client_builder.go` |
+| F20 | GeoLite2 MMDB 读取、更多策略和 API 令牌功能、批量管理增强 | MMDB、客户端策略、独立管理令牌和四类批量管理已实现并通过自动化测试 | 见 T014–T018 |
 
 ### 4. 完整待办事项及处理顺序
 
@@ -77,23 +77,23 @@ CI 已实际通过的内容：
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
 | T004 | P0 | 待执行 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
-| T006 | P0 | 待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧版本数据备份升级至数据库版本 280，重点检查新增字段、群组关系、历史设备、审计和回收站 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
+| T006 | P0 | 三种数据库模拟升级通过；正式数据备份与恢复待检查 | 在 SQLite、MySQL、PostgreSQL 上从旧版本数据备份升级至数据库版本 280，重点检查新增字段、群组关系、历史设备、审计和回收站 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
-| T008 | P0 | 待执行 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
-| T009 | P0 | 待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
-| T010 | P0 | 待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
+| T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
+| T009 | P0 | Chromium 多设备自动测试及截图已完成；人工使用检查待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
+| T010 | P0 | 官方客户端 1.4.5/1.5.0/1.5.1 的命令字段检查通过；真实客户端测试待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
-| T013 | P1 | 尚未实现 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
-| T014 | P1 | 尚未实现 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
+| T013 | P1 | Windows 构建器已实现并通过自动测试；其他平台及真实安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
+| T014 | P1 | 已实现并通过心跳及界面自动测试；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
 | T016 | P1 | 已实现，CI 通过 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
 | T017 | P1 | 已实现，CI 通过 | 联系人、共享地址簿、设备部署和回收站的批量导入、共享、恢复及整理 | 管理界面能批量处理，失败时明确说明未成功的项目 |
 | T018 | P1 | 已实现，Rust CI 通过 | 可选 GeoLite2 MMDB 文件支持，并与现有 Country CSV 方式共存 | 两种数据库格式的国家判断结果一致，未配置时正常选择中继 |
-| T019 | P1 | 待完善 | 活动会话结束、登录异常、部署状态、文件传输等消息的邮件通知 | 管理员可选择通知项目，消息发送结果可以查询 |
-| T020 | P1 | 待完善 | 为设备、共享地址簿及连接审计增加更实用的筛选、导出及备注管理 | 小型团队可快速查询、导出和维护历史记录 |
-| T021 | P2 | 待研究 | 官方商业版新增功能与 RustDesk 客户端更新情况，定期更新功能清单 | 每个新增候选功能附使用场景、客户端版本和预计修改位置 |
-| T022 | P2 | 待完善 | 文档与界面的多语言、移动端操作、管理表格可读性 | 中文文档完整，其他语言与终端界面符合目标用户需求 |
+| T019 | P1 | 邮件通知及重试已实现，模拟 SMTP 测试通过；正式 SMTP 待检查 | 活动会话结束、登录异常、部署状态、文件传输等消息的邮件通知 | 管理员可选择通知项目，消息发送结果可以查询 |
+| T020 | P1 | 设备和审计筛选、CSV 导出及备注功能已实现，自动测试通过 | 为设备、共享地址簿及连接审计增加更实用的筛选、导出及备注管理 | 小型团队可快速查询、导出和维护历史记录 |
+| T021 | P2 | 官方 1.5.1 功能候选已整理；持续版本检查保留 | 官方商业版新增功能与 RustDesk 客户端更新情况，定期更新功能清单 | 每个新增候选功能附使用场景、客户端版本和预计修改位置 |
+| T022 | P2 | 中文管理界面及移动端新增页面测试通过；其他语言继续完善 | 文档与界面的多语言、移动端操作、管理表格可读性 | 中文文档完整，其他语言与终端界面符合目标用户需求 |
 
 P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继续在开发分支增加其他功能。**完成代码自动化测试与完成真实客户端验证分别记录，不得互相代替。**
 
@@ -706,3 +706,51 @@ Server 通过带内部密钥的 POST 请求，将设备 ID 和客户端登录令
 - 在相应分支运行 Go、Rust、浏览器及双架构容器测试。MMDB 验证示例位于 Server 的 `tests/fixtures`，正式地理数据库仍由部署人员提供。
 - T001–T010、T012 需要实际客户端、SMTP、数据库或发布审核的项目仍按第 4 节执行。T013、T014、T019–T022 后续事项保持在待办清单中。
 - 两个拉取请求继续保持草稿，所有日常开发提交不得发布 Release 或正式 Docker 镜像。
+
+
+## 2026-11-09：客户端构建、邮件通知、设备策略及部署检查
+
+本阶段已实现 P1 类别的 T013–T020 中列出的主要管理功能，并完成对应自动化测试。正式发布前仍需完成真实客户端、实际邮箱、公网中继与数据库备份恢复检查。以下记录当前开发代码的功能和验证范围。
+
+### Windows 客户端安装程序
+
+客户端构建页面支持保存服务器地址、公钥、API 和中继地址，选择 Windows x64 或 ARM64，创建安装包任务、查看任务记录、重新执行未成功任务及下载已准备好的安装程序。构建服务保留 RustDesk 1.5.1 官方 EXE 原始字节，根据官方客户端支持的文件名格式保存服务器配置。程序在下载官方文件时核对大小与 SHA-256，管理员下载时再次核对文件完整性。
+
+关键文件：`model/client_build.go`、`service/client_build.go`、`service/client_build_worker.go`、`http/controller/admin/client_builder.go`、`resources/admin/app.js`。
+
+- [官方安装程序核对及 Go 单元测试 #42620321148](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620321148)：通过。
+- [Chromium 桌面、平板与手机交互及截图检查 #42620320903](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320903)：通过。
+- Linux、macOS 的安装程序制作及真实 Windows 安装、运行和连接检查，继续在发布前任务中执行。
+
+### 邮件通知与管理数据
+
+邮件事件通知已覆盖登录失败、设备登记许可变化、远程会话结束请求与确认、文件传输记录。管理员可选择事件和收件人、查看发送记录并重新提交失败邮件。发送处理与原有业务请求分开，模拟 SMTP、重复事件处理及失败重试已通过测试。数据库版本 281 新增邮件通知表。
+
+设备管理新增筛选及 CSV 导出，审计记录支持时间、设备、来源账户和连接事件筛选。联系人、地址簿共享、设备许可和回收站批量管理已完成，批量修改使用数据库事务检查。
+
+- [API 综合检查 #42620320903](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320903)：通过。
+- 正式 SMTP 服务商的实际收件、邀请链接和账户恢复流程仍按 T007 检查。
+
+### 客户端策略和数据库版本
+
+设备安全策略增加访问模式、键盘鼠标、剪贴板、文件传输和连接确认方式。API 记录受服务器管理的选项，支持更新和清除。数据库版本 282 新增客户端构建配置和任务记录。
+
+在临时 SQLite、MySQL 8.4、PostgreSQL 16 上模拟旧结构升级，检查策略、审计和构建任务保存，并验证重复迁移：
+
+- [数据库兼容检查 #42620320922](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42620320922)：通过。
+- 正式部署前备份数据库、检验恢复流程、确认所用数据库版本和旧数据完整性，仍属于 T006。
+
+### 普通进程与 Docker 的双架构检查
+
+Server 通过普通进程启动 API、`hbbs`、`hbbr`，检查 TCP、UDP、WebSocket、WebClient、服务重启、账户及数据库保持。Docker 测试覆盖 AMD64、ARM64，验证容器重建及 API 数据与服务器密钥保存。
+
+- [Server 实际服务测试 #42618004098](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42618004098)：通过。
+- [双架构组合服务与数据保存检查 #42618003889](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42618003889)：通过。
+
+### 客户端版本与界面
+
+根据 RustDesk 1.4.5、1.5.0、1.5.1 的官方源代码检查 `--assign`、`--deploy` 请求字段及返回状态。1.4.5 可使用所检查的 `--assign` 参数；1.5.0 与 1.5.1 同时支持这两项命令。核对程序位于 `scripts/verify_upstream_client_commands.py`。官方 1.5.1 新增功能和兼容性候选记录于 [UPSTREAM_FEATURE_WATCH.md](UPSTREAM_FEATURE_WATCH.md)。
+
+Chromium 检查已保存客户端构建器及邮件通知的桌面、平板、手机截图。多平台真实设备登录、远程操作及其他语言支持仍按 T002、T003、T009、T010 和 T022 检查。
+
+两个仓库继续使用草稿 PR，未创建新版本标签、Release 或正式 Docker 镜像。
