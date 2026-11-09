@@ -1,9 +1,11 @@
 package jwt
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	gojwt "github.com/golang-jwt/jwt/v5"
 )
 
 var pk = `-----BEGIN RSA PRIVATE KEY-----
@@ -41,7 +43,9 @@ func TestGenerateToken(t *testing.T) {
 	if token == "" {
 		t.Fatal("token生成失败")
 	}
-	fmt.Println(pk, token)
+	if strings.Count(token, ".") != 2 {
+		t.Fatal("JWT must contain three signed segments")
+	}
 }
 
 // 测试token解析
@@ -77,4 +81,31 @@ func BenchmarkJwtService_ParseToken(b *testing.B) {
 		_, _ = jwtService.ParseToken(token)
 	}
 
+}
+
+
+func TestLoginTokensAreUniqueAndSigned(t *testing.T) {
+	key := "isolated-hs256-test-key-with-sufficient-entropy"
+	issuer := NewJwt(key, time.Hour)
+	seen := make(map[string]bool)
+	for i := 0; i < 64; i++ {
+		token := issuer.GenerateToken(42)
+		if token == "" || seen[token] {
+			t.Fatal("login tokens must be independently generated")
+		}
+		seen[token] = true
+		parsed, err := gojwt.ParseWithClaims(token, &UserClaims{}, func(token *gojwt.Token) (interface{}, error) {
+			return []byte(key), nil
+		}, gojwt.WithValidMethods([]string{gojwt.SigningMethodHS256.Alg()}))
+		if err != nil || !parsed.Valid {
+			t.Fatalf("valid login token rejected: %v", err)
+		}
+		claims, ok := parsed.Claims.(*UserClaims)
+		if !ok || claims.UserId != 42 || claims.ID == "" {
+			t.Fatal("login token is missing the account or unique identifier")
+		}
+		if account, err := issuer.ParseToken(token); err != nil || account != 42 {
+			t.Fatalf("login token could not be verified: %v", err)
+		}
+	}
 }

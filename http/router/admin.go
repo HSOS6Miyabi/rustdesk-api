@@ -28,10 +28,23 @@ func Init(g *gin.Engine) {
 	adg.Use(middleware.BackendUserAuth(),middleware.RecordOperations())
 	//FileBind(adg)
 	UserBind(adg)
+	TOTPBind(adg)
+	EmailVerificationBind(adg)
+	RelayNodesBind(adg)
+	ControlRolesBind(adg)
+	AdminRolesBind(adg)
+	AccessRulesBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
 	PeerBind(adg)
+	admin.DeviceDeploymentBind(adg)
+	DeviceSessionsBind(adg)
+	APITokenBind(adg)
+	MailBind(adg)
+	NotificationsBind(adg)
+	ClientBuilderBind(adg)
+	InvitationBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)
@@ -71,6 +84,9 @@ func RustdeskCmdBind(adg *gin.RouterGroup) {
 func LoginBind(rg *gin.RouterGroup) {
 	cont := &admin.Login{}
 	rg.POST("/login", cont.Login)
+	rg.POST("/password/forgot", (&admin.PasswordRecovery{}).Request)
+	rg.POST("/password/reset", (&admin.PasswordRecovery{}).Complete)
+	rg.POST("/invite/accept", (&admin.Invitation{}).Accept)
 	rg.GET("/captcha", cont.Captcha)
 	rg.POST("/logout", cont.Logout)
 	rg.GET("/login-options", cont.LoginOptions)
@@ -97,6 +113,7 @@ func UserBind(rg *gin.RouterGroup) {
 		aRP.POST("/update", cont.Update)
 		aRP.POST("/delete", cont.Delete)
 		aRP.POST("/changePwd", cont.UpdatePassword)
+		aRP.POST("/mfa/reset", cont.ResetSecondFactors)
 	}
 }
 
@@ -154,6 +171,13 @@ func AddressBookBind(rg *gin.RouterGroup) {
 		arp.POST("/delete", cont.Delete)
 		arp.POST("/batchCreate", cont.BatchCreate)
 		arp.POST("/batchCreateFromPeers", cont.BatchCreateFromPeers)
+		arp.GET("/export", (&admin.AddressBookCSV{}).AdminExport)
+		arp.POST("/import", (&admin.AddressBookCSV{}).AdminImport)
+		arp.GET("/trash/list", (&admin.AddressBookTrash{}).AdminList)
+		arp.POST("/trash/restore", (&admin.AddressBookTrash{}).AdminRestore)
+		arp.POST("/trash/purge", (&admin.AddressBookTrash{}).AdminPurge)
+		arp.POST("/trash/batchRestore", (&admin.AddressBookTrash{}).AdminBatchRestore)
+		arp.POST("/trash/batchPurge", (&admin.AddressBookTrash{}).AdminBatchPurge)
 
 	}
 }
@@ -164,9 +188,11 @@ func PeerBind(rg *gin.RouterGroup) {
 	{
 		cont := &admin.Peer{}
 		aR.GET("/list", cont.List)
+		aR.GET("/export", cont.ExportCSV)
 		aR.GET("/detail/:id", cont.Detail)
 		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
+		aR.POST("/transfer", cont.Transfer)
 		aR.POST("/delete", cont.Delete)
 		aR.POST("/batchDelete", cont.BatchDelete)
 	}
@@ -205,6 +231,7 @@ func AuditBind(rg *gin.RouterGroup) {
 	cont := &admin.Audit{}
 	aR := rg.Group("/audit_conn").Use(middleware.AdminPrivilege())
 	aR.GET("/list", cont.ConnList)
+	aR.POST("/note", cont.UpdateNote)
 	aR.POST("/delete", cont.ConnDelete)
 	aR.POST("/batchDelete", cont.BatchConnDelete)
 	afR := rg.Group("/audit_file").Use(middleware.AdminPrivilege())
@@ -283,6 +310,13 @@ func MyBind(rg *gin.RouterGroup) {
 		rg.POST("/my/address_book/delete", cont.Delete)
 		rg.POST("/my/address_book/batchCreateFromPeers", cont.BatchCreateFromPeers)
 		rg.POST("/my/address_book/batchUpdateTags", cont.BatchUpdateTags)
+		rg.GET("/my/address_book/export", (&admin.AddressBookCSV{}).MyExport)
+		rg.POST("/my/address_book/import", (&admin.AddressBookCSV{}).MyImport)
+		rg.GET("/my/address_book/trash/list", (&admin.AddressBookTrash{}).MyList)
+		rg.POST("/my/address_book/trash/restore", (&admin.AddressBookTrash{}).MyRestore)
+		rg.POST("/my/address_book/trash/purge", (&admin.AddressBookTrash{}).MyPurge)
+		rg.POST("/my/address_book/trash/batchRestore", (&admin.AddressBookTrash{}).MyBatchRestore)
+		rg.POST("/my/address_book/trash/batchPurge", (&admin.AddressBookTrash{}).MyBatchPurge)
 	}
 
 	{
@@ -307,6 +341,7 @@ func MyBind(rg *gin.RouterGroup) {
 		rg.POST("/my/address_book_collection_rule/create", cont.Create)
 		rg.POST("/my/address_book_collection_rule/update", cont.Update)
 		rg.POST("/my/address_book_collection_rule/delete", cont.Delete)
+		rg.POST("/my/address_book_collection_rule/batch", (&admin.AddressBookCollectionRule{}).BatchPersonalShares)
 	}
 	{
 		cont := &my.Peer{}
@@ -339,6 +374,7 @@ func ContactBind(rg *gin.RouterGroup) {
 	r.GET("/list", c.List)
 	r.POST("/add", c.Add)
 	r.POST("/delete", c.Delete)
+	r.POST("/batch", c.Batch)
 }
 
 func SharedDevicesBind(rg *gin.RouterGroup) {
@@ -391,4 +427,134 @@ func DevicePolicyBind(rg *gin.RouterGroup) {
 	adm.POST("/assignment/create",handler.AssignmentCreate)
 	adm.POST("/assignment/update",handler.AssignmentUpdate)
 	adm.POST("/assignment/delete",handler.AssignmentDelete)
+	adm.GET("/user_assignment/list",handler.UserAssignmentList)
+	adm.POST("/user_assignment/create",handler.UserAssignmentCreate)
+	adm.POST("/user_assignment/update",handler.UserAssignmentUpdate)
+	adm.POST("/user_assignment/delete",handler.UserAssignmentDelete)
+	adm.GET("/group_assignment/list",handler.GroupAssignmentList)
+	adm.POST("/group_assignment/create",handler.GroupAssignmentCreate)
+	adm.POST("/group_assignment/update",handler.GroupAssignmentUpdate)
+	adm.POST("/group_assignment/delete",handler.GroupAssignmentDelete)
+}
+
+func DeviceSessionsBind(rg *gin.RouterGroup) {
+	handler:=&admin.DeviceSessions{}
+	r:=rg.Group("/session").Use(middleware.AdminPrivilege())
+	r.GET("/list",handler.List)
+	r.POST("/disconnect",handler.Disconnect)
+	r.GET("/disconnect/list",handler.Requests)
+}
+
+func APITokenBind(rg *gin.RouterGroup){
+	handler:=&admin.APITokens{}
+	r:=rg.Group("/api_token").Use(middleware.AdminPrivilege())
+	r.GET("/list",handler.List)
+	r.POST("/create",handler.Create)
+	r.POST("/delete",handler.Delete)
+}
+
+func MailBind(rg *gin.RouterGroup) {
+	controller:=&admin.Mail{}
+	r:=rg.Group("/mail").Use(middleware.AdminPrivilege())
+	r.GET("/settings",controller.Settings)
+	r.POST("/settings",controller.Save)
+	r.POST("/test",controller.Test)
+}
+
+func InvitationBind(rg *gin.RouterGroup){
+	controller:=&admin.Invitation{}
+	r:=rg.Group("/invite").Use(middleware.AdminPrivilege())
+	r.GET("/list",controller.List)
+	r.POST("/create",controller.Create)
+	r.POST("/revoke",controller.Revoke)
+}
+
+func TOTPBind(rg *gin.RouterGroup){
+	controller:=&admin.TOTP{}
+	r:=rg.Group("/mfa")
+	r.GET("/status",controller.Status)
+	r.POST("/setup",controller.Setup)
+	r.POST("/enable",controller.Enable)
+	r.POST("/disable",controller.Disable)
+	r.POST("/recovery/regenerate",controller.RegenerateRecoveryCodes)
+}
+
+func EmailVerificationBind(rg *gin.RouterGroup) {
+	controller:=&admin.EmailVerification{}
+	r:=rg.Group("/mfa/email")
+	r.GET("/status",controller.Status)
+	r.POST("/setup",controller.Setup)
+	r.POST("/enable",controller.Enable)
+	r.POST("/disable",controller.Disable)
+}
+
+func RelayNodesBind(rg *gin.RouterGroup) {
+	controller:=&admin.RelayNodes{}
+	r:=rg.Group("/relay").Use(middleware.AdminPrivilege())
+	r.GET("/list",controller.List)
+	r.POST("/create",controller.Create)
+	r.POST("/update",controller.Update)
+	r.POST("/delete",controller.Delete)
+}
+
+func ControlRolesBind(rg *gin.RouterGroup) {
+	roles:=&admin.ControlRoles{}
+	ro:=rg.Group("/control_role").Use(middleware.AdminPrivilege())
+	ro.GET("/list",roles.List)
+	ro.POST("/create",roles.Create)
+	ro.POST("/update",roles.Update)
+	ro.POST("/delete",roles.Delete)
+	ro.GET("/effective",roles.Effective)
+	assignments:=&admin.ControlAssignments{}
+	ar:=rg.Group("/control_assignment").Use(middleware.AdminPrivilege())
+	ar.GET("/list",assignments.List)
+	ar.POST("/create",assignments.Create)
+	ar.POST("/update",assignments.Update)
+	ar.POST("/delete",assignments.Delete)
+}
+
+func AdminRolesBind(rg *gin.RouterGroup) {
+	roles:=&admin.AdminRoles{}
+	r:=rg.Group("/admin_role").Use(middleware.AdminPrivilege())
+	r.GET("/catalog",roles.Catalog)
+	r.GET("/list",roles.List)
+	r.POST("/create",roles.Create)
+	r.POST("/update",roles.Update)
+	r.POST("/delete",roles.Delete)
+	assignments:=&admin.AdminRoleAssignments{}
+	ar:=rg.Group("/admin_role_assignment").Use(middleware.AdminPrivilege())
+	ar.GET("/list",assignments.List)
+	ar.POST("/create",assignments.Create)
+	ar.POST("/update",assignments.Update)
+	ar.POST("/delete",assignments.Delete)
+}
+
+func AccessRulesBind(rg *gin.RouterGroup) {
+	rules:=&admin.AccessRules{}
+	r:=rg.Group("/access_rule").Use(middleware.AdminPrivilege())
+	r.GET("/list",rules.List)
+	r.POST("/create",rules.Create)
+	r.POST("/update",rules.Update)
+	r.POST("/delete",rules.Delete)
+}
+
+func NotificationsBind(rg *gin.RouterGroup) {
+	cont := &admin.Notifications{}
+	r := rg.Group("/notification").Use(middleware.AdminPrivilege())
+	r.GET("/settings", cont.Settings)
+	r.POST("/settings", cont.Save)
+	r.GET("/list", cont.List)
+	r.POST("/retry", cont.Retry)
+}
+
+func ClientBuilderBind(rg *gin.RouterGroup) {
+	handler := &admin.ClientBuilder{}
+	r := rg.Group("/client_builder").Use(middleware.AdminPrivilege())
+	r.GET("/profiles", handler.Profiles)
+	r.POST("/profiles", handler.SaveProfile)
+	r.POST("/profiles/delete", handler.DeleteProfile)
+	r.GET("/tasks", handler.Tasks)
+	r.POST("/tasks", handler.Queue)
+	r.POST("/tasks/retry", handler.Retry)
+	r.GET("/tasks/:id/download", handler.Download)
 }

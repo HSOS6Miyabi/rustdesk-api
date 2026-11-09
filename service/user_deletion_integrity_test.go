@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"strconv"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
 )
@@ -12,7 +13,12 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 	if err:=DB.AutoMigrate(
 		&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},&model.Tag{},
-		&model.UserToken{},&model.ShareRecord{},
+		&model.UserToken{},&model.ShareRecord{},&model.APIToken{},
+		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
+		&model.PasswordResetToken{},&model.UserInvitation{},&model.ControlRole{},&model.ControlRoleAssignment{},
+		&model.AdminRole{},&model.AdminRoleAssignment{},
+		&model.AccessRule{},
+		&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
 		cleanup()
@@ -40,8 +46,40 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	}
 	peer:=&model.Peer{Id:"owned-device",UserId:owner.Id,Hostname:"Owner's PC"}
 	if err:=DB.Create(peer).Error;err!=nil{t.Fatal(err)}
+	for _,rule:=range []*model.AccessRule{
+		{Name:"Account access",SourceType:"user",SourceID:owner.Id,
+			TargetType:"all",Effect:"allow",Enabled:true},
+		{Name:"Target owner",SourceType:"all",TargetType:"user",
+			TargetID:strconv.FormatUint(uint64(owner.Id),10),Effect:"allow",Enabled:true},
+		{Name:"Owned group",SourceType:"group",SourceID:group.Id,
+			TargetType:"all",Effect:"allow",Enabled:true},
+	}{
+		if err:=DB.Create(rule).Error;err!=nil{t.Fatal(err)}
+	}
+	role:=&model.ControlRole{Name:"Account control",Keyboard:1}
+	if err:=DB.Create(role).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.Create(&model.ControlRoleAssignment{
+		TargetType:"user",TargetId:strconv.FormatUint(uint64(owner.Id),10),RoleId:role.Id,
+	}).Error;err!=nil{t.Fatal(err)}
+	adminRole:=&model.AdminRole{Name:"One account",Permissions:"users.view",ScopeType:AdminScopeIndividual,ScopeId:owner.Id,Enabled:true}
+	if err:=DB.Create(adminRole).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.Create(&model.AdminRoleAssignment{UserId:owner.Id,RoleId:adminRole.Id}).Error;err!=nil{t.Fatal(err)}
+	if err:=DB.Create(&model.AdminRoleAssignment{UserId:other.Id,RoleId:adminRole.Id}).Error;err!=nil{t.Fatal(err)}
 	if err:=DB.Create(&model.UserToken{UserId:owner.Id,Token:"old-session",ExpiredAt:4102444800}).Error;err!=nil{
 		t.Fatal(err)
+	}
+	for _,row:=range []interface{}{
+		&model.UserTOTP{UserId:owner.Id,Enabled:true,SecretCiphertext:"sample-encrypted-secret"},
+		&model.TOTPRecoveryCode{UserId:owner.Id,CodeHash:"sample-recovery-hash"},
+		&model.TOTPLoginChallenge{UserId:owner.Id,TokenHash:"sample-challenge-hash",ExpiresAt:4102444800},
+		&model.PasswordResetToken{UserId:owner.Id,TokenHash:"sample-password-reset",ExpiresAt:4102444800},
+		&model.EmailLoginSetting{UserId:owner.Id,Enabled:true,VerifiedEmail:"owner@example.test"},
+		&model.EmailCodeChallenge{UserId:owner.Id,Email:"owner@example.test",Purpose:"login",
+			TokenHash:"sample-email-token-hash",CodeHash:"sample-email-code-hash",ExpiresAt:4102444800},
+		&model.UserInvitation{Email:"invited@example.test",CreatedBy:owner.Id,GroupId:2,
+			TokenHash:"sample-invitation",ExpiresAt:4102444800},
+	}{
+		if err:=DB.Create(row).Error;err!=nil{t.Fatal(err)}
 	}
 	if err:=DB.Create(&model.AuditConn{
 		ConnId:2,PeerId:"owned-device",FromPeer:"remote-peer",
@@ -73,11 +111,44 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	if err:=DB.Model(&model.UserToken{}).Where("user_id = ?",owner.Id).Count(&count).Error;err!=nil||count!=0{
 		t.Fatalf("stale login session remains: %d %v",count,err)
 	}
+	for _,table:=range []interface{}{
+		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
+		&model.PasswordResetToken{},&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
+	}{
+		if err:=DB.Model(table).Where("user_id = ?",owner.Id).Count(&count).Error;err!=nil||count!=0{
+			t.Fatalf("user authentication data remains in %T: %d %v",table,count,err)
+		}
+	}
+	var revoked model.UserInvitation
+	if err:=DB.Where("created_by = ?",owner.Id).First(&revoked).Error;err!=nil||revoked.RevokedAt==0{
+		t.Fatalf("invitation issued by a deleted user remains valid: %+v %v",revoked,err)
+	}
 	if err:=DB.Model(&model.AddressBookCollectionRule{}).Where(
 		"(type = ? AND to_id = ?) OR (type = ? AND to_id = ?)",
 		model.ShareAddressBookRuleTypeGroup,group.Id,
 		model.ShareAddressBookRuleTypePersonal,owner.Id,
 	).Count(&count).Error;err!=nil||count!=0{t.Fatalf("stale shared address book grant remains: %d %v",count,err)}
+
+	if err:=DB.Model(&model.ControlRoleAssignment{}).
+		Where("target_type = ? AND target_id = ?","user",strconv.FormatUint(uint64(owner.Id),10)).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account still has assigned control role: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AdminRoleAssignment{}).Where("user_id = ?",owner.Id).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account still has management role assignment: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AdminRole{}).Where("id = ?",adminRole.Id).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account retained individual management role: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AdminRoleAssignment{}).Where("role_id = ?",adminRole.Id).
+		Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted role retained assignments for other accounts: %d %v",count,err)
+	}
+	if err:=DB.Model(&model.AccessRule{}).Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("deleted account and owned group left %d connection access rules: %v",count,err)
+	}
 	var preservedPeer model.Peer
 	if err:=DB.Where("id = ?",peer.Id).First(&preservedPeer).Error;err!=nil||preservedPeer.UserId!=0 {
 		t.Fatalf("device was not detached: %+v %v",preservedPeer,err)

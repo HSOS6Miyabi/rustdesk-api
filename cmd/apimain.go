@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 273
+const DatabaseVersion = 282
 
 // @title 管理系统API
 // @version 1.0
@@ -212,6 +212,8 @@ func InitGlobal() {
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
 	service.StartAuditMaintenance()
+	service.StartNotificationWorker()
+	service.StartClientBuildWorker()
 }
 
 func DatabaseAutoUpdate() {
@@ -312,6 +314,30 @@ func Migrate(version uint) {
 		&model.AuditRetentionPolicy{},
 		&model.DevicePolicy{},
 		&model.DevicePolicyAssignment{},
+		&model.DevicePolicyUserAssignment{},
+		&model.DevicePolicyGroupAssignment{},
+		&model.DeviceDeployment{},
+		&model.DeviceActiveConnection{},
+		&model.DeviceDisconnectRequest{},
+		&model.APIToken{},
+		&model.SMTPSetting{},
+		&model.NotificationSetting{},
+		&model.NotificationDelivery{},
+		&model.ClientBuildProfile{},
+		&model.ClientBuildTask{},
+		&model.PasswordResetToken{},
+		&model.UserInvitation{},
+		&model.UserTOTP{},
+		&model.TOTPRecoveryCode{},
+		&model.TOTPLoginChallenge{},
+		&model.EmailLoginSetting{},
+		&model.EmailCodeChallenge{},
+		&model.RelayNode{},
+		&model.ControlRole{},
+		&model.ControlRoleAssignment{},
+		&model.AdminRole{},
+		&model.AdminRoleAssignment{},
+		&model.AccessRule{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
@@ -319,6 +345,7 @@ func Migrate(version uint) {
 	)
 	if err != nil {
 		global.Logger.Error("migrate err :=>", err)
+		return
 	}
 	global.DB.Create(&model.Version{Version: version})
 	//如果是初次则创建一个默认用户

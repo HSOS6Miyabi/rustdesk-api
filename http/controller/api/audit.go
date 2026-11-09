@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	request "github.com/lejianwen/rustdesk-api/v2/http/request/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
@@ -49,9 +50,11 @@ func (a *Audit) AuditFile(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	if err := service.AllService.AuditService.SaveAuditFile(form.ToAuditFile()); err != nil {
+	record := form.ToAuditFile()
+	if err := service.AllService.AuditService.SaveAuditFile(record); err != nil {
 		response.Error(c, err.Error())
 		return
 	}
+	service.NotifyEvent("audit.file",fmt.Sprintf("audit-file:%d:%s:%s",record.Id,record.PeerId,record.FromPeer),fmt.Sprintf("设备 %s 记录了来自设备 %s 的文件传输",record.PeerId,record.FromPeer))
 	response.Success(c, "")
 }

@@ -91,7 +91,7 @@ func (abcr *AddressBookCollectionRule) Create(c *gin.Context) {
 		response.Fail(c, 101, errList[0])
 		return
 	}
-	if f.Type != model.ShareAddressBookRuleTypePersonal && f.Type != model.ShareAddressBookRuleTypeGroup {
+	if f.Type != model.ShareAddressBookRuleTypePersonal && f.Type != model.ShareAddressBookRuleTypeGroup && f.Type != model.ShareAddressBookRuleTypeAll {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
@@ -131,11 +131,15 @@ func (abcr *AddressBookCollectionRule) CheckForm(t *model.AddressBookCollectionR
 		if tog.Id == 0 {
 			return "ItemNotFound", false
 		}
+	} else if t.Type == model.ShareAddressBookRuleTypeAll {
+		if t.ToId != 0 {
+			return "ParamsError", false
+		}
 	} else {
 		return "ParamsError", false
 	}
 	// 重复检查
-	ex := service.AllService.AddressBookService.RuleInfoByToIdAndCid(t.Type, t.ToId, t.CollectionId)
+	ex := service.AllService.AddressBookService.RuleInfoByOwnerAndTarget(t.UserId, t.Type, t.ToId, t.CollectionId)
 	if t.Id == 0 && ex.Id > 0 {
 		return "ItemExists", false
 	}

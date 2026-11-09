@@ -5,10 +5,12 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
+	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/service"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
+	"strings"
 )
 
 type Peer struct {
@@ -30,6 +32,13 @@ func (ct *Peer) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.PeerService.InfoByRowId(uint(iid))
 	if u.RowId > 0 {
+		if scopeAny,ok:=c.Get("adminRoleScope");ok {
+			scope,valid:=scopeAny.(service.AdminRoleAccess)
+			if !valid||!service.ScopeCanViewUser(scope,u.UserId){
+				response.Fail(c,403,"当前账户无权查看该记录")
+				return
+			}
+		}
 		response.Success(c, u)
 		return
 	}
@@ -90,6 +99,37 @@ func (ct *Peer) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	if scopeAny,ok:=c.Get("adminRoleScope");ok {
+		scope,valid:=scopeAny.(service.AdminRoleAccess)
+		if !valid||(!scope.Global&&len(scope.UserIDs)==0){
+			response.Fail(c,403,"当前账户无权查看该记录")
+			return
+		}
+		if !scope.Global{
+			records:=&model.PeerList{}
+			records.Page=int64(query.Page)
+			records.PageSize=int64(query.PageSize)
+			tx:=service.DB.Model(&model.Peer{}).Where("user_id IN ?",scope.UserIDs)
+			if query.Id!=""{tx=tx.Where("id LIKE ?","%"+query.Id+"%")}
+			if query.Hostname!=""{tx=tx.Where("hostname LIKE ?","%"+query.Hostname+"%")}
+			if query.Username!=""{tx=tx.Where("username LIKE ?","%"+query.Username+"%")}
+			if query.Ip!=""{tx=tx.Where("last_online_ip LIKE ?","%"+query.Ip+"%")}
+			if query.Alias!=""{tx=tx.Where("alias LIKE ?","%"+query.Alias+"%")}
+			if query.TimeAgo!=0 {
+				lt:=time.Now().Unix()-int64(query.TimeAgo)
+				if query.TimeAgo>0{tx=tx.Where("last_online_time < ?",lt)
+				}else{tx=tx.Where("last_online_time > ?",lt)}
+			}
+			if query.Uuids!=""{
+				tx=tx.Where("uuid IN ?",strings.Split(query.Uuids,","))
+			}
+			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
+			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize)).
+				Find(&records.Peers).Error;err!=nil{response.Error(c,err.Error());return}
+			response.Success(c,records)
+			return
+		}
+	}
 	res := service.AllService.PeerService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		if query.TimeAgo > 0 {
 			lt := time.Now().Unix() - int64(query.TimeAgo)
@@ -142,6 +182,15 @@ func (ct *Peer) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
+	if hasScopedManagementRole(c) {
+		current := service.AllService.PeerService.InfoByRowId(f.RowId)
+		if current.RowId == 0 || !scopedManagement(c, current.UserId) ||
+			(f.Id != "" && f.Id != current.Id) ||
+			(f.Uuid != "" && f.Uuid != current.Uuid) {
+			response.Fail(c, 403, "当前账户无权修改此设备或其身份信息")
+			return
+		}
+	}
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {
 		response.Fail(c, 101, errList[0])
@@ -180,6 +229,10 @@ func (ct *Peer) Delete(c *gin.Context) {
 		return
 	}
 	u := service.AllService.PeerService.InfoByRowId(f.RowId)
+	if hasScopedManagementRole(c) && (u.RowId == 0 || !scopedManagement(c, u.UserId)) {
+		response.Fail(c, 403, "当前账户无权删除此设备")
+		return
+	}
 	if u.RowId > 0 {
 		err := service.AllService.PeerService.Delete(u)
 		if err == nil {
@@ -212,6 +265,25 @@ func (ct *Peer) BatchDelete(c *gin.Context) {
 	if len(f.RowIds) == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
+	}
+	if hasScopedManagementRole(c) {
+		var peers []model.Peer
+		if err := service.DB.Where("row_id IN ?", f.RowIds).Find(&peers).Error; err != nil {
+			response.Fail(c, 101, err.Error())
+			return
+		}
+		unique := make(map[uint]struct{}, len(f.RowIds))
+		for _, id := range f.RowIds { unique[id] = struct{}{} }
+		if len(peers) != len(unique) {
+			response.Fail(c, 403, "部分设备不存在或不在允许的管理范围内")
+			return
+		}
+		for _, peer := range peers {
+			if !scopedManagement(c, peer.UserId) {
+				response.Fail(c, 403, "部分设备不在允许的管理范围内")
+				return
+			}
+		}
 	}
 	err := service.AllService.PeerService.BatchDelete(f.RowIds)
 	if err != nil {

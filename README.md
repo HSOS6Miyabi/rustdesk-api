@@ -1,5 +1,7 @@
 # RustDesk API
 
+> **交接入口：[最新开发交接快照](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[统一实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 逐项测试记录](docs/TASK_VERIFICATION_RECORD.md)。** 当前功能位于两个仓库的 `development/m1-device-management` 开发分支，正式里程碑尚未确认，日常提交不发布 Release。
+
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
 本项目提供设备和用户管理、地址簿、联系人共享、远程访问记录、OIDC/SSO 登录、WebClient v2，以及适合电脑和平板、手机使用的管理界面。
@@ -73,10 +75,69 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 构建、测试及发布
 
-提交代码后，GitHub Actions 会检查 JavaScript 语法、运行 Go 测试，并编译程序。推送 `v*` 版本标签时，自动创建 GitHub Release，提供 Linux amd64、Linux arm64、Windows amd64 压缩包。主分支或版本标签还会构建 amd64、arm64 的 GHCR Docker 镜像。
+提交代码和提交拉取请求时，GitHub Actions 会检查 Go、JavaScript 和浏览器功能。日常提交与推送标签不会自动发布。完成里程碑后，使用 `v*` 标签手动启动工作流并明确选择 `milestone_release`，才会创建 GitHub Release 和发行版 Docker 镜像。
 
 查看 [维护说明](docs/MAINTENANCE.md) 了解测试和升级过程。
 
 ## 许可证
 
 沿用上游仓库的许可证及第三方组件各自的许可证。WebClient v2 复用本仓库已有的开源网页连接代码。
+
+## 开发分支中的扩展功能
+
+当前开发分支增加了附加群组与所有用户共享地址簿、官方客户端 `--assign`、`--deploy` 接口、可选设备登记管理、设备与用户及设备组三级策略、活动连接管理和独立 API 管理令牌。这些功能仍处于里程碑开发阶段，正式版本保持原来的发布方式和版本编号。
+
+- [功能完成情况](docs/FEATURE_MATRIX.md)
+- [API 使用说明](docs/API.md)
+- [实施台账](docs/IMPLEMENTATION_LEDGER.md)
+- [接手开发指南](docs/HANDOFF.md)
+- [测试与升级说明](docs/TESTING.md)
+
+## 邮件与地址簿增强
+
+此开发分支支持地址簿 CSV 导入导出和回收站恢复、SMTP 邮件服务、用户密码恢复以及成员邮件邀请。相关页面包括“地址簿”“地址簿回收站”“SMTP 邮件服务”和“成员邮件邀请”。使用 SMTP 密码时，需要设置 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，完整配置参见 [部署与配置](docs/DEPLOYMENT.md)。
+
+## 连接记录备注
+
+管理员可在“全部连接记录”中为历史远程连接添加备注，记录用途和处理过程。连接记录导出 CSV 时也包含备注，方便日常归档。
+
+## 双重认证
+
+个人设置中支持可选的 TOTP 动态验证码和六个一次性恢复码。启用后，官方 RustDesk 客户端与 Web 管理控制台的密码登录都需要进行双重认证。服务器需要配置持久化的 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，详情参见 [升级说明](docs/UPGRADE.md)。
+
+## 邮箱验证码登录
+
+可选启用邮箱登录验证。管理员配置 SMTP 后，用户可以在“个人设置”中完成邮箱绑定，后续密码登录会收到一次性验证码。若同时启用了 TOTP，将优先使用身份验证器。新安装默认不需要邮箱验证码。
+
+## 多中继服务器
+
+开发分支支持在 Web 管理控制台配置多个中继节点，并为每个节点设置优先使用的 IP 网络范围。`hbbs` 可以从 API 定期同步配置，在可用中继之间进行自动选择，并在节点断开连接时选择其他可用节点。具体设置参见 [部署说明](docs/DEPLOYMENT.md)。
+
+## GeoLite2 国家级中继选择
+
+为中继节点添加 `JP`、`US` 等国家代码后，hbbs 可以结合本地 GeoLite2 Country CSV，自动判断客户端 IP 所属国家并选择合适的中继节点。精确 CIDR 范围仍具有更高优先级。参见 [部署说明](docs/DEPLOYMENT.md)。
+
+## 远程控制角色
+
+开发分支支持官方 RustDesk 客户端的 14 项会话控制权限，可为设备、用户或设备组分配控制角色。管理员通过网页选择每项操作的“沿用设备设置”“禁止”或“允许”。启用时，hbbs 会在连接协商时向客户端传送生效角色。配置说明见 [部署文档](docs/DEPLOYMENT.md)。
+
+## 管理员分级角色
+
+可为团队成员分配多个管理角色，并逐项选择允许操作的后台功能。指定用户或用户组的角色可以限制用户与设备目录的查看范围。现有系统管理员拥有全部管理权限，普通成员默认不拥有后台管理权限。
+
+管理页面新增“管理员角色”和“管理员角色分配”，详情参见 [API 说明](docs/API.md)。
+
+## 可选的服务器连接访问规则
+
+管理员可以通过“连接访问规则”设置哪些成员和用户组允许连接哪些设备。hbbs 可在普通连接和中继连接开始时请求 API 检查登录会话与设备访问权限。默认不启用，原有客户端可以继续使用。启用方法参见 [部署说明](docs/DEPLOYMENT.md)。
+
+
+## 多平台客户端安装文件与自动化管理
+
+开发分支的管理控制台提供“客户端安装包构建”，可保存服务器地址、公钥和 API 地址，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务，并下载经过 SHA-256 检查的官方 RustDesk 1.5.1 安装程序。Windows 文件名包含服务器配置；Linux 和 macOS 提供带有配置脚本的 ZIP，保留原始 DEB 或 DMG 内容。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
+
+管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
+
+本分支的数据库迁移版本是 282。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。正式版本发布需要单独确认。
+
+数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。

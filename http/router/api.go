@@ -22,6 +22,14 @@ func ApiInit(g *gin.Engine) {
 	// 加载 HTML 模板
 	g.LoadHTMLGlob("resources/templates/*")
 
+	// Dedicated routes for scoped, administrator-owned automation tokens.
+	AutomationRoutes(g)
+
+	g.POST("/internal/v1/device/authorize", (&api.DeviceCommands{}).AuthorizeRegistration)
+	g.GET("/internal/v1/relay/nodes", (&api.InternalRelay{}).Nodes)
+	g.GET("/internal/v1/control/permissions", (&api.InternalControl{}).Permissions)
+	g.POST("/internal/v1/connection/authorize", (&api.InternalConnectionAccess{}).Authorize)
+
 	frg := g.Group("/api")
 
 	{
@@ -75,6 +83,8 @@ func ApiInit(g *gin.Engine) {
 		frg.POST("/audit/alarm", au.AuditAlarm)
 	}
 
+	frg.POST("/devices/cli", middleware.DeviceCommandAuth("devices.assign"), (&api.DeviceCommands{}).Assign)
+	frg.POST("/devices/deploy", middleware.DeviceCommandAuth("devices.deploy"), (&api.DeviceCommands{}).Deploy)
 	frg.Use(middleware.RustAuth())
 	{
 		u := &api.User{}

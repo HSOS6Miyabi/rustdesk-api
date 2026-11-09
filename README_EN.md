@@ -1,3 +1,39 @@
+> Optional strict connection access is available. When enabled on hbbs with
+> `RUSTDESK_API_CONNECTION_ACCESS_URL`, authenticated clients must be permitted
+> by device ownership or an explicit administrator rule before hbbs forwards
+> their connection requests. The feature is disabled by default. See
+> [deployment instructions](docs/DEPLOYMENT.md) and
+> [API documentation](docs/API.md).
+
+> This development branch supports delegated administrator roles with multiple
+> role assignments per user. Global roles can grant selected administration
+> operations; user- and group-scoped roles currently provide read-only access
+> to their matching users and devices. Existing full administrators retain
+> unrestricted management access. See [API reference](docs/API.md).
+
+> Optional country-based relay selection is supported through GeoLite2 Country
+> CSV files. Configure `RUSTDESK_GEOIP_CSV_DIR` on hbbs and add ISO country
+> codes to managed relay nodes in the API console. Country files are supplied
+> locally by the administrator and are not included with this repository.
+> See [deployment instructions](docs/DEPLOYMENT.md).
+
+> The active milestone branch also supports address-book CSV import/export,
+> recovery of deleted entries, SMTP settings with encrypted credentials,
+> email password recovery, and invitation-based team registration.
+> Configure `RUSTDESK_API_MAIL_ENCRYPTION_KEY` to store SMTP passwords.
+> Full API and deployment instructions are in [docs/API.md](docs/API.md)
+> and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+> **Maintained fork:** This repository is developed together with
+> [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server).
+> Development changes are maintained in `development/m1-device-management` and
+> reviewed through a draft pull request. Routine commits and tag pushes never
+> publish a Release or distribution Docker image. An approved milestone must
+> be published manually from a `v*` tag with `milestone_release` enabled.
+> See [feature status](docs/FEATURE_MATRIX.md),
+> [implementation records](docs/IMPLEMENTATION_LEDGER.md), and
+> [handoff instructions](docs/HANDOFF.md) for this fork's current behavior.
+
 # RustDesk API
 
 This project implements the RustDesk API using Go, and includes both a web UI and web client. RustDesk is a remote

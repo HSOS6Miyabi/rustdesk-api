@@ -251,12 +251,51 @@ func (us *UserService) Delete(u *model.User) error {
 		if err := tx.Where("type = ? AND to_id = ?",model.ShareAddressBookRuleTypePersonal,u.Id).
 			Delete(&model.AddressBookCollectionRule{}).Error; err != nil { return err }
 		for _, row := range []interface{}{
-			&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
+			&model.UserThird{},&model.AddressBookCollection{},
 			&model.AddressBookCollectionRule{},&model.Tag{},
-			&model.UserToken{},&model.ShareRecord{},
+			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},&model.APIToken{},
+			&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},&model.PasswordResetToken{},
+			&model.EmailLoginSetting{},&model.EmailCodeChallenge{},
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}
+		if err:=tx.Model(&model.UserInvitation{}).
+			Where("created_by = ? AND accepted_at = 0 AND revoked_at = 0",u.Id).
+			Update("revoked_at",time.Now().Unix()).Error;err!=nil{return err}
+
+		if err:=tx.Where("target_type = ? AND target_id = ?",
+			controlTargetUser,strconv.FormatUint(uint64(u.Id),10)).
+			Delete(&model.ControlRoleAssignment{}).Error;err!=nil{return err}
+		if tx.Migrator().HasTable(&model.AccessRule{}) {
+			if err:=tx.Where("source_type = ? AND source_id = ?",accessSourceUser,u.Id).
+				Or("target_type = ? AND target_id = ?",accessTargetUser,strconv.FormatUint(uint64(u.Id),10)).
+				Delete(&model.AccessRule{}).Error;err!=nil{return err}
+			if len(ownedGroups)>0 {
+				if err:=tx.Where("source_type = ? AND source_id IN ?",accessSourceGroup,ownedGroups).
+					Delete(&model.AccessRule{}).Error;err!=nil{return err}
+			}
+		}
+		if tx.Migrator().HasTable(&model.AdminRoleAssignment{}) {
+			if err:=tx.Where("user_id = ?",u.Id).
+				Delete(&model.AdminRoleAssignment{}).Error;err!=nil{return err}
+		}
+		if tx.Migrator().HasTable(&model.AdminRole{}) {
+			var scopedRoles []uint
+			scopeQuery:=tx.Model(&model.AdminRole{}).
+				Where("scope_type = ? AND scope_id = ?",AdminScopeIndividual,u.Id)
+			if len(ownedGroups)>0 {
+				scopeQuery=scopeQuery.Or("scope_type = ? AND scope_id IN ?",AdminScopeGroup,ownedGroups)
+			}
+			if err:=scopeQuery.Pluck("id",&scopedRoles).Error;err!=nil{return err}
+			if len(scopedRoles)>0{
+				if err:=tx.Where("role_id IN ?",scopedRoles).
+					Delete(&model.AdminRoleAssignment{}).Error;err!=nil{return err}
+				if err:=tx.Where("id IN ?",scopedRoles).
+					Delete(&model.AdminRole{}).Error;err!=nil{return err}
+			}
+		}
+		if err:=tx.Unscoped().Where("user_id = ?",u.Id).
+			Delete(&model.AddressBook{}).Error;err!=nil{return err}
 		if err := tx.Model(&model.Peer{}).Where("user_id = ?",u.Id).
 			Update("user_id",0).Error; err != nil { return err }
 		return tx.Delete(current).Error
@@ -317,7 +356,15 @@ func (us *UserService) RouteNames(u *model.User) []string {
 	if us.IsAdmin(u) {
 		return model.AdminRouteNames
 	}
-	return model.UserRouteNames
+	names:=append([]string{},model.UserRouteNames...)
+	if DB==nil || !DB.Migrator().HasTable(&model.AdminRoleAssignment{}) {
+		return names
+	}
+	permissions,err:=AdminRolePermissionNames(u)
+	if err==nil{
+		names=append(names,permissions...)
+	}
+	return names
 }
 
 // InfoByOauthId 根据oauth的name和openId取用户信息

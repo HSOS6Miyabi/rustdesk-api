@@ -101,6 +101,26 @@ jobs:
         run: npm ci --prefix resources/web/js --no-audit --no-fund
       - name: Test desktop, tablet and mobile layouts
         run: node --test resources/admin/browser.e2e.cjs
+      - name: Retain UI screenshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-admin-browser-screenshots
+          path: resources/admin/test-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Retain browser test assets for reproducibility
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-admin-browser-fixtures
+          path: |
+            resources/admin/index.html
+            resources/admin/style.css
+            resources/admin/app.js
+            resources/admin/favicon.svg
+            resources/admin/browser.e2e.cjs
+          retention-days: 3
       - name: Test WebRTC media transport in Chromium
         run: node --test resources/admin/browser.webrtc.e2e.cjs
 
@@ -294,7 +314,7 @@ jobs:
             TAG="v3.0.0-api.$GITHUB_RUN_NUMBER"
           fi
           TAGS=(-t "$IMAGE:$TAG")
-          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+          if [[ "$GITHUB_REF" == "refs/heads/master" || "$GITHUB_REF_TYPE" == "tag" ]]; then
             TAGS+=(-t "$IMAGE:latest")
           fi
           docker buildx imagetools create "${TAGS[@]}" "$IMAGE:$TAG-amd64" "$IMAGE:$TAG-arm64"

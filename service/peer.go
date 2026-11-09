@@ -111,13 +111,16 @@ func (ps *PeerService) Create(u *model.Peer) error {
 
 // Delete 删除, 同时也应该删除token
 func (ps *PeerService) Delete(u *model.Peer) error {
-	uuid := u.Uuid
-	err := DB.Delete(u).Error
-	if err != nil {
-		return err
-	}
-	// 删除token
-	return AllService.UserService.FlushTokenByUuid(uuid)
+	if u==nil||u.RowId==0{return gorm.ErrRecordNotFound}
+	err:=DB.Transaction(func(tx *gorm.DB)error{
+		if tx.Migrator().HasTable(&model.AccessRule{}) {
+			if err:=tx.Where("target_type = ? AND target_id = ?",accessTargetDevice,u.Id).
+				Delete(&model.AccessRule{}).Error;err!=nil{return err}
+		}
+		return tx.Delete(u).Error
+	})
+	if err!=nil{return err}
+	return AllService.UserService.FlushTokenByUuid(u.Uuid)
 }
 
 // GetUuidListByIDs 根据ids获取uuid列表
@@ -138,12 +141,23 @@ func (ps *PeerService) GetUuidListByIDs(ids []uint) ([]string, error) {
 
 // BatchDelete 批量删除, 同时也应该删除token
 func (ps *PeerService) BatchDelete(ids []uint) error {
-	uuids, err := ps.GetUuidListByIDs(ids)
-	err = DB.Where("row_id in (?)", ids).Delete(&model.Peer{}).Error
-	if err != nil {
-		return err
+	if len(ids)==0{return nil}
+	var devices []model.Peer
+	if err:=DB.Where("row_id IN ?",ids).Find(&devices).Error;err!=nil{return err}
+	deviceIDs:=make([]string,0,len(devices))
+	uuids:=make([]string,0,len(devices))
+	for _,device:=range devices{
+		deviceIDs=append(deviceIDs,device.Id)
+		if device.Uuid!=""{uuids=append(uuids,device.Uuid)}
 	}
-	// 删除token
+	err:=DB.Transaction(func(tx *gorm.DB)error{
+		if tx.Migrator().HasTable(&model.AccessRule{})&&len(deviceIDs)>0 {
+			if err:=tx.Where("target_type = ? AND target_id IN ?",accessTargetDevice,deviceIDs).
+				Delete(&model.AccessRule{}).Error;err!=nil{return err}
+		}
+		return tx.Where("row_id IN ?",ids).Delete(&model.Peer{}).Error
+	})
+	if err!=nil{return err}
 	return AllService.UserService.FlushTokenByUuids(uuids)
 }
 

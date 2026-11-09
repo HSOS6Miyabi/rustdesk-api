@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"time"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -48,6 +49,25 @@ func (ct *Login) Login(c *gin.Context) {
 		return
 	}
 
+
+	if f.Type=="tfa_code" || f.Type=="email_code" {
+		code:=f.TfaCode
+		if code==""{code=f.VerificationCode}
+		u,err:=service.CompleteSecondFactorLogin(f.Secret,f.Username,code)
+		if err!=nil{
+			loginLimiter.RecordFailedAttempt(clientIp)
+			response.Fail(c,101,"动态验证码、恢复码或验证请求无效")
+			return
+		}
+		session:=service.AllService.UserService.Login(u,&model.LoginLog{
+			UserId:u.Id,Client:model.LoginLogClientWebAdmin,
+			Ip:clientIp,Type:model.LoginLogTypeAccount,Platform:f.Platform,
+		})
+		loginLimiter.RemoveAttempts(clientIp)
+		responseLoginSuccess(c,u,session.Token)
+		return
+	}
+
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {
 		loginLimiter.RecordFailedAttempt(clientIp)
@@ -69,6 +89,7 @@ func (ct *Login) Login(c *gin.Context) {
 	if u.Id == 0 {
 		global.Logger.Warn(fmt.Sprintf("Login Fail: %s %s %s", "UsernameOrPasswordError", c.RemoteIP(), clientIp))
 		loginLimiter.RecordFailedAttempt(clientIp)
+		service.NotifyEvent("login.failure",fmt.Sprintf("%s:%s:%d",clientIp,f.Username,time.Now().Unix()/900),fmt.Sprintf("登录失败，来源 IP：%s，账户名：%q，客户端：admin",clientIp,f.Username))
 		if _, needCaptcha = loginLimiter.CheckSecurityStatus(clientIp); needCaptcha {
 			response.Fail(c, 110, response.TranslateMsg(c, "UsernameOrPasswordError"))
 		} else {
@@ -83,6 +104,34 @@ func (ct *Login) Login(c *gin.Context) {
 			return
 		}
 		response.Fail(c, 101, response.TranslateMsg(c, "UserDisabled"))
+		return
+	}
+
+
+	totpEnabled,err:=service.TOTPEnabled(u.Id)
+	if err!=nil{response.Fail(c,101,"无法读取双重认证设置");return}
+	if totpEnabled {
+		challenge,err:=service.StartTOTPLoginChallenge(u.Id)
+		if err!=nil{response.Fail(c,101,"无法创建双重认证请求");return}
+		loginLimiter.RemoveAttempts(clientIp)
+		response.Success(c,gin.H{
+			"type":"tfa_check","tfa_type":"tfa_check","secret":challenge,
+			"user":gin.H{"name":u.Username,"email":u.Email},
+		})
+		return
+	}
+
+
+	emailEnabled,err:=service.EmailLoginEnabled(u.Id,u.Email)
+	if err!=nil{response.Fail(c,101,"无法读取邮箱验证设置");return}
+	if emailEnabled{
+		challenge,err:=service.BeginEmailLogin(u.Id)
+		if err!=nil{response.Fail(c,101,"无法发送邮箱登录验证码");return}
+		loginLimiter.RemoveAttempts(clientIp)
+		response.Success(c,gin.H{
+			"type":"email_check","tfa_type":"email_check","secret":challenge,
+			"user":gin.H{"name":u.Username,"email":u.Email},
+		})
 		return
 	}
 

@@ -77,4 +77,5 @@ type PeerInfoInHeartbeat struct {
 	Uuid string `json:"uuid"`
 	Ver  int    `json:"ver"`
 	ModifiedAt int64 `json:"modified_at"`
+	Conns []int32 `json:"conns"`
 }

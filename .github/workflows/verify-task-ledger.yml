@@ -1,0 +1,30 @@
+name: Verify project task documentation
+
+on:
+  push:
+    branches:
+      - development/m1-device-management
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'scripts/verify_task_ledger.py'
+      - '.github/workflows/verify-task-ledger.yml'
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'scripts/verify_task_ledger.py'
+      - '.github/workflows/verify-task-ledger.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-task-records:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all feature and task records
+        run: python3 scripts/verify_task_ledger.py
