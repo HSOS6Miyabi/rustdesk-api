@@ -13,7 +13,7 @@ restored="rustdesk_restore_${GITHUB_RUN_ID}"
 export MYSQL_PWD=test-only-password
 mysql_base=(mysql --host=127.0.0.1 --port=3306 --user=root --batch --skip-column-names)
 mysqldump --host=127.0.0.1 --port=3306 --user=root \
-  --single-transaction --no-tablespaces --set-gtid-purged=OFF \
+  --single-transaction --no-tablespaces \
   rustdesk_upgrade > /tmp/rustdesk-mysql-backup.sql
 test -s /tmp/rustdesk-mysql-backup.sql
 "${mysql_base[@]}" -e "CREATE DATABASE \`${restored}\`;"
