@@ -153,6 +153,23 @@ func AuthorizeConnection(rawToken,deviceID string)(ConnectionAccessResult,error)
 	err:=DB.Where("id = ?",deviceID).First(&peer).Error
 	if errors.Is(err,gorm.ErrRecordNotFound){denied.Reason="device_not_registered";return denied,nil}
 	if err!=nil{return denied,err}
+	if Config != nil && Config.App.RequireDeviceDeployment {
+		var deployment model.DeviceDeployment
+		err := DB.Where("device_id = ?", peer.Id).First(&deployment).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			denied.Reason = "device_not_deployed"
+			return denied, nil
+		}
+		if err != nil {
+			return denied, err
+		}
+		if deployment.Status != "approved" || deployment.Uuid == "" ||
+			peer.Uuid == "" || deployment.Uuid != peer.Uuid ||
+			deployment.OwnerUserId == 0 || deployment.OwnerUserId != peer.UserId {
+			denied.Reason = "device_not_approved"
+			return denied, nil
+		}
+	}
 	if peer.UserId==user.Id{
 		return ConnectionAccessResult{Allow:true,Reason:"device_owner"},nil
 	}
