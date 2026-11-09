@@ -517,7 +517,10 @@
       '<button type="button" class="btn" data-view="trash">查看回收站</button>'+
       '<button type="button" class="btn" data-action="csv-import">导入 CSV</button>'+
       '<button type="button" class="btn" data-action="csv-export">导出 CSV</button>':"";
-    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const trashBatchActions=state.page==="trash"?
+      '<button type="button" class="btn" data-action="trash-batch-restore">批量恢复</button>'+
+      '<button type="button" class="btn" data-action="trash-batch-purge">批量永久删除</button>':"";
+    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions+trashBatchActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -747,6 +750,16 @@
       return modal("API 管理令牌已创建","可用于已授权的 RustDesk 客户端命令及自动化管理接口。",body,
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
     }
+    if(m.kind==="trash-batch"){
+      const body='<div class="field"><label for="trash-batch-ids">地址簿记录编号（最多 200 条）</label>'+
+        '<textarea id="trash-batch-ids" rows="5" placeholder="例如：12,15,19" required></textarea>'+
+        '<small>填写回收站的记录编号，可用逗号、空格或换行分隔。所有记录必须属于当前账户。</small></div>';
+      const purging=m.action==="purge";
+      return modal(purging?"批量永久删除地址簿条目":"批量恢复地址簿条目",
+        purging?"删除后无法恢复，请确认编号。":"整批检查完成后才会恢复记录。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" data-action="trash-batch-submit">'+(purging?"确认永久删除":"批量恢复")+'</button>');
+    }
     if(m.kind==="transfer-device"){
       const body='<form id="device-transfer-form"><div class="form-grid">'+
         '<div class="field full"><label>设备 ID</label><input readonly value="'+esc(m.device.id)+'"></div>'+
@@ -948,6 +961,29 @@
     if(a==="submit-api-token"){
       const form=document.getElementById("edit-form");
       if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
+    if(a==="trash-batch-restore"||a==="trash-batch-purge"){
+      state.modal={kind:"trash-batch",action:a==="trash-batch-purge"?"purge":"restore"};
+      render();
+      return;
+    }
+    if(a==="trash-batch-submit"){
+      if(state.modal?.kind!=="trash-batch")return;
+      const field=document.getElementById("trash-batch-ids");
+      if(!field)return;
+      const parts=field.value.trim().split(/[,，\s]+/).filter(Boolean);
+      const ids=[...new Set(parts.map(Number))];
+      if(!ids.length||ids.length>200||ids.some(x=>!Number.isSafeInteger(x)||x<=0)){
+        toast("请输入 1 至 200 个有效的记录编号",true);return;
+      }
+      const purge=state.modal.action==="purge";
+      if(purge&&!window.confirm("确认永久删除选中的 "+ids.length+" 条地址簿记录吗？"))return;
+      try{
+        await request(endpoint("trash")+"/"+(purge?"batchPurge":"batchRestore"),"POST",{row_ids:ids});
+        state.modal=null;toast(purge?"已批量永久删除地址簿条目":"已批量恢复地址簿条目");
+        await load();
+      }catch(err){toast(err.message,true);}
       return;
     }
     if(a==="trash-restore"||a==="trash-purge"){
