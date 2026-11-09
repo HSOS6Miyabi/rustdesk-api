@@ -181,8 +181,17 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 一致的密钥"
 
 ## 数据库版本 281：邮件事件通知与扩展设备策略
 
-当前开发分支的数据库版本为 **281**。服务器启动时使用 GORM 增加 `notification_settings` 与 `notification_deliveries`，同时为现有 `device_policies` 表增加远程连接和安全选项字段。已有策略的新增字段默认为空，保留原有行为。
+数据库版本 281 使用 GORM 增加 `notification_settings` 与 `notification_deliveries`，同时为现有 `device_policies` 表增加远程连接和安全选项字段。已有策略的新增字段默认为空，保留原有行为。
 
 升级前需备份数据库和 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`。升级后先检查账户与设备数量，确认旧策略、审计记录和历史地址簿能够正常查询，再通过管理控制台创建一条测试策略，检查客户端心跳响应。邮件通知默认关闭，可以先使用本地测试邮箱确认发送功能。
 
 管理员可在“邮件事件通知”页面指定收件人和通知事件。发送记录用于确认成功、重试或失败状态。实际 SMTP 服务商验证、旧数据库备份升级和回退仍需在正式部署环境进行。
+
+
+## 数据库版本 282：客户端安装程序配置及任务记录
+
+当前开发分支的 API 数据库迁移版本为 **282**。升级时新增 `client_build_profiles` 和 `client_build_tasks` 两张表，分别用于保存客户端服务器配置和构建任务历史。升级不会修改已有用户、设备、群组、地址簿及审计记录。
+
+管理员在“客户端安装包构建”页面创建 Windows 安装程序。数据库保存配置、SHA-256 和任务状态，生成的安装程序默认存放于 `data/client-builds`。升级与备份时，应同时保留数据库和该目录。普通服务器运行和 Docker 挂载方式见 [客户端构建器说明](CLIENT_BUILDER.md)。
+
+自动化模拟升级已覆盖 SQLite、MySQL 8.4 与 PostgreSQL 16，并检查旧设备策略及审计记录。正式部署前仍需使用真实数据库备份执行升级与恢复演练。
