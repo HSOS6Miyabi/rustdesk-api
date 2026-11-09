@@ -1,0 +1,80 @@
+name: Verify official client binaries on real operating systems
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-client-runtime.yml'
+      - 'service/client_build*.go'
+      - 'service/client_packages*.go'
+      - 'docs/CLIENT_BUILDER.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Retrieve official RustDesk Windows binary and verify SHA-256
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = Join-Path $env:RUNNER_TEMP 'rustdesk-1.5.1-x86_64.exe'
+          Invoke-WebRequest -Uri 'https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.exe' -OutFile $file
+          $expected = '319206042390ebfcba934cf0baa2f612f34de463c78c843b7cb8c22097c4bf7b'
+          $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw 'The official Windows binary checksum differs' }
+          $version = (& $file --version 2>&1 | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch '1\.5\.1') {
+            throw "The official Windows client could not report its version: $version"
+          }
+          Write-Output "Windows client $version executed successfully and SHA-256 matched"
+          $signature = Get-AuthenticodeSignature $file
+          Write-Output ("Windows Authenticode signature: " + $signature.Status)
+          if ($signature.Status -ne 'Valid') { throw 'The official Windows executable signature is invalid' }
+  macos-x64:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Retrieve and verify official RustDesk macOS disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="$RUNNER_TEMP/rustdesk-1.5.1-x86_64.dmg"
+          curl -fLsS --retry 3 --output "$image" \
+            'https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.dmg'
+          echo '457e45a26d3f0919221e6db3dfb8c6a12ca65190307b53a907c3c51b762eb008  '"$image" | shasum -a 256 --check
+          mountdir="$RUNNER_TEMP/rustdesk-image"
+          mkdir -p "$mountdir"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mountdir" "$image"
+          trap 'hdiutil detach "$mountdir" || true' EXIT
+          binary="$mountdir/RustDesk.app/Contents/MacOS/RustDesk"
+          if [ ! -x "$binary" ]; then
+            binary="$(find "$mountdir" -path '*/RustDesk.app/Contents/MacOS/RustDesk' -type f -print -quit)"
+          fi
+          test -n "$binary"
+          test -x "$binary"
+          version="$("$binary" --version)"
+          [[ "$version" == *'1.5.1'* ]]
+          echo "macOS client $version executed successfully and SHA-256 matched"
+          codesign --verify --deep --strict --verbose=2 "$(dirname "$(dirname "$(dirname "$binary")")")"
+  linux-x64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Install and execute official Linux RustDesk binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/rustdesk-1.5.1-x86_64.deb"
+          curl -fLsS --retry 3 --output "$package" \
+            'https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.deb'
+          echo 'b5d682ad90cb7571ecbdbf26eef58d3c4514e726a74ef6d08ce3f0b114ef0bd9  '"$package" | sha256sum --check
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$package"
+          command -v rustdesk
+          version="$(timeout 30s rustdesk --version)"
+          [[ "$version" == *'1.5.1'* ]]
+          echo "Linux client $version executed successfully and SHA-256 matched"
