@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
@@ -49,5 +50,6 @@ func (h *DeviceDeployment) SetBatchStatus(c *gin.Context) {
 			Update("status", request.Status).Error
 	})
 	if err != nil { response.Error(c, err.Error()); return }
+	service.NotifyEvent("deployment.changed",fmt.Sprintf("batch:%v:%s",ids,request.Status),fmt.Sprintf("批量调整 %d 条设备部署记录，状态为 %s",len(ids),request.Status))
 	response.Success(c, gin.H{"processed": len(ids)})
 }
