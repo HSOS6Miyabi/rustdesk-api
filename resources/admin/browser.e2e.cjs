@@ -565,6 +565,6 @@ test("administrator can configure relay node preferences",async()=>{
     await page.locator('#edit-form input[name="priority"]').fill("20");
     await page.locator('#edit-form input[name="enabled"]').check();
     await page.locator('button[form="edit-form"]').click();
-    await page.getByText("保存成功").waitFor();
+    await page.locator("#edit-form").waitFor({state:"detached"});
   }finally{await context.close();}
 });
