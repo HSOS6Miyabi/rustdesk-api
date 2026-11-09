@@ -1,9 +1,7 @@
 package service
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"gorm.io/gorm"
@@ -199,9 +196,3 @@ func DropClientBuildProfile(id uint)error {
 	return nil
 }
 
-// The profile snapshot is immutable after queueing to make downloaded
-// client installers reproducible even when the current profile changes.
-func ClientBuildCreatedAt(task *model.ClientBuildTask) time.Time {
-	if task==nil{return time.Time{}}
-	return time.Unix(task.StartedAt,0)
-}
