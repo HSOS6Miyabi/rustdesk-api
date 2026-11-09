@@ -6,10 +6,18 @@ on:
       - development/m1-device-management
     paths:
       - 'scripts/test_official_linux_cli.py'
+      - 'scripts/test_official_linux_real_api.py'
+      - 'http/controller/api/device_commands.go'
+      - 'http/controller/api/peer.go'
+      - 'http/controller/api/managed_sysinfo_test.go'
       - '.github/workflows/verify-native-linux-commands.yml'
   pull_request:
     paths:
       - 'scripts/test_official_linux_cli.py'
+      - 'scripts/test_official_linux_real_api.py'
+      - 'http/controller/api/device_commands.go'
+      - 'http/controller/api/peer.go'
+      - 'http/controller/api/managed_sysinfo_test.go'
       - '.github/workflows/verify-native-linux-commands.yml'
   workflow_dispatch:
 
