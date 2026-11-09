@@ -157,6 +157,8 @@ func AddressBookBind(rg *gin.RouterGroup) {
 		arp.POST("/delete", cont.Delete)
 		arp.POST("/batchCreate", cont.BatchCreate)
 		arp.POST("/batchCreateFromPeers", cont.BatchCreateFromPeers)
+		arp.GET("/export", (&admin.AddressBookCSV{}).AdminExport)
+		arp.POST("/import", (&admin.AddressBookCSV{}).AdminImport)
 
 	}
 }
@@ -286,6 +288,8 @@ func MyBind(rg *gin.RouterGroup) {
 		rg.POST("/my/address_book/delete", cont.Delete)
 		rg.POST("/my/address_book/batchCreateFromPeers", cont.BatchCreateFromPeers)
 		rg.POST("/my/address_book/batchUpdateTags", cont.BatchUpdateTags)
+		rg.GET("/my/address_book/export", (&admin.AddressBookCSV{}).MyExport)
+		rg.POST("/my/address_book/import", (&admin.AddressBookCSV{}).MyImport)
 	}
 
 	{
