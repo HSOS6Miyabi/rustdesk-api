@@ -1,3 +1,5 @@
+> 本次移交请先阅读 [开发交接快照](HANDOFF_SNAPSHOT_2026-11-09.md)，再查看 [统一实施台账](IMPLEMENTATION_LEDGER.md) 与 [22 项逐项测试记录](TASK_VERIFICATION_RECORD.md)。两仓库当前开发分支与最终测试结果以 GitHub 实际提交为准。
+
 # 开发交接说明
 
 > **统一交接入口：[RustDesk OSS API 与 Server 完整实施台账](IMPLEMENTATION_LEDGER.md)。** 包含当前两仓库提交及 CI、完整功能状态、T001 至 T022 待办任务、测试命令、部署设置和发布条件。请先阅读台账第 1 至第 10 节，再按需阅读下方模块说明。

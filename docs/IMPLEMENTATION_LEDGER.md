@@ -2,7 +2,7 @@
 
 ## 接手总览（截至 2026 年 11 月 9 日）
 
-本文件是两仓库的**统一实施台账和工作交接入口**。本节记录当前结果与后续事项，后面的“历史实施记录”保留每项功能的具体提交、测试、设计和数据库修改过程。接手人员应先读取本节，再查阅历史记录中的相关功能。
+本文件是两仓库的**统一实施台账和工作交接入口**。最新交接快照：[HANDOFF_SNAPSHOT_2026-11-09.md](HANDOFF_SNAPSHOT_2026-11-09.md)；逐项状态、验证步骤和待办条件：[TASK_VERIFICATION_RECORD.md](TASK_VERIFICATION_RECORD.md)。本节记录当前结果与后续事项，后面的“历史实施记录”保留每项功能的具体提交、测试、设计和数据库修改过程。接手人员应先读取本节，再查阅历史记录中的相关功能。
 
 ### 1. 项目定位与开发原则
 
@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`35f2c5f2ba40e4c66e3858e793906aa81b5cc15f`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/35f2c5f2ba40e4c66e3858e793906aa81b5cc15f) | [`80bfc40582d1c0c2daada7bafd7fdeeed94555bb`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/80bfc40582d1c0c2daada7bafd7fdeeed94555bb) |
+| 最近通过自动测试的代码提交 | [`31dbf4b7db0dd79f3cb3fda4b6ac2a1f6efb73d1`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/31dbf4b7db0dd79f3cb3fda4b6ac2a1f6efb73d1) | [`66a2093127b452f2783d80386d2fd12c6501cae5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/66a2093127b452f2783d80386d2fd12c6501cae5) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42627684694：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42627684694) | [42620496880：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42620496880) |
+| 综合 CI 检查 | [42635225816：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225816) | [42634291061：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291061) |
 | 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -72,16 +72,16 @@ CI 已实际通过的内容：
 
 | 任务编号 | 优先级 | 状态 | 具体工作 | 完成判断 |
 | --- | --- | --- | --- | --- |
-| T001 | P0 | 待执行 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
+| T001 | P0 | 官方客户端 Linux 设备部署与分配已在隔离本地 API 上通过；真实完整服务器重连待检查 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
 | T002 | P0 | 待执行 | 实测 Windows、Linux、macOS 及可用的 Android/iOS 客户端登录；分别检查密码、TOTP、邮箱验证码、OIDC/LDAP、恢复码及退出登录 | 支持的客户端版本与测试结果逐项记入记录；异常可重现并修复 |
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
-| T004 | P0 | 待执行 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
+| T004 | P0 | 同一 hbbs 中严格登记、JWT、连接规则与控制角色组合测试通过；实际客户端和完整 API 集成待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
 | T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 282，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 多设备自动测试及截图已完成；人工使用检查待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
-| T010 | P0 | 官方客户端 1.4.5/1.5.0/1.5.1 的设备命令及 1.5.1 设置命令检查通过；真实客户端测试待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
+| T010 | P0 | 官方多平台 1.5.1 启动和 Android 模拟器已通过，Linux --deploy/--assign 测试通过；真实登录及多版本连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |

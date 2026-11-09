@@ -10,16 +10,16 @@
 
 | 检查项目 | 已通过的自动化运行 |
 | --- | --- |
-| API Go、WebClient、Chromium 桌面和平板及手机交互 | [42631215845](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42631215845) |
-| 官方安装文件、客户端命令和 Linux/macOS 配置包 | [42631216219](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42631216219) |
-| SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42631215745](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42631215745) |
-| Server Rust 单元、协议和实际服务检查 | [42628490411](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42628490411) |
-| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42628490359](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42628490359) |
-| 官方 1.5.1 客户端可执行文件跨系统启动 | `.github/workflows/verify-client-runtime.yml`，持续运行并登记结果 |
+| API Go、WebClient、Chromium 桌面和平板及手机交互 | [42635225816](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225816) |
+| 官方安装文件、客户端命令和 Linux/macOS 配置包 | [42635225753](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225753) |
+| SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42635225555](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225555) |
+| Server Rust 单元、协议和实际服务检查 | [42634291061](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291061) |
+| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42634291214](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42634291214) |
+| 官方 1.5.1 客户端可执行文件跨系统启动 | [42635225301](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42635225301)，三种桌面系统及 Android 模拟器成功 |
 
 ### T001：官方设备分配、设备部署与撤销许可
 
-**当前状态：服务端集成及真实 hbbs 协议测试通过；官方桌面客户端实际部署仍需检查。**
+**当前状态：服务端和实际 hbbs 协议测试通过；官方 Linux 客户端 1.5.1 已向隔离本地 API 成功执行部署与分配命令；完整 API、Server、客户端远程重连待检查。**
 
 代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。
 
@@ -49,7 +49,7 @@ API 文件：`service/control_role.go`。Server 文件：`src/control_roles.rs`�
 
 ### T004：严格模式组合运行
 
-**当前状态：严格登记、MUST_LOGIN、集中访问规则及 WebSocket/WebRTC 已分别通过协议和实际服务测试；完整组合检查待执行。**
+**当前状态：真实 hbbs 的严格登记、JWT、集中连接规则和控制角色同场组合测试已通过；配套真实 API、客户端直连与公网中继仍需检查。**
 
 Server 的 `scripts/test_device_deployment.py`、`scripts/test_connection_access.py` 与 `scripts/test_runtime.py` 分别检查登记、授权和通信。组合镜像及 API 启动已经通过 AMD64/ARM64 CI。
 
@@ -109,7 +109,7 @@ Server 脚本：`scripts/test_native_stack.py`、`scripts/test_container_image.p
 
 ### T010：官方客户端与协议版本兼容
 
-**当前状态：官方 1.4.5、1.5.0、1.5.1 源代码中的设备命令及 1.5.1 配置命令已检查；官方客户端跨平台可执行文件检查与实际登录待继续。**
+**当前状态：官方 1.4.5、1.5.0、1.5.1 源代码字段已检查；官方 1.5.1 在 Windows、Linux、macOS 的运行和 Android 模拟器启动已通过，Linux 设备部署与分配命令已执行；真实账号登录与旧版本兼容待检查。**
 
 文件：`scripts/verify_upstream_client_commands.py` 和 `.github/workflows/verify-client-runtime.yml`。源码检查覆盖 `--assign`、`--deploy` 的请求字段及预期返回码，以及 `--option` 的管理员权限要求。
 

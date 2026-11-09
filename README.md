@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **接手开发请先阅读：[完整实施台账与 22 项待办事项](docs/IMPLEMENTATION_LEDGER.md)。** 当前功能位于两个仓库的 `development/m1-device-management` 开发分支，正式里程碑尚未确认，日常提交不发布 Release。
+> **交接入口：[最新开发交接快照](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[统一实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 逐项测试记录](docs/TASK_VERIFICATION_RECORD.md)。** 当前功能位于两个仓库的 `development/m1-device-management` 开发分支，正式里程碑尚未确认，日常提交不发布 Release。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
