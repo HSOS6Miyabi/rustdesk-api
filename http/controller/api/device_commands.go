@@ -130,6 +130,12 @@ func (d *DeviceCommands) Assign(c *gin.Context) {
 				return err
 			}
 		}
+		if ownerId != peer.UserId && tx.Migrator().HasTable(&model.UserToken{}) {
+			if err := tx.Where("device_id = ? OR device_uuid = ?", f.Id, peer.Uuid).
+				Delete(&model.UserToken{}).Error; err != nil {
+				return err
+			}
+		}
 		if f.StrategyName != nil {
 			name := strings.TrimSpace(*f.StrategyName)
 			if name == "" {
