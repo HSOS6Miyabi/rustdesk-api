@@ -1,6 +1,7 @@
 package api
 
 import (
+	"time"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -82,6 +83,7 @@ func (l *Login) Login(c *gin.Context) {
 
 	if u.Id == 0 {
 		loginLimiter.RecordFailedAttempt(clientIp)
+		service.NotifyEvent("login.failure",fmt.Sprintf("%s:%s:%d",clientIp,f.Username,time.Now().Unix()/900),fmt.Sprintf("登录失败，来源 IP：%s，账户名：%q，客户端：api",clientIp,f.Username))
 		global.Logger.Warn(fmt.Sprintf("Login Fail: %s %s %s", "UsernameOrPasswordError", c.RemoteIP(), c.ClientIP()))
 		response.Error(c, response.TranslateMsg(c, "UsernameOrPasswordError"))
 		return
