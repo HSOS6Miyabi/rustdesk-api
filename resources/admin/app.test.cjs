@@ -411,3 +411,20 @@ test("device transfer control respects delegated permission and displays target 
   assert.match(delegated.root.innerHTML, /新所有者的用户编号/);
   assert.match(delegated.root.innerHTML, /desk-15/);
 });
+
+test("personal address book recycle bin supports batch restoration and deletion", async () => {
+  const app = createConsole();
+  app.fixtures["/my/address_book/trash/list"] = {
+    list: [{row_id: 14, id: "old-device", alias: "Office"}], total: 1
+  };
+  await app.settle();
+  await app.open("trash");
+  assert.match(app.root.innerHTML, /批量恢复/);
+  assert.match(app.root.innerHTML, /批量永久删除/);
+  await app.action("trash-batch-restore");
+  assert.match(app.root.innerHTML, /地址簿记录编号/);
+  assert.match(app.root.innerHTML, /整批检查完成后才会恢复记录/);
+  await app.action("close-modal");
+  await app.action("trash-batch-purge");
+  assert.match(app.root.innerHTML, /删除后无法恢复/);
+});
