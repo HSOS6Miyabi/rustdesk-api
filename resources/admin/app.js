@@ -467,6 +467,9 @@
     const editable=pages[state.page]?.admin?canPageAction(state.page,"edit"):
       (state.isAdmin||state.page!=="devices");
     if(editable)out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
+    if(state.page==="devices"&&(state.isAdmin||hasPrivilege("devices.transfer"))){
+      out+='<button class="btn btn-sm" data-action="transfer-device" data-id="'+id+'">转移设备</button>';
+    }
     if(state.page==="users"&&hasPrivilege("users.edit_password")){
       out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
     }
@@ -743,6 +746,16 @@
         '<small>令牌原文仅显示一次，关闭页面后无法再次查看。</small></div>';
       return modal("API 管理令牌已创建","可用于已授权的 RustDesk 客户端命令及自动化管理接口。",body,
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
+    }
+    if(m.kind==="transfer-device"){
+      const body='<form id="device-transfer-form"><div class="form-grid">'+
+        '<div class="field full"><label>设备 ID</label><input readonly value="'+esc(m.device.id)+'"></div>'+
+        '<div class="field full"><label for="transfer-user-id">新所有者的用户编号 <span class="required">*</span></label>'+
+        '<input id="transfer-user-id" name="user_id" type="number" min="1" step="1" required value="'+esc(m.device.user_id||"")+'">'+
+        '<small>仅允许将设备转移给当前账户有权管理的用户。</small></div></div></form>';
+      return modal("转移设备所有者","设备登记记录将同步更新。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" type="submit" form="device-transfer-form">确认转移</button>');
     }
     if(m.kind==="reset-password"){
       const body='<form id="reset-password-form"><input type="hidden" name="id" value="'+esc(m.user.id)+'"><div class="form-grid"><div class="field full"><label for="new-user-password">新密码 <span class="required">*</span></label><input id="new-user-password" name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></div></div></form>';
@@ -1023,6 +1036,11 @@
       }catch{toast("已选择令牌文本，请手动复制");}
       return;
     }
+    if(a==="transfer-device"){
+      const device=state.rows.find(row=>String(rowIdentifier(row))===String(el.dataset.id));
+      if(device){state.modal={kind:"transfer-device",device};render();}
+      return;
+    }
     if(a==="session-disconnect"){
       const deviceId=el.dataset.device, connId=Number(el.dataset.id);
       if(!deviceId||!connId)return;
@@ -1093,7 +1111,7 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
     event.preventDefault();
     if(f.id==="mfa-login-form"){
       const pending=state.modal;
@@ -1211,6 +1229,16 @@
     }
     if(f.id==="login-form")await handleLogin(f);
     if(f.id==="edit-form")await saveEditor(f);
+    if(f.id==="device-transfer-form"){
+      if(state.modal?.kind!=="transfer-device")return;
+      const rowID=Number(state.modal.device.row_id),userID=Number(f.elements.user_id.value);
+      if(!Number.isSafeInteger(rowID)||rowID<=0||!Number.isSafeInteger(userID)||userID<=0)return;
+      try{
+        await request("/peer/transfer","POST",{row_id:rowID,user_id:userID});
+        state.modal=null;toast("设备所有者已更新");await load();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
     if(f.id==="reset-password-form"){
       const id=state.modal?.user.id, password=f.elements.password.value;
       if(!id||password.length<8)return;
