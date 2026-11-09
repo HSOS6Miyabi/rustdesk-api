@@ -17,6 +17,7 @@
     deployed: {name:"设备部署记录",icon:"monitor",section:"系统管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
     devicegroups: {name:"设备分组",icon:"grid",section:"成员管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
     oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的分组 ID（逗号分隔）"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
+    trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
     server: {name:"服务器管理",icon:"terminal",section:"系统管理",admin:true},
@@ -88,7 +89,7 @@
       delivered:"已通知客户端",completed:"连接已结束",expired:"已过期"
     }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(["created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at"].includes(k))return date(v);
+    if(["created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -260,6 +261,8 @@
   function rowIdentifier(row){return String(row.row_id===undefined?row.id:row.row_id);}
   function rowActions(row){
     const p=pages[activeKey()];
+    if(state.page==="trash")return '<button type="button" class="btn btn-sm" data-action="trash-restore" data-id="'+esc(row.row_id)+'">恢复</button>'+
+      '<button type="button" class="btn btn-sm btn-danger" data-action="trash-purge" data-id="'+esc(row.row_id)+'">彻底删除</button>';
     if(state.page==="apiTokens"){
       return row.revoked_at?'<span class="pill muted">已撤销</span>':
         '<button type="button" class="btn btn-sm btn-danger" data-action="revoke-api-token" data-id="'+esc(row.id)+'">撤销令牌</button>';
@@ -296,10 +299,11 @@
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
-    const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于官方客户端命令行的设备部署与分配。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
+    const description=isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="trash"?"找回误删的设备条目，也可以永久删除指定条目。删除整个地址簿分类时将永久清除该分类下的记录。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于官方客户端命令行的设备部署与分配。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
     const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
     const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">下载 CSV（最多 10000 条）</button>':"";
     const csvActions=isBook?
+      '<button type="button" class="btn" data-view="trash">查看回收站</button>'+
       '<button type="button" class="btn" data-action="csv-import">导入 CSV</button>'+
       '<button type="button" class="btn" data-action="csv-export">导出 CSV</button>':"";
     return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
@@ -583,6 +587,18 @@
     if(a==="submit-api-token"){
       const form=document.getElementById("edit-form");
       if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
+    if(a==="trash-restore"||a==="trash-purge"){
+      const row=state.rows.find(item=>String(item.row_id)===String(el.dataset.id));
+      if(!row)return;
+      const purge=a==="trash-purge";
+      if(purge&&!window.confirm("此操作会永久删除设备 "+row.id+" 的地址簿记录，确定继续吗？"))return;
+      try{
+        await request(endpoint("trash")+"/"+(purge?"purge":"restore"),"POST",{row_id:Number(row.row_id)});
+        toast(purge?"地址簿条目已永久删除":"地址簿条目已恢复");
+        await load();
+      }catch(err){toast(err.message,true);}
       return;
     }
     if(a==="csv-import"||a==="csv-export"){

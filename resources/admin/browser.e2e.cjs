@@ -59,6 +59,10 @@ function serve(req, res) {
       res.end("id,alias\nbackup-001,测试设备\n");
       return;
     }
+    if(route==="/my/address_book/trash/list")return answer(res,{list:[
+      {row_id:13,id:"deleted-desk-001",alias:"Former desk",collection_id:0,deleted_at:1710000000}
+    ],total:1});
+    if(route==="/my/address_book/trash/restore"||route==="/my/address_book/trash/purge")return answer(res,{});
     if(route==="/my/login_log/list")return answer(res, {list:[],total:0});
     if(route==="/user/list")return answer(res, {
       list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
@@ -342,5 +346,19 @@ test("personal address book supports CSV upload and download",async()=>{
     await page.locator('button[data-action="csv-submit"]').click();
     const item=await downloaded;
     assert.equal(item.suggestedFilename(),"rustdesk-addressbook.csv");
+  }finally{await context.close();}
+});
+
+test("personal address book trash can restore and permanently remove records",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    page.on("dialog",dialog=>dialog.accept());
+    await page.locator('nav.side-scroll button[data-view="trash"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="地址簿回收站");
+    await page.getByText("deleted-desk-001",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="trash-restore"]').first().click();
+    await page.getByText(/地址簿条目已恢复/).first().waitFor();
+    await page.locator('button[data-action="trash-purge"]').first().click();
+    await page.getByText(/地址簿条目已永久删除/).first().waitFor();
   }finally{await context.close();}
 });

@@ -229,3 +229,12 @@ test("address book CSV actions are accessible to personal users",async()=>{
   assert.match(app.root.innerHTML,/选择 UTF-8 CSV 文件/);
   assert.match(app.root.innerHTML,/5000 条设备/);
 });
+
+test("personal users can open the address book trash page",async()=>{
+  const app=createConsole();
+  await app.settle();
+  await app.open("addressbooks");
+  assert.match(app.root.innerHTML,/查看回收站/);
+  await app.open("trash");
+  assert.ok(app.calls.some(x=>x.endpoint==="/my/address_book/trash/list"));
+});
