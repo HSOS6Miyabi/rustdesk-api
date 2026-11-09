@@ -1,13 +1,18 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/lejianwen/rustdesk-api/v2/global"
+	"github.com/lejianwen/rustdesk-api/v2/model"
 	requstform "github.com/lejianwen/rustdesk-api/v2/http/request/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	"github.com/lejianwen/rustdesk-api/v2/service"
-	"net/http"
+	"gorm.io/gorm"
 )
 
 type Peer struct {
@@ -30,11 +35,49 @@ func (p *Peer) SysInfo(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	// In managed mode, only the identity approved by --deploy may upload
+	// inventory information. A revoked deployment cannot modify a peer.
+	var approvedOwner uint
+	if global.Config.App.RequireDeviceDeployment {
+		if !nonEmptyDeviceID(f.Id) {
+			c.Status(http.StatusForbidden)
+			return
+		}
+		var deployment model.DeviceDeployment
+		err := service.DB.Where("device_id = ?", f.Id).First(&deployment).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.Status(http.StatusForbidden)
+			return
+		}
+		if err != nil {
+			c.Status(http.StatusServiceUnavailable)
+			return
+		}
+		uuid, valid := normalizedBase64(f.Uuid, 8, 128)
+		if deployment.Status != "approved" || !valid || uuid != deployment.Uuid ||
+			deployment.OwnerUserId == 0 {
+			c.Status(http.StatusForbidden)
+			return
+		}
+		f.Uuid = uuid
+		approvedOwner = deployment.OwnerUserId
+	}
 	fpe := f.ToPeer()
 	pe := service.AllService.PeerService.FindById(f.Id)
+	if approvedOwner != 0 && pe.RowId != 0 && pe.Uuid != "" {
+		storedUUID, valid := normalizedBase64(pe.Uuid, 8, 128)
+		if !valid || storedUUID != f.Uuid {
+			c.Status(http.StatusForbidden)
+			return
+		}
+	}
 	if pe.RowId == 0 {
 		pe = f.ToPeer()
-		pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(pe.Uuid, pe.Id)
+		if approvedOwner != 0 {
+			pe.UserId = approvedOwner
+		} else {
+			pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(pe.Uuid, pe.Id)
+		}
 		err = service.AllService.PeerService.Create(pe)
 		if err != nil {
 			response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -46,6 +89,9 @@ func (p *Peer) SysInfo(c *gin.Context) {
 		}
 		fpe.RowId = pe.RowId
 		fpe.UserId = pe.UserId
+		if approvedOwner != 0 {
+			fpe.UserId = approvedOwner
+		}
 		err = service.AllService.PeerService.Update(fpe)
 		if err != nil {
 			response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
