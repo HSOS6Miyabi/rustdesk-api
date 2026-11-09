@@ -28,6 +28,7 @@
     ["address_books.view","查看地址簿"],["address_books.edit","管理地址簿"],
     ["api_tokens.view","查看 API 令牌"],["api_tokens.edit","管理 API 令牌"],
     ["smtp.view","查看 SMTP 设置"],["smtp.edit","修改 SMTP 设置"],
+    ["notifications.view","查看邮件通知"],["notifications.edit","管理邮件通知"],
     ["relay_nodes.view","查看中继节点"],["relay_nodes.edit","管理中继节点"],
     ["access_rules.view","查看连接访问规则"],["access_rules.edit","管理连接访问规则"],
     ["device_deployment.view","查看设备部署"],["device_deployment.edit","管理设备部署"],
@@ -53,6 +54,7 @@
     accessRules:{view:"access_rules.view",create:"access_rules.edit",edit:"access_rules.edit",delete:"access_rules.edit"},
     apiTokens:{view:"api_tokens.view",create:"api_tokens.edit",delete:"api_tokens.edit"},
     mail:{view:"smtp.view",edit:"smtp.edit"},
+    notifications:{view:"notifications.view",edit:"notifications.edit"},
     deployed:{view:"device_deployment.view",edit:"device_deployment.edit"},
     activeSessions:{view:"sessions.view",edit:"sessions.edit"},
     disconnectHistory:{view:"sessions.view"},
@@ -118,6 +120,7 @@
       fields:[["target_type","分配范围","control_target",true],["target_id","设备 ID 或用户/设备组编号","text",true],
         ["role_id","控制角色编号","number",true]]},
     mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
+    notifications: {name:"邮件事件通知",icon:"bell",section:"系统管理",endpoint:"notification",admin:true,readonly:true,columns:[["id","编号"],["event_type","事件类型"],["recipient","收件邮箱"],["status","发送状态"],["attempts","尝试次数"],["sent_at","发送时间"],["last_error","最近一次错误"]]},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔，例如 devices.read）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"系统管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
@@ -187,7 +190,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -417,6 +420,13 @@
         state.emailVerification=results[1];
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
+      }else if(k==="notifications"){
+        const [config,history]=await Promise.all([
+          request("/notification/settings"),
+          request("/notification/list?page="+state.pageNo+"&page_size="+state.pageSize)
+        ]);
+        state.notifications=config;
+        state.rows=history.list||[];state.total=history.total||0;
       }else if(k==="retention"){
         state.retention=await request("/audit/retention");
       }else if(k==="server"){
@@ -455,6 +465,10 @@
       return '<button class="btn btn-sm btn-danger" data-action="invitation-revoke" data-id="'+esc(row.id)+'">撤销邀请</button>';
     }
     if(state.page==="connections")return '<button type="button" class="btn btn-sm" data-action="audit-note" data-id="'+esc(row.id)+'">编辑备注</button>';
+    if(state.page==="notifications"){
+      return row.status==="failed"&&canPageAction("notifications","edit")?
+        '<button type="button" class="btn btn-sm" data-action="notification-retry" data-id="'+esc(row.id)+'">重新发送</button>':"";
+    }
     if(state.page==="apiTokens"){
       return row.revoked_at?'<span class="pill muted">已撤销</span>':
         '<button type="button" class="btn btn-sm btn-danger" data-action="revoke-api-token" data-id="'+esc(row.id)+'">撤销令牌</button>';
@@ -584,6 +598,34 @@
       toast("已生成 CSV 文件");
     }catch(err){toast(err.message,true);}
   }
+  function notificationsPage(){
+    const p=pages.notifications, settings=state.notifications?.settings||{};
+    const configured=new Set(String(settings.events||"").split(","));
+    const options=[
+      ["login.failure","登录失败"],["deployment.changed","设备登记状态变更"],
+      ["session.disconnect_requested","结束远程连接请求"],["session.ended","远程连接已结束"],
+      ["audit.file","文件传输"]
+    ];
+    const checkboxes=options.map(([value,label])=>
+      '<label class="check"><input type="checkbox" name="event" value="'+esc(value)+'" '+
+      (configured.has(value)?"checked":"")+'>'+esc(label)+'</label>').join("");
+    const body='<form id="notification-form" class="tips">'+
+      '<label class="check"><input type="checkbox" name="enabled" '+
+      (settings.enabled?"checked":"")+'>启用邮件事件通知</label>'+
+      '<div class="field"><label for="notification-recipients">通知收件邮箱</label>'+
+      '<textarea id="notification-recipients" name="recipients" rows="3" placeholder="一行一个邮箱地址，最多 5 位">'+
+      esc(String(settings.recipients||"").replaceAll(",","\n"))+'</textarea>'+
+      '<small>先在 SMTP 邮件服务页面启用邮件发送。收件邮箱最多填写五个。</small></div>'+
+      '<div class="field"><label>需要通知的事件</label><div class="option-grid">'+checkboxes+'</div></div>'+
+      '<button class="btn btn-primary" type="submit">保存通知设置</button></form>';
+    const config=canPageAction("notifications","edit")?
+      '<section class="panel">'+body+'</section>':
+      '<section class="panel"><p class="tips">您拥有查看通知发送记录的权限。</p></section>';
+    return pageHeading("邮件事件通知","选择需要接收邮件的事件，检查已发送邮件和失败原因。")+
+      config+'<section class="panel" style="margin-top:16px">'+
+      '<div class="panel-header"><h2 class="panel-title">发送记录</h2><button class="btn btn-sm" data-action="refresh">刷新</button></div>'+
+      table(p,state.rows)+pagination()+'</section>';
+  }
   function mailPage(){
     const m=state.mail||{};
     const security=m.security||"starttls";
@@ -644,6 +686,7 @@
     if(state.page==="server")return server();
     if(state.page==="retention")return retentionPage();
     if(state.page==="mail")return mailPage();
+    if(state.page==="notifications")return notificationsPage();
     if(state.page==="profile")return profile();
     return genericList();
   }
@@ -1189,6 +1232,13 @@
       if(device){state.modal={kind:"transfer-device",device};render();}
       return;
     }
+    if(a==="notification-retry"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0)return;
+      try{await request("/notification/retry","POST",{id});toast("已提交重新发送请求");await load();}
+      catch(e){toast(e.message,true);}
+      return;
+    }
     if(a==="session-disconnect"){
       const deviceId=el.dataset.device, connId=Number(el.dataset.id);
       if(!deviceId||!connId)return;
@@ -1312,7 +1362,7 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
     event.preventDefault();
     if(f.id==="mfa-login-form"){
       const pending=state.modal;
@@ -1429,6 +1479,18 @@
       return;
     }
     if(f.id==="login-form")await handleLogin(f);
+    if(f.id==="notification-form"){
+      const events=[...f.querySelectorAll('input[name="event"]:checked')].map(x=>x.value);
+      try{
+        await request("/notification/settings","POST",{
+          enabled:f.elements.enabled.checked,
+          recipients:f.elements.recipients.value.trim(),
+          events:events.join(",")
+        });
+        toast("邮件通知设置已保存");await load();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
     if(f.id==="edit-form")await saveEditor(f);
     if(f.id==="device-transfer-form"){
       if(state.modal?.kind!=="transfer-device")return;
