@@ -90,7 +90,7 @@ func TestAdministratorRolePermissionsAreValidated(t *testing.T){
 	users:=seedGroups(t)
 	for _,role:=range []*model.AdminRole{
 		{Name:"Invalid action",Permissions:"devices.mystery",ScopeType:AdminScopeGlobal,Enabled:true},
-		{Name:"Restricted modifications",Permissions:"users.delete",ScopeType:AdminScopeGroup,ScopeId:2,Enabled:true},
+		{Name:"Globally restricted operation",Permissions:"users.create",ScopeType:AdminScopeGroup,ScopeId:2,Enabled:true},
 		{Name:"Missing group",Permissions:"users.view",ScopeType:AdminScopeGroup,ScopeId:99999,Enabled:true},
 		{Name:"No granted permissions",Permissions:"",ScopeType:AdminScopeGlobal,Enabled:true},
 		{Name:"Malformed scope",Permissions:"users.view",ScopeType:"planet",Enabled:true},
