@@ -185,8 +185,8 @@ type AdminRoleAccess struct {
 }
 
 // RoleAccessForUser combines all active roles assigned to an account.
-// Global roles grant the permission installation-wide. Only viewing users
-// or devices is supported for individual and user-group scoped roles.
+// Global roles grant the permission installation-wide. Scoped roles may also
+// grant selected write permissions that enforce target-account restrictions.
 func RoleAccessForUser(user *model.User,permission string)(AdminRoleAccess,error){
 	result:=AdminRoleAccess{UserIDs:[]uint{}}
 	if user==nil||user.Id==0||!knownAdminPermission[permission]{return result,nil}
