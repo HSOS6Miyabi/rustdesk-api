@@ -28,7 +28,7 @@ func TestAddressBookCSVImportExportAndPreservePasswords(t *testing.T) {
 	source := "id,alias,hostname,username,platform,collection_id,tags,note,force_always_relay\n" +
 		"desk-000001,新名称,主机A,guest,Windows," +
 		strconv.FormatUint(uint64(book.Id),10)+",工作;远程,设备维护,true\n" +
-		"desk-000002,'=SUM(1+1),主机B,admin,Linux,"+itoa(book.Id)+",工作,备注,false\n"
+		"desk-000002,'=SUM(1+1),主机B,admin,Linux,"+strconv.FormatUint(uint64(book.Id),10)+",工作,备注,false\n"
 	result, err := ImportAddressBookCSV(owner.Id,strings.NewReader(source))
 	if err != nil { t.Fatal(err) }
 	if result.Created!=1 || result.Updated!=1 { t.Fatalf("unexpected import summary: %+v",result) }
