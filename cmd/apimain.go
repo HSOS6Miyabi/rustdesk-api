@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 281
+const DatabaseVersion = 282
 
 // @title 管理系统API
 // @version 1.0
@@ -213,6 +213,7 @@ func InitGlobal() {
 	DatabaseAutoUpdate()
 	service.StartAuditMaintenance()
 	service.StartNotificationWorker()
+	service.StartClientBuildWorker()
 }
 
 func DatabaseAutoUpdate() {
@@ -322,6 +323,8 @@ func Migrate(version uint) {
 		&model.SMTPSetting{},
 		&model.NotificationSetting{},
 		&model.NotificationDelivery{},
+		&model.ClientBuildProfile{},
+		&model.ClientBuildTask{},
 		&model.PasswordResetToken{},
 		&model.UserInvitation{},
 		&model.UserTOTP{},
