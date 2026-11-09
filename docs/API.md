@@ -262,7 +262,46 @@ RustDesk 1.5.x 客户端会向 `POST /api/heartbeat` 发送设备 ID、设备 UU
 }
 ```
 
-`user_id` 可选，默认使用当前管理员账户。允许的操作是 `devices.assign` 和 `devices.deploy`，可只指定其中一项。有效天数为 `0` 时长期有效；有效天数最大为 3650。接口返回令牌原文后，数据库只保存摘要。撤销、过期或所属账户停用后，令牌立即失效。
+`user_id` 可选，默认使用当前管理员账户。有效天数为 `0` 时长期有效；有效天数最大为 3650。接口返回令牌原文后，数据库只保存摘要。撤销、过期或所属账户停用后，令牌立即失效。
+
+除了官方客户端使用的 `devices.assign`、`devices.deploy`，还可分别授权以下自动化操作：
+
+| 权限 | 允许访问的管理数据 |
+| --- | --- |
+| `devices.read` / `devices.manage` | 查看设备；创建、修改和删除设备 |
+| `deployments.read` / `deployments.manage` | 查看设备登记；批准及撤销登记 |
+| `relays.read` / `relays.manage` | 查看和修改中继节点 |
+| `sessions.read` / `sessions.disconnect` | 查看活动连接与处理记录；请求结束连接 |
+| `control_roles.read` / `control_roles.manage` | 查看和修改远程控制角色及分配 |
+| `access_rules.read` / `access_rules.manage` | 查看和修改集中连接访问规则 |
+| `policies.read` / `policies.manage` | 查看和修改设备策略 |
+| `audits.read` | 查看连接及文件传输记录 |
+
+自动化接口统一使用 `Authorization: Bearer rdapi_...`，位于 `/api/automation/v1`。该接口只接受独立 API 令牌；拥有相应权限的令牌还要求所属账户为当前启用的系统管理员。此限制在每次请求时检查，因此撤销管理员身份后相关管理接口立即不可用。常规 RustDesk 登录令牌不能调用这些接口。
+
+示例：
+
+```bash
+curl -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
+  "https://desk.example.com/api/automation/v1/devices?page=1&page_size=20"
+
+curl -X POST -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"id":3,"status":"revoked"}' \
+  "https://desk.example.com/api/automation/v1/deployments/status"
+```
+
+自动化路由与现有控制台使用相同的请求字段及响应格式。可用资源路径：
+
+- `GET /devices`、`GET /devices/:id`；`POST /devices/create`、`/devices/update`、`/devices/delete`、`/devices/batch-delete`
+- `GET /deployments`；`POST /deployments/status`
+- `GET /relays`；`POST /relays/create`、`/relays/update`、`/relays/delete`
+- `GET /sessions`、`/sessions/disconnects`；`POST /sessions/disconnect`
+- `GET /control-roles`、`/control-assignments`、`/control-roles/effective`；对应的 `/create`、`/update`、`/delete` 使用 `POST`
+- `GET /access-rules`、`/policies`、`/policies/assignments`、`/policies/user-assignments`、`/policies/group-assignments`；资源修改使用 `POST`
+- `GET /audits/connections`、`/audits/files`
+
+上述路径均以 `/api/automation/v1` 为前缀。创建令牌时建议只选择实际需要的权限，例如只读监控使用 `devices.read,sessions.read`。原有设备分配与部署接口及令牌格式保持兼容。
 
 ## 用户和设备组策略
 
