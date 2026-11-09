@@ -29,6 +29,7 @@
     ["api_tokens.view","查看 API 令牌"],["api_tokens.edit","管理 API 令牌"],
     ["smtp.view","查看 SMTP 设置"],["smtp.edit","修改 SMTP 设置"],
     ["relay_nodes.view","查看中继节点"],["relay_nodes.edit","管理中继节点"],
+    ["access_rules.view","查看连接访问规则"],["access_rules.edit","管理连接访问规则"],
     ["device_deployment.view","查看设备部署"],["device_deployment.edit","管理设备部署"],
     ["sessions.view","查看活动连接"],["sessions.edit","结束活动连接"]
   ];
@@ -49,6 +50,7 @@
     controlRoles:{view:"control_roles.view",create:"control_roles.edit",edit:"control_roles.edit",delete:"control_roles.edit"},
     controlAssignments:{view:"control_roles.view",create:"control_roles.edit",edit:"control_roles.edit",delete:"control_roles.edit"},
     relayNodes:{view:"relay_nodes.view",create:"relay_nodes.edit",edit:"relay_nodes.edit",delete:"relay_nodes.edit"},
+    accessRules:{view:"access_rules.view",create:"access_rules.edit",edit:"access_rules.edit",delete:"access_rules.edit"},
     apiTokens:{view:"api_tokens.view",create:"api_tokens.edit",delete:"api_tokens.edit"},
     mail:{view:"smtp.view",edit:"smtp.edit"},
     deployed:{view:"device_deployment.view",edit:"device_deployment.edit"},
@@ -94,6 +96,12 @@
       fields:[["name","节点名称","text",true],["address","中继服务器地址","text",true],
         ["subnets","优先使用的 IP 网络（每行一个 CIDR）","textarea"],["countries","优先使用的国家代码（例如 JP,US）","textarea"],["priority","优先级（越小越高）","number"],
         ["enabled","是否启用","checkbox"]]},
+    accessRules: {name:"连接访问规则",icon:"shield",section:"系统管理",endpoint:"access_rule",admin:true,
+      columns:[["id","编号"],["name","规则名称"],["source_type","访问方类型"],["source_id","访问方编号"],["target_type","目标类型"],["target_id","目标编号"],["effect","访问结果"],["enabled","是否启用"]],
+      fields:[["name","规则名称","text",true],
+        ["source_type","允许访问的用户范围","access_source",true],["source_id","来源用户或用户组编号（所有用户填写 0）","number"],
+        ["target_type","目标设备范围","access_target",true],["target_id","目标设备 ID 或用户/设备组编号（所有设备留空）"],
+        ["effect","匹配时的操作","access_effect",true],["enabled","启用此规则","checkbox"]]},
     adminRoles: {name:"管理员角色",icon:"shield",section:"系统管理",endpoint:"admin_role",admin:true,
       columns:[["id","编号"],["name","角色名称"],["scope_type","管理范围"],["scope_id","范围编号"],["permissions","允许的操作"],["enabled","是否启用"]],
       fields:[["name","角色名称","text",true],["permissions","管理权限","admin_permissions",true],
@@ -155,6 +163,9 @@
     if(permissionFieldNames.has(k))return ["沿用设备设置","禁止","允许"][Number(v)]||"—";
     if(k==="target_type")return ({device:"单台设备",user:"设备所有者",device_group:"设备组"}[v]||v);
     if(k==="scope_type")return ({global:"全部账户",group:"指定用户组",individual:"指定用户"}[v]||v);
+    if(k==="source_type")return ({all:"所有已登录用户",user:"指定用户",group:"指定用户组"}[v]||v);
+    if(k==="target_type")return ({all:"全部设备",device:"指定设备",user:"指定所有者",device_group:"指定设备组"}[v]||v);
+    if(k==="effect")return ({allow:"允许访问",deny:"禁止访问"}[v]||v);
     if(k==="direction")return v==="outgoing"?"我发起的连接":v==="incoming"?"连接我的设备":v==="both"?"双方均为我的设备":"—";
     if(k==="primary_auth")return (["未报告","点击授权","临时密码","永久密码","切换控制方向"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
     if(k==="two_factor")return (["未报告","TOTP 动态验证码","可信设备"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
@@ -490,7 +501,9 @@
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
-    const description=state.page==="controlRoles"?
+    const description=state.page==="accessRules"?
+      "可选的服务器连接访问规则。启用 hbbs 严格模式后，将按这些规则判断远程连接。未配置时保持原来的连接方式。":
+      state.page==="controlRoles"?
       "为远程会话设置键盘、剪贴板、文件传输、终端等权限。未指定的操作沿用设备自身设置。":
       state.page==="controlAssignments"?
       "给设备、设备所有者或设备组分配控制角色。单台设备的设置优先级最高。":
@@ -620,7 +633,7 @@
   function fieldInput(field,row){
     const [name,label,type="text",required=false]=field;
     const value=row&&row[name]!==undefined?row[name]:type==="status"?1:type==="group_type"?1:type==="rule_type"?1:type==="rule"?1:
-      type==="checkbox"?(name==="enabled"&&state.page==="adminRoles"):type==="permission_state"?0:type==="control_target"?"device":type==="admin_scope"?"global":"";
+      type==="checkbox"?(name==="enabled"&&["adminRoles","accessRules"].includes(state.page)):type==="permission_state"?0:type==="control_target"?"device":type==="admin_scope"?"global":type==="access_source"?"all":type==="access_target"?"all":type==="access_effect"?"allow":"";
     let input;
     if(type==="checkbox")input='<label class="check"><input type="checkbox" name="'+esc(name)+'" '+(value?"checked":"")+'>启用</label>';
     else if(type==="admin_permissions"){
@@ -635,8 +648,8 @@
       const choices=[[0,"不限期限"],[1,"1 天"],[7,"7 天"],[30,"30 天"],[90,"90 天"]];
       input='<select name="'+esc(name)+'">'+choices.map(([days,text])=>'<option value="'+days+'" '+(Number(value)===days?"selected":"")+'>'+text+'</option>').join("")+'</select>';
     }
-    else if(["group_type","status","oauth_type","rule_type","rule","permission_state","control_target","admin_scope"].includes(type)){
-      const opts={group_type:[[1,"普通组"],[2,"共享组"],[3,"公共锚点组"]],status:[[1,"已启用"],[2,"已停用"]],oauth_type:[["oidc","OIDC"],["github","GitHub"],["google","Google"],["linuxdo","Linux.do"]],rule_type:[[1,"用户"],[2,"群组"],[3,"所有用户"]],rule:[[1,"只读"],[2,"读写"],[3,"完全控制"]],permission_state:[[0,"沿用设备设置"],[1,"禁止"],[2,"允许"]],control_target:[["device","单台设备"],["user","设备所有者"],["device_group","设备组"]],admin_scope:[["global","全部账户"],["group","指定用户组"],["individual","指定用户"]]}[type];
+    else if(["group_type","status","oauth_type","rule_type","rule","permission_state","control_target","admin_scope","access_source","access_target","access_effect"].includes(type)){
+      const opts={group_type:[[1,"普通组"],[2,"共享组"],[3,"公共锚点组"]],status:[[1,"已启用"],[2,"已停用"]],oauth_type:[["oidc","OIDC"],["github","GitHub"],["google","Google"],["linuxdo","Linux.do"]],rule_type:[[1,"用户"],[2,"群组"],[3,"所有用户"]],rule:[[1,"只读"],[2,"读写"],[3,"完全控制"]],permission_state:[[0,"沿用设备设置"],[1,"禁止"],[2,"允许"]],control_target:[["device","单台设备"],["user","设备所有者"],["device_group","设备组"]],admin_scope:[["global","全部账户"],["group","指定用户组"],["individual","指定用户"]],access_source:[["all","所有已登录用户"],["user","指定用户"],["group","指定用户组"]],access_target:[["all","所有设备"],["device","指定设备"],["user","指定所有者的设备"],["device_group","指定设备组"]],access_effect:[["allow","允许访问"],["deny","禁止访问"]]}[type];
       input='<select name="'+esc(name)+'">'+opts.map(o=>'<option value="'+esc(o[0])+'" '+(String(o[0])===String(value)?"selected":"")+'>'+esc(o[1])+'</option>').join("")+'</select>';
     }else input='<input name="'+esc(name)+'" type="'+esc(type)+'" value="'+esc(value)+'" '+(required?'required':"")+' autocomplete="off">';
     return '<div class="field '+(type==="textarea"?"full":"")+'"><label>'+esc(label)+(required?' <span class="required">*</span>':"")+'</label>'+input+(name==="auto_group_ids"?'<small>例如：2,3。登录后将自动加入这些组，并保留原有主要分组。</small>':"")+'</div>';
