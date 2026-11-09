@@ -135,9 +135,33 @@
   function login(){
     const options=state.options||{};
     const cap=options.need_captcha?'<div class="login-field"><label for="captcha">验证码</label><div style="display:flex;gap:10px"><input name="captcha" id="captcha" required placeholder="输入验证码"><button class="btn" type="button" data-action="captcha">刷新</button></div><input type="hidden" name="captcha_id" value="'+esc(state.captcha&&state.captcha.id||"")+'">'+(state.captcha&&state.captcha.b64?'<img alt="验证码" style="max-height:72px;max-width:220px;margin-top:10px" src="'+esc(state.captcha.b64.startsWith("data:")?state.captcha.b64:"data:image/png;base64,"+state.captcha.b64)+'">':"")+"</div>":"";
-    const passwordForm=options.disable_pwd?'<p class="warning">当前服务已关闭密码登录，请选择下方的单点登录服务。</p>':'<form id="login-form"><div class="login-field"><label for="username">用户名</label><input id="username" autocomplete="username" name="username" placeholder="输入用户名" required></div><div class="login-field"><label for="password">密码</label><input type="password" id="password" name="password" autocomplete="current-password" placeholder="输入密码" required></div>'+cap+'<button type="submit" class="btn btn-primary login-submit">登录控制台 '+icon("arrow",17)+'</button></form>';
+    const passwordForm=options.disable_pwd?'<p class="warning">当前服务已关闭密码登录，请选择下方的单点登录服务。</p>':'<form id="login-form"><div class="login-field"><label for="username">用户名</label><input id="username" autocomplete="username" name="username" placeholder="输入用户名" required></div><div class="login-field"><label for="password">密码</label><input type="password" id="password" name="password" autocomplete="current-password" placeholder="输入密码" required></div>'+cap+'<button type="submit" class="btn btn-primary login-submit">登录控制台 '+icon("arrow",17)+'</button></form><button type="button" class="btn" data-action="forgot-password">忘记密码</button>';
     const ops=(options.ops||[]).map(op=>{const n=typeof op==="string"?op:op.op||op.name;return n?'<button type="button" class="btn" data-action="oidc" data-id="'+esc(n)+'">使用 '+esc(n)+' 登录 '+icon("arrow",14)+'</button>':"";}).join("");
     root.innerHTML='<div class="login-shell"><section class="login-art"><div class="brand-row">'+brand()+'</div><div><p class="eyebrow" style="color:#83e7d4">PRIVATE INFRASTRUCTURE</p><h1>远程设备管理，<br><em>一切尽在掌握。</em></h1><p>统一管理远程设备、联系人、共享群组与用户账户。界面可适应电脑、平板和手机。</p></div><div class="login-foot">RustDesk Self-hosted Control Center</div></section><section class="login-right"><div class="login-card"><p class="eyebrow">WELCOME BACK</p><h2>登录控制台</h2><p class="login-intro">'+esc(state.config.title||"请使用 RustDesk API 账户登录")+'</p>'+passwordForm+'<div class="login-options">'+ops+'</div><p class="login-help">首次安装的管理员密码可在服务端启动日志中查看。请通过 HTTPS 连接管理页面。</p></div></section></div>';
+    root.innerHTML+=loginRecoveryModal();
+  }
+  function loginRecoveryModal(){
+    const current=state.modal;
+    if(!current)return "";
+    if(current.kind==="forgot-password"){
+      const body='<form id="forgot-password-form"><div class="field"><label for="recovery-email">账户邮箱</label>'+
+        '<input type="email" name="email" id="recovery-email" autocomplete="email" required></div></form>';
+      return modal("找回密码","将向已登记的账户邮箱发送密码恢复链接。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" type="submit" form="forgot-password-form">发送恢复邮件</button>');
+    }
+    if(current.kind==="public-reset-password"){
+      const body='<form id="public-password-reset-form"><div class="form-grid">'+
+        '<div class="field"><label for="recovery-new-password">新密码</label>'+
+        '<input type="password" name="password" id="recovery-new-password" minlength="8" maxlength="72" autocomplete="new-password" required></div>'+
+        '<div class="field"><label for="recovery-confirm-password">确认新密码</label>'+
+        '<input type="password" name="confirm_password" id="recovery-confirm-password" minlength="8" maxlength="72" autocomplete="new-password" required></div>'+
+        '</div></form>';
+      return modal("设置新密码","使用邮件中的一次性恢复链接。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" type="submit" form="public-password-reset-form">保存新密码</button>');
+    }
+    return "";
   }
   function shell(){
     const username=state.user&&state.user.nickname||state.user&&state.user.username||"用户";
@@ -166,6 +190,15 @@
     return true;
   }
   async function bootstrap(){
+    const recoveryHash=location.hash||"";
+    if(recoveryHash.startsWith("#/password-reset?")){
+      const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
+      if(token){
+        state.token="";state.user=null;
+        sessionStorage.removeItem("rustdesk.console.token");
+        state.modal={kind:"public-reset-password",token};
+      }
+    }
     try{state.config=await request("/config/admin");}catch{state.config={};}
     if(!state.token){
       const pending=sessionStorage.getItem("rustdesk.console.oidc");
@@ -616,7 +649,11 @@
     if(a==="book-entries"||a==="book-collections"){state.bookTab=a==="book-entries"?"entries":"collections";state.pageNo=1;state.query="";await load();return;}
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
-    if(a==="close-modal"){state.modal=null;render();return;}
+    if(a==="close-modal"){
+      if(state.modal?.kind==="public-reset-password")location.hash="#/overview";
+      state.modal=null;render();return;
+    }
+    if(a==="forgot-password"){state.modal={kind:"forgot-password"};render();return;}
     if(a==="logout"){await logout();return;}
     if(a==="submit-api-token"){
       const form=document.getElementById("edit-form");
@@ -720,8 +757,30 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form"].includes(f.id))return;
     event.preventDefault();
+    if(f.id==="forgot-password-form"){
+      try{
+        await request("/password/forgot","POST",{email:f.elements.email.value.trim()});
+        state.modal=null;render();
+        toast("如果邮箱已登记，将收到密码恢复邮件");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(f.id==="public-password-reset-form"){
+      const password=f.elements.password.value;
+      if(password!==f.elements.confirm_password.value){
+        toast("两次输入的新密码不一致",true);return;
+      }
+      try{
+        await request("/password/reset","POST",{token:state.modal?.token,password});
+        state.modal=null;
+        location.hash="#/overview";
+        render();
+        toast("密码已更新，请使用新密码登录");
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(f.id==="mail-settings-form"){
       const values=Object.fromEntries(new FormData(f).entries());
       values.enabled=f.elements.enabled.checked;
