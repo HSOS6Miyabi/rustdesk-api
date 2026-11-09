@@ -92,7 +92,7 @@ func TestClientBuildRejectsUnsupportedAndMaliciousSettings(t *testing.T) {
 	for _,platform:=range []string{"windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64"}{
 		if _,err:=officialClientBuildSource(platform,currentClientVersion);err!=nil{t.Fatal(err)}
 	}
-	if _,err:=officialClientBuildSource("linux-x64",currentClientVersion);err==nil{
+	if _,err:=officialClientBuildSource("android",currentClientVersion);err==nil{
 		t.Fatal("unsupported installer platform was accepted")
 	}
 }

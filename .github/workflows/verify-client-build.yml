@@ -72,7 +72,7 @@ jobs:
                       digest.update(chunk)
               if filename.endswith(".exe") and not prefix.startswith(b"MZ"):
                   raise RuntimeError(f"{filename}: unexpected executable format")
-              if filename.endswith(".deb") and prefix != b"!<arch>\\n":
+              if filename.endswith(".deb") and prefix != b"!<arch>\n":
                   raise RuntimeError(f"{filename}: unexpected Debian package format")
               if size != expected_size or digest.hexdigest() != expected_hash:
                   raise RuntimeError(f"{filename}: size or SHA-256 differs")
