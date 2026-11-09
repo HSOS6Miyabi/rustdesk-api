@@ -262,3 +262,17 @@ test("login screen includes password recovery by email",async()=>{
   assert.match(app.root.innerHTML,/账户邮箱/);
   assert.match(app.root.innerHTML,/发送恢复邮件/);
 });
+
+test("team invitation management is limited to administrators",async()=>{
+  const regular=createConsole();
+  await regular.settle();
+  assert.doesNotMatch(regular.root.innerHTML,/成员邮件邀请/);
+  const admin=createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML,/成员邮件邀请/);
+  await admin.open("invitations");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/invite/list"));
+  await admin.action("create");
+  assert.match(admin.root.innerHTML,/成员邮箱/);
+  assert.match(admin.root.innerHTML,/发送邀请/);
+});

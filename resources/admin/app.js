@@ -498,6 +498,8 @@
       const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
       const saveButton=state.page==="apiTokens"?
         '<button class="btn btn-primary" type="button" data-action="submit-api-token">创建令牌</button>':
+        state.page==="invitations"?
+        '<button class="btn btn-primary" type="button" data-action="submit-invitation">发送邀请</button>':
         '<button class="btn btn-primary" type="submit" form="edit-form">保存</button>';
       return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+saveButton);
@@ -573,7 +575,9 @@
         render();
         return;
       }
-      state.modal=null;toast("保存成功");await load();
+      state.modal=null;
+      toast(p.endpoint==="invite"?"邀请邮件已发送":"保存成功");
+      await load();
     }catch(e){toast(e.message,true);}
   }
   async function deleteEntry(id){
@@ -684,6 +688,11 @@
     }
     if(a==="forgot-password"){state.modal={kind:"forgot-password"};render();return;}
     if(a==="logout"){await logout();return;}
+    if(a==="submit-invitation"){
+      const form=document.getElementById("edit-form");
+      if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
     if(a==="submit-api-token"){
       const form=document.getElementById("edit-form");
       if(form&&form.reportValidity())await saveEditor(form);

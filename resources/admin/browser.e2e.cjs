@@ -45,6 +45,10 @@ function serve(req, res) {
       list:[{id:2,from_peer:"123456",from_account:"owner",
         peer_id:"654321",to_account:"alice",path:"/files/report.pdf",direction:"outgoing"}],total:1
     });
+    if(route==="/invite/list")return answer(res,{list:[
+      {id:17,email:"new.member@example.test",group_id:1,expires_at:1910000000,accepted_at:0,revoked_at:0}
+    ],total:1});
+    if(route==="/invite/create"||route==="/invite/revoke"||route==="/invite/accept")return answer(res,{});
     if(route==="/mail/settings")return answer(res,{enabled:true,host:"smtp.example.test",port:587,security:"starttls",sender_email:"support@example.test",sender_name:"Support",password_configured:true});
     if(route==="/mail/test")return answer(res,{sent:true});
     if(route==="/api_token/list")return answer(res,{list:[],total:0});
@@ -397,5 +401,36 @@ test("password recovery and one-time reset forms work on the login screen",async
     await page.locator('#recovery-confirm-password').fill("NewPassword123");
     await page.locator('button[form="public-password-reset-form"]').click();
     await page.getByText("密码已更新，请使用新密码登录").waitFor();
+  }finally{await context.close();}
+});
+
+test("administrator creates and revokes team invitation",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    page.on("dialog",dialog=>dialog.accept());
+    await page.locator('nav.side-scroll button[data-view="invitations"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="成员邮件邀请");
+    await page.getByText("new.member@example.test",{exact:true}).first().waitFor();
+    await page.locator('button[data-action="create"]').click();
+    await page.locator('#edit-form input[name="email"]').fill("invitee@example.test");
+    await page.locator('button[data-action="submit-invitation"]').click();
+    await page.getByText("邀请邮件已发送").first().waitFor();
+    await page.locator('button[data-action="invitation-revoke"]').first().click();
+    await page.getByText("邀请已撤销").first().waitFor();
+  }finally{await context.close();}
+});
+
+test("invited member can register from a team email link",async()=>{
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const page=await context.newPage();
+  try{
+    await page.goto(baseUrl+"/_admin/#/invite?token=example-invite-token",{waitUntil:"networkidle"});
+    await page.locator('#invited-username').waitFor({state:"visible"});
+    await page.locator('#invited-username').fill("new.member");
+    await page.locator('#invited-nickname').fill("New member");
+    await page.locator('#invited-password').fill("NewPassword123");
+    await page.locator('#invited-password-confirm').fill("NewPassword123");
+    await page.locator('button[form="accept-invitation-form"]').click();
+    await page.getByText("账户已创建，请使用新账户登录").waitFor();
   }finally{await context.close();}
 });
