@@ -22,6 +22,7 @@ func AutomationRoutes(engine *gin.Engine) {
 	read("/devices/:id", "devices.read", peers.Detail)
 	write("/devices/create", "devices.manage", peers.Create)
 	write("/devices/update", "devices.manage", peers.Update)
+	write("/devices/transfer", "devices.manage", peers.Transfer)
 	write("/devices/delete", "devices.manage", peers.Delete)
 	write("/devices/batch-delete", "devices.manage", peers.BatchDelete)
 
