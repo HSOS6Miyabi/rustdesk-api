@@ -592,10 +592,10 @@ test("administrator can save a control role with native permissions",async()=>{
     await page.locator('#edit-form select[name="clipboard"]').selectOption("2");
     await page.locator('#edit-form select[name="file"]').selectOption("1");
     await page.locator('#edit-form select[name="usb"]').selectOption("1");
-    const sending=page.waitForRequest(req=>
+    const submittedRequest=page.waitForRequest(req=>
       req.url().endsWith("/api/admin/control_role/create")&&req.method()==="POST");
-    await page.locator('button[form="edit-form"]').click();
-    const submitted=(await sending).postDataJSON();
+    await page.locator('button[data-action="submit-control-role"]').click();
+    const submitted=(await submittedRequest).postDataJSON();
     assert.equal(submitted.name,"Temporary support");
     assert.equal(submitted.keyboard,1);
     assert.equal(submitted.clipboard,2);

@@ -18,7 +18,8 @@ func setupGroupDB(t *testing.T) func() {
 	sqlDB.SetMaxOpenConns(1)
 	if err = db.AutoMigrate(&model.Group{}, &model.GroupMembership{}, &model.GroupAnchor{},
 		&model.User{}, &model.Contact{}, &model.Peer{}, &model.Oauth{},
-		&model.DevicePolicyUserAssignment{}, &model.DevicePolicyGroupAssignment{}); err != nil {
+		&model.DevicePolicyUserAssignment{}, &model.DevicePolicyGroupAssignment{},
+		&model.ControlRole{}, &model.ControlRoleAssignment{}); err != nil {
 		t.Fatal(err)
 	}
 	DB = db
