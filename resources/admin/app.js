@@ -523,7 +523,10 @@
     const deploymentBatchActions=state.page==="deployed"?
       '<button type="button" class="btn" data-action="deployment-batch-approve">批量批准部署</button>'+
       '<button type="button" class="btn" data-action="deployment-batch-revoke">批量撤销部署</button>':"";
-    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions+trashBatchActions+deploymentBatchActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
+    const sharingBatchActions=state.page==="myRules"?
+      '<button type="button" class="btn" data-action="rules-batch-share">批量共享地址簿</button>'+
+      '<button type="button" class="btn" data-action="rules-batch-revoke">批量撤销共享</button>':"";
+    return pageHeading(isBook?"地址簿":p.name,description,add+exportBtn+csvActions+trashBatchActions+deploymentBatchActions+sharingBatchActions)+tabs+'<section class="panel">'+search+table(p,rows)+pagination()+'</section>';
   }
   function contacts(){
     const v=state.contacts||{outgoing:[],incoming:[]};
@@ -754,6 +757,22 @@
         '<small>令牌原文仅显示一次，关闭页面后无法再次查看。</small></div>';
       return modal("API 管理令牌已创建","可用于已授权的 RustDesk 客户端命令及自动化管理接口。",body,
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
+    }
+    if(m.kind==="rules-batch"){
+      const revoke=m.action==="revoke";
+      const body='<div class="form-grid">'+
+        '<div class="field full"><label for="rules-batch-collection">地址簿编号</label>'+
+        '<input type="number" id="rules-batch-collection" min="1" step="1" required></div>'+
+        '<div class="field full"><label for="rules-batch-users">目标用户编号（最多 100 位）</label>'+
+        '<textarea id="rules-batch-users" rows="5" placeholder="例如：3,7,9" required></textarea></div>'+
+        (revoke?"":'<div class="field full"><label for="rules-batch-level">共享权限</label>'+
+        '<select id="rules-batch-level"><option value="1">只读</option>'+
+        '<option value="2">可读写</option><option value="3">完全控制</option></select></div>')+
+        '</div>';
+      return modal(revoke?"批量撤销地址簿共享":"批量共享地址簿",
+        "只能修改您本人拥有的地址簿，服务器会在保存前检查所有目标用户。",body,
+        '<button class="btn" data-action="close-modal">取消</button>'+
+        '<button class="btn btn-primary" data-action="rules-batch-submit">确认保存</button>');
     }
     if(m.kind==="deployment-batch"){
       const revoke=m.action==="revoked";
@@ -986,6 +1005,34 @@
     if(a==="submit-api-token"){
       const form=document.getElementById("edit-form");
       if(form&&form.reportValidity())await saveEditor(form);
+      return;
+    }
+    if(a==="rules-batch-share"||a==="rules-batch-revoke"){
+      state.modal={kind:"rules-batch",action:a==="rules-batch-share"?"share":"revoke"};
+      render();return;
+    }
+    if(a==="rules-batch-submit"){
+      if(state.modal?.kind!=="rules-batch")return;
+      const collection=document.getElementById("rules-batch-collection");
+      const field=document.getElementById("rules-batch-users");
+      if(!collection||!field)return;
+      const collectionID=Number(collection.value);
+      const ids=[...new Set(field.value.trim().split(/[,，\s]+/).filter(Boolean).map(Number))];
+      if(!Number.isSafeInteger(collectionID)||collectionID<=0||
+        !ids.length||ids.length>100||ids.some(id=>!Number.isSafeInteger(id)||id<=0)){
+        toast("请输入有效的地址簿编号以及最多 100 位用户编号",true);return;
+      }
+      const action=state.modal.action;
+      const level=document.getElementById("rules-batch-level");
+      const rule=action==="share"?Number(level?.value):0;
+      if(action==="share"&&![1,2,3].includes(rule)){toast("共享权限无效",true);return;}
+      if(action==="revoke"&&!window.confirm("确定撤销选中用户的地址簿共享吗？"))return;
+      try{
+        await request("/my/address_book_collection_rule/batch","POST",
+          {collection_id:collectionID,target_user_ids:ids,action,rule});
+        state.modal=null;toast(action==="share"?"地址簿共享已更新":"地址簿共享已撤销");
+        await load();
+      }catch(e){toast(e.message,true);}
       return;
     }
     if(a==="contact-batch-add"||a==="contact-batch-remove"){
