@@ -34,6 +34,8 @@ func AdminPermissionForRoute(method,path string)string{
 		if write{return "devices.create"}
 	case p=="/peer/update":
 		if write{return "devices.edit_info"}
+	case p=="/peer/transfer":
+		if write{return "devices.transfer"}
 	case p=="/peer/delete"||p=="/peer/batchDelete":
 		if write{return "devices.delete"}
 	case strings.HasPrefix(p,"/group/"):
