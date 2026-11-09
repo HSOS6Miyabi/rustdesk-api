@@ -442,3 +442,19 @@ test("personal contact manager exposes batch sharing controls", async () => {
   await app.action("contact-batch-remove");
   assert.match(app.root.innerHTML, /选中联系人将无法再通过联系人关系查看您的设备/);
 });
+
+test("deployment manager exposes batch approval and revocation", async () => {
+  const app = createConsole(true);
+  app.fixtures["/device_deployment/list"] = {
+    list: [{id: 8, device_id: "desk-8", status: "approved"}], total: 1
+  };
+  await app.settle();
+  await app.open("deployed");
+  assert.match(app.root.innerHTML, /批量批准部署/);
+  assert.match(app.root.innerHTML, /批量撤销部署/);
+  await app.action("deployment-batch-approve");
+  assert.match(app.root.innerHTML, /设备部署记录编号/);
+  await app.action("close-modal");
+  await app.action("deployment-batch-revoke");
+  assert.match(app.root.innerHTML, /撤销后设备将无法在严格登记模式下重新登记/);
+});
