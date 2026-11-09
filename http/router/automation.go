@@ -29,6 +29,7 @@ func AutomationRoutes(engine *gin.Engine) {
 	deployments := &admin.DeviceDeployment{}
 	read("/deployments", "deployments.read", deployments.List)
 	write("/deployments/status", "deployments.manage", deployments.SetStatus)
+	write("/deployments/batch-status", "deployments.manage", deployments.SetBatchStatus)
 
 	relays := &admin.RelayNodes{}
 	read("/relays", "relays.read", relays.List)
