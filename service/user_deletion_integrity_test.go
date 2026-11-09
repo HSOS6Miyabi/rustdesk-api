@@ -13,6 +13,8 @@ func userDeletionTestDB(t *testing.T) (map[string]*model.User, func()) {
 		&model.UserThird{},&model.AddressBook{},&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},&model.Tag{},
 		&model.UserToken{},&model.ShareRecord{},&model.APIToken{},
+		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
+		&model.PasswordResetToken{},&model.UserInvitation{},
 		&model.AuditConn{},&model.AuditFile{},
 	);err!=nil{
 		cleanup()
@@ -43,6 +45,16 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 	if err:=DB.Create(&model.UserToken{UserId:owner.Id,Token:"old-session",ExpiredAt:4102444800}).Error;err!=nil{
 		t.Fatal(err)
 	}
+	for _,row:=range []interface{}{
+		&model.UserTOTP{UserId:owner.Id,Enabled:true,SecretCiphertext:"sample-encrypted-secret"},
+		&model.TOTPRecoveryCode{UserId:owner.Id,CodeHash:"sample-recovery-hash"},
+		&model.TOTPLoginChallenge{UserId:owner.Id,TokenHash:"sample-challenge-hash",ExpiresAt:4102444800},
+		&model.PasswordResetToken{UserId:owner.Id,TokenHash:"sample-password-reset",ExpiresAt:4102444800},
+		&model.UserInvitation{Email:"invited@example.test",CreatedBy:owner.Id,GroupId:2,
+			TokenHash:"sample-invitation",ExpiresAt:4102444800},
+	}{
+		if err:=DB.Create(row).Error;err!=nil{t.Fatal(err)}
+	}
 	if err:=DB.Create(&model.AuditConn{
 		ConnId:2,PeerId:"owned-device",FromPeer:"remote-peer",
 		FromUserId:other.Id,ToUserId:owner.Id,FromAccount:other.Username,ToAccount:owner.Username,
@@ -72,6 +84,18 @@ func TestDeleteUserRevokesContactsAndGroupMemberships(t *testing.T) {
 		Count(&count).Error;err!=nil||count!=0{t.Fatalf("contact grant remains: %d %v",count,err)}
 	if err:=DB.Model(&model.UserToken{}).Where("user_id = ?",owner.Id).Count(&count).Error;err!=nil||count!=0{
 		t.Fatalf("stale login session remains: %d %v",count,err)
+	}
+	for _,table:=range []interface{}{
+		&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},
+		&model.PasswordResetToken{},
+	}{
+		if err:=DB.Model(table).Where("user_id = ?",owner.Id).Count(&count).Error;err!=nil||count!=0{
+			t.Fatalf("user authentication data remains in %T: %d %v",table,count,err)
+		}
+	}
+	var revoked model.UserInvitation
+	if err:=DB.Where("created_by = ?",owner.Id).First(&revoked).Error;err!=nil||revoked.RevokedAt==0{
+		t.Fatalf("invitation issued by a deleted user remains valid: %+v %v",revoked,err)
 	}
 	if err:=DB.Model(&model.AddressBookCollectionRule{}).Where(
 		"(type = ? AND to_id = ?) OR (type = ? AND to_id = ?)",

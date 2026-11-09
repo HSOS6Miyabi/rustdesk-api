@@ -254,9 +254,13 @@ func (us *UserService) Delete(u *model.User) error {
 			&model.UserThird{},&model.AddressBookCollection{},
 			&model.AddressBookCollectionRule{},&model.Tag{},
 			&model.UserToken{},&model.ShareRecord{},&model.DevicePolicyUserAssignment{},&model.APIToken{},
+			&model.UserTOTP{},&model.TOTPRecoveryCode{},&model.TOTPLoginChallenge{},&model.PasswordResetToken{},
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}
+		if err:=tx.Model(&model.UserInvitation{}).
+			Where("created_by = ? AND accepted_at = 0 AND revoked_at = 0",u.Id).
+			Update("revoked_at",time.Now().Unix()).Error;err!=nil{return err}
 		if err:=tx.Unscoped().Where("user_id = ?",u.Id).
 			Delete(&model.AddressBook{}).Error;err!=nil{return err}
 		if err := tx.Model(&model.Peer{}).Where("user_id = ?",u.Id).
