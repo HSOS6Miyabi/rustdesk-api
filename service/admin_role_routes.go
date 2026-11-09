@@ -74,6 +74,9 @@ func AdminPermissionForRoute(method,path string)string{
 	case strings.HasPrefix(p,"/mail/"):
 		if read{return "smtp.view"}
 		if write{return "smtp.edit"}
+	case strings.HasPrefix(p,"/notification/"):
+		if read{return "notifications.view"}
+		if write{return "notifications.edit"}
 	case strings.HasPrefix(p,"/invite/"):
 		if read||write{return "users.create"}
 	case strings.HasPrefix(p,"/device_deployment/"):
