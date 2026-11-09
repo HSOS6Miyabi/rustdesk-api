@@ -36,6 +36,7 @@ func Init(g *gin.Engine) {
 	DeviceSessionsBind(adg)
 	APITokenBind(adg)
 	MailBind(adg)
+	InvitationBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)
@@ -77,6 +78,7 @@ func LoginBind(rg *gin.RouterGroup) {
 	rg.POST("/login", cont.Login)
 	rg.POST("/password/forgot", (&admin.PasswordRecovery{}).Request)
 	rg.POST("/password/reset", (&admin.PasswordRecovery{}).Complete)
+	rg.POST("/invite/accept", (&admin.Invitation{}).Accept)
 	rg.GET("/captcha", cont.Captcha)
 	rg.POST("/logout", cont.Logout)
 	rg.GET("/login-options", cont.LoginOptions)
@@ -439,4 +441,12 @@ func MailBind(rg *gin.RouterGroup) {
 	r.GET("/settings",controller.Settings)
 	r.POST("/settings",controller.Save)
 	r.POST("/test",controller.Test)
+}
+
+func InvitationBind(rg *gin.RouterGroup){
+	controller:=&admin.Invitation{}
+	r:=rg.Group("/invite").Use(middleware.AdminPrivilege())
+	r.GET("/list",controller.List)
+	r.POST("/create",controller.Create)
+	r.POST("/revoke",controller.Revoke)
 }

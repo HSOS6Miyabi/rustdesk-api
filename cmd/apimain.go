@@ -320,6 +320,7 @@ func Migrate(version uint) {
 		&model.APIToken{},
 		&model.SMTPSetting{},
 		&model.PasswordResetToken{},
+		&model.UserInvitation{},
 		&model.AddressBookCollection{},
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
