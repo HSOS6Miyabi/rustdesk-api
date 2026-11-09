@@ -24,7 +24,7 @@
     ["audits.view","查看连接和操作记录"],["audits.edit","管理审计记录"],
     ["strategies.view","查看设备策略"],["strategies.edit","管理设备策略"],
     ["control_roles.view","查看控制角色"],["control_roles.edit","管理控制角色"],
-    ["contacts.view","查看联系人"],["contacts.edit","管理联系人"],
+
     ["address_books.view","查看地址簿"],["address_books.edit","管理地址簿"],
     ["api_tokens.view","查看 API 令牌"],["api_tokens.edit","管理 API 令牌"],
     ["smtp.view","查看 SMTP 设置"],["smtp.edit","修改 SMTP 设置"],
@@ -458,6 +458,9 @@
     if(editable)out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
     if(state.page==="users"&&hasPrivilege("users.edit_password")){
       out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
+    }
+    if(state.page==="users"&&hasPrivilege("users.manage_2fa")){
+      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">重置双重认证</button>';
     }
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):
@@ -1027,6 +1030,16 @@
     if(a==="oidc"){await oidc(el.dataset.id);return;}
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
     if(a==="delete"){await deleteEntry(el.dataset.id);return;}
+    if(a==="reset-user-mfa"){
+      const member=state.rows.find(r=>String(r.id)===String(el.dataset.id));
+      if(!member||!window.confirm("确认重置用户 "+member.username+" 的 TOTP 和邮箱登录验证吗？"))return;
+      try{
+        await request("/user/mfa/reset","POST",{id:Number(member.id)});
+        toast("用户双重认证已重置");
+        await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="reset-password"){
       const user=state.rows.find(r=>String(r.id)===String(el.dataset.id));
       if(user){state.modal={kind:"reset-password",user};render();}

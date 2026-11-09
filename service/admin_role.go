@@ -25,7 +25,7 @@ var adminPermissionNames = []string{
 	"device_groups.edit","audits.view","audits.edit",
 	"strategies.view","strategies.edit",
 	"control_roles.view","control_roles.edit",
-	"contacts.view","contacts.edit","address_books.view","address_books.edit",
+	"address_books.view","address_books.edit",
 	"api_tokens.view","api_tokens.edit","smtp.view","smtp.edit",
 	"relay_nodes.view","relay_nodes.edit",
 	"device_deployment.view","device_deployment.edit",

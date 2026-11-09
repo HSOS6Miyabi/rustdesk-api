@@ -110,6 +110,7 @@ func UserBind(rg *gin.RouterGroup) {
 		aRP.POST("/update", cont.Update)
 		aRP.POST("/delete", cont.Delete)
 		aRP.POST("/changePwd", cont.UpdatePassword)
+		aRP.POST("/mfa/reset", cont.ResetSecondFactors)
 	}
 }
 

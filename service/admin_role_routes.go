@@ -22,6 +22,8 @@ func AdminPermissionForRoute(method,path string)string{
 		if write{return "users.edit"}
 	case p=="/user/changePwd":
 		if write{return "users.edit_password"}
+	case p=="/user/mfa/reset":
+		if write{return "users.manage_2fa"}
 	case p=="/user_token/list":
 		if read{return "users.force_logout"}
 	case p=="/user_token/delete"||p=="/user_token/batchDelete":
@@ -44,12 +46,12 @@ func AdminPermissionForRoute(method,path string)string{
 		if read{return "audits.view"}
 		if write{return "audits.edit"}
 	case p=="/audit_alarm/list"||p=="/audit_operation/list"||
-		p=="/audit/alarms"||p=="/audit/operations"||
-		p=="/audit/retention"||p=="/audit/export":
+		p=="/audit/alarms"||p=="/audit/operations"||p=="/audit/export":
 		if read{return "audits.view"}
 	case p=="/audit/retention":
+		if read{return "audits.view"}
 		if write{return "audits.edit"}
-	case strings.HasPrefix(p,"/device_policy/"):
+		case strings.HasPrefix(p,"/device_policy/"):
 		if read{return "strategies.view"}
 		if write{return "strategies.edit"}
 	case strings.HasPrefix(p,"/control_role/")||strings.HasPrefix(p,"/control_assignment/"):
@@ -68,8 +70,7 @@ func AdminPermissionForRoute(method,path string)string{
 		if read{return "smtp.view"}
 		if write{return "smtp.edit"}
 	case strings.HasPrefix(p,"/invite/"):
-		if read{return "users.view"}
-		if write{return "users.create"}
+		if read||write{return "users.create"}
 	case strings.HasPrefix(p,"/device_deployment/"):
 		if read{return "device_deployment.view"}
 		if write{return "device_deployment.edit"}
