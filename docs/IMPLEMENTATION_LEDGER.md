@@ -23,13 +23,13 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 当前已检查的代码提交 | [`7297f1cfd3f3ccbe6e65856457d1f11c9d9d2033`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/7297f1cfd3f3ccbe6e65856457d1f11c9d9d2033) | [`646fae03b6c4f7a170e3df394df450701a6b421c`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/646fae03b6c4f7a170e3df394df450701a6b421c) |
+| 当前已检查的代码提交 | [`05941578ae484a8e6e3cd2aec64c2fa3170ed843`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/05941578ae484a8e6e3cd2aec64c2fa3170ed843) | [`79146fe486b545ecae3925916d848cac21be42ee`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/79146fe486b545ecae3925916d848cac21be42ee) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 当前提交的 CI 检查 | [42579677028：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42579677028) | [42579839266：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42579839266) |
+| 功能代码 CI 检查 | [42587648927：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42587648927) | [42588361437：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42588361437) |
 | 正式发行版本 | `v3.0.0-api.96`（2026-11-08） | `v1.1.17-api.9`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
-以上提交编号是本次交接时确认的开发版本。后续新增提交后，应重新查询两仓库分支位置，并把新的版本组合写入本节。**API 与 Server 开发分支必须配合部署，不能直接把未发布的 API 功能与旧版 Server 混用并假定兼容。**
+以上是已通过完整自动化测试的功能代码提交。文档修改可以产生更新的分支提交；部署时应同时查看两仓库分支最新提交、对应的 CI 结果和本台账记录。**API 与 Server 开发分支必须配合部署，不能直接把未发布的 API 功能与旧版 Server 混用并假定兼容。**
 
 当前 API 数据库迁移版本：**280**。当前状态：代码仍在草稿 PR 内，没有合并，没有发行新版本，也没有更新正式发行镜像。
 
@@ -51,20 +51,20 @@ CI 已实际通过的内容：
 | F04 | `MUST_LOGIN` 下的连接和中继令牌校验 | 已实现，Server 协议测试通过 | Server `src/jwt.rs`、`src/rendezvous_server.rs` |
 | F05 | 设备、所属用户、设备组三层策略 | 已实现且 Go 与浏览器测试通过；更多客户端设置项待扩展 | `service/device_policy.go`、`service/device_policy_target.go` |
 | F06 | 活动远程连接与向客户端发送结束请求 | 已实现且心跳与浏览器测试通过；真实桌面会话待验证 | `service/session_management.go` |
-| F07 | 独立 API 管理令牌 | 已实现创建、到期、撤销；当前只支持设备分配和部署权限 | `service/api_token.go`、`http/middleware/device_command_auth.go` |
+| F07 | 独立 API 管理令牌 | 已实现创建、到期、撤销、细分操作权限及专用自动化管理接口，测试通过 | `service/api_token.go`、`http/middleware/automation_auth.go`、`http/router/automation.go` |
 | F08 | 共享地址簿、附加群组、所有用户共享 | 已实现且接口测试通过 | `service/addressBook.go`、`http/controller/api/ab.go` |
-| F09 | 地址簿 CSV 导入导出与回收站 | 已实现，具备数据库和浏览器测试 | `service/address_book_csv.go`、`service/address_book_trash.go` |
+| F09 | 地址簿 CSV 导入导出与回收站 | 已实现，含批量恢复、永久删除和数据库事务测试 | `service/address_book_csv.go`、`service/address_book_trash.go`、`service/address_book_batch.go` |
 | F10 | SMTP 配置、测试邮件、邀请注册和密码恢复 | 已实现，含本地模拟 SMTP 测试；实际服务商待验证 | `service/mail.go`、`service/user_invitation.go`、`service/password_recovery.go` |
 | F11 | TOTP、六个一次性恢复码、邮箱验证码登录 | 已实现且协议及浏览器测试通过；真实多平台客户端待验证 | `service/totp.go`、`service/email_login.go` |
 | F12 | 14 项远程控制角色及三级分配 | 已实现，`hbbs` 协议消息测试通过；真实桌面远程操作待验证 | API `service/control_role.go`；Server `src/control_roles.rs` |
-| F13 | 管理员分级角色及多角色授权 | 已实现；限制用户/群组的范围目前仅支持用户与设备查看 | `service/admin_role.go`、`http/middleware/admin_privilege.go` |
+| F13 | 管理员分级角色及多角色授权 | 已实现限定账户和用户组范围内的查看、编辑、删除及设备所有者转移，测试通过 | `service/admin_role.go`、`http/middleware/admin_privilege.go`、`http/controller/admin/peer_transfer.go` |
 | F14 | 多中继节点、按 CIDR 和国家代码选择 | 已实现，含实际 `hbbs` 进程测试 | Server `src/relay_policy.rs`；API `service/relay_node.go` |
-| F15 | 本地 GeoLite2 Country CSV 识别 IPv4/IPv6、`reload-geo` | 已实现且模拟地理数据与真实服务测试通过；正式数据库由部署者提供 | Server `src/geoip_country.rs` |
+| F15 | 本地 GeoLite2 Country MMDB/CSV 识别 IPv4/IPv6、`reload-geo` | 已实现双格式读取与示例数据库测试；正式数据库由部署者提供 | Server `src/geoip_country.rs` |
 | F16 | 服务器集中连接访问规则 | 已实现且真实服务测试通过；默认关闭；实际客户端待验证 | API `service/connection_access.go`；Server `src/connection_access.rs` |
 | F17 | 连接、文件、登录与操作审计、历史连接备注和导出 | 已实现现有及新增功能，自动测试通过 | `service/audit.go`、`service/audit_note.go` |
 | F18 | WebClient v2、WebSocket 和 WebRTC | 现有功能保留，CI 编译和浏览器测试通过；真实设备待验证 | `resources/web2`、`resources/web/js` |
 | F19 | 可视化自定义客户端构建器 | **尚未实现** | 需要构建服务、任务状态、产物管理及客户端安装包测试 |
-| F20 | GeoLite2 MMDB 读取、更多策略和 API 令牌功能、批量管理增强 | **尚未实现** | 见后续任务清单 |
+| F20 | GeoLite2 MMDB 读取、更多策略和 API 令牌功能、批量管理增强 | MMDB、独立令牌与四类批量管理已实现并通过自动化测试；策略扩充仍在待办事项中 | 见 T014 与 T015–T018 |
 
 ### 4. 完整待办事项及处理顺序
 
@@ -82,14 +82,14 @@ CI 已实际通过的内容：
 | T008 | P0 | 待执行 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | 待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
 | T010 | P0 | 待执行 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
-| T011 | P0 | 待执行 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
+| T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
 | T013 | P1 | 尚未实现 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
 | T014 | P1 | 尚未实现 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
-| T015 | P1 | 尚未实现 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
-| T016 | P1 | 尚未实现 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
-| T017 | P1 | 尚未实现 | 联系人、共享地址簿、设备部署和回收站的批量导入、共享、恢复及整理 | 管理界面能批量处理，失败时明确说明未成功的项目 |
-| T018 | P1 | 尚未实现 | 可选 GeoLite2 MMDB 文件支持，并与现有 Country CSV 方式共存 | 两种数据库格式的国家判断结果一致，未配置时正常选择中继 |
+| T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
+| T016 | P1 | 已实现，CI 通过 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
+| T017 | P1 | 已实现，CI 通过 | 联系人、共享地址簿、设备部署和回收站的批量导入、共享、恢复及整理 | 管理界面能批量处理，失败时明确说明未成功的项目 |
+| T018 | P1 | 已实现，Rust CI 通过 | 可选 GeoLite2 MMDB 文件支持，并与现有 Country CSV 方式共存 | 两种数据库格式的国家判断结果一致，未配置时正常选择中继 |
 | T019 | P1 | 待完善 | 活动会话结束、登录异常、部署状态、文件传输等消息的邮件通知 | 管理员可选择通知项目，消息发送结果可以查询 |
 | T020 | P1 | 待完善 | 为设备、共享地址簿及连接审计增加更实用的筛选、导出及备注管理 | 小型团队可快速查询、导出和维护历史记录 |
 | T021 | P2 | 待研究 | 官方商业版新增功能与 RustDesk 客户端更新情况，定期更新功能清单 | 每个新增候选功能附使用场景、客户端版本和预计修改位置 |
@@ -99,17 +99,17 @@ P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继�
 
 ### 5. 重要实现细节与当前限制
 
-**官方客户端兼容。** `/api/devices/cli` 和 `/api/devices/deploy` 已接入，端到端自动测试使用 Gin/SQLite 和真实 `hbbs`，最终还应使用官方客户端命令进行完整操作。独立 API 令牌目前仅用于 `devices.assign` 和 `devices.deploy`，与普通网页登录令牌分开保存。
+**官方客户端兼容。** `/api/devices/cli` 和 `/api/devices/deploy` 已接入，端到端自动测试使用 Gin/SQLite 和真实 `hbbs`，最终还应使用官方客户端命令进行完整操作。独立 API 令牌支持设备分配、部署及细分的自动化管理权限，通过 `Authorization: Bearer rdapi_...` 调用 `/api/automation/v1`。管理接口每次验证令牌权限和所属账户的系统管理员身份，令牌摘要与普通登录令牌分开保存。
 
 **设备策略与控制角色。** 两者分别管理：设备策略经客户端心跳应用，优先级为单设备、用户、设备组；控制角色在连接协商时写入 `ControlPermissions`，按目标设备、所属用户、设备组选择。实际客户端的控制操作仍需验证。
 
 **集中连接访问。** 只在 `RUSTDESK_API_CONNECTION_ACCESS_URL` 配置后启用。API 检查登录令牌、已登记的目标设备和访问规则；设备所有者始终可以连接自己的设备；其他用户需匹配允许规则，明确的禁止规则优先。API 访问失败时拒绝严格模式的新连接。直接使用 IP 地址连接设备的方式不经 `hbbs` 的连接协商处理。
 
-**管理员角色。** 一个用户可拥有多个角色。具有 `is_admin=true` 的现有系统管理员保留全部管理权限。当前限定用户与用户组的角色仅提供用户和设备查看，修改操作必须具备全局角色权限。管理角色分配本身只允许系统管理员操作。
+**管理员角色。** 一个用户可拥有多个角色。具有 `is_admin=true` 的现有系统管理员保留全部管理权限。当前限定用户与用户组的角色支持所属账户和设备的查看、受限编辑、删除与设备所有者转移。修改账户时不得变更群组及管理员身份，转移设备时同时检查原所有者和目标所有者。管理角色分配本身只允许系统管理员操作。
 
 **邮箱与认证。** TOTP 和邮箱验证码登录均为用户可选。SMTP 密码和 TOTP 密钥依赖持久化的 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，该密钥必须与数据库一起备份；变更密钥前需要重新处理已保存的加密资料。普通用户重置密码会撤销原有登录会话；管理员帮助成员重置第二因素时也会撤销已有会话。
 
-**多中继。** `hbbs` 可根据活动中继、CIDR 网络规则和 GeoLite2 国家数据选择节点；管理员指定的 CIDR 规则优先。GeoLite2 Country CSV 必须由部署者自行提供，程序未包含第三方地理位置数据库。未配置托管中继时使用原有中继配置。
+**多中继。** `hbbs` 可根据活动中继、CIDR 网络规则和 GeoLite2 国家数据选择节点；管理员指定的 CIDR 规则优先。GeoLite2 Country MMDB 文件或 CSV 目录由部署者自行提供，程序未包含正式地理位置数据库。未配置托管中继时使用原有中继配置。
 
 **数据库与兼容。** 当前 API 迁移版本 280；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
 
@@ -141,7 +141,7 @@ P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继�
 | 集中连接许可 | `RUSTDESK_API_CONNECTION_ACCESS_URL` | `POST /internal/v1/connection/authorize` |
 | 令牌验证 | `MUST_LOGIN=Y`、`RUSTDESK_API_JWT_KEY` | 与 API 共同使用 JWT 密钥 |
 | 内部通信 | `RUSTDESK_API_INTERNAL_KEY` | API 与 Server 必须一致 |
-| GeoLite2 Country CSV | `RUSTDESK_GEOIP_CSV_DIR` | 从本地文件读取，无 HTTP 查询 |
+| GeoLite2 Country 数据 | `RUSTDESK_GEOIP_MMDB_FILE` 或 `RUSTDESK_GEOIP_CSV_DIR` | 从本地 MMDB/CSV 文件读取，无 HTTP 查询 |
 | SMTP 与 TOTP 密钥 | API 端 `RUSTDESK_API_MAIL_ENCRYPTION_KEY` | API 本地使用；须备份 |
 
 这些变量均按实际部署决定是否配置。内部地址样例中的 `127.0.0.1` 仅适用于同一网络命名空间中的服务；Docker 跨容器访问请使用可解析的服务名称或实际内部地址。禁止在文档、提交或日志中记录真实密钥。
@@ -180,8 +180,8 @@ node --test resources/admin/browser.e2e.cjs resources/admin/browser.webrtc.e2e.c
 git clone --recurse-submodules --branch development/m1-device-management https://github.com/HSOS6Miyabi/rustdesk-server.git
 cd rustdesk-server
 git submodule update --init --recursive
-cargo test --locked --lib --tests
-cargo build --locked --bins
+cargo test --lib --tests
+cargo build --bins
 python3 scripts/test_runtime.py target/debug/hbbs target/debug/hbbr
 python3 scripts/test_device_deployment.py target/debug/hbbs
 python3 scripts/test_managed_relays.py target/debug/hbbs
@@ -607,7 +607,7 @@ Server 需设置 `RUSTDESK_API_CONTROL_ROLE_URL` 才会查询控制角色。设�
 - 用户组：对该组的主要成员及附加成员提供用户目录、设备目录只读访问。
 - 指定用户：仅可查看该用户资料和名下设备。
 
-**限定范围角色目前仅允许 `users.view` 和 `devices.view`。** 修改用户、设备或系统配置，需要具有相应操作权限的全局角色。若要进一步实现用户组范围内的编辑和设备迁移，应在专门的权限检查后扩展，避免更新超出授权范围的记录。
+**限定范围角色支持用户与设备查看、编辑、删除以及设备所有者转移。** 相关修改操作由服务器检查目标账户的归属，设备转移要求原所有者及目标所有者均属于授权范围。系统设置及管理角色分配仍由系统管理员负责。
 
 已经拥有 `is_admin=true` 的系统管理员继续拥有全部管理权限。普通成员未被分配管理角色时，现有个人功能不改变。管理角色接口本身仅允许系统管理员访问，普通受委派成员不能创建或提升自己的角色。
 
@@ -676,3 +676,33 @@ Server 通过带内部密钥的 POST 请求，将设备 ID 和客户端登录令
 - [Server 普通连接、中继连接及 API 无法访问的实际进程测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42578682536)：通过。
 
 真实桌面客户端的各类网络环境、登录方式及直接 IP 连接仍应在里程碑发布前检查。
+
+
+## 2026-11-09：自动化管理、限定范围修改、批量管理及双格式国家数据
+
+本阶段在两个开发分支持续提交，并通过草稿 PR 的自动化检查。首个正式发布里程碑仍须完成 P0 真实环境检查与维护者确认。
+
+### 实现和代码位置
+
+| 任务 | 主要提交 | 实现结果 |
+| --- | --- | --- |
+| T011 | [Server 32967aa](https://github.com/HSOS6Miyabi/rustdesk-server/commit/32967aa4bf) | 增加双架构 API/Server 组合镜像预演，运行实际容器检查 API、hbbs、hbbr 与 WebSocket |
+| T015 | [API 自动化令牌](https://github.com/HSOS6Miyabi/rustdesk-api/blob/development/m1-device-management/http/router/automation.go) | 为独立令牌增加查看和管理权限；从 `/api/automation/v1` 调用设备、部署、中继、会话、策略、角色与审计接口 |
+| T016 | [API 设备所有者转移](https://github.com/HSOS6Miyabi/rustdesk-api/blob/development/m1-device-management/http/controller/admin/peer_transfer.go) | 允许按指定账户或用户组授权修改、删除设备和用户；设备转移同步更新登记记录并撤销旧设备会话 |
+| T017 | [API 回收站批量服务](https://github.com/HSOS6Miyabi/rustdesk-api/blob/development/m1-device-management/service/address_book_batch.go) | 联系人批量添加和撤销、地址簿批量共享、部署许可批量修改、回收站批量恢复与永久删除 |
+| T018 | [Server MMDB/CSV 国家识别](https://github.com/HSOS6Miyabi/rustdesk-server/blob/development/m1-device-management/src/geoip_country.rs) | 支持 `RUSTDESK_GEOIP_MMDB_FILE`，与原有 CSV 读取共存；可执行 `reload-geo` 重新读取数据 |
+
+### 已完成的检查
+
+- [API 令牌权限与管理接口：42584017460](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42584017460)，通过。
+- [管理员范围检查、设备转移与 Chromium 交互：42585567417](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42585567417)，通过。
+- [四类批量管理 Go 测试与页面交互：42587648927](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42587648927)，通过。
+- [Server 双架构组合容器预演：42585097640](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42585097640)，通过。
+- [Server MMDB/CSV 国家读取、示例数据及 Rust 测试：42588361437](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42588361437)，通过。
+
+### 继续维护时的检查顺序
+
+- 先读取两个开发分支最新提交和 PR CI；文档更新后可能产生新的 CI 运行。
+- 在相应分支运行 Go、Rust、浏览器及双架构容器测试。MMDB 验证示例位于 Server 的 `tests/fixtures`，正式地理数据库仍由部署人员提供。
+- T001–T010、T012 需要实际客户端、SMTP、数据库或发布审核的项目仍按第 4 节执行。T013、T014、T019–T022 后续事项保持在待办清单中。
+- 两个拉取请求继续保持草稿，所有日常开发提交不得发布 Release 或正式 Docker 镜像。
