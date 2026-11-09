@@ -44,6 +44,8 @@ function serve(req, res) {
       list:[{id:2,from_peer:"123456",from_account:"owner",
         peer_id:"654321",to_account:"alice",path:"/files/report.pdf",direction:"outgoing"}],total:1
     });
+    if(route==="/mail/settings")return answer(res,{enabled:true,host:"smtp.example.test",port:587,security:"starttls",sender_email:"support@example.test",sender_name:"Support",password_configured:true});
+    if(route==="/mail/test")return answer(res,{sent:true});
     if(route==="/api_token/list")return answer(res,{list:[],total:0});
     if(route==="/api_token/create")return answer(res,{id:8,prefix:"rdapi_example",token:"rdapi_example-secret-value"});
     if(route==="/api_token/delete")return answer(res,{});
@@ -360,5 +362,20 @@ test("personal address book trash can restore and permanently remove records",as
     await page.getByText(/地址簿条目已恢复/).first().waitFor();
     await page.locator('button[data-action="trash-purge"]').first().click();
     await page.getByText(/地址簿条目已永久删除/).first().waitFor();
+  }finally{await context.close();}
+});
+
+test("administrator can edit SMTP settings and send a test email",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="mail"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="SMTP 邮件服务");
+    await page.locator('#mail-host').waitFor({state:"visible"});
+    assert.equal(await page.locator('#mail-host').inputValue(),"smtp.example.test");
+    await page.locator('#mail-test-form input[name="to"]').fill("receiver@example.test");
+    await page.locator('#mail-test-form button[type="submit"]').click();
+    await page.getByText("测试邮件已发送").first().waitFor();
+    await page.locator('nav.side-scroll button[data-view="policies"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备安全策略");
   }finally{await context.close();}
 });

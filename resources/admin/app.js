@@ -35,6 +35,7 @@
     loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["created_at","时间"]]},
     transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"系统管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
@@ -97,7 +98,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -231,6 +232,8 @@
         const result=await request("/shared_devices/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
+      }else if(k==="mail"){
+        state.mail=await request("/mail/settings");
       }else if(k==="retention"){
         state.retention=await request("/audit/retention");
       }else if(k==="server"){
@@ -359,6 +362,36 @@
       toast("已生成 CSV 文件");
     }catch(err){toast(err.message,true);}
   }
+  function mailPage(){
+    const m=state.mail||{};
+    const security=m.security||"starttls";
+    const options=[["starttls","STARTTLS（通常为 587 端口）"],["tls","TLS 加密连接（通常为 465 端口）"],["none","不加密（适用于可信的内部邮件服务）"]]
+      .map(([value,label])=>'<option value="'+value+'" '+(value===security?"selected":"")+'>'+label+'</option>').join("");
+    const textField=(name,label,value,type="text")=>
+      '<div class="field"><label for="mail-'+name+'">'+esc(label)+'</label><input id="mail-'+name+
+      '" type="'+type+'" name="'+name+'" value="'+esc(value||"")+'" autocomplete="off"></div>';
+    const inputs=
+      '<label class="field"><span>启用邮件发送</span><input name="enabled" type="checkbox" '+(m.enabled?"checked":"")+'></label>'+
+      textField("host","SMTP 主机",m.host)+
+      '<div class="field"><label for="mail-port">端口</label><input id="mail-port" name="port" type="number" min="1" max="65535" value="'+esc(m.port||587)+'" required></div>'+
+      '<div class="field"><label for="mail-security">连接方式</label><select id="mail-security" name="security">'+options+'</select></div>'+
+      textField("username","SMTP 用户名",m.username)+
+      '<div class="field"><label for="mail-password">SMTP 密码</label><input id="mail-password" name="password" type="password" autocomplete="new-password" placeholder="'+(m.password_configured?"留空可保留已配置的密码":"请输入 SMTP 密码（可留空）")+'">'+
+      '<small>保存密码前需在服务器设置 RUSTDESK_API_MAIL_ENCRYPTION_KEY。</small></div>'+
+      '<label class="field"><span>清除已保存的 SMTP 密码</span><input name="clear_password" type="checkbox"></label>'+
+      textField("sender_email","发件邮箱",m.sender_email,"email")+
+      textField("sender_name","发件人名称",m.sender_name)+
+      textField("base_url","用户访问控制台的公开地址",m.base_url,"url");
+    return pageHeading("SMTP 邮件服务","配置邮件发送后，可以向团队成员发送测试邮件并用于账户恢复。")+
+      '<section class="panel" style="max-width:960px"><div class="panel-header"><div><h2 class="panel-title">发送邮件设置</h2>'+
+      '<p class="panel-sub">SMTP 配置保存在数据库中。密码经过加密保存，不会再次显示原文。</p></div></div>'+
+      '<form id="mail-settings-form" class="tips"><div class="form-grid">'+inputs+'</div>'+
+      '<button class="btn btn-primary" type="submit" style="margin-top:16px">保存邮件设置</button></form></section>'+
+      '<section class="panel" style="max-width:960px;margin-top:16px"><div class="panel-header"><h2 class="panel-title">发送测试邮件</h2></div>'+
+      '<form id="mail-test-form" class="tips"><div class="form-grid">'+textField("to","收件邮箱","","email")+
+      '</div><button type="submit" class="btn btn-primary" style="margin-top:16px">发送测试邮件</button></form></section>';
+  }
+
   function profile(){
     return pageHeading("个人设置","查看当前账户并修改登录密码。")+
       '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>';
@@ -369,6 +402,7 @@
     if(state.page==="shared")return shared();
     if(state.page==="server")return server();
     if(state.page==="retention")return retentionPage();
+    if(state.page==="mail")return mailPage();
     if(state.page==="profile")return profile();
     return genericList();
   }
@@ -686,8 +720,22 @@
   });
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","reset-password-form","retention-form","mail-settings-form","mail-test-form"].includes(f.id))return;
     event.preventDefault();
+    if(f.id==="mail-settings-form"){
+      const values=Object.fromEntries(new FormData(f).entries());
+      values.enabled=f.elements.enabled.checked;
+      values.clear_password=f.elements.clear_password.checked;
+      values.port=Number(values.port);
+      try{state.mail=await request("/mail/settings","POST",values);toast("邮件设置已保存");render();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
+    if(f.id==="mail-test-form"){
+      try{await request("/mail/test","POST",{to:f.elements.to.value.trim()});toast("测试邮件已发送");}
+      catch(err){toast(err.message,true);}
+      return;
+    }
     if(f.id==="retention-form"){
       const values=Object.fromEntries(new FormData(f).entries());
       for(const key of Object.keys(values))values[key]=Number(values[key]);

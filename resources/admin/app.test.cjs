@@ -44,6 +44,7 @@ function createConsole(isAdmin = false, overrides = {}) {
       list: [{ id: 18, from_peer: "123456", peer_id: "654321", from_account: "demo-user",
         to_account: "another-user", path: "/home/file", direction: "outgoing" }], total: 1
     },
+    "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
     "/my/login_log/list": { list: [], total: 0 },
     "/user/list": { list: [], total: 0 },
     "/peer/list": { list: [], total: 0 },
@@ -237,4 +238,17 @@ test("personal users can open the address book trash page",async()=>{
   assert.match(app.root.innerHTML,/查看回收站/);
   await app.open("trash");
   assert.ok(app.calls.some(x=>x.endpoint==="/my/address_book/trash/list"));
+});
+
+test("mail configuration is visible to administrators",async()=>{
+  const user=createConsole();
+  await user.settle();
+  assert.doesNotMatch(user.root.innerHTML,/SMTP 邮件服务/);
+  const admin=createConsole(true);
+  await admin.settle();
+  assert.match(admin.root.innerHTML,/SMTP 邮件服务/);
+  await admin.open("mail");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/mail/settings"));
+  assert.match(admin.root.innerHTML,/SMTP 主机/);
+  assert.match(admin.root.innerHTML,/STARTTLS/);
 });
