@@ -42,6 +42,7 @@ func Init(g *gin.Engine) {
 	DeviceSessionsBind(adg)
 	APITokenBind(adg)
 	MailBind(adg)
+	NotificationsBind(adg)
 	InvitationBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
@@ -534,4 +535,13 @@ func AccessRulesBind(rg *gin.RouterGroup) {
 	r.POST("/create",rules.Create)
 	r.POST("/update",rules.Update)
 	r.POST("/delete",rules.Delete)
+}
+
+func NotificationsBind(rg *gin.RouterGroup) {
+	cont := &admin.Notifications{}
+	r := rg.Group("/notification").Use(middleware.AdminPrivilege())
+	r.GET("/settings", cont.Settings)
+	r.POST("/settings", cont.Save)
+	r.GET("/list", cont.List)
+	r.POST("/retry", cont.Retry)
 }
