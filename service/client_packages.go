@@ -71,10 +71,15 @@ func clientShellScript(platform,filename string,settings clientServerSettings)(s
 		{"relay-server",settings.Relay},
 	} {
 		if option.value!="" {
-			script+="sudo "+bin+" --option "+option.name+" "+clientShellQuote(option.value)+"\n"
+			value:=clientShellQuote(option.value)
+			script+="sudo "+bin+" --option "+option.name+" "+value+"\n"
+			script+="ACTUAL=$(sudo "+bin+" --option "+option.name+")\n"
+			script+="if [ \"$ACTUAL\" != "+value+" ]; then\n"+
+				"  echo '无法确认 RustDesk 的 "+option.name+" 配置，请检查服务是否已安装并启动。' >&2\n"+
+				"  exit 1\nfi\n"
 		}
 	}
-	script+="echo 'RustDesk 服务器设置已保存。'\n"
+	script+="echo 'RustDesk 服务器设置已保存并已核对。'\n"
 	return scriptName,script,readme,nil
 }
 
