@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"sort"
 	"fmt"
 	"net"
 	"strconv"
@@ -58,13 +59,41 @@ func validPolicyValue(value string, allowed ...string) bool {
 }
 
 func extraClientPolicyOptions(policy *model.DevicePolicy) map[string]string {
-	return map[string]string{
-		"access-mode": policy.AccessMode,
-		"enable-keyboard": policy.EnableKeyboard,
-		"enable-clipboard": policy.EnableClipboard,
-		"enable-file-transfer": policy.EnableFileTransfer,
-		"approve-mode": policy.ApprovalMode,
+	values:=map[string]string{
+		"access-mode":policy.AccessMode,
+		"enable-keyboard":policy.EnableKeyboard,
+		"enable-clipboard":policy.EnableClipboard,
+		"enable-file-transfer":policy.EnableFileTransfer,
+		"approve-mode":policy.ApprovalMode,
 	}
+	result:=make(map[string]string)
+	for _,name:=range strings.Split(policy.ManagedClientKeys,","){
+		if value,ok:=values[name];ok{result[name]=value}
+	}
+	return result
+}
+
+func mergeManagedClientKeys(policy *model.DevicePolicy, previous string) {
+	seen:=make(map[string]bool)
+	for _,name:=range strings.Split(previous,","){
+		switch name {
+		case "access-mode","enable-keyboard","enable-clipboard","enable-file-transfer","approve-mode":
+			seen[name]=true
+		}
+	}
+	for name,value:=range map[string]string{
+		"access-mode":policy.AccessMode,
+		"enable-keyboard":policy.EnableKeyboard,
+		"enable-clipboard":policy.EnableClipboard,
+		"enable-file-transfer":policy.EnableFileTransfer,
+		"approve-mode":policy.ApprovalMode,
+	}{
+		if value!=""{seen[name]=true}
+	}
+	keys:=make([]string,0,len(seen))
+	for name:=range seen{keys=append(keys,name)}
+	sort.Strings(keys)
+	policy.ManagedClientKeys=strings.Join(keys,",")
 }
 
 func ValidateDevicePolicy(policy *model.DevicePolicy) error {
@@ -96,6 +125,13 @@ func ValidateDevicePolicy(policy *model.DevicePolicy) error {
 
 func SaveDevicePolicy(policy *model.DevicePolicy) error {
 	if err:=ValidateDevicePolicy(policy);err!=nil{return err}
+	previous:=""
+	if policy.Id>0 {
+		var saved model.DevicePolicy
+		if err:=DB.Where("id = ?",policy.Id).First(&saved).Error;err!=nil{return err}
+		previous=saved.ManagedClientKeys
+	}
+	mergeManagedClientKeys(policy,previous)
 	policy.Revision=time.Now().UnixNano()
 	if policy.Id==0{return DB.Create(policy).Error}
 	result:=DB.Model(&model.DevicePolicy{}).Where("id = ?",policy.Id).Updates(map[string]interface{}{
@@ -107,6 +143,7 @@ func SaveDevicePolicy(policy *model.DevicePolicy) error {
 		"enable_clipboard":policy.EnableClipboard,
 		"enable_file_transfer":policy.EnableFileTransfer,
 		"approval_mode":policy.ApprovalMode,
+		"managed_client_keys":policy.ManagedClientKeys,
 	})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return errors.New("device policy was not found")}
@@ -179,7 +216,7 @@ func EffectiveDevicePolicyDetails(deviceId string,userId uint,admin bool) (map[s
 		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
 	}
 	for key,value := range extraClientPolicyOptions(resolved.Policy) {
-		if value != "" { options[key] = value }
+		options[key] = value
 	}
 	return options,true,resolved.Source,resolved.Policy.Id,nil
 }
@@ -210,7 +247,7 @@ func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]int
 		"trusted-device-expiration-days":strconv.Itoa(resolved.Policy.TrustDurationDays),
 	}
 	for key,value := range extraClientPolicyOptions(resolved.Policy) {
-		if value != "" { options[key] = value }
+		options[key] = value
 	}
 	return map[string]interface{}{
 		"modified_at":revision,
