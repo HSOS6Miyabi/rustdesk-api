@@ -124,6 +124,12 @@ func (d *DeviceCommands) Assign(c *gin.Context) {
 				return err
 			}
 		}
+		if f.UserName != nil && tx.Migrator().HasTable(&model.DeviceDeployment{}) {
+			if err := tx.Model(&model.DeviceDeployment{}).Where("device_id = ?", f.Id).
+				Update("owner_user_id", ownerId).Error; err != nil {
+				return err
+			}
+		}
 		if f.StrategyName != nil {
 			name := strings.TrimSpace(*f.StrategyName)
 			if name == "" {
@@ -283,27 +289,66 @@ func (d *DeviceCommands) Deploy(c *gin.Context) {
 	err := service.DB.Transaction(func(tx *gorm.DB) error {
 		var peer model.Peer
 		err := tx.Where("id = ?", f.Id).First(&peer).Error
-		if err == nil && peer.Uuid != "" {
-			normalized, valid := normalizedBase64(peer.Uuid, 8, 128)
-			if !valid || normalized != f.Uuid {
+		if err == nil {
+			if peer.Uuid != "" {
+				normalized, valid := normalizedBase64(peer.Uuid, 8, 128)
+				if !valid || normalized != f.Uuid {
+					result = "ID_TAKEN"
+					return nil
+				}
+			}
+			if peer.UserId != 0 && peer.UserId != user.Id &&
+				!service.AllService.UserService.IsAdmin(user) {
 				result = "ID_TAKEN"
 				return nil
 			}
-		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		}
+
+		ownerID := user.Id
+		if peer.RowId != 0 && peer.UserId != 0 {
+			ownerID = peer.UserId
 		}
 		var existing model.DeviceDeployment
 		err = tx.Where("device_id = ?", f.Id).First(&existing).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return tx.Create(&model.DeviceDeployment{
-				DeviceId: f.Id, Uuid: f.Uuid, PublicKey: f.Pk, OwnerUserId: user.Id, Status: "approved",
+			if err := tx.Create(&model.DeviceDeployment{
+				DeviceId: f.Id, Uuid: f.Uuid, PublicKey: f.Pk,
+				OwnerUserId: ownerID, Status: "approved",
+			}).Error; err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		} else {
+			if existing.Uuid != f.Uuid || existing.PublicKey != f.Pk ||
+				existing.Status != "approved" ||
+				(existing.OwnerUserId != user.Id &&
+					!service.AllService.UserService.IsAdmin(user)) {
+				result = "ID_TAKEN"
+				return nil
+			}
+			ownerID = existing.OwnerUserId
+		}
+
+		// A successful deployment also creates its inventory record, allowing
+		// the official --assign command to run before the next sysinfo upload.
+		if peer.RowId == 0 {
+			return tx.Create(&model.Peer{
+				Id: f.Id, Uuid: f.Uuid, UserId: ownerID,
 			}).Error
 		}
-		if err != nil {
-			return err
+		updates := map[string]interface{}{}
+		if peer.Uuid == "" {
+			updates["uuid"] = f.Uuid
 		}
-		if existing.Uuid != f.Uuid || existing.PublicKey != f.Pk || existing.Status != "approved" {
-			result = "ID_TAKEN"
+		if peer.UserId == 0 && ownerID != 0 {
+			updates["user_id"] = ownerID
+		}
+		if len(updates) != 0 {
+			return tx.Model(&model.Peer{}).Where("row_id = ?", peer.RowId).
+				Updates(updates).Error
 		}
 		return nil
 	})
