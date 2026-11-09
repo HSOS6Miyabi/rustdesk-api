@@ -11,12 +11,23 @@ func AdminPrivilege() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := service.AllService.UserService.CurUser(c)
 
-		if !service.AllService.UserService.IsAdmin(u) {
-			response.Fail(c, 403, response.TranslateMsg(c, "NoAccess"))
+		if service.AllService.UserService.IsAdmin(u) {
+			c.Next()
+			return
+		}
+		permission := service.AdminPermissionForRoute(c.Request.Method,c.FullPath())
+		if permission=="" {
+			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
 			c.Abort()
 			return
 		}
-
+		scope,err:=service.RoleAccessForUser(u,permission)
+		if err!=nil || (!scope.Global && len(scope.UserIDs)==0) {
+			response.Fail(c,403,response.TranslateMsg(c,"NoAccess"))
+			c.Abort()
+			return
+		}
+		c.Set("adminRoleScope",scope)
 		c.Next()
 	}
 }

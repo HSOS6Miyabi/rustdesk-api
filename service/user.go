@@ -328,7 +328,15 @@ func (us *UserService) RouteNames(u *model.User) []string {
 	if us.IsAdmin(u) {
 		return model.AdminRouteNames
 	}
-	return model.UserRouteNames
+	names:=append([]string{},model.UserRouteNames...)
+	if DB==nil || !DB.Migrator().HasTable(&model.AdminRoleAssignment{}) {
+		return names
+	}
+	permissions,err:=AdminRolePermissionNames(u)
+	if err==nil{
+		names=append(names,permissions...)
+	}
+	return names
 }
 
 // InfoByOauthId 根据oauth的name和openId取用户信息
