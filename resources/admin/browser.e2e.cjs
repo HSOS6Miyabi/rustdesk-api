@@ -632,7 +632,7 @@ test("full administrator configures management role permissions and scope",async
     await page.locator('#edit-form input[name="scope_id"]').fill("3");
     await page.locator('#edit-form input[name="enabled"]').check();
     const submit=page.waitForRequest(req=>req.url().endsWith("/api/admin/admin_role/create")&&req.method()==="POST");
-    await page.locator('button[form="edit-form"]').click();
+    await page.locator('button[data-action="submit-admin-role"]').click();
     const body=(await submit).postDataJSON();
     assert.equal(body.name,"Helpdesk read only");
     assert.ok(body.permissions.includes("users.view"));
