@@ -120,6 +120,7 @@ func GroupBind(rg *gin.RouterGroup) {
 	{
 		cont := &admin.Group{}
 		aR.GET("/list", cont.List)
+		aR.GET("/export", cont.ExportCSV)
 		aR.GET("/detail/:id", cont.Detail)
 		aR.GET("/members", cont.Members)
 		aR.POST("/members/batch", cont.BatchMembers)
