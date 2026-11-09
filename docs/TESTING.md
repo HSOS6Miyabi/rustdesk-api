@@ -166,3 +166,14 @@ python3 scripts/test_managed_relays.py target/debug/hbbs
 ```
 
 测试程序创建本地 GeoLite2 Country CSV 示例文件，并使用真实 hbbs 和两个模拟中继进行 IP 国家选择与数据重新载入验证。实际部署需使用管理员自行取得的最新 GeoLite2 Country CSV 文件。
+
+## 远程控制角色
+
+```bash
+go test ./service -run 'TestControlPermissionsAndAssignmentPriority|TestControlRoleAssignmentUpdatesAndGroupDeletion' -count=1
+go test ./http/controller/api -run TestInternalControlPermissionsUseEffectiveRole -count=1
+node --test resources/admin/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+验证权限位编码、14 项客户端权限配置、按设备和分组的优先级、删除后的数据处理、内部 API 访问验证和浏览器中的角色编辑。Server 使用 `scripts/test_control_roles.py` 启动真实 hbbs 进程，检查远程会话协议中的权限字段。

@@ -565,3 +565,58 @@ X-RustDesk-Internal-Key: <内部通信密钥>
 该接口只返回已启用节点，供 `hbbs` 定期同步，不提供公共访问。
 
 GeoLite2 数据在 hbbs 的本地文件目录中读取，API 只向 hbbs 传输中继节点偏好，内部接口不会上传 GeoLite2 数据文件。
+
+## 远程控制角色
+
+控制角色用于集中管理远程会话的 14 项权限。系统管理员可以使用以下接口：
+
+- `GET /api/admin/control_role/list`、`POST /api/admin/control_role/create`、`POST /api/admin/control_role/update`、`POST /api/admin/control_role/delete`：角色管理。
+- `GET /api/admin/control_assignment/list`、`POST /api/admin/control_assignment/create`、`POST /api/admin/control_assignment/update`、`POST /api/admin/control_assignment/delete`：角色分配管理。
+- `GET /api/admin/control_role/effective?device_id=desk-123456`：查看设备实际生效角色及权限位编码。
+
+创建角色示例：
+
+```json
+{
+  "name":"客服只读协助",
+  "keyboard":1,
+  "remote_printer":0,
+  "clipboard":2,
+  "file":1,
+  "audio":0,
+  "camera":0,
+  "terminal":1,
+  "tunnel":1,
+  "restart":0,
+  "recording":0,
+  "block_input":0,
+  "remote_modify":1,
+  "privacy_mode":0,
+  "usb":1
+}
+```
+
+每项权限采用相同状态：`0` 为沿用设备设置，`1` 为禁止，`2` 为允许。官方客户端的 `ControlPermissions` 定义了上述字段顺序，每项状态占两个二进制位。
+
+为设备指定角色：
+
+```json
+{"target_type":"device","target_id":"desk-123456","role_id":3}
+```
+
+也可以把 `target_type` 设置为 `user` 或 `device_group`，此时 `target_id` 使用用户编号或设备组编号。分配的优先顺序是设备、设备所有者、设备组。
+
+hbbs 使用内部接口读取有效角色：
+
+```http
+GET /internal/v1/control/permissions?device_id=desk-123456
+X-RustDesk-Internal-Key: <内部通信密钥>
+```
+
+响应例如：
+
+```json
+{"assigned":true,"permissions":33817409,"source":"device"}
+```
+
+具体权限数字以角色配置计算的实际值为准。没有分配角色时，返回 `assigned:false`，hbbs 保留客户端原有的权限处理方式。

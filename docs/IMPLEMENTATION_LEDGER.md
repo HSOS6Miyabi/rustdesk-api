@@ -317,3 +317,36 @@ export RUSTDESK_GEOIP_CSV_DIR="/opt/rustdesk/geoip"
 - [真实 hbbs 的 GeoLite2 国家级中继选择和数据重新载入测试](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42567610418)，通过。
 
 对应的两个仓库最新功能提交分别为 API `ec007b5` 与 Server `9429bda`。继续开发时应先读取各自分支的最新提交，再执行相应测试。
+
+## 2026-11-09：远程控制角色及官方客户端协议传递
+
+管理员可以建立远程控制角色，管理官方 RustDesk 客户端支持的 14 项会话权限。可直接给单台设备、设备所有者和设备组分配角色，优先顺序为设备、设备所有者、设备组。未分配角色时保留现有设备设置。
+
+| 仓库 | 提交 | 主要内容 |
+| --- | --- | --- |
+| API | [43975d8](https://github.com/HSOS6Miyabi/rustdesk-api/commit/43975d8003a4072456994ab788ed0e5003790604) | 控制角色及分配模型，14 项权限的 2 位编码 |
+| API | [90bed78](https://github.com/HSOS6Miyabi/rustdesk-api/commit/90bed7869b1634dcd88aa973b564f705b20dd252) | 管理员角色接口、查询生效角色及内部会话权限接口 |
+| API | [4537369](https://github.com/HSOS6Miyabi/rustdesk-api/commit/4537369045362c9b3133880f3c54cf3a0073baf7) | 网页角色编辑、权限选择和分配管理 |
+| API | [13ff560](https://github.com/HSOS6Miyabi/rustdesk-api/commit/13ff560f7bbd18837d3d57795ae0f6e76312ac11) | 位编码、角色优先级、权限继承及分配测试 |
+| API | [7cec413](https://github.com/HSOS6Miyabi/rustdesk-api/commit/7cec413688738623bed53e2ef29a2cc80f9a9d51) | 删除用户与设备组时清理相关角色分配 |
+| API | [2bf36df](https://github.com/HSOS6Miyabi/rustdesk-api/commit/2bf36dfed5d3139c111ee5b061e8945f505ca0cf) | 内部会话接口和浏览器权限编辑测试 |
+| API | [9aed985](https://github.com/HSOS6Miyabi/rustdesk-api/commit/9aed985e56b6896c2abd37aacbe6302913a7c103) | 完整 Go、JavaScript 与 Chromium 自动化测试 |
+| Server | [85bdbab](https://github.com/HSOS6Miyabi/rustdesk-server/commit/85bdbab7e14e852115787085b095bb143afa6bbd) | 从内部 API 读取控制角色及缓存 |
+| Server | [c97ba9d](https://github.com/HSOS6Miyabi/rustdesk-server/commit/c97ba9de6144eee27e45e8d37d5b3c7c0a98ca94) | 将控制权限写入 PunchHole、FetchLocalAddr、RequestRelay |
+| Server | [ee9ff73](https://github.com/HSOS6Miyabi/rustdesk-server/commit/ee9ff73be768677f24ee883e33bca59cfe21c48d) | 实际 hbbs 进程中的客户端协议测试 |
+
+### 数据库、接口与配置
+
+API 新增 `control_roles`、`control_role_assignments`，迁移版本为 278。权限沿用 RustDesk 官方 `ControlPermissions` 编码：每项占 2 位，`0` 为沿用设备设置、`1` 为禁止、`2` 为允许，保留值 `3` 无效。
+
+API 提供管理员控制角色及分配接口，并通过 `GET /internal/v1/control/permissions?device_id=...` 给 hbbs 返回当前目标设备生效的位编码。该内部接口需要与部署服务共享 `RUSTDESK_API_INTERNAL_KEY`。
+
+Server 需设置 `RUSTDESK_API_CONTROL_ROLE_URL` 才会查询控制角色。设置 `RUSTDESK_API_CONTROL_CACHE_SECONDS` 可控制缓存时间，默认 5 秒，范围 0 至 60 秒。未配置时保留原有会话权限处理方式。
+
+### 自动化测试
+
+- [API Go、JavaScript、Chromium 测试通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42569840801)。
+- [Server Rust 协议结构和编译测试通过](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42569499247)。
+- [Server 实际运行进程协议检查](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42569942719)，以该工作流最终状态为准。
+
+实际桌面连接的键盘、文件传输、剪贴板、终端等操作行为仍需要在各平台客户端上进一步验证。

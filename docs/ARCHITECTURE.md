@@ -101,3 +101,11 @@ TOTP 密钥保存在 `UserTOTP`，恢复码哈希保存在 `TOTPRecoveryCode`。
 中继选择先考虑节点是否在线，再根据精确 CIDR 范围或国家代码与连接双方 IP 地址的匹配程度进行选择。管理员直接输入的 CIDR 范围优先于自动推断的国家。国家信息缺失时继续执行已有节点选择流程。
 
 GeoLite2 Country CSV 文件由服务器管理员获取，hbbs 可通过 `RUSTDESK_GEOIP_CSV_DIR` 指定文件目录。
+
+## 远程控制角色协议
+
+`ControlRole` 保存官方 RustDesk 的 14 项会话权限，每项使用两个二进制位，保留状态为 0、1、2。`ControlRoleAssignment` 保存角色及设备、用户或设备组的对应关系。
+
+当连接客户端经 hbbs 请求目标设备时，Server 向 API 的内部控制权限接口查询目标设备生效角色，并将其编码写入 `PunchHole.control_permissions`、`FetchLocalAddr.control_permissions` 或 `RequestRelay.control_permissions`。官方被控客户端按对应权限处理远程操作。无角色时不设置这些字段，保留原有设备权限。
+
+Server 可以将角色查询结果按设备短暂缓存，默认 5 秒。角色管理和分配由管理员 Web 控制台操作。

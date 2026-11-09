@@ -114,3 +114,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 ## GeoLite2 国家级中继选择
 
 为中继节点添加 `JP`、`US` 等国家代码后，hbbs 可以结合本地 GeoLite2 Country CSV，自动判断客户端 IP 所属国家并选择合适的中继节点。精确 CIDR 范围仍具有更高优先级。参见 [部署说明](docs/DEPLOYMENT.md)。
+
+## 远程控制角色
+
+开发分支支持官方 RustDesk 客户端的 14 项会话控制权限，可为设备、用户或设备组分配控制角色。管理员通过网页选择每项操作的“沿用设备设置”“禁止”或“允许”。启用时，hbbs 会在连接协商时向客户端传送生效角色。配置说明见 [部署文档](docs/DEPLOYMENT.md)。

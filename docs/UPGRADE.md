@@ -138,3 +138,17 @@ export RUSTDESK_GEOIP_CSV_DIR="/opt/rustdesk/geoip"
 重启 hbbs 后自动读取数据。更新 GeoLite2 文件后，可通过原有的本地服务端控制接口发送 `reload-geo`，无需重启服务端。
 
 没有提供 Country CSV 时，系统保持原有 CIDR 规则和中继选择功能。GeoLite2 Country CSV 数据的下载及使用应遵守 MaxMind 的授权要求。
+
+## 远程控制角色
+
+API 数据库迁移版本为 278，自动增加 `control_roles` 与 `control_role_assignments`。原有设备和账户默认无控制角色分配，会继续使用现有远程会话权限设置。
+
+若需要让 hbbs 在连接协商时下发控制角色，增加以下环境变量：
+
+```bash
+export RUSTDESK_API_CONTROL_ROLE_URL="http://127.0.0.1:21114/internal/v1/control/permissions"
+export RUSTDESK_API_INTERNAL_KEY="与 API 配置相同的内部通信密钥"
+export RUSTDESK_API_CONTROL_CACHE_SECONDS=5
+```
+
+使用 Docker 或不同服务器时，需要把同步 URL 换成 hbbs 实际可访问的 API 内部地址。可在 Web 管理界面“远程控制角色”和“远程控制角色分配”中创建角色并指定应用范围。

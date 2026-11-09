@@ -165,3 +165,17 @@ Server 的 `src/geoip_country.rs` 读取 GeoLite2 Country CSV，`src/relay_polic
 需要测试配置同步、地理位置选择和断线替代选择时，运行 `python3 scripts/test_managed_relays.py target/debug/hbbs`。
 
 本功能的对应提交和 CI 详见 [实施台账](IMPLEMENTATION_LEDGER.md)，在完成里程碑前两个 PR 继续保持草稿状态。
+
+## 远程控制角色
+
+- `model/control_role.go`：14 项官方远程会话权限及 2 位编码。
+- `service/control_role.go`：角色分配、优先级计算和数据维护。
+- `http/controller/admin/control_role.go`：管理员创建、修改、删除角色及分配。
+- `http/controller/api/internal_control.go`：供 hbbs 查询目标设备权限。
+- `resources/admin/app.js`：控制角色编辑和分配页面。
+
+API 数据库迁移版本为 278，包含 `control_roles`、`control_role_assignments` 两张表。Server 使用 `RUSTDESK_API_CONTROL_ROLE_URL` 连接 API，使用共同的 `RUSTDESK_API_INTERNAL_KEY` 验证内部请求。
+
+角色优先级为单台设备、设备所有者、设备组；未分配角色时，客户端继续沿用原有权限。运行 `go test ./service -run TestControl -count=1` 和 `go test ./http/controller/api -run TestInternalControl -count=1` 检查后端，再运行管理页面测试。
+
+两个仓库的最新提交和 CI 见 [实施台账](IMPLEMENTATION_LEDGER.md)。

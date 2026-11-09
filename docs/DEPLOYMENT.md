@@ -222,3 +222,16 @@ export RUSTDESK_GEOIP_CSV_DIR="/opt/rustdesk/geoip"
 hbbs 启动后会读取这些数据，在匹配国家的活动中继之间选择节点。GeoLite2 文件更新后，可以通过本地服务管理接口使用 `reload-geo` 重新加载。没有国家数据库时仍可使用现有 CIDR 和轮流选择方式。
 
 Docker 安装需要将 GeoLite2 文件目录挂载给运行 hbbs 的容器，并将 `RUSTDESK_GEOIP_CSV_DIR` 设置为容器内路径。
+
+## 18. 远程控制角色
+
+管理员在“远程控制角色”中新建角色，为远程会话操作逐项选择“沿用设备设置”“禁止”或“允许”。在“远程控制角色分配”中将角色授予设备、设备所有者或设备组。
+
+如果需要由 hbbs 在连接时向客户端发送这些权限，设置：
+
+```bash
+export RUSTDESK_API_CONTROL_ROLE_URL="http://127.0.0.1:21114/internal/v1/control/permissions"
+export RUSTDESK_API_INTERNAL_KEY="与 API 一致的内部通信密钥"
+```
+
+Server 默认缓存角色查询结果 5 秒，使用 `RUSTDESK_API_CONTROL_CACHE_SECONDS` 修改缓存时间。保留默认设置或不配置控制角色时，已有连接方式和远程设备权限继续有效。
