@@ -96,8 +96,19 @@ func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,cli
 	return digest,count,nil
 }
 
+func RecoverInterruptedClientBuilds(now int64)error{
+	if DB==nil||!DB.Migrator().HasTable(&model.ClientBuildTask{}){return nil}
+	return DB.Model(&model.ClientBuildTask{}).
+		Where("status = ? AND started_at <= ?", "building", now-600).
+		Updates(map[string]interface{}{
+			"status":"failed", "error":"安装程序处理已中断，可重新提交任务",
+			"finished_at":now,
+		}).Error
+}
+
 func ProcessClientBuildQueue(limit int)(int,error){
 	if DB==nil||!DB.Migrator().HasTable(&model.ClientBuildTask{}){return 0,nil}
+	if err:=RecoverInterruptedClientBuilds(time.Now().Unix());err!=nil{return 0,err}
 	if limit<1||limit>2{limit=1}
 	var queued []model.ClientBuildTask
 	if err:=DB.Where("status = ?","pending").Order("id ASC").Limit(limit).
