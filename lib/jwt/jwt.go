@@ -1,9 +1,12 @@
 package jwt
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Jwt struct {
@@ -28,11 +31,16 @@ func (s *Jwt) GenerateToken(userId uint) string {
 		fmt.Println("jwt key is nil")
 		return ""
 	}
+	nonce := make([]byte, 24)
+	if _, err := rand.Read(nonce); err != nil {
+		panic(fmt.Errorf("cannot generate unique login token: %w", err))
+	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		UserClaims{
 			UserId: userId,
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.TokenExpireDuration)),
+				ID:        base64.RawURLEncoding.EncodeToString(nonce),
 			},
 		})
 	token, err := t.SignedString(s.Key)
