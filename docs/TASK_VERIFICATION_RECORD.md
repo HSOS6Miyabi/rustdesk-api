@@ -10,18 +10,18 @@
 
 | 检查项目 | 已通过的自动化运行 |
 | --- | --- |
-| API Go、WebClient、Chromium 桌面和平板及手机交互 | [42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269) |
+| API Go、WebClient、Chromium 桌面和平板及手机交互 | [42670400984](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) |
 | 官方安装文件、客户端命令和 Linux/macOS 配置包 | [42666929902](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929902) |
-| SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42666929781](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929781) |
-| Server Rust 单元、协议和实际服务检查 | [42666030849](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666030849) |
-| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144) |
+| SQLite、MySQL 8.4、PostgreSQL 16 数据库升级与备份恢复 | [42670402867](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670402867) |
+| Server Rust 单元、协议和实际服务检查 | [42669744309](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744309) |
+| API 与 Server 的 AMD64、ARM64 普通进程及 Docker 组合部署 | [42669744598](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744598) |
 | 官方 1.5.1 客户端可执行文件跨系统启动 | [42666929318](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929318)，三种桌面系统及 Android 模拟器成功 |
 
 ### T001：官方设备分配、设备部署与撤销许可
 
-**当前状态：官方 Linux 1.5.1 客户端与实际 API 的部署、重复部署、直接分配及数据保存测试通过；真实 API 与 hbbs 的登记、撤销、身份冲突及恢复许可测试通过；设备所有者变更时的会话撤销测试通过；双设备远程重连待检查。**
+**当前状态：官方 Linux 客户端部署与分配、API 与 hbbs 的设备登记、许可撤销与恢复、撤销后的新连接拒绝及设备所有者变更后的会话撤销测试通过；双设备远程重连待检查。**
 
-代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。新增 API `scripts/test_official_linux_real_api.py` 和 Server `scripts/test_real_api_registration.py` 在实际运行的服务中检查设备所属用户、身份信息及撤销许可；相关检查分别见 API #42646358750 和 Server #42666031144。
+代码位于 API 的 `http/controller/api/device_commands.go` 和 Server 的 `src/device_deployment.rs`。API 的 `http/controller/api/device_commands_integration_test.go` 使用 SQLite 检查设备所有者、设备组、策略、地址簿及 UUID。Server 的 `scripts/test_device_deployment.py` 启动真实 hbbs 验证未登记、已登记、ID 冲突和撤销结果。另有官方 1.4.5、1.5.0、1.5.1 源代码与请求字段检查。新增 API `scripts/test_official_linux_real_api.py` 和 Server `scripts/test_real_api_registration.py` 在实际运行的服务中检查设备所属用户、身份信息及撤销许可；相关检查分别见 API #42646358750 和 Server #42669744598。
 
 **实际检查方法：** 在隔离测试环境启用 `REQUIRE_DEVICE_DEPLOYMENT`，分别用已安装的官方 1.5.1 客户端运行 `--deploy --token <测试令牌>`、`--assign --token <测试令牌> --device_name Office-PC`。记录设备 ID、UUID、公钥、API 返回、数据库所有者和客户端重新连接结果。测试重复部署、不同 UUID、公钥冲突及撤销后重新注册。令牌仅用于测试，完成后立即撤销。
 
@@ -31,7 +31,7 @@
 
 **当前状态：实际 API 的密码登录、错误密码、退出登录、JWT 唯一性与会话撤销联合测试通过；TOTP、邮箱验证码及恢复码的接口测试通过；多系统正式客户端与外部身份服务待检查。**
 
-账户、OIDC、LDAP、TOTP、邮箱验证码和恢复码代码位于 `service/user.go`、`service/totp.go`、`service/email_login.go`、`service/oauth.go`、`service/ldap.go`。JWT 随机唯一标识位于 `lib/jwt/jwt.go`。Server 的 `scripts/test_real_api_strict_combination.py` 通过实际 API 登录与登出接口检查会话有效性、JWT 签名和重新登录后的令牌撤销。API 综合检查 #42666929269 和 Server 双架构检查 #42666031144 已通过。
+账户、OIDC、LDAP、TOTP、邮箱验证码和恢复码代码位于 `service/user.go`、`service/totp.go`、`service/email_login.go`、`service/oauth.go`、`service/ldap.go`。JWT 随机唯一标识位于 `lib/jwt/jwt.go`。Server 的 `scripts/test_real_api_strict_combination.py` 通过实际 API 登录与登出接口检查会话有效性、JWT 签名和重新登录后的令牌撤销。API 综合检查 #42670400984 和 Server 双架构检查 #42669744598 已通过。
 
 **实际检查方法：** 使用独立测试账户，分别在 Windows、Linux、macOS、Android 和可用的 iOS 设备记录客户端版本与登录结果。依次检查密码登录、错误密码、TOTP 成功与拒绝、邮箱验证码过期和重复使用、恢复码一次性使用、OIDC/LDAP 跳转、退出登录及会话失效。外部身份提供者必须先由维护者配置测试账号。不得在记录中保存密码、恢复码及原始令牌。
 
@@ -49,9 +49,9 @@ API 文件：`service/control_role.go`。Server 文件：`src/control_roles.rs`�
 
 ### T004：严格模式组合运行
 
-**当前状态：真实 API、hbbs、JWT 登录与登出、账户访问规则、控制角色、中继请求以及 WebRTC SDP/ICE 信令的组合检查已在 AMD64/ARM64 通过；真实客户端直连、远程桌面和公网中继仍需检查。**
+**当前状态：真实 API、hbbs、JWT 登录与登出、连接访问规则、设备撤销后拒绝新连接、控制角色、中继请求和 WebRTC SDP/ICE 信令已在 AMD64/ARM64 通过；实际客户端连接与公网中继待检查。**
 
-Server 的 `scripts/test_real_api_strict_combination.py` 在实际 API 与 hbbs 中检查有效 JWT、非法签名、失效会话、允许及禁止规则、控制权限与 API 中断，`scripts/test_real_api_registration.py` 检查设备身份及许可。两种架构的完整组合构建、服务通信、容器重新创建与数据保存检查已在 CI #42666031144 通过。
+Server 的 `scripts/test_real_api_strict_combination.py` 在实际 API 与 hbbs 中检查有效 JWT、非法签名、失效会话、允许及禁止规则、控制权限与 API 中断，`scripts/test_real_api_registration.py` 检查设备身份及许可。两种架构的完整组合构建、服务通信、容器重新创建与数据保存检查已在 CI #42669744598 通过。
 
 **实际检查方法：** 在一套隔离部署中同时开启 `REQUIRE_DEVICE_DEPLOYMENT=Y`、`MUST_LOGIN=Y` 和集中连接访问规则，验证合法设备经直连或中继连接成功，未部署设备、失效账户、无许可用户以及 API 服务暂时不可用时的处理；分别检查 WebSocket、WebRTC 客户端。
 
@@ -145,7 +145,7 @@ Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构�
 
 ### T014：设备安全策略扩充
 
-**当前状态：Go、管理界面、设备心跳和严格登记许可检查通过；真实官方客户端设置效果待检查。**
+**当前状态：Go、管理界面、设备心跳、严格登记许可和设备所有者一致性检查通过；真实客户端策略效果待检查。**
 
 API 的 `service/device_policy.go`、`model/device_policy.go` 增加访问模式、键盘鼠标、剪贴板、文件传输和连接确认方式，并记录受服务器管理的配置项，支持取消策略时清除。`http/controller/api/index.go` 会核对严格登记设备的部署许可，未登记或已撤销许可的设备无法继续通过心跳获取策略与会话管理指令。
 

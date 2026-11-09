@@ -308,3 +308,13 @@ node --test resources/admin/browser.e2e.cjs
 API 签发 JWT 时生成独立随机标识。上述 Go 测试连续生成并验证多个令牌。Server 的 `scripts/test_real_api_strict_combination.py` 启动真实 API 和 `hbbs`，完成密码登录、JWT 验证、登出、再次登录、旧令牌拒绝、访问规则与 WebRTC SDP/ICE 信令检查。
 
 管理控制台的 Chromium 测试同时检查手机端顶部导航保持单行显示，并保存桌面、平板与手机截图。最新成功记录：[API #42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269)、[Server #42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144)。
+
+
+## 严格登记设备的连接授权
+
+```bash
+go test ./service -run '^TestConnectionAccessChecksManagedDeviceDeployment$' -count=1
+go test ./http/controller/api -run '^TestManagedHeartbeatChecksApprovedDeployment$' -count=1
+```
+
+测试包含未登记、已批准、撤销许可、UUID 不匹配和所有者不一致等情况。Server 配套测试 `scripts/test_real_api_strict_combination.py` 在实际 API 与 `hbbs` 中复核撤销后的新连接拒绝。已通过 [API #42670400984](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) 和 [Server #42669744598](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744598)。

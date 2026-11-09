@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 仓库 | [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
-| 最后核实的功能提交 | [`05f9bfafbcac4848e02e9227d3e41dfc09f95e21`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/05f9bfafbcac4848e02e9227d3e41dfc09f95e21) | [`10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5) |
+| 最后核实的功能提交 | [`48eba268f4808f53cadbab4d6ca69d299d841b3d`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/48eba268f4808f53cadbab4d6ca69d299d841b3d) | [`5b0b33500706f47d8885fffed13f3d56c1712b15`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/5b0b33500706f47d8885fffed13f3d56c1712b15) |
 | 草稿拉取请求 | [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 目标默认分支 | `master` | `forapi` |
 | 最近已发布的预发布版本 | `v3.0.0-api.102` | `v1.1.17-api.20` |
@@ -19,13 +19,13 @@
 
 | 检查内容 | GitHub Actions |
 | --- | --- |
-| API Go、Chromium 管理页面、WebClient、WebRTC | [#42666929269](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269) |
-| 官方六种桌面安装文件 SHA-256、配置脚本 | [#42666929902](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929902) |
+| API Go、Chromium 管理页面、WebClient、WebRTC | [#42670400984](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) |
+| 官方六种桌面安装文件 SHA-256、配置脚本 | [#42670399055](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670399055) |
 | 官方 Linux 1.5.1 客户端 `--deploy`、`--assign`，与实际 API 通信 | [#42666929312](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929312) |
-| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42666929781](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929781) |
-| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42666929318](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929318) |
-| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42666030849](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666030849) |
-| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144) |
+| SQLite、MySQL 8.4、PostgreSQL 16 模拟升级及备份恢复 | [#42670402867](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670402867) |
+| Windows、Linux、macOS 官方客户端启动；Android 模拟器安装启动 | [#42670400588](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400588) |
+| Server Rust 测试、真实 hbbs/hbbr、严格登记、JWT、访问许可与控制角色组合 | [#42669744309](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744309) |
+| AMD64/ARM64 普通进程部署、组合容器、重启与数据保持 | [#42669744598](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744598) |
 
 上述成功记录均对应本节的已核实功能提交。交接文档变动之后的提交需要另行查看新一轮检查。真实公网、多平台账户登录和两台设备间的实际远程控制仍需专门测试。
 
@@ -39,10 +39,10 @@
 
 | 编号 | 优先级 | 当前结果与交接任务 |
 | --- | --- | --- |
-| T001 | P0 | 实际 API 与 hbbs 的登记、撤销、身份冲突检查通过；官方 Linux 1.5.1 客户端与实际 API 的部署和直接分配通过；双终端远程重连待检查 |
+| T001 | P0 | API 与 hbbs 的登记、撤销、身份冲突及撤销后的新连接拒绝检查通过；官方 Linux 客户端部署与分配通过；双终端远程重连待检查 |
 | T002 | P0 | 真实 API 进程的密码登录、错误密码、登出与 JWT 再次签发已通过；TOTP、邮箱和恢复码接口测试通过；各操作系统客户端登录及外部身份服务待实测 |
 | T003 | P0 | 14 项控制角色信令检查通过；用两台真实设备验证各权限的允许、禁止及默认行为 |
-| T004 | P0 | AMD64/ARM64 上实际 API 与 hbbs 的登录授权、JWT、连接规则、控制角色、WebRTC SDP/ICE 和中继信令测试通过；真实远程控制和公网会话待检查 |
+| T004 | P0 | AMD64/ARM64 的登录授权、JWT、访问规则、控制角色、WebRTC SDP/ICE、撤销后新连接拒绝及中继信令测试通过；实际远程操作和公网会话待检查 |
 | T005 | P0 | MMDB、Country CSV、节点失效和 reload-geo 测试通过；使用实际 GeoLite2 文件与两个地区的公网中继完成实测 |
 | T006 | P0 | 三种临时数据库迁移与恢复检查通过；从正式业务环境获取受保护备份并在独立环境恢复 |
 | T007 | P0 | 模拟 SMTP 及隐式 TLS、STARTTLS、身份认证测试通过；完成实际邮箱的邀请、找回密码、验证码与通知收件 |
@@ -52,7 +52,7 @@
 | T011 | P0 | 双架构编译和部署预演通过，未发行正式安装包或镜像 |
 | T012 | P0 | 台账和草稿 PR 已整理；待所有 P0 实测结果和维护者批准后再决定是否发布 |
 | T013 | P1 | 六种官方安装文件及任务管理通过测试；检查每种目标系统的实际安装、配置、签名和远程连接 |
-| T014 | P1 | 安全策略心跳、更新、清除及严格登记许可检查通过；在真实客户端检查策略是否生效 |
+| T014 | P1 | 安全策略心跳、更新、清除、部署许可及设备所有者一致性检查通过；真实客户端的策略效果待检查 |
 | T015 | P1 | 独立 API 令牌权限、有效期及撤销已实现，自动测试通过 |
 | T016 | P1 | 管理员按用户及用户组范围操作已实现；设备转移同步调整归属并撤销原设备会话，自动测试通过 |
 | T017 | P1 | 联系人、共享地址簿、部署许可和回收站批量处理已实现，自动测试通过 |

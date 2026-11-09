@@ -23,9 +23,9 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`05f9bfafbcac4848e02e9227d3e41dfc09f95e21`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/05f9bfafbcac4848e02e9227d3e41dfc09f95e21) | [`10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/10af9471b2e6d9e78df47e5e7a1f0c56a56d9de5) |
+| 最近通过自动测试的代码提交 | [`48eba268f4808f53cadbab4d6ca69d299d841b3d`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/48eba268f4808f53cadbab4d6ca69d299d841b3d) | [`5b0b33500706f47d8885fffed13f3d56c1712b15`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/5b0b33500706f47d8885fffed13f3d56c1712b15) |
 | 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42666929269：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929269) | [42666030849：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666030849) |
+| 综合 CI 检查 | [42670400984：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) | [42669744309：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744309) |
 | 最近已发布的预发布版本 | `v3.0.0-api.102`（2026-11-08） | `v1.1.17-api.20`（2026-11-08） |
 | 里程碑发布 | 未执行 | 未执行 |
 
@@ -72,10 +72,10 @@ CI 已实际通过的内容：
 
 | 任务编号 | 优先级 | 状态 | 具体工作 | 完成判断 |
 | --- | --- | --- | --- | --- |
-| T001 | P0 | 官方 Linux 1.5.1 与实际 API 的部署、直接分配及数据库检查通过；真实 API 与 hbbs 的登记、冲突、撤销及恢复许可检查通过；双设备重连待检查 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
+| T001 | P0 | 官方 Linux 客户端与实际 API 的部署、分配和数据库检查通过；API 与 hbbs 的登记、撤销、恢复及撤销后的新连接拒绝检查通过；双设备重连待检查 | 使用一套真实 API、`hbbs`、`hbbr` 和官方 RustDesk 客户端运行 `--assign` 与 `--deploy`；验证 UUID、公钥、重复部署、设备归属及撤销许可 | 真实设备能够安装、注册、重新连接；预期拒绝的设备得到正确反馈 |
 | T002 | P0 | 实际 API 进程密码登录、登出和 JWT 唯一性检查通过；真实多系统客户端待检查 | 实测 Windows、Linux、macOS 及可用的 Android/iOS 客户端登录；分别检查密码、TOTP、邮箱验证码、OIDC/LDAP、恢复码及退出登录 | 支持的客户端版本与测试结果逐项记入记录；异常可重现并修复 |
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
-| T004 | P0 | 实际 API 与 hbbs 的 JWT 登录、撤销、连接规则、控制角色、WebRTC SDP/ICE 和中继信令在 AMD64、ARM64 通过；真实远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
+| T004 | P0 | 实际 API 与 hbbs 的 JWT、连接规则、设备撤销后拒绝新连接、控制角色、WebRTC SDP/ICE 和中继信令在 AMD64、ARM64 通过；实际远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
 | T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 282，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
@@ -85,7 +85,7 @@ CI 已实际通过的内容：
 | T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
 | T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
-| T014 | P1 | 已实现，严格登记模式的心跳许可及撤销检查、策略与界面自动测试通过；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
+| T014 | P1 | 严格登记模式的心跳许可、设备所有者一致性、策略撤销与界面自动测试通过；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
 | T016 | P1 | 已实现，CI 通过；设备转移同时撤销相关旧会话 | 允许管理员在特定账户或用户组范围内执行经过检查的修改操作 | 编辑、删除和转移设备时均检查目标归属，不影响其他用户 |
 | T017 | P1 | 已实现，CI 通过 | 联系人、共享地址簿、设备部署和回收站的批量导入、共享、恢复及整理 | 管理界面能批量处理，失败时明确说明未成功的项目 |
@@ -837,3 +837,21 @@ API 为每次签发的 JWT 设置独立随机标识。即使同一账户在很�
 | Server 实际账户登录、JWT、WebRTC 与双架构组合部署 | [#42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144)：成功 |
 
 T002、T004、T009、T022 的相应自动化检查已完成。真实终端的登录与远程控制、实际 SMTP、跨地区中继及生产数据恢复仍按逐项任务记录检查。两个开发 PR 均保持草稿状态。
+
+
+## 2026-11-10：设备撤销后的连接授权与设备归属检查
+
+在严格设备登记模式下，API 处理新连接的集中授权请求时，会检查目标设备的部署记录、批准状态、UUID 和所属账户。设备未部署、撤销许可或登记身份不一致时，拒绝新的连接请求。设备心跳在下发策略前也会检查部署记录与设备所属账户是否一致。
+
+- `service/connection_access.go`：检查新连接的设备许可及身份。
+- `service/connection_access_deployment_test.go`：检查未部署、已批准、已撤销、UUID 和所属账户不一致，以及关闭严格模式时的兼容行为。
+- `http/controller/api/index.go`、`device_policy_heartbeat_test.go`：检查策略下发前的设备许可和所属账户。
+- Server 的 `scripts/test_real_api_strict_combination.py`：启动真实 API 和 `hbbs`，验证撤销许可后不再转发新连接请求。
+
+| 检查范围 | 已通过的工作流 |
+| --- | --- |
+| Go、浏览器和 WebClient | [API #42670400984](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) |
+| SQLite、MySQL、PostgreSQL 升级和恢复 | [API #42670402867](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670402867) |
+| 真实 API 和 hbbs 的 AMD64、ARM64 设备撤销及组合部署 | [Server #42669744598](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744598) |
+
+需要两台实际设备完成远程控制、权限效果和重新连接检查；跨地区公网中继、真实 SMTP、业务数据库恢复以及目标主机部署仍按逐项任务记录执行。两个 PR 保留草稿状态。
