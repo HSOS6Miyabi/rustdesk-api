@@ -44,6 +44,7 @@ func TestDeploymentBatchStatusIsAtomic(t *testing.T) {
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
+		if response.Code != http.StatusOK { return response.Code }
 		var envelope struct{ Code int `json:"code"` }
 		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
 			t.Fatalf("invalid response: %v %s", err, response.Body.String())
