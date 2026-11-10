@@ -5,6 +5,7 @@ on:
     branches:
       - feat/messagepusher-event-notifications
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'service/push*.go'
       - 'service/geoip.go'
