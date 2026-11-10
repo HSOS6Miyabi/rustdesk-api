@@ -124,6 +124,29 @@ function serve(req, res) {
       ],total:2
     });
     if(route==="/notification/retry")return answer(res,{});
+    if(route==="/geoip/lookup")return answer(res,{
+      locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址"},
+      database_ready:false
+    });
+    if(route==="/push/events")return answer(res,[
+      {code:"device.online",name:"设备上线"},
+      {code:"device.offline",name:"设备离线"},
+      {code:"connection.started",name:"远程连接建立"}
+    ]);
+    if(route==="/push/channels"){
+      if(req.method==="POST")return answer(res,{id:42,name:"新通知",enabled:true});
+      return answer(res,{list:[{
+        id:5,kind:"messagepusher",name:"家庭通知",enabled:true,
+        base_url:"https://push.example.test",api_key_configured:true,
+        events:["device.offline"]
+      }]});
+    }
+    if(route==="/push/history")return answer(res,{list:[
+      {id:23,title:"[RustDesk · 设备上线] 家庭电脑",event_type:"device.online",status:"sent",attempts:1,created_at:1710000000}
+    ],total:1});
+    if(route==="/push/channels/test"||route==="/push/history/retry")return answer(res,{status:"queued"});
+    if(route==="/push/channels/delete")return answer(res,{});
+
     if(route==="/client_builder/profiles"){
       if(req.method==="POST")return answer(res,{id:3});
       return answer(res,{list:[
@@ -164,7 +187,7 @@ function serve(req, res) {
       {row_id:13,id:"deleted-desk-001",alias:"Former desk",collection_id:0,deleted_at:1710000000}
     ],total:1});
     if(route==="/my/address_book/trash/restore"||route==="/my/address_book/trash/purge")return answer(res,{});
-    if(route==="/my/login_log/list")return answer(res, {list:[],total:0});
+    if(route==="/my/login_log/list")return answer(res, {list:[{id:9,ip:"10.0.0.5",platform:"Windows",created_at:1710000000}],total:1});
     if(route==="/user/mfa/reset")return answer(res,{});
     if(route==="/user/list")return answer(res, {
       list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
@@ -837,4 +860,67 @@ test("client builder and email notifications remain readable on phone and tablet
       });
     }finally{await context.close();}
   }
+});
+
+
+test("ordinary users can choose delivery providers, subscribe to events, and send a test",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="push"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="消息推送");
+    await page.getByText("家庭通知",{exact:true}).first().waitFor();
+    assert.match(await page.locator(".content").innerText(),/MessagePusher/);
+    assert.match(await page.locator(".content").innerText(),/SMTP 邮件/);
+    assert.match(await page.locator(".content").innerText(),/Server酱 Turbo/);
+
+    const form=page.locator("#push-channel-form");
+    await form.locator('select[name="kind"]').selectOption("smtp");
+    assert.equal(await form.locator('[data-push-kind="smtp"]').isVisible(),true);
+    assert.equal(await form.locator('[data-push-kind="messagepusher"]').isVisible(),false);
+    await form.locator('select[name="kind"]').selectOption("serverchan");
+    assert.equal(await form.locator('[data-push-kind="serverchan"]').isVisible(),true);
+    await form.locator('select[name="kind"]').selectOption("messagepusher");
+    await form.locator('input[name="name"]').fill("新通知");
+    await form.locator('input[name="mp_base_url"]').fill("https://push.example.test");
+    await form.locator('input[name="mp_api_key"]').fill("mpk_fixture-key");
+    await form.locator('input[name="event"][value="device.online"]').check();
+    const saving=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/push/channels")&&req.method()==="POST");
+    await form.locator('button[type="submit"]').click();
+    const payload=(await saving).postDataJSON();
+    assert.equal(payload.kind,"messagepusher");
+    assert.equal(payload.api_key,"mpk_fixture-key");
+    assert.ok(payload.events.includes("device.online"));
+    await page.getByText("推送渠道已保存").first().waitFor();
+    const sending=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/push/channels/test")&&req.method()==="POST");
+    await page.locator('button[data-action="push-test"]').first().click();
+    const request=(await sending).postDataJSON();
+    assert.equal(request.id,5);
+    await page.getByText("测试通知已加入发送队列").first().waitFor();
+    fs.mkdirSync(path.join(__dirname,"test-screenshots"),{recursive:true});
+    await page.screenshot({path:path.join(__dirname,"test-screenshots","personal-push-desktop.png"),fullPage:true});
+  }finally{await context.close();}
+});
+
+test("device and audit IP addresses have GeoIP explanations on desktop and mobile",async()=>{
+  const administrator=await pageForViewport(1440,900,true);
+  try{
+    await administrator.page.locator('nav.side-scroll button[data-view="operations"]').click();
+    await administrator.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="管理操作记录");
+    await administrator.page.getByText("192.0.2.1",{exact:false}).first().waitFor();
+    assert.match(await administrator.page.locator(".content").innerText(),/位置未知/);
+  }finally{await administrator.context.close();}
+  const owner=await pageForViewport(375,812,false);
+  try{
+    await owner.page.locator('button[data-action="mobile-open"]').click();
+    await owner.page.locator('nav.side-scroll button[data-view="myloginlogs"]').click();
+    await owner.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的登录记录");
+    await owner.page.getByText("10.0.0.5",{exact:false}).first().waitFor();
+    assert.match(await owner.page.locator(".content").innerText(),/局域网地址/);
+    const dimensions=await owner.page.evaluate(()=>({
+      width:window.innerWidth,scroll:document.documentElement.scrollWidth
+    }));
+    assert.ok(dimensions.scroll<=dimensions.width+2,"GeoIP display overflows mobile screen");
+  }finally{await owner.context.close();}
 });
