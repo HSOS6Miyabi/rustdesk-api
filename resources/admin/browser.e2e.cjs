@@ -404,6 +404,8 @@ test("mobile: device policy editor and retention form remain usable",async()=>{
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="日志保留设置");
     await page.waitForFunction(()=>document.querySelector('#retention-form input[name="connection_days"]')?.value==="90");
     assert.equal(await page.locator('#retention-form input[name="connection_days"]').inputValue(),"90");
+    assert.equal(await page.locator('#retention-form input[name="push_sent_days"]').inputValue(),"30");
+    assert.equal(await page.locator('#retention-form input[name="notification_failed_days"]').inputValue(),"90");
     const dims=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth}));
     assert.ok(dims.scroll<=dims.width+2,"mobile retention form has horizontal overflow: "+JSON.stringify(dims));
   }finally{await context.close();}
