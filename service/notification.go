@@ -16,6 +16,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+var notificationDeliveryWake = make(chan struct{}, 1)
+
+func wakeNotificationDelivery() {
+	select { case notificationDeliveryWake <- struct{}{}: default: }
+}
+
 var notificationEventNames = map[string]string{
 	"login.failure": "登录异常",
 	"deployment.changed": "设备登记许可变更",
@@ -126,6 +132,7 @@ func QueueNotification(event, reference, description string) error {
 			return err
 		}
 	}
+	wakeNotificationDelivery()
 	return nil
 }
 
@@ -156,6 +163,7 @@ func RetryNotification(id uint) error {
 		Updates(map[string]interface{}{"status": "pending", "next_attempt_at": time.Now().Unix(), "attempts": 0, "last_error": ""})
 	if r.Error != nil { return r.Error }
 	if r.RowsAffected == 0 { return errors.New("delivery is not eligible for retry") }
+	wakeNotificationDelivery()
 	return nil
 }
 
@@ -172,6 +180,7 @@ func ProcessNotificationQueue(limit int) (int, error) {
 	if err != nil { return 0, err }
 	sent := 0
 	for _, row := range rows {
+		now = time.Now().Unix()
 		claim := DB.Model(&model.NotificationDelivery{}).
 			Where("id = ? AND status = ? AND attempts = ?", row.Id, row.Status, row.Attempts).
 			Updates(map[string]interface{}{"status":"sending", "locked_at":now})
@@ -200,13 +209,5 @@ func ProcessNotificationQueue(limit int) (int, error) {
 }
 
 func StartNotificationWorker() {
-	go func() {
-		ticker := time.NewTicker(20*time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			if _, err := ProcessNotificationQueue(10); err != nil && Logger != nil {
-				Logger.WithError(err).Warn("notification email delivery stopped")
-			}
-		}
-	}()
+	startAdministrativeMailScheduler(notificationDeliveryWake)
 }
