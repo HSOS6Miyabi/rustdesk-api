@@ -31,10 +31,10 @@ type PushDelivery struct {
 	EventKey      string `json:"-" gorm:"size:64;not null;uniqueIndex:idx_push_event,priority:3"`
 	Title         string `json:"title" gorm:"size:250;not null"`
 	Body          string `json:"body" gorm:"type:text;not null"`
-	Status        string `json:"status" gorm:"size:24;not null;index"`
+	Status        string `json:"status" gorm:"size:24;not null;index;index:idx_push_due,priority:1;index:idx_push_lease,priority:1"`
 	Attempts      int    `json:"attempts" gorm:"not null;default:0"`
-	NextAttemptAt int64  `json:"next_attempt_at" gorm:"not null;index"`
-	LockedAt      int64  `json:"-" gorm:"not null;default:0"`
+	NextAttemptAt int64  `json:"next_attempt_at" gorm:"not null;index;index:idx_push_due,priority:2"`
+	LockedAt      int64  `json:"-" gorm:"not null;default:0;index:idx_push_lease,priority:2"`
 	SentAt        int64  `json:"sent_at" gorm:"not null;default:0"`
 	LastError     string `json:"last_error" gorm:"type:text;not null"`
 	TimeModel
