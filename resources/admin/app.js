@@ -720,7 +720,7 @@
     const inputs=fields.map(([key,label,defaultDays])=>
       '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??defaultDays)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
     ).join("");
-    return pageHeading("历史记录保留设置","审计记录默认永久保留；成功发送的通知默认保留 30 天，失败通知默认保留 90 天。")+
+    return pageHeading("日志保留设置","审计记录默认永久保留；成功发送的通知默认保留 30 天，失败通知默认保留 90 天。")+
       '<section class="panel" style="max-width:860px"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="form-grid">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
   }
   async function exportAudit(kind, filters={}){
