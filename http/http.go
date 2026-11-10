@@ -8,9 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/lejianwen/rustdesk-api/v2/service"
 )
 
 func ApiInit() {
@@ -41,7 +38,4 @@ func ApiInit() {
 	router.Init(g)
 	router.ApiInit(g)
 	Run(g, global.Config.Gin.ApiAddr)
-	if !service.FlushPendingEvents(8*time.Second) && global.Logger!=nil {
-		global.Logger.Warn("pending notification events did not finish before shutdown")
-	}
 }
