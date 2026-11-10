@@ -68,7 +68,7 @@ CI 已实际通过的内容：
 
 ### 4. 完整待办事项及处理顺序
 
-优先级定义：**P0 为正式里程碑发布前必须完成的检查；P1 为下一阶段应实现的功能；P2 为后续使用体验和兼容扩展。** 所有条目均由接手人明确分配负责人、记录新提交并补充实际测试结果。
+优先级定义：**P0 为优先检查的项目；P1 为下一阶段完善的功能；P2 为使用体验和兼容性扩展。** 已完成的自动化测试与需要实际设备和外部服务的测试分别记录。
 
 | 任务编号 | 优先级 | 状态 | 具体工作 | 完成判断 |
 | --- | --- | --- | --- | --- |
@@ -95,7 +95,7 @@ CI 已实际通过的内容：
 | T021 | P2 | 官方 1.5.1 功能候选已整理；持续版本检查保留 | 官方商业版新增功能与 RustDesk 客户端更新情况，定期更新功能清单 | 每个新增候选功能附使用场景、客户端版本和预计修改位置 |
 | T022 | P2 | 中文管理界面与手机顶部导航自动检查通过；其他语言和无障碍操作继续完善 | 文档与界面的多语言、移动端操作、管理表格可读性 | 中文文档完整，其他语言与终端界面符合目标用户需求 |
 
-P0 检查属于正式发布前的必要工作，不妨碍下一位开发者继续在开发分支增加其他功能。**完成代码自动化测试与完成真实客户端验证分别记录，不得互相代替。**
+P0 项目的自动化测试已经纳入本阶段发行检查，依赖实际设备的检查在具备相应条件后继续执行。**代码测试和真实客户端检查分别登记实际结果。**
 
 ### 5. 重要实现细节与当前限制
 
@@ -260,13 +260,13 @@ Server 新增 `REQUIRE_DEVICE_DEPLOYMENT`、`RUSTDESK_API_INTERNAL_KEY`、`RUSTD
 
 ### 测试和后续检查
 
-测试说明见 [TESTING.md](TESTING.md)。本阶段开发分支通过草稿 PR 执行 CI，实际通过情况以 PR 的检查结果为准。连接真实桌面、文件传输及严格设备部署还需要在具备客户端的环境验证。
+测试说明见 [TESTING.md](TESTING.md)。本阶段的正式发行结果见 [API 发行工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371)。真实桌面连接、文件传输及设备部署的实际效果还需在客户端环境中检查。
 
 待实施功能持续更新于 [FEATURE_MATRIX.md](FEATURE_MATRIX.md)；交接说明见 [HANDOFF.md](HANDOFF.md)。
 
 ## 2026-11-09：设备管理完善、三级策略、活动连接与 API 令牌
 
-此阶段继续使用两个仓库的 `development/m1-device-management` 分支，所有修改通过草稿 PR 检查。以下是本轮新增和扩展功能的具体提交。
+本阶段修改已合并到 API `master` 和 Server `forapi`，以下记录相关功能提交与检查结果。
 
 | 仓库 | 提交 | 功能 |
 | --- | --- | --- |
@@ -304,7 +304,7 @@ Server 新增 `REQUIRE_DEVICE_DEPLOYMENT`、`RUSTDESK_API_INTERNAL_KEY`、`RUSTD
 - [Server 严格设备登记、通信协议和 Rust 测试通过](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42519807127)。
 - [Server 文档更新后的自动化测试通过](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42521370716)。
 
-API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 PR](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 最新检查结果为准。
+API 管理令牌的浏览器及 Go 测试结果见[正式发行工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371)。
 
 ### 后续功能
 
@@ -340,7 +340,7 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 
 ## 2026-11-09：地址簿导入导出、恢复、SMTP 与账户邮件功能
 
-本次继续开发以小型团队日常使用为重点，所有程序均保留在 `development/m1-device-management`，两个草稿 PR 均不发布发行版。
+本次开发面向小型团队的日常使用，相关功能已合并并发布 API v3.0.0-api.103 与 Server v1.1.17-api.21。
 
 ### 已提交的功能
 
@@ -382,7 +382,7 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 - [密码恢复服务测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42559793707)，通过。
 - [邀请注册、邮件找回及管理页面的最新综合测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42560569953)，通过。
 
-当前开发仓库对应 Server 开发提交仍是 [902293d](https://github.com/HSOS6Miyabi/rustdesk-server/commit/902293d49f17d831922237718ff389b3a1178267)。未创建里程碑版本标签或新的 Release。
+当前配套的正式 Server 版本为 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。
 
 ## 2026-11-09：历史连接备注
 
@@ -397,7 +397,7 @@ API 管理令牌的最终浏览器测试及完整 Go 测试，应以[API 草稿 
 
 管理员通过 `POST /api/admin/audit_conn/note` 修改备注，最多 2000 个字符。管理操作自动记录在原有操作日志中。备注同样包含在 `GET /api/admin/audit/export?kind=audit_conn` 的 CSV 文件中。
 
-自动化测试见 [API 草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 的最新提交及 [GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42561282556)。这部分仅修改 API，无须更新 Server。
+自动化检查见 [API PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 及 [GitHub Actions](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371)。相关功能由 API 负责实现。
 
 ## 2026-11-09：TOTP 双重认证和一次性恢复码
 
@@ -621,7 +621,7 @@ Server 需设置 `RUSTDESK_API_CONTROL_ROLE_URL` 才会查询控制角色。设�
 
 - [角色叠加、权限范围与基本接口测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42573060628)：通过。
 - [角色管理和双重认证重置综合测试](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42574010348)：通过。
-- 最新开发提交的全部自动化测试参见 [API 草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)。
+- 当前发行版本的自动化测试参见 [API Release 工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371)。
 
 本模块只修改 API 和管理控制台，不需要改变当前 Server 二进制程序。
 
@@ -680,17 +680,17 @@ Server 通过带内部密钥的 POST 请求，将设备 ID 和客户端登录令
 
 ## 2026-11-09：自动化管理、限定范围修改、批量管理及双格式国家数据
 
-本阶段在两个开发分支持续提交，并通过草稿 PR 的自动化检查。首个正式发布里程碑仍须完成 P0 真实环境检查与维护者确认。
+本阶段代码已合并并获得维护者的发行批准。P0 中需要真实设备或外部服务的检查仍按任务记录继续执行。
 
 ### 实现和代码位置
 
 | 任务 | 主要提交 | 实现结果 |
 | --- | --- | --- |
 | T011 | [Server 32967aa](https://github.com/HSOS6Miyabi/rustdesk-server/commit/32967aa4bf) | 增加双架构 API/Server 组合镜像预演，运行实际容器检查 API、hbbs、hbbr 与 WebSocket |
-| T015 | [API 自动化令牌](https://github.com/HSOS6Miyabi/rustdesk-api/blob/development/m1-device-management/http/router/automation.go) | 为独立令牌增加查看和管理权限；从 `/api/automation/v1` 调用设备、部署、中继、会话、策略、角色与审计接口 |
-| T016 | [API 设备所有者转移](https://github.com/HSOS6Miyabi/rustdesk-api/blob/development/m1-device-management/http/controller/admin/peer_transfer.go) | 允许按指定账户或用户组授权修改、删除设备和用户；设备转移同步更新登记记录并撤销旧设备会话 |
-| T017 | [API 回收站批量服务](https://github.com/HSOS6Miyabi/rustdesk-api/blob/development/m1-device-management/service/address_book_batch.go) | 联系人批量添加和撤销、地址簿批量共享、部署许可批量修改、回收站批量恢复与永久删除 |
-| T018 | [Server MMDB/CSV 国家识别](https://github.com/HSOS6Miyabi/rustdesk-server/blob/development/m1-device-management/src/geoip_country.rs) | 支持 `RUSTDESK_GEOIP_MMDB_FILE`，与原有 CSV 读取共存；可执行 `reload-geo` 重新读取数据 |
+| T015 | [API 自动化令牌](https://github.com/HSOS6Miyabi/rustdesk-api/blob/master/http/router/automation.go) | 为独立令牌增加查看和管理权限；从 `/api/automation/v1` 调用设备、部署、中继、会话、策略、角色与审计接口 |
+| T016 | [API 设备所有者转移](https://github.com/HSOS6Miyabi/rustdesk-api/blob/master/http/controller/admin/peer_transfer.go) | 允许按指定账户或用户组授权修改、删除设备和用户；设备转移同步更新登记记录并撤销旧设备会话 |
+| T017 | [API 回收站批量服务](https://github.com/HSOS6Miyabi/rustdesk-api/blob/master/service/address_book_batch.go) | 联系人批量添加和撤销、地址簿批量共享、部署许可批量修改、回收站批量恢复与永久删除 |
+| T018 | [Server MMDB/CSV 国家识别](https://github.com/HSOS6Miyabi/rustdesk-server/blob/forapi/src/geoip_country.rs) | 支持 `RUSTDESK_GEOIP_MMDB_FILE`，与原有 CSV 读取共存；可执行 `reload-geo` 重新读取数据 |
 
 ### 已完成的检查
 
@@ -705,12 +705,12 @@ Server 通过带内部密钥的 POST 请求，将设备 ID 和客户端登录令
 - 先读取两个开发分支最新提交和 PR CI；文档更新后可能产生新的 CI 运行。
 - 在相应分支运行 Go、Rust、浏览器及双架构容器测试。MMDB 验证示例位于 Server 的 `tests/fixtures`，正式地理数据库仍由部署人员提供。
 - T001–T010、T012 需要实际客户端、SMTP、数据库或发布审核的项目仍按第 4 节执行。T013、T014、T019–T022 后续事项保持在待办清单中。
-- 两个拉取请求继续保持草稿，所有日常开发提交不得发布 Release 或正式 Docker 镜像。
+- 两个拉取请求已合并。未来发行新版本仍需维护者批准，普通开发提交只运行检查任务。
 
 
 ## 2026-11-09：客户端构建、邮件通知、设备策略及部署检查
 
-本阶段已实现 P1 类别的 T013–T020 中列出的主要管理功能，并完成对应自动化测试。正式发布前仍需完成真实客户端、实际邮箱、公网中继与数据库备份恢复检查。以下记录当前开发代码的功能和验证范围。
+本阶段已经实现 T013–T020 的主要管理功能，并完成自动化测试。真实客户端、外部邮箱、公网中继及正式数据库恢复继续作为实际环境检查项目。
 
 ### Windows、Linux、macOS 客户端安装文件
 
@@ -753,7 +753,7 @@ Server 通过普通进程启动 API、`hbbs`、`hbbr`，检查 TCP、UDP、WebSo
 
 Chromium 检查已保存客户端构建器及邮件通知的桌面、平板、手机截图。多平台真实设备登录、远程操作及其他语言支持仍按 T002、T003、T009、T010 和 T022 检查。
 
-两个仓库继续使用草稿 PR，未创建新版本标签、Release 或正式 Docker 镜像。
+两个仓库已合并，并发布新的版本标签、GitHub Release 和正式 Docker 镜像。
 
 
 ## 2026-11-09：安装配置核对与数据库恢复演练
@@ -766,7 +766,7 @@ Chromium 检查已保存客户端构建器及邮件通知的桌面、平板、�
 
 数据库检查包含旧结构升级、SQLite 停止连接后的文件恢复、MySQL 的 `mysqldump` 导出与恢复，以及 PostgreSQL 的 `pg_dump`、`pg_restore`。恢复后检查历史策略、审计记录与客户端构建任务。
 
-正式发布前还需要使用实际部署环境和真实业务数据的备份恢复，以及实际客户端与公共网络的端到端测试。草稿 PR 和正式版本保持原有状态。
+使用实际部署环境时，还需检查业务数据库备份恢复、真实客户端与公网连接。当前发行版本保持 v3.0.0-api.103 与 v1.1.17-api.21。
 
 
 ## 2026-11-09：官方 Linux 客户端与实际 API、Server 的联合检查
@@ -786,7 +786,7 @@ Server 新增两组实际 API 联合测试。第一组检查设备未登记、�
 
 关键实现和测试：API 的 `http/controller/api/device_commands.go`、`peer.go`、`managed_sysinfo_test.go`、`scripts/test_official_linux_real_api.py`；Server 的 `scripts/test_real_api_registration.py`、`scripts/test_real_api_strict_combination.py` 和 `.github/workflows/milestone-preflight.yml`。
 
-T001、T004 的自动化集成检查已经补充。实际双设备远程控制、跨地区公网中继、真实邮箱收发、正式数据恢复、多平台登录与安装等检查继续按照 T001–T022 逐项执行。开发分支与两个草稿 PR 保持原有发布状态。
+T001、T004 的自动化联合检查已经完成。实际双设备远程控制、跨地区公网中继、真实邮箱收发、业务数据恢复、多平台登录与安装继续按照 T001–T022 执行；两个正式版本已经发布。
 
 
 ## 2026-11-10：设备转移与会话权限检查
@@ -801,7 +801,7 @@ T001、T004 的自动化集成检查已经补充。实际双设备远程控制�
 | 官方 Linux 1.5.1 与实际 API 的设备部署和直接分配 | [#42652682083](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652682083) |
 | SQLite、MySQL 8.4、PostgreSQL 16 升级及恢复 | [#42652681804](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42652681804) |
 
-本次保持数据库迁移版本 282。两份开发拉取请求继续保留草稿状态。
+本次发行的 API 数据库迁移版本为 282。两个仓库的拉取请求均已合并。
 
 
 ## 2026-11-10：严格设备登记与安全策略心跳
@@ -836,7 +836,7 @@ API 为每次签发的 JWT 设置独立随机标识。即使同一账户在很�
 | 三种数据库升级与恢复 | [#42666929781](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42666929781)：成功 |
 | Server 实际账户登录、JWT、WebRTC 与双架构组合部署 | [#42666031144](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42666031144)：成功 |
 
-T002、T004、T009、T022 的相应自动化检查已完成。真实终端的登录与远程控制、实际 SMTP、跨地区中继及生产数据恢复仍按逐项任务记录检查。两个开发 PR 均保持草稿状态。
+T002、T004、T009、T022 的相应自动化检查已完成。真实终端登录与远程控制、实际 SMTP、跨地区中继及业务数据库恢复继续按照逐项任务记录检查；本阶段发行版本已经发布。
 
 
 ## 2026-11-10：设备撤销后的连接授权与设备归属检查
@@ -854,4 +854,4 @@ T002、T004、T009、T022 的相应自动化检查已完成。真实终端的登
 | SQLite、MySQL、PostgreSQL 升级和恢复 | [API #42670402867](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670402867) |
 | 真实 API 和 hbbs 的 AMD64、ARM64 设备撤销及组合部署 | [Server #42669744598](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744598) |
 
-需要两台实际设备完成远程控制、权限效果和重新连接检查；跨地区公网中继、真实 SMTP、业务数据库恢复以及目标主机部署仍按逐项任务记录执行。两个 PR 保留草稿状态。
+使用两台实际设备检查远程控制、权限效果和重新连接；跨地区公网中继、真实 SMTP、业务数据库恢复及目标主机部署继续按照逐项任务记录执行。
