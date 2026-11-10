@@ -47,6 +47,7 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 	if eventName == "" { return nil }
 	seen := make(map[uint]bool)
 	now := time.Now().Unix()
+	title, body := "", ""
 	for _, userID := range users {
 		if userID == 0 || seen[userID] { continue }
 		seen[userID] = true
@@ -56,7 +57,7 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 		}
 		for _, channel := range channels {
 			if !pushSubscribed(&channel, event.Code) { continue }
-			title, body := formatPushMessage(event)
+			if title == "" { title, body = formatPushMessage(event) }
 			if title == "" { continue }
 			key := event.Reference
 			if key == "" { key = fmt.Sprintf("%d:%d", now, time.Now().UnixNano()) }
