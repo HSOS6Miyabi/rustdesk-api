@@ -26,11 +26,11 @@ jobs:
             echo "Publication checks run without creating a release."
             exit 0
           fi
-          if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110")' "$GITHUB_EVENT_PATH" >/dev/null; then
+          if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110-104")' "$GITHUB_EVENT_PATH" >/dev/null; then
             echo "This commit does not request a milestone release."
             exit 0
           fi
-          RELEASE_TAG="v3.0.0-api.103"
+          RELEASE_TAG="v3.0.0-api.104"
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/verify-release.yml/dispatches" \
             -f "ref=$RELEASE_TAG" -F "inputs[milestone_release]=true"
