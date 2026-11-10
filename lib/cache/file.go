@@ -90,8 +90,32 @@ func (c *FileCache) fileName(key string) string {
 	return f
 }
 
+// Gc only removes expired entries owned by this cache. The configured
+// directory may contain unrelated files that must be preserved.
 func (c *FileCache) Gc() error {
-	//检查文件过期时间，并删除
+	entries, err := os.ReadDir(c.Dir)
+	if os.IsNotExist(err) { return nil }
+	if err != nil { return err }
+	now := time.Now()
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() { continue }
+		name := entry.Name()
+		if len(name) != 32 { continue }
+		valid := true
+		for _, ch := range name {
+			if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') { valid = false; break }
+		}
+		if !valid { continue }
+		path := c.Dir + string(os.PathSeparator) + name
+		lock := c.getLock(path)
+		lock.Lock()
+		info, infoErr := os.Stat(path)
+		if infoErr == nil && info.Mode().IsRegular() && !info.ModTime().After(now) {
+			infoErr = os.Remove(path)
+		}
+		lock.Unlock()
+		if infoErr != nil && !os.IsNotExist(infoErr) { return infoErr }
+	}
 	return nil
 }
 

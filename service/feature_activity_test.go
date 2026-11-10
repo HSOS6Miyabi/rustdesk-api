@@ -145,3 +145,32 @@ func TestGloballyUnusedSessionsAvoidAllDeviceWrites(t *testing.T){
 		t.Fatalf("closed connection remains: %d %v",count,err)
 	}
 }
+
+func TestSparsePolicyAssignmentsSkipUnrelatedHeartbeatQueries(t *testing.T) {
+	cleanup := setupGroupDB(t)
+	defer cleanup()
+	if err := DB.AutoMigrate(&model.DevicePolicy{}, &model.DevicePolicyAssignment{},
+		&model.DevicePolicyUserAssignment{}, &model.DevicePolicyGroupAssignment{}); err != nil { t.Fatal(err) }
+	assigned := &model.Peer{Id: "assigned-one", UserId: 1}
+	unrelated := &model.Peer{Id: "ordinary-device", UserId: 2}
+	for _, peer := range []*model.Peer{assigned, unrelated} {
+		if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	}
+	policy := &model.DevicePolicy{Name: "Selected only"}
+	if err := SaveDevicePolicy(policy); err != nil { t.Fatal(err) }
+	if err := SaveDevicePolicyAssignment(&model.DevicePolicyAssignment{DeviceId: assigned.Id,
+		PolicyId: policy.Id}); err != nil { t.Fatal(err) }
+	if value, err := HeartbeatDeviceStrategy(unrelated, 0); err != nil || len(value) != 0 {
+		t.Fatalf("unrelated device received policy: %+v %v", value, err)
+	}
+	reads := 0
+	key := "perf:sparse_assignment_read"
+	if err := DB.Callback().Query().Before("gorm:query").Register(key, func(*gorm.DB) { reads++ }); err != nil { t.Fatal(err) }
+	for i := 0; i < 30; i++ {
+		if _, err := HeartbeatDeviceStrategy(unrelated, 0); err != nil { t.Fatal(err) }
+	}
+	if err := DB.Callback().Query().Remove(key); err != nil { t.Fatal(err) }
+	if reads != 0 { t.Fatalf("unrelated policy caused %d database reads", reads) }
+	value, err := HeartbeatDeviceStrategy(assigned, 0)
+	if err != nil || value["strategy"] == nil { t.Fatalf("assigned policy missing: %+v %v", value, err) }
+}

@@ -138,7 +138,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 
-当前数据库迁移版本是 286，正式版本为 [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。发布流程由版本授权文件控制，具体操作见 [性能与数据保存说明](docs/PERFORMANCE.md)。
+当前数据库迁移版本是 288，正式版本为 [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。发布流程由版本授权文件控制，具体操作见 [性能与数据保存说明](docs/PERFORMANCE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
 

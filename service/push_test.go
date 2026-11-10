@@ -138,6 +138,7 @@ func TestDevicePresenceTransitionsAndOfflineNotifications(t *testing.T) {
 	event:=PushEvent{Code:"device.heartbeat",DeviceID:peer.Id,PeerRowID:peer.RowId,SourceIP:"10.0.0.5",When:time.Now()}
 	if err:=processPushEvent(event);err!=nil{t.Fatal(err)}
 	if err:=processPushEvent(event);err!=nil{t.Fatal(err)}
+	if count,err:=ProcessPushEventOutbox(20);err!=nil||count!=1{t.Fatalf("online event processing: %d %v",count,err)}
 	var count int64
 	if err:=DB.Model(&model.PushDelivery{}).Count(&count).Error;err!=nil||count!=1{
 		t.Fatalf("heartbeats generated unexpected notifications: %d %v",count,err)
@@ -146,6 +147,7 @@ func TestDevicePresenceTransitionsAndOfflineNotifications(t *testing.T) {
 		Update("last_seen_at",time.Now().Add(-4*time.Minute).Unix()).Error;err!=nil{t.Fatal(err)}
 	if err:=ProcessPushPresenceTimeouts(10);err!=nil{t.Fatal(err)}
 	if err:=ProcessPushPresenceTimeouts(10);err!=nil{t.Fatal(err)}
+	if count,err:=ProcessPushEventOutbox(20);err!=nil||count!=1{t.Fatalf("offline event processing: %d %v",count,err)}
 	if err:=DB.Model(&model.PushDelivery{}).Count(&count).Error;err!=nil||count!=2 {
 		t.Fatalf("offline transition was missed or repeated: %d %v",count,err)
 	}

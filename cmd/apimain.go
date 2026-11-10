@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 286
+const DatabaseVersion = 288
 
 // @title 管理系统API
 // @version 1.0
@@ -230,6 +230,9 @@ func InitGlobal() {
 	service.StartNotificationWorker()
 	service.StartPushWorker()
 	service.StartClientBuildWorker()
+	if fileCache, ok := global.Cache.(*cache.FileCache); ok {
+		service.StartFileCacheMaintenance(fileCache)
+	}
 }
 
 func DatabaseAutoUpdate() {

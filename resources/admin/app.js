@@ -713,11 +713,14 @@
   }
   function retentionPage(){
     const data=state.retention||{};
-    const fields=[["connection_days","远程连接记录"],["file_days","文件传输记录"],["alarm_days","安全告警"],["login_days","用户登录记录"],["operation_days","管理操作记录"]];
-    const inputs=fields.map(([key,label])=>
-      '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??0)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
+    const fields=[["connection_days","远程连接记录",0],["file_days","文件传输记录",0],
+      ["alarm_days","安全告警",0],["login_days","用户登录记录",0],["operation_days","管理操作记录",0],
+      ["push_sent_days","个人推送：成功发送",30],["push_failed_days","个人推送：发送失败",90],
+      ["notification_sent_days","管理员邮件：发送成功",30],["notification_failed_days","管理员邮件：发送失败",90]];
+    const inputs=fields.map(([key,label,defaultDays])=>
+      '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??defaultDays)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
     ).join("");
-    return pageHeading("日志保留设置","按日志类型设置自动清理期限。新安装默认永久保留，最长可设置 3650 天。")+
+    return pageHeading("日志保留设置","审计记录默认永久保留；成功发送的通知默认保留 30 天，失败通知默认保留 90 天。")+
       '<section class="panel" style="max-width:860px"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="form-grid">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
   }
   async function exportAudit(kind, filters={}){

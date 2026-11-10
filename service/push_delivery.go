@@ -65,7 +65,11 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 	var title, body string
 	for _, channel := range channels {
 		if !pushSubscribed(&channel, event.Code) { continue }
-		if title == "" { title, body = formatPushMessage(event) }
+		if title == "" {
+			var err error
+			title, body, err = formatPushMessage(event)
+			if err != nil { return err }
+		}
 		if title == "" { continue }
 		records = append(records, model.PushDelivery{
 			UserId: channel.UserId, ChannelId: channel.Id, EventType: event.Code,

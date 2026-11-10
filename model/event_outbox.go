@@ -5,6 +5,7 @@ package model
 type PushEventOutbox struct {
 	IdModel
 	Payload string `gorm:"type:text;not null"`
+	LeaseUntil int64 `gorm:"not null;default:0"`
 	TimeModel
 }
 
@@ -15,5 +16,6 @@ type NotificationEventOutbox struct {
 	Event string `gorm:"size:64;not null"`
 	Reference string `gorm:"size:512;not null"`
 	Description string `gorm:"type:text;not null"`
+	LeaseUntil int64 `gorm:"not null;default:0"`
 	TimeModel
 }

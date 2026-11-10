@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -326,7 +327,8 @@ func TestPresenceTransitionRetainsEventUntilDeliveryIsRecorded(t *testing.T) {
 		Code: "device.heartbeat", DeviceID: peer.Id,
 		PeerRowID: peer.RowId, When: time.Now(),
 	}
-	if err := processPushEvent(event); err == nil {
+	if err := processPushEvent(event); err != nil { t.Fatal(err) }
+	if _, err := ProcessPushEventOutbox(20); err == nil {
 		t.Fatal("missing delivery table should interrupt notification processing")
 	}
 	var count int64
@@ -340,4 +342,199 @@ func TestPresenceTransitionRetainsEventUntilDeliveryIsRecorded(t *testing.T) {
 	if err := DB.Model(&model.PushDelivery{}).Count(&count).Error; err != nil || count != 1 {
 		t.Fatalf("online event was not recovered: %d %v", count, err)
 	}
+}
+
+func TestActiveSessionsWithoutPendingDisconnectSkipDatabaseOperations(t *testing.T) {
+	cleanup := setupGroupDB(t)
+	defer cleanup()
+	if err := DB.AutoMigrate(&model.DeviceActiveConnection{}, &model.DeviceDisconnectRequest{}); err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id: "active-session-no-disconnect"}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SynchronizeDeviceSessions(peer, []int32{52}); err != nil { t.Fatal(err) }
+	if _, err := deviceHasPendingDisconnectRequest(peer.Id); err != nil { t.Fatal(err) }
+	reads, updates, creates := 0, 0, 0
+	if err := DB.Callback().Query().Before("gorm:query").Register("perf:pending_query", func(*gorm.DB) { reads++ }); err != nil { t.Fatal(err) }
+	if err := DB.Callback().Update().Before("gorm:update").Register("perf:pending_update", func(*gorm.DB) { updates++ }); err != nil { t.Fatal(err) }
+	if err := DB.Callback().Create().Before("gorm:create").Register("perf:pending_create", func(*gorm.DB) { creates++ }); err != nil { t.Fatal(err) }
+	for i := 0; i < 20; i++ {
+		if commands, err := SynchronizeDeviceSessions(peer, []int32{52}); err != nil || len(commands) > 0 {
+			t.Fatalf("unchanged active session: %v %v", commands, err)
+		}
+	}
+	DB.Callback().Query().Remove("perf:pending_query")
+	DB.Callback().Update().Remove("perf:pending_update")
+	DB.Callback().Create().Remove("perf:pending_create")
+	if reads != 0 || updates != 0 || creates != 0 {
+		t.Fatalf("no pending request caused SQL: read=%d update=%d create=%d", reads, updates, creates)
+	}
+	if err := RequestDeviceDisconnect(peer.Id, 52, 1); err != nil { t.Fatal(err) }
+	commands, err := SynchronizeDeviceSessions(peer, []int32{52})
+	if err != nil || len(commands) != 1 || commands[0] != 52 {
+		t.Fatalf("pending disconnect was delayed: %v %v", commands, err)
+	}
+}
+
+func TestFailedPeerLookupKeepsOutboxEventForRetry(t *testing.T) {
+	cleanup := setupPushTestDB(t)
+	defer cleanup()
+	user := &model.User{Username:"lookup-retry-owner", Status:model.COMMON_STATUS_ENABLE}
+	if err := DB.Create(user).Error; err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"lookup-retry-device", UserId:user.Id}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SavePushChannel(user.Id, PushChannelInput{
+		Name:"lookup-retry", Kind:"messagepusher", Enabled:true,
+		BaseURL:"https://push.example.test", APIKey:"mpk_test_lookup",
+		Events:[]string{"device.registered"},
+	}); err != nil { t.Fatal(err) }
+	if err := persistPushEvent(PushEvent{
+		Code:"device.registered", DeviceID:peer.Id, PeerRowID:peer.RowId,
+		Reference:"device-lookup-retry", When:time.Now(),
+	}); err != nil { t.Fatal(err) }
+	key := "perf:temporary_peer_read_error"
+	if err := DB.Callback().Query().Before("gorm:query").Register(key, func(tx *gorm.DB) {
+		if tx.Statement.Table == "peers" { tx.AddError(errors.New("temporary device database error")) }
+	}); err != nil { t.Fatal(err) }
+	if n, err := ProcessPushEventOutbox(20); err == nil || n != 0 {
+		t.Fatalf("temporary query failure was ignored: %d %v", n, err)
+	}
+	DB.Callback().Query().Remove(key)
+	var count int64
+	if err := DB.Model(&model.PushEventOutbox{}).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("failed event was removed: %d %v", count, err)
+	}
+	if n, err := ProcessPushEventOutbox(20); err != nil || n != 1 {
+		t.Fatalf("retained notification could not resume: %d %v", n, err)
+	}
+	if err := DB.Model(&model.PushDelivery{}).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("recovered notification was missing: %d %v", count, err)
+	}
+}
+
+func TestOutboxCleansSuccessfulPrefixOnProcessingFailure(t *testing.T) {
+	cleanup := setupPushTestDB(t)
+	defer cleanup()
+	user := &model.User{Username:"prefix-owner", Status:model.COMMON_STATUS_ENABLE}
+	if err := DB.Create(user).Error; err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"prefix-device", UserId:user.Id}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SavePushChannel(user.Id, PushChannelInput{
+		Name:"prefix-channel", Kind:"messagepusher", Enabled:true,
+		BaseURL:"https://push.example.test", APIKey:"mpk_prefix",
+		Events:[]string{"device.registered"},
+	}); err != nil { t.Fatal(err) }
+	if err := persistPushEvent(PushEvent{
+		Code:"device.registered", DeviceID:peer.Id, PeerRowID:peer.RowId,
+		Reference:"prefix-valid", When:time.Now(),
+	}); err != nil { t.Fatal(err) }
+	bad := &model.PushEventOutbox{Payload:"not valid JSON"}
+	if err := DB.Create(bad).Error; err != nil { t.Fatal(err) }
+	if processed, err := ProcessPushEventOutbox(20); err == nil || processed != 1 {
+		t.Fatalf("completed prefix was not saved: %d %v", processed, err)
+	}
+	var remain []model.PushEventOutbox
+	if err := DB.Find(&remain).Error; err != nil || len(remain) != 1 || remain[0].Id != bad.Id {
+		t.Fatalf("successful events were retained or unfinished event removed: %+v %v", remain, err)
+	}
+	var sent int64
+	if err := DB.Model(&model.PushDelivery{}).Count(&sent).Error; err != nil || sent != 1 {
+		t.Fatalf("successful event was not queued: %d %v", sent, err)
+	}
+}
+
+func TestPresenceTransitionsUseOnlyOutboxWorker(t *testing.T) {
+	cleanup := setupPushTestDB(t)
+	defer cleanup()
+	user := &model.User{Username:"single-worker-owner", Status:model.COMMON_STATUS_ENABLE}
+	if err := DB.Create(user).Error; err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"single-worker-device", UserId:user.Id}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SavePushChannel(user.Id, PushChannelInput{
+		Name:"single-worker-channel", Kind:"messagepusher", Enabled:true,
+		BaseURL:"https://push.example.test", APIKey:"mpk_single_worker",
+		Events:[]string{"device.online"},
+	}); err != nil { t.Fatal(err) }
+	if err := processPushEvent(PushEvent{
+		Code:"device.heartbeat", DeviceID:peer.Id, PeerRowID:peer.RowId, When:time.Now(),
+	}); err != nil { t.Fatal(err) }
+	var queued int64
+	if err := DB.Model(&model.PushDelivery{}).Count(&queued).Error; err != nil || queued != 0 {
+		t.Fatalf("heartbeat sent an event before the outbox worker: %d %v", queued, err)
+	}
+	if n, err := ProcessPushEventOutbox(20); err != nil || n != 1 {
+		t.Fatalf("outbox failed to handle the online event: %d %v", n, err)
+	}
+	if err := DB.Model(&model.PushDelivery{}).Count(&queued).Error; err != nil || queued != 1 {
+		t.Fatalf("notification was processed more than once: %d %v", queued, err)
+	}
+}
+
+func TestSharedOutboxClaimsPreventConcurrentDuplicateProcessing(t *testing.T) {
+	cleanup := setupPushTestDB(t)
+	defer cleanup()
+	t.Setenv("RUSTDESK_API_SHARED_EVENT_WORKERS", "1")
+	user := &model.User{Username:"shared-worker-test", Status:model.COMMON_STATUS_ENABLE}
+	if err := DB.Create(user).Error; err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"shared-worker-device", UserId:user.Id}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SavePushChannel(user.Id, PushChannelInput{
+		Name:"shared-worker-channel", Kind:"messagepusher", Enabled:true,
+		BaseURL:"https://push.example.test", APIKey:"mpk_shared",
+		Events:[]string{"device.registered"},
+	}); err != nil { t.Fatal(err) }
+	if err := persistPushEvent(PushEvent{
+		Code:"device.registered", DeviceID:peer.Id, PeerRowID:peer.RowId,
+		Reference:"shared-worker-event", When:time.Now(),
+	}); err != nil { t.Fatal(err) }
+	results := make(chan error, 2)
+	var concurrent sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		concurrent.Add(1)
+		go func() {
+			defer concurrent.Done()
+			_, err := ProcessPushEventOutbox(20)
+			results <- err
+		}()
+	}
+	concurrent.Wait()
+	close(results)
+	for err := range results {
+		if err != nil { t.Fatalf("shared worker processing failed: %v", err) }
+	}
+	var deliveries int64
+	if err := DB.Model(&model.PushDelivery{}).Count(&deliveries).Error; err != nil || deliveries != 1 {
+		t.Fatalf("one event generated %d deliveries: %v", deliveries, err)
+	}
+	var pending int64
+	if err := DB.Model(&model.PushEventOutbox{}).Count(&pending).Error; err != nil || pending != 0 {
+		t.Fatalf("processed event is still pending: %d %v", pending, err)
+	}
+}
+
+func TestRepeatedDisconnectCommandsDoNotRewriteDeliveredTimestamp(t *testing.T) {
+	cleanup := setupGroupDB(t)
+	defer cleanup()
+	if err := DB.AutoMigrate(&model.DeviceActiveConnection{}, &model.DeviceDisconnectRequest{}); err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"unchanged-delivery-device"}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SynchronizeDeviceSessions(peer, []int32{77}); err != nil { t.Fatal(err) }
+	if err := RequestDeviceDisconnect(peer.Id, 77, 1); err != nil { t.Fatal(err) }
+	if cmds, err := SynchronizeDeviceSessions(peer, []int32{77}); err != nil || len(cmds) != 1 {
+		t.Fatalf("first disconnect command missing: %v %v", cmds, err)
+	}
+	var before model.DeviceDisconnectRequest
+	if err := DB.Where("device_id = ?", peer.Id).Take(&before).Error; err != nil { t.Fatal(err) }
+	if before.Status != "delivered" || before.DeliveredAt == 0 { t.Fatalf("request was not delivered: %+v", before) }
+	updates := 0
+	key := "perf:duplicate_delivery_update"
+	if err := DB.Callback().Update().Before("gorm:update").Register(key, func(*gorm.DB) { updates++ }); err != nil { t.Fatal(err) }
+	for i := 0; i < 5; i++ {
+		if cmds, err := SynchronizeDeviceSessions(peer, []int32{77}); err != nil || len(cmds) != 1 {
+			t.Fatalf("repeated command missing: %v %v", cmds, err)
+		}
+	}
+	DB.Callback().Update().Remove(key)
+	if updates != 0 { t.Fatalf("unchanged delivered request caused %d updates", updates) }
+	var after model.DeviceDisconnectRequest
+	if err := DB.Where("id = ?", before.Id).Take(&after).Error; err != nil { t.Fatal(err) }
+	if after.DeliveredAt != before.DeliveredAt { t.Fatal("delivery timestamp changed after retry") }
 }

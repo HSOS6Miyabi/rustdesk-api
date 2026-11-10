@@ -20,6 +20,7 @@ var policyActivity = struct {
 	generation uint64
 	checked time.Time
 	assigned bool
+	snapshot policyAssignmentSnapshot
 }{}
 
 func invalidatePolicyActivity() {
@@ -33,10 +34,84 @@ func invalidatePolicyActivity() {
 	heartbeatPolicyCache.Unlock()
 }
 
-func devicePolicyAssignmentsPresent() (bool, error) {
-	if DB == nil {
-		return false, nil
+// Each assignment level is read at most once per refresh interval. Small
+// assignments are kept as immutable ID sets, allowing unrelated devices to
+// skip all policy queries. Large assignments use indexed database lookups.
+const sparsePolicyAssignmentLimit = 1024
+
+type policyAssignmentSnapshot struct {
+	devices map[string]struct{}
+	users map[uint]struct{}
+	groups map[uint]struct{}
+	largeDevices bool
+	largeUsers bool
+	largeGroups bool
+}
+
+func (snapshot policyAssignmentSnapshot) mayApply(peer *model.Peer) bool {
+	if peer == nil { return false }
+	_, byDevice := snapshot.devices[peer.Id]
+	_, byUser := snapshot.users[peer.UserId]
+	_, byGroup := snapshot.groups[peer.GroupId]
+	return snapshot.largeDevices || snapshot.largeUsers || snapshot.largeGroups ||
+		byDevice || (peer.UserId != 0 && byUser) || (peer.GroupId != 0 && byGroup)
+}
+
+func readPolicyAssignmentSnapshot(db *gorm.DB) (policyAssignmentSnapshot, bool, error) {
+	result := policyAssignmentSnapshot{
+		devices: make(map[string]struct{}),
+		users: make(map[uint]struct{}),
+		groups: make(map[uint]struct{}),
 	}
+	assigned := false
+	if db.Migrator().HasTable(&model.DevicePolicyAssignment{}) {
+		var rows []struct { DeviceId string }
+		if err := db.Model(&model.DevicePolicyAssignment{}).Select("device_id").
+			Limit(sparsePolicyAssignmentLimit+1).Find(&rows).Error; err != nil { return result, true, err }
+		assigned = assigned || len(rows) > 0
+		if len(rows) > sparsePolicyAssignmentLimit {
+			result.largeDevices = true
+		} else {
+			for _, row := range rows { result.devices[row.DeviceId] = struct{}{} }
+		}
+	}
+	if db.Migrator().HasTable(&model.DevicePolicyUserAssignment{}) {
+		var rows []struct { UserId uint }
+		if err := db.Model(&model.DevicePolicyUserAssignment{}).Select("user_id").
+			Limit(sparsePolicyAssignmentLimit+1).Find(&rows).Error; err != nil { return result, true, err }
+		assigned = assigned || len(rows) > 0
+		if len(rows) > sparsePolicyAssignmentLimit {
+			result.largeUsers = true
+		} else {
+			for _, row := range rows { result.users[row.UserId] = struct{}{} }
+		}
+	}
+	if db.Migrator().HasTable(&model.DevicePolicyGroupAssignment{}) {
+		var rows []struct { GroupId uint }
+		if err := db.Model(&model.DevicePolicyGroupAssignment{}).Select("group_id").
+			Limit(sparsePolicyAssignmentLimit+1).Find(&rows).Error; err != nil { return result, true, err }
+		assigned = assigned || len(rows) > 0
+		if len(rows) > sparsePolicyAssignmentLimit {
+			result.largeGroups = true
+		} else {
+			for _, row := range rows { result.groups[row.GroupId] = struct{}{} }
+		}
+	}
+	return result, assigned, nil
+}
+
+func policyMayApplyToPeer(peer *model.Peer) bool {
+	policyActivity.Lock()
+	defer policyActivity.Unlock()
+	if policyActivity.db != DB || policyActivity.checked.IsZero() ||
+		time.Since(policyActivity.checked) >= optionalFeatureRefresh {
+		return true
+	}
+	return policyActivity.snapshot.mayApply(peer)
+}
+
+func devicePolicyAssignmentsPresent() (bool, error) {
+	if DB == nil { return false, nil }
 	for {
 		db := DB
 		policyActivity.Lock()
@@ -47,7 +122,6 @@ func devicePolicyAssignmentsPresent() (bool, error) {
 			return value, nil
 		}
 		policyActivity.Unlock()
-
 		policyActivity.refresh.Lock()
 		policyActivity.Lock()
 		if policyActivity.db == db && !policyActivity.checked.IsZero() &&
@@ -59,40 +133,19 @@ func devicePolicyAssignmentsPresent() (bool, error) {
 		}
 		generation := policyActivity.generation
 		policyActivity.Unlock()
-
-		assigned := false
-		var readErr error
-		for _, table := range []interface{}{
-			&model.DevicePolicyAssignment{}, &model.DevicePolicyUserAssignment{},
-			&model.DevicePolicyGroupAssignment{},
-		} {
-			if !db.Migrator().HasTable(table) {
-				continue
-			}
-			var ids []uint
-			if readErr = db.Model(table).Limit(1).Pluck("id", &ids).Error; readErr != nil {
-				break
-			}
-			if len(ids) > 0 {
-				assigned = true
-				break
-			}
-		}
+		snapshot, assigned, readErr := readPolicyAssignmentSnapshot(db)
 		policyActivity.Lock()
 		changed := policyActivity.generation != generation || DB != db
 		if !changed && readErr == nil {
 			policyActivity.db = db
 			policyActivity.assigned = assigned
+			policyActivity.snapshot = snapshot
 			policyActivity.checked = time.Now()
 		}
 		policyActivity.Unlock()
 		policyActivity.refresh.Unlock()
-		if changed {
-			continue
-		}
-		if readErr != nil {
-			return true, readErr
-		}
+		if changed { continue }
+		if readErr != nil { return true, readErr }
 		return assigned, nil
 	}
 }
@@ -306,6 +359,7 @@ func trimHeartbeatPolicyEntries(now time.Time) {
 }
 
 func resolveHeartbeatPolicy(peer *model.Peer) (*ResolvedPolicy, error) {
+	if !policyMayApplyToPeer(peer) { return nil, nil }
 	now := time.Now()
 	heartbeatPolicyCache.Lock()
 	if heartbeatPolicyCache.db != DB {

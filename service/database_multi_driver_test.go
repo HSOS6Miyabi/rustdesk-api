@@ -70,7 +70,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			}
 			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
 				&model.NotificationSetting{},&model.NotificationDelivery{},
-				&model.ClientBuildProfile{},&model.ClientBuildTask{},
+				&model.AuditRetentionPolicy{}, &model.ClientBuildProfile{},&model.ClientBuildTask{},
 			);err!=nil{t.Fatalf("new schema migration failed: %v",err)}
 			var policy model.DevicePolicy
 			if err:=db.Where("id = ?",priorPolicy.Id).First(&policy).Error;err!=nil{t.Fatal(err)}
@@ -94,7 +94,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			}
 			for _,table:=range []interface{}{
 				&model.NotificationSetting{},&model.NotificationDelivery{},
-				&model.ClientBuildProfile{},&model.ClientBuildTask{},
+				&model.AuditRetentionPolicy{}, &model.ClientBuildProfile{},&model.ClientBuildTask{},
 			}{
 				if !db.Migrator().HasTable(table){t.Fatalf("database migration missing table %T",table)}
 			}
@@ -116,6 +116,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			}
 			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
 				&model.NotificationSetting{},&model.NotificationDelivery{},
+				&model.AuditRetentionPolicy{},
 				&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{
 				t.Fatalf("repeated migrations are not safe: %v",err)
 			}
