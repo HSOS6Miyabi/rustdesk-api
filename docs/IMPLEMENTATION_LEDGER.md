@@ -29,15 +29,15 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 已发行版本提交 | [`a6d338821cfba2daffa34f9cc3b06605ea1edf03`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a6d338821cfba2daffa34f9cc3b06605ea1edf03) | [`2d0896ecea4cf147f6fb4d2cdadf3278ab390851`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/2d0896ecea4cf147f6fb4d2cdadf3278ab390851) |
-| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 正式发行工作流 | [42689275371：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
-| 正式 Release | [v3.0.0-api.103](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.103) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
+| 正式发行工作流 | [API 编译与发布](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
+| 正式 Release | [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
-正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；组合 Docker 镜像采用 Server v1.1.17-api.21 与 API v3.0.0-api.103。
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；组合 Docker 镜像采用 Server v1.1.17-api.21 与 API v3.0.0-api.106。
 
-当前开发分支 API 数据库迁移版本：**285**。两个 PR 已合并；GitHub Release、正式容器镜像和多架构镜像清单已经发布。
+当前 API 数据库迁移版本：**285**。经批准的版本发布包含 GitHub Release、正式容器镜像及多架构镜像清单。
 
 CI 已实际通过的内容：
 
