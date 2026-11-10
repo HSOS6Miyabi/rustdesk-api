@@ -141,3 +141,8 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 本分支的数据库迁移版本是 282。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。正式版本发布需要单独确认。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
+
+
+## 个人事件推送与 GeoIP
+
+用户可在控制台的“消息推送”页面添加 MessagePusher、SMTP 邮件和 Server酱渠道，并分别选择订阅事件。设备、连接和审计事件由后台异步发送。管理页面显示的 IP 地址将附注本地 GeoIP 查询结果。部署设置、事件说明及接口参见 [消息推送与 IP 地理位置](docs/PUSH_NOTIFICATIONS.md)。

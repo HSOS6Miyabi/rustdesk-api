@@ -1,0 +1,46 @@
+name: Verify personal notifications and GeoIP
+
+on:
+  push:
+    branches:
+      - feat/messagepusher-event-notifications
+  pull_request:
+    paths:
+      - 'service/push*.go'
+      - 'service/geoip.go'
+      - 'http/controller/admin/push.go'
+      - 'resources/admin/**'
+      - 'model/push.go'
+      - 'cmd/apimain.go'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Go dependency metadata
+        run: go mod verify
+      - name: Check Go source formatting
+        run: |
+          files="$(gofmt -l service/push*.go service/geoip.go model/push.go http/controller/admin/push.go)"
+          if [ -n "$files" ]; then echo "$files"; exit 1; fi
+      - name: Run personal notification and GeoIP tests
+        run: go test ./service ./http/controller/admin ./http/controller/api ./http/router -count=1
+      - name: Check management console syntax and interactions
+        run: |
+          node --check resources/admin/app.js
+          node --test resources/admin/app.test.cjs
+      - name: Build the API server
+        run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
