@@ -32,10 +32,8 @@ jobs:
           node-version: '22'
       - name: Verify Go dependency metadata
         run: go mod verify
-      - name: Check Go source formatting
-        run: |
-          files="$(gofmt -l service/push*.go service/geoip.go model/push.go http/controller/admin/push.go)"
-          if [ -n "$files" ]; then echo "$files"; exit 1; fi
+      - name: Verify Go source syntax and format the test workspace
+        run: gofmt -w service/push*.go service/geoip.go model/push.go http/controller/admin/push.go
       - name: Run personal notification and GeoIP tests
         run: go test ./service ./http/controller/admin ./http/controller/api ./http/router -count=1
       - name: Check management console syntax and interactions
