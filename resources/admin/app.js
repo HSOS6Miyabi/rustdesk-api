@@ -1735,9 +1735,10 @@
   }
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","push-channel-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
+    const formID=f.getAttribute("id");
+    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","push-channel-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(formID))return;
     event.preventDefault();
-    if(f.id==="mfa-login-form"){
+    if(formID==="mfa-login-form"){
       const pending=state.modal;
       if(pending?.kind!=="mfa-login")return;
       try{
@@ -1757,7 +1758,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="email-verification-form"){
+    if(formID==="email-verification-form"){
       if(state.modal?.kind!=="email-verification")return;
       try{
         await request("/mfa/email/enable","POST",{
@@ -1768,7 +1769,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="mfa-activate-form"){
+    if(formID==="mfa-activate-form"){
       try{
         const result=await request("/mfa/enable","POST",{code:f.elements.code.value.trim()});
         if(!Array.isArray(result?.recovery_codes))throw Error("恢复码生成失败");
@@ -1778,7 +1779,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="mfa-confirm-form"){
+    if(formID==="mfa-confirm-form"){
       const action=state.modal?.action;
       if(!["disable","regenerate"].includes(action))return;
       try{
@@ -1791,7 +1792,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="accept-invitation-form"){
+    if(formID==="accept-invitation-form"){
       const password=f.elements.password.value;
       if(password!==f.elements.confirm_password.value){
         toast("两次输入的密码不一致",true);return;
@@ -1808,7 +1809,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="forgot-password-form"){
+    if(formID==="forgot-password-form"){
       try{
         await request("/password/forgot","POST",{email:f.elements.email.value.trim()});
         state.modal=null;render();
@@ -1816,7 +1817,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="public-password-reset-form"){
+    if(formID==="public-password-reset-form"){
       const password=f.elements.password.value;
       if(password!==f.elements.confirm_password.value){
         toast("两次输入的新密码不一致",true);return;
@@ -1830,7 +1831,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="mail-settings-form"){
+    if(formID==="mail-settings-form"){
       const values=Object.fromEntries(new FormData(f).entries());
       values.enabled=f.elements.enabled.checked;
       values.clear_password=f.elements.clear_password.checked;
@@ -1839,21 +1840,21 @@
       catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="mail-test-form"){
+    if(formID==="mail-test-form"){
       try{await request("/mail/test","POST",{to:f.elements.to.value.trim()});toast("测试邮件已发送");}
       catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="retention-form"){
+    if(formID==="retention-form"){
       const values=Object.fromEntries(new FormData(f).entries());
       for(const key of Object.keys(values))values[key]=Number(values[key]);
       try{state.retention=await request("/audit/retention","POST",values);toast("日志保留设置已保存");render();}
       catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="login-form")await handleLogin(f);
-    if(f.id==="client-profile-form"){await saveClientProfile(f);return;}
-    if(f.id==="notification-form"){
+    if(formID==="login-form")await handleLogin(f);
+    if(formID==="client-profile-form"){await saveClientProfile(f);return;}
+    if(formID==="notification-form"){
       const events=[...f.querySelectorAll('input[name="event"]:checked')].map(x=>x.value);
       try{
         await request("/notification/settings","POST",{
@@ -1865,8 +1866,8 @@
       }catch(e){toast(e.message,true);}
       return;
     }
-    if(f.id==="edit-form")await saveEditor(f);
-    if(f.id==="device-transfer-form"){
+    if(formID==="edit-form")await saveEditor(f);
+    if(formID==="device-transfer-form"){
       if(state.modal?.kind!=="transfer-device")return;
       const rowID=Number(state.modal.device.row_id),userID=Number(f.elements.user_id.value);
       if(!Number.isSafeInteger(rowID)||rowID<=0||!Number.isSafeInteger(userID)||userID<=0)return;
@@ -1876,7 +1877,7 @@
       }catch(e){toast(e.message,true);}
       return;
     }
-    if(f.id==="reset-password-form"){
+    if(formID==="reset-password-form"){
       const id=state.modal?.user.id, password=f.elements.password.value;
       if(!id||password.length<8)return;
       try{
@@ -1884,11 +1885,11 @@
         state.modal=null;toast("用户密码已更新");await load();
       }catch(e){toast(e.message,true);}
     }
-    if(f.id==="contact-form"){
+    if(formID==="contact-form"){
       try{await request("/contact/add","POST",{username:f.elements.username.value.trim()});toast("已向联系人开放您的设备");await load();}catch(e){toast(e.message,true);}
     }
-    if(f.id==="command-form")await sendCommand(f);
-    if(f.id==="push-channel-form"){
+    if(formID==="command-form")await sendCommand(f);
+    if(formID==="push-channel-form"){
       const input=new FormData(f);
       const kind=String(f.elements.kind.value);
       const values={
@@ -1914,7 +1915,7 @@
       }catch(err){toast(err.message,true);}
       return;
     }
-    if(f.id==="password-form"){
+    if(formID==="password-form"){
       try{
         await request("/user/changeCurPwd","POST",Object.fromEntries(new FormData(f).entries()));
         toast("密码已修改，请重新登录");await logout();
