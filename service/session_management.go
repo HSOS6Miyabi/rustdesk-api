@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
@@ -14,6 +15,44 @@ import (
 const sessionAliveSeconds int64 = 45
 const disconnectExpiresSeconds int64 = 120
 const maxConnectionsPerHeartbeat = 256
+
+
+var idleSessionHeartbeats = struct {
+	sync.Mutex
+	db *gorm.DB
+	until map[string]time.Time
+}{until: make(map[string]time.Time)}
+
+func knownIdleSession(id string, now time.Time) bool {
+	idleSessionHeartbeats.Lock()
+	defer idleSessionHeartbeats.Unlock()
+	if idleSessionHeartbeats.db != DB {
+		idleSessionHeartbeats.db = DB
+		idleSessionHeartbeats.until = make(map[string]time.Time)
+	}
+	return now.Before(idleSessionHeartbeats.until[id])
+}
+
+func recordIdleSession(id string) {
+	idleSessionHeartbeats.Lock()
+	defer idleSessionHeartbeats.Unlock()
+	if idleSessionHeartbeats.db != DB {
+		idleSessionHeartbeats.db = DB
+		idleSessionHeartbeats.until = make(map[string]time.Time)
+	}
+	if len(idleSessionHeartbeats.until) >= 100000 {
+		idleSessionHeartbeats.until = make(map[string]time.Time)
+	}
+	idleSessionHeartbeats.until[id] = time.Now().Add(5*time.Minute)
+}
+
+func invalidateIdleSession(id string) {
+	idleSessionHeartbeats.Lock()
+	defer idleSessionHeartbeats.Unlock()
+	if idleSessionHeartbeats.db == DB {
+		delete(idleSessionHeartbeats.until, id)
+	}
+}
 
 // SynchronizeDeviceSessions follows the existing RustDesk heartbeat protocol.
 func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,error) {
@@ -33,6 +72,10 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		records=append(records,model.DeviceActiveConnection{DeviceId:peer.Id,ConnId:id,LastSeenAt:now})
 	}
 	sort.Slice(keys,func(i,j int)bool{return keys[i]<keys[j]})
+	if len(keys)==0 && knownIdleSession(peer.Id,time.Now()) {
+		return nil,nil
+	}
+	if len(keys)>0 {invalidateIdleSession(peer.Id)}
 	instructions:=make([]int32,0)
 	completed:=make([]model.DeviceDisconnectRequest,0)
 	err:=DB.Transaction(func(tx *gorm.DB) error {
@@ -72,6 +115,7 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		return nil
 	})
 	if err!=nil{return nil,err}
+	if len(keys)==0 {recordIdleSession(peer.Id)}
 	for _,finished:=range completed {
 		reference:=fmt.Sprintf("%d:%s:%d",finished.Id,finished.DeviceId,finished.ConnId)
 		NotifyEvent("session.ended",reference,"远程会话已完成结束请求："+reference)
@@ -107,6 +151,7 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 		}).Error
 	})
 	if err==nil {
+		invalidateIdleSession(deviceID)
 		NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))
 		PublishPushEvent(PushEvent{
 			Code:"session.disconnect_requested",Reference:fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),
