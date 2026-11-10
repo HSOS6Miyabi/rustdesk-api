@@ -281,6 +281,75 @@ func (s *AddressBookService) CollectionReadRules(user *model.User) (res []*model
 	return append(res, publicRules...)
 }
 
+// BatchUserMaxRules determines shared collection permissions from one rule
+// query and one membership query, while keeping the existing precedence.
+func (s *AddressBookService) BatchUserMaxRules(user *model.User, collections []*model.AddressBookCollection) (map[uint]int, error) {
+	values := make(map[uint]int, len(collections))
+	if user == nil || user.Id == 0 || len(collections) == 0 {
+		return values, nil
+	}
+	ids := make([]uint, 0, len(collections))
+	byID := make(map[uint]*model.AddressBookCollection, len(collections))
+	for _, collection := range collections {
+		if collection == nil || collection.Id == 0 { continue }
+		ids = append(ids, collection.Id)
+		byID[collection.Id] = collection
+		if collection.UserId == user.Id {
+			values[collection.Id] = model.ShareAddressBookRuleRuleFullControl
+		}
+	}
+	if len(ids) == 0 { return values, nil }
+	groupIDs, err := (&GroupService{}).GroupIdsForUser(user)
+	if err != nil { return nil, err }
+	groupSet := make(map[uint]bool, len(groupIDs))
+	for _, id := range groupIDs { groupSet[id] = true }
+	var rules []model.AddressBookCollectionRule
+	if err := DB.Where("collection_id IN ?", ids).Find(&rules).Error; err != nil {
+		return nil, err
+	}
+	type ruleChoice struct {
+		personalID uint
+		personalRule int
+		groupRule int
+		publicID uint
+		publicRule int
+	}
+	choices := make(map[uint]ruleChoice, len(ids))
+	for _, rule := range rules {
+		collection := byID[rule.CollectionId]
+		if collection == nil || collection.UserId != rule.UserId || collection.UserId == user.Id {
+			continue
+		}
+		choice := choices[rule.CollectionId]
+		switch {
+		case rule.Type == model.ShareAddressBookRuleTypePersonal && rule.ToId == user.Id:
+			if rule.Id >= choice.personalID {
+				choice.personalID, choice.personalRule = rule.Id, rule.Rule
+			}
+		case rule.Type == model.ShareAddressBookRuleTypeGroup && groupSet[rule.ToId]:
+			if rule.Rule > choice.groupRule { choice.groupRule = rule.Rule }
+		case rule.Type == model.ShareAddressBookRuleTypeAll && rule.ToId == 0:
+			if rule.Id >= choice.publicID {
+				choice.publicID, choice.publicRule = rule.Id, rule.Rule
+			}
+		}
+		choices[rule.CollectionId] = choice
+	}
+	for _, collection := range collections {
+		if collection == nil || collection.UserId == user.Id { continue }
+		choice := choices[collection.Id]
+		switch {
+		case choice.personalID > 0:
+			values[collection.Id] = choice.personalRule
+		case choice.groupRule > 0:
+			values[collection.Id] = choice.groupRule
+		default:
+			values[collection.Id] = choice.publicRule
+		}
+	}
+	return values, nil
+}
+
 // UserMaxRule chooses the most specific applicable sharing rule. Multiple
 // memberships in different groups combine by choosing the strongest group rule.
 func (s *AddressBookService) UserMaxRule(user *model.User, ownerID, collectionID uint) int {

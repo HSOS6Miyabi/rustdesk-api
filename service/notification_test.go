@@ -57,7 +57,10 @@ func TestNotificationSettingsQueueAndSMTPDelivery(t *testing.T) {
 	if first.Status != "sent" || first.Attempts != 1 || first.SentAt == 0 {
 		t.Fatalf("delivery result was not recorded: %+v", first)
 	}
-	if err := DB.Model(&model.NotificationSetting{}).Where("id = ?",1).Update("enabled",false).Error; err != nil { t.Fatal(err) }
+	if err := SaveNotificationSettings(&model.NotificationSetting{
+		Enabled: false, Recipients: "team@example.test",
+		Events: "deployment.changed,session.ended",
+	}); err != nil { t.Fatal(err) }
 	if err := QueueNotification("deployment.changed","deploy-2","after disable"); err != nil { t.Fatal(err) }
 	var count int64
 	if err := DB.Model(&model.NotificationDelivery{}).Count(&count).Error; err != nil || count != 2 {

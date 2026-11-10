@@ -72,19 +72,41 @@ func (us *UserService) InfoByUsernamePassword(username, password string) *model.
 	return u
 }
 
-// InfoByAccesstoken 根据accesstoken取用户信息
+// InfoByAccessToken retrieves the active token and account in one SQL query.
+// Checking the database on every request preserves immediate revocation.
 func (us *UserService) InfoByAccessToken(token string) (*model.User, *model.UserToken) {
 	u := &model.User{}
 	ut := &model.UserToken{}
-	DB.Where("token = ?", token).First(ut)
-	if ut.Id == 0 {
+	if token == "" || DB == nil {
 		return u, ut
 	}
+	var row struct {
+		model.User `gorm:"embedded"`
+		TokenRowID uint `gorm:"column:token_row_id"`
+		TokenUserID uint `gorm:"column:token_user_id"`
+		TokenDeviceID string `gorm:"column:token_device_id"`
+		TokenDeviceUUID string `gorm:"column:token_device_uuid"`
+		TokenExpiredAt int64 `gorm:"column:token_expired_at"`
+	}
+	err := DB.Table("user_tokens AS tokens").
+		Select("users.*, tokens.id AS token_row_id, tokens.user_id AS token_user_id, "+
+			"tokens.device_id AS token_device_id, tokens.device_uuid AS token_device_uuid, "+
+			"tokens.expired_at AS token_expired_at").
+		Joins("JOIN users ON users.id = tokens.user_id").
+		Where("tokens.token = ?", token).Take(&row).Error
+	if err != nil || row.TokenRowID == 0 {
+		return u, ut
+	}
+	ut.Id = row.TokenRowID
+	ut.UserId = row.TokenUserID
+	ut.DeviceId = row.TokenDeviceID
+	ut.DeviceUuid = row.TokenDeviceUUID
+	ut.Token = token
+	ut.ExpiredAt = row.TokenExpiredAt
 	if ut.ExpiredAt < time.Now().Unix() {
 		return u, ut
 	}
-	DB.Where("id = ?", ut.UserId).First(u)
-	return u, ut
+	return &row.User, ut
 }
 
 // GenerateToken 生成token

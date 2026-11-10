@@ -15,6 +15,7 @@ func setupPushTestDB(t *testing.T) func() {
 	cleanup := setupGroupDB(t)
 	if err := DB.AutoMigrate(&model.PushChannel{}, &model.PushDelivery{}, &model.PushPresence{},
 		&model.AuditConn{}, &model.AddressBook{}, &model.Contact{},
+		&model.PushEventOutbox{}, &model.NotificationEventOutbox{},
 		&model.AdminRole{}, &model.AdminRoleAssignment{}); err != nil {
 		cleanup()
 		t.Fatal(err)

@@ -443,6 +443,8 @@ func (a *Ab) SharedProfiles(c *gin.Context) {
 	for _, owner := range users {
 		userByID[owner.Id] = owner
 	}
+	effectiveRules, err := service.AllService.AddressBookService.BatchUserMaxRules(user, collections)
+	if err != nil { response.Error(c, err.Error()); return }
 	for _, collection := range collections {
 		if collection.UserId == user.Id {
 			continue
@@ -454,7 +456,7 @@ func (a *Ab) SharedProfiles(c *gin.Context) {
 		if owner == nil {
 			continue
 		}
-		effective := service.AllService.AddressBookService.UserMaxRule(user, collection.UserId, collection.Id)
+		effective := effectiveRules[collection.Id]
 		if effective < model.ShareAddressBookRuleRuleRead {
 			continue
 		}

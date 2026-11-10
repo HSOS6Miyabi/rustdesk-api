@@ -174,7 +174,12 @@ func AuthorizeConnection(rawToken,deviceID string)(ConnectionAccessResult,error)
 		return ConnectionAccessResult{Allow:true,Reason:"device_owner"},nil
 	}
 	var rules []model.AccessRule
-	if err:=DB.Where("enabled = ?",true).Order("id ASC").Find(&rules).Error;err!=nil{return denied,err}
+	if err:=DB.Where("enabled = ? AND (target_type = ? OR (target_type = ? AND target_id = ?) OR "+
+		"(target_type = ? AND target_id = ?) OR (target_type = ? AND target_id = ?))",
+		true, accessTargetAll, accessTargetDevice, peer.Id,
+		accessTargetUser, strconv.FormatUint(uint64(peer.UserId), 10),
+		accessTargetDeviceGroup, strconv.FormatUint(uint64(peer.GroupId), 10)).
+		Order("id ASC").Find(&rules).Error;err!=nil{return denied,err}
 	if len(rules)==0{return denied,nil}
 	groups,err:=(&GroupService{}).GroupIdsForUser(user)
 	if err!=nil{return denied,err}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -47,48 +48,43 @@ func scheduledDeliveryDelay(table interface{}, attempts int, leaseSeconds int64)
 // A timer only runs when a persisted task has a known deadline. New messages
 // interrupt it through the wake channel.
 func waitForWork(wake <-chan struct{}, due time.Duration, hasDeadline bool) {
-	if !hasDeadline {
-		<-wake
-		return
-	}
-	if due <= 0 { return }
-	timer := time.NewTimer(due)
-	defer timer.Stop()
-	select {
-	case <-wake:
-	case <-timer.C:
-	}
+	waitForWorkContext(context.Background(), wake, due, hasDeadline)
 }
 
 // The scheduler restores persisted jobs at startup and after interruption.
 // Future wakeups follow task inserts and retry deadlines, without polling.
-func runDeliveryScheduler(wake <-chan struct{}, table interface{},
+func runDeliveryScheduler(ctx context.Context, wake <-chan struct{}, table interface{},
 	maxAttempts int, leaseSeconds int64, process func(int) (int, error), category string) {
 	for {
+		if ctx.Err() != nil { return }
 		if _, err := process(10); err != nil {
 			if Logger != nil { Logger.WithError(err).Warn(fmt.Sprintf("%s delivery error", category)) }
-			waitForWork(wake, 10*time.Second, true)
+			if !waitForWorkContext(ctx, wake, 10*time.Second, true) { return }
 			continue
 		}
 		delay, pending, err := scheduledDeliveryDelay(table, maxAttempts, leaseSeconds)
 		if err != nil {
 			if Logger != nil { Logger.WithError(err).Warn(fmt.Sprintf("%s scheduling error", category)) }
-			waitForWork(wake, 10*time.Second, true)
+			if !waitForWorkContext(ctx, wake, 10*time.Second, true) { return }
 			continue
 		}
-		waitForWork(wake, delay, pending)
+		if !waitForWorkContext(ctx, wake, delay, pending) { return }
 	}
 }
 
 func startPersonalDeliverySchedulers() {
 	for i := 0; i < 2; i++ {
-		go runDeliveryScheduler(pushDeliveryWake, &model.PushDelivery{},
-			pushMaxAttempts, 60, ProcessPushQueue, "push")
+		launchServiceWorker(func(ctx context.Context) {
+			runDeliveryScheduler(ctx, pushDeliveryWake, &model.PushDelivery{},
+				pushMaxAttempts, 60, ProcessPushQueue, "push")
+		})
 	}
 }
 
 func startAdministrativeMailScheduler(wake <-chan struct{}) {
-	go runDeliveryScheduler(wake, &model.NotificationDelivery{},
-		3, 60, ProcessNotificationQueue, "administrative email")
+	launchServiceWorker(func(ctx context.Context) {
+		runDeliveryScheduler(ctx, wake, &model.NotificationDelivery{},
+			3, 60, ProcessNotificationQueue, "administrative email")
+	})
 }
 

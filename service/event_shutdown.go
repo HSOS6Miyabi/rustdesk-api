@@ -6,7 +6,6 @@ import (
 )
 
 var pendingPushEvents sync.WaitGroup
-var pendingAdministrativeEvents sync.WaitGroup
 
 // FlushPendingEvents waits until accepted in-memory events have been written
 // to their durable delivery tables. Delivery itself can resume after restart.
@@ -15,7 +14,6 @@ func FlushPendingEvents(timeout time.Duration) bool {
 	finished:=make(chan struct{})
 	go func(){
 		pendingPushEvents.Wait()
-		pendingAdministrativeEvents.Wait()
 		close(finished)
 	}()
 	timer:=time.NewTimer(timeout)

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -88,7 +89,7 @@ func PruneOldAuditRecords(now time.Time) error {
 }
 
 func StartAuditMaintenance() {
-	go func(){
+	launchServiceWorker(func(ctx context.Context) {
 		run:=func(){
 			if err:=PruneOldAuditRecords(time.Now());err!=nil&&Logger!=nil{
 				Logger.WithError(err).Warn("audit record cleanup failed")
@@ -100,6 +101,11 @@ func StartAuditMaintenance() {
 		run()
 		ticker:=time.NewTicker(24*time.Hour)
 		defer ticker.Stop()
-		for range ticker.C{run()}
-	}()
+		for {
+			select {
+			case <-ctx.Done(): return
+			case <-ticker.C: run()
+			}
+		}
+	})
 }

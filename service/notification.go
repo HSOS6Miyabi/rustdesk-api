@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -18,12 +19,7 @@ import (
 )
 
 var notificationDeliveryWake = make(chan struct{}, 1)
-var notificationEvents = make(chan administrativeEvent, 1024)
 var notificationWorkerOnce sync.Once
-
-type administrativeEvent struct {
-	event, reference, description string
-}
 
 func wakeNotificationDelivery() {
 	select { case notificationDeliveryWake <- struct{}{}: default: }
@@ -116,14 +112,9 @@ func notificationReference(ref string) string {
 func QueueNotification(event, reference, description string) error {
 	label, supported := notificationEventNames[event]
 	if !supported { return errors.New("unsupported notification event") }
-	if DB == nil || !DB.Migrator().HasTable(&model.NotificationDelivery{}) { return nil }
-	config, err := CurrentNotificationSettings()
-	if err != nil || !config.Enabled { return err }
-	enabled := false
-	for _, item := range strings.Split(config.Events, ",") {
-		if item == event { enabled = true; break }
-	}
-	if !enabled { return nil }
+	if DB == nil { return nil }
+	config, err := notificationSettingsForEvent(event)
+	if err != nil || config == nil { return err }
 	if len(description) > 2000 { description = description[:2000] }
 	description = strings.Map(func(r rune) rune {
 		if r == '\x00' { return -1 }; return r
@@ -145,19 +136,16 @@ func QueueNotification(event, reference, description string) error {
 	return nil
 }
 
-// NotifyEvent records an optional alert without changing the result of the
-// originating operation when email delivery is unavailable.
+// NotifyEvent records an active alert durably. Delivery to SMTP remains
+// asynchronous, and the outbox survives process restarts.
 func NotifyEvent(event, reference, description string) {
-	if !hasAdministrativeNotification(event) {return}
-	pendingAdministrativeEvents.Add(1)
-	select {
-	case notificationEvents <- administrativeEvent{event, reference, description}:
-	default:
-		// Persist the event synchronously when the bounded buffer is full.
-		if err:=QueueNotification(event,reference,description);err!=nil && Logger!=nil {
-			Logger.WithError(err).Warn("unable to queue administrative notification")
-		}
-		pendingAdministrativeEvents.Done()
+	if !hasAdministrativeNotification(event) { return }
+	eventAdmission.RLock()
+	defer eventAdmission.RUnlock()
+	if eventAdmission.closed { return }
+	if err := persistNotificationEvent(event, reference, description); err != nil {
+		rejectedNotificationEvents.Add(1)
+		if Logger != nil { Logger.WithError(err).Warn("cannot persist administrative notification") }
 	}
 }
 
@@ -227,16 +215,9 @@ func ProcessNotificationQueue(limit int) (int, error) {
 
 func StartNotificationWorker() {
 	notificationWorkerOnce.Do(func() {
-		go func() {
-			for message := range notificationEvents {
-				func(){
-					defer pendingAdministrativeEvents.Done()
-					if err := QueueNotification(message.event, message.reference, message.description); err != nil && Logger != nil {
-						Logger.WithError(err).Warn("unable to queue administrative notification")
-					}
-				}()
-			}
-		}()
+		launchServiceWorker(func(ctx context.Context) {
+			startEventOutboxWorker(ctx, notificationOutboxWake, ProcessNotificationEventOutbox, "administrative")
+		})
 		startAdministrativeMailScheduler(notificationDeliveryWake)
 	})
 }

@@ -10,9 +10,11 @@ import (
 func Limiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		loginLimiter := global.LoginLimiter
-		clientIp := c.ClientIP()
-		banned, _ := loginLimiter.CheckSecurityStatus(clientIp)
-		if banned {
+		if loginLimiter == nil || !loginLimiter.BanEnabled() {
+			c.Next()
+			return
+		}
+		if loginLimiter.IsIPBanned(c.ClientIP()) {
 			response.Fail(c, http.StatusLocked, response.TranslateMsg(c, "Banned"))
 			c.Abort()
 			return
