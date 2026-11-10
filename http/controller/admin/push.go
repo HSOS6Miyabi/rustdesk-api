@@ -70,13 +70,35 @@ func (h *PushChannels) Retry(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// GeoIPLookup resolves both IP locations and device presence in one bounded
+// authenticated request, avoiding per-device queries from the console.
 func (h *PushChannels) GeoIPLookup(c *gin.Context) {
-	var body struct { IPs []string `json:"ips" binding:"required"` }
-	if c.ShouldBindJSON(&body) != nil || len(body.IPs) > 256 {
-		c.JSON(http.StatusBadRequest,gin.H{"error":"请提交不超过 256 个 IP 地址"})
+	var input struct {
+		IPs       []string `json:"ips"`
+		DeviceIDs []string `json:"device_ids"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil ||
+		len(input.IPs) > 256 || len(input.DeviceIDs) > 256 ||
+		(len(input.IPs) == 0 && len(input.DeviceIDs) == 0) {
+		c.JSON(http.StatusBadRequest, gin.H{"error":"每次最多查询 256 个 IP 地址和 256 台设备"})
 		return
 	}
-	result := service.LookupGeoIPBatch(body.IPs)
-	c.Header("Cache-Control","private, max-age=3600")
-	response.Success(c,gin.H{"locations":result,"database_ready":service.GeoIPReady()})
+	user := service.AllService.UserService.CurUser(c)
+	if user == nil || user.Id == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error":"请先登录"})
+		return
+	}
+	deviceStatus, err := service.DevicePresenceForUser(
+		user, input.DeviceIDs, service.AllService.UserService.IsAdmin(user),
+	)
+	if err != nil {
+		response.Error(c, "无法读取设备在线状态")
+		return
+	}
+	locations := service.LookupGeoIPBatch(input.IPs)
+	c.Header("Cache-Control","no-store")
+	response.Success(c,gin.H{
+		"locations":locations, "device_status":deviceStatus,
+		"database_ready":service.GeoIPReady(),
+	})
 }
