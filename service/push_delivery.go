@@ -16,7 +16,6 @@ import (
 	"net/mail"
 	"net/smtp"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -154,7 +153,7 @@ func sendPushHTTP(channel *model.PushChannel, title, body string) error {
 	req.Header.Set("User-Agent", "RustDesk-API-Push/1.0")
 	if authHeader != "" { req.Header.Set("Authorization", authHeader) }
 	res, err := pushHTTP.Do(req)
-	if err != nil { return err }
+	if err != nil { return errors.New("推送服务连接失败或请求超时") }
 	defer res.Body.Close()
 	result, _ := io.ReadAll(io.LimitReader(res.Body, 4096))
 	if channel.Kind == "messagepusher" {
@@ -315,6 +314,3 @@ func StartPushWorker() {
 	})
 }
 
-// Local GeoIP lookup is opt-in. A GeoLite2-City-compatible database may be
-// configured with RUSTDESK_API_PUSH_GEOIP_DB.
-var _ = os.Getenv

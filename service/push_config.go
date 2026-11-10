@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net"
+	"strconv"
 	"net/mail"
 	"net/url"
 	"os"
@@ -132,7 +132,10 @@ func validPushURL(value string) (string, error) {
 	if p.Scheme != "https" && !(pushAllowPrivate() && p.Scheme == "http") {
 		return "", errors.New("推送地址需要使用 HTTPS")
 	}
-	if _, err := p.Port(), error(nil); err != nil { return "", errors.New("推送端口无效") }
+	if port := p.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 { return "", errors.New("推送端口无效") }
+	}
 	return value, nil
 }
 
@@ -318,6 +321,3 @@ func RetryPushDelivery(userID, deliveryID uint) error {
 	return nil
 }
 
-// The queue intentionally has no unique constraint on channel name. Users may
-// configure separate destinations of the same provider type.
-var _ = net.ParseIP

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/oschwald/maxminddb-golang"
@@ -172,10 +171,10 @@ func processPushEvent(event PushEvent) error {
 }
 
 func pushText(s string) string {
-	s = strings.Join(strings.FieldsFunc(s, func(r rune) bool {
-		return unicode.IsControl(r) || r == '\u2028' || r == '\u2029'
-	}), " ")
-	return strings.TrimSpace(s)
+	return strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r < 32 || r == 127 || r == '\u2028' || r == '\u2029' { return ' ' }
+		return r
+	}, s))
 }
 
 func pushShort(s string, n int) string {
