@@ -160,6 +160,7 @@ func QueueClientBuild(profileID,requestedBy uint) (*model.ClientBuildTask,error)
 		Status:"pending",Filename:filename,
 	}
 	if err:=DB.Create(task).Error;err!=nil{return nil,err}
+	wakeClientBuildWorker()
 	return task,nil
 }
 
@@ -172,6 +173,7 @@ func RetryClientBuild(id uint)error{
 		})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected!=1{return errors.New("task is not eligible for retry")}
+	wakeClientBuildWorker()
 	return nil
 }
 

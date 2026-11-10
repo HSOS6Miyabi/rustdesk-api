@@ -57,9 +57,22 @@ def check():
         for reference in ("HANDOFF_SNAPSHOT_2026-11-09.md", "TASK_VERIFICATION_RECORD.md"):
             if reference not in contents:
                 raise AssertionError(f"{name} does not link to {reference}")
+    source = (ROOT / "cmd" / "apimain.go").read_text(encoding="utf-8")
+    version = re.search(r"const DatabaseVersion\s*=\s*(\d+)", source)
+    if version is None:
+        raise AssertionError("API database version is not declared")
+    current = version.group(1)
+    for name, content in (
+        ("README", readme),
+        ("Unified ledger", main),
+        ("Backup guide", (ROOT / "docs" / "DATABASE_BACKUP_RESTORE.md").read_text(encoding="utf-8")),
+        ("Upgrade guide", (ROOT / "docs" / "UPGRADE.md").read_text(encoding="utf-8")),
+    ):
+        if current not in content:
+            raise AssertionError(f"{name} does not describe database version {current}")
     for doc in (main, details, snapshot):
-        if "282" not in doc or "草稿" not in doc or "正式" not in doc:
-            raise AssertionError("Version or release approval status is incomplete")
+        if "正式" not in doc or "数据库" not in doc:
+            raise AssertionError("Database and release approval information is incomplete")
     if len(re.findall(r"^\| ", matrix, flags=re.MULTILINE)) < 15:
         raise AssertionError("Feature inventory is incomplete")
     print("Verified 20 features, 22 task rows, 22 detailed records and handoff links.")

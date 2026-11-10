@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"github.com/google/uuid"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"gorm.io/gorm"
@@ -52,46 +53,86 @@ func (s *AddressBookService) AddAddressBook(ab *model.AddressBook) error {
 	return DB.Create(ab).Error
 }
 
-// UpdateAddressBook
+// sameAddressBookContent ignores database metadata and compares the client
+// fields that are actually persisted by an address-book synchronization.
+func sameAddressBookContent(previous, current *model.AddressBook) bool {
+	if previous==nil||current==nil {return false}
+	a,b:=*previous,*current
+	b.RowId=a.RowId
+	b.TimeModel=a.TimeModel
+	b.DeletedAt=a.DeletedAt
+	b.Collection=a.Collection
+	return reflect.DeepEqual(a,b)
+}
+
+// UpdateAddressBook synchronizes only changed entries, reading peer metadata in
+// bounded batches and preserving the existing atomic replacement behavior.
 func (s *AddressBookService) UpdateAddressBook(abs []*model.AddressBook, userId uint) error {
-	if userId == 0 { return errors.New("user ID is required") }
-	if len(abs) > 5000 { return errors.New("too many address book entries") }
+	if userId==0 {return errors.New("user ID is required")}
+	if len(abs)>5000 {return errors.New("too many address book entries")}
+	seen:=make(map[string]bool,len(abs))
+	needsPeer:=make([]string,0)
+	for _,item:=range abs {
+		if item==nil||strings.TrimSpace(item.Id)=="" {
+			return errors.New("device ID cannot be empty")
+		}
+		if seen[item.Id] {return errors.New("duplicate device ID")}
+		seen[item.Id]=true
+		if item.Platform==""||item.Username==""||item.Hostname==""{
+			needsPeer=append(needsPeer,item.Id)
+		}
+	}
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var saved []*model.AddressBook
-		// Legacy /api/ab updates the default address book only.
-		if err := tx.Where("user_id = ? AND collection_id = 0", userId).
-			Find(&saved).Error; err != nil { return err }
-		existing := make(map[string]*model.AddressBook, len(saved))
-		for _, item := range saved { existing[item.Id] = item }
-		seen := make(map[string]bool, len(abs))
-		for _, item := range abs {
-			if item == nil || strings.TrimSpace(item.Id) == "" {
-				return errors.New("device ID cannot be empty")
-			}
-			if seen[item.Id] { return errors.New("duplicate device ID") }
-			seen[item.Id] = true
-			item.UserId = userId
-			item.CollectionId = 0
-			if item.Platform == "" || item.Username == "" || item.Hostname == "" {
-				var peer model.Peer
-				if err := tx.Where("id = ?", item.Id).First(&peer).Error; err == nil && peer.RowId != 0 {
-					if item.Platform == "" { item.Platform = s.PlatformFromOs(peer.Os) }
-					if item.Username == "" { item.Username = peer.Username }
-					if item.Hostname == "" { item.Hostname = peer.Hostname }
-				}
-			}
-			if previous, ok := existing[item.Id]; ok {
-				if err := tx.Model(&model.AddressBook{}).
-					Where("row_id = ?", previous.RowId).
-					Select("*").Omit("row_id", "created_at", "updated_at").
-					Updates(item).Error; err != nil { return err }
-				delete(existing, item.Id)
-			} else {
-				if err := tx.Create(item).Error; err != nil { return err }
+		if err:=tx.Where("user_id = ? AND collection_id = 0",userId).
+			Find(&saved).Error;err!=nil{return err}
+		existing:=make(map[string]*model.AddressBook,len(saved))
+		for _,entry:=range saved{existing[entry.Id]=entry}
+		peerByID:=make(map[string]model.Peer,len(needsPeer))
+		for start:=0;start<len(needsPeer);start+=250{
+			end:=start+250
+			if end>len(needsPeer){end=len(needsPeer)}
+			var peers []model.Peer
+			if err:=tx.Model(&model.Peer{}).
+				Select("id,os,username,hostname,last_online_time,row_id").
+				Where("id IN ?",needsPeer[start:end]).
+				Order("last_online_time DESC, row_id DESC").
+				Find(&peers).Error;err!=nil{return err}
+			for _,peer:=range peers {
+				if _,ok:=peerByID[peer.Id];!ok {peerByID[peer.Id]=peer}
 			}
 		}
-		for _, obsolete := range existing {
-			if err := tx.Delete(obsolete).Error; err != nil { return err }
+		added:=make([]*model.AddressBook,0)
+		for _,item:=range abs {
+			item.UserId=userId
+			item.CollectionId=0
+			if peer,ok:=peerByID[item.Id];ok {
+				if item.Platform==""{item.Platform=s.PlatformFromOs(peer.Os)}
+				if item.Username==""{item.Username=peer.Username}
+				if item.Hostname==""{item.Hostname=peer.Hostname}
+			}
+			if previous,ok:=existing[item.Id];ok {
+				if !sameAddressBookContent(previous,item) {
+					if err:=tx.Model(&model.AddressBook{}).
+						Where("row_id = ?",previous.RowId).
+						Select("*").Omit("row_id","created_at","updated_at").
+						Updates(item).Error;err!=nil{return err}
+				}
+				delete(existing,item.Id)
+			}else{
+				added=append(added,item)
+			}
+		}
+		if len(added)>0 {
+			if err:=tx.CreateInBatches(added,100).Error;err!=nil{return err}
+		}
+		toDelete:=make([]uint,0,len(existing))
+		for _,entry:=range existing{toDelete=append(toDelete,entry.RowId)}
+		for start:=0;start<len(toDelete);start+=250{
+			end:=start+250
+			if end>len(toDelete){end=len(toDelete)}
+			if err:=tx.Where("row_id IN ?",toDelete[start:end]).
+				Delete(&model.AddressBook{}).Error;err!=nil{return err}
 		}
 		return nil
 	})

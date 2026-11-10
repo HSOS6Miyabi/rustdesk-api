@@ -22,15 +22,12 @@ type Ab struct {
 func anchorDirectoryScope(user *model.User) (map[uint]bool, bool, error) {
 	groupIds, err := service.AllService.GroupService.GroupIdsForUser(user)
 	if err != nil { return nil, false, err }
-	hasAnchor := false
-	for _, groupId := range groupIds {
-		group := service.AllService.GroupService.InfoById(groupId)
-		if group.Id != 0 && group.Type == model.GroupTypeAnchor {
-			hasAnchor = true
-			break
-		}
-	}
-	if !hasAnchor { return nil, false, nil }
+	if len(groupIds)==0 {return nil,false,nil}
+	var anchors []uint
+	if err:=service.DB.Model(&model.Group{}).
+		Where("id IN ? AND type = ?",groupIds,model.GroupTypeAnchor).
+		Limit(1).Pluck("id",&anchors).Error;err!=nil{return nil,false,err}
+	if len(anchors)==0 {return nil,false,nil}
 	visible, err := service.AllService.GroupService.VisibleUserIds(user)
 	if err != nil { return nil, false, err }
 	allowed := make(map[uint]bool, len(visible))

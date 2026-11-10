@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"gorm.io/gorm"
 )
 
 type clientBuildSource struct {
@@ -171,15 +172,63 @@ func ProcessClientBuildQueue(limit int)(int,error){
 	return complete,nil
 }
 
+var clientBuildWake = make(chan struct{}, 1)
+
+func wakeClientBuildWorker() {
+	select {
+	case clientBuildWake <- struct{}{}:
+	default:
+	}
+}
+
+// An idle builder sleeps until a task is submitted. Interrupted builds are
+// recovered at their persisted deadline even when no new task is submitted.
+func nextClientBuildDelay() (time.Duration, bool, error) {
+	var pending model.ClientBuildTask
+	err := DB.Select("id").Where("status = ?", "pending").Take(&pending).Error
+	if err == nil {
+		return 0, true, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, false, err
+	}
+	var earliest struct {
+		Due *int64 `gorm:"column:due"`
+	}
+	if err := DB.Model(&model.ClientBuildTask{}).
+		Select("MIN(started_at) AS due").Where("status = ?", "building").
+		Scan(&earliest).Error; err != nil {
+		return 0, false, err
+	}
+	if earliest.Due == nil {
+		return 0, false, nil
+	}
+	delay := time.Until(time.Unix(*earliest.Due+601, 0))
+	if delay < 0 {
+		delay = 0
+	}
+	return delay, true, nil
+}
+
 func StartClientBuildWorker(){
-	go func(){
-		ticker:=time.NewTicker(15*time.Second)
-		defer ticker.Stop()
+	go func() {
 		for {
-			if _,err:=ProcessClientBuildQueue(1);err!=nil&&Logger!=nil{
-				Logger.WithError(err).Warn("client installer preparation failed")
+			if _, err := ProcessClientBuildQueue(1); err != nil {
+				if Logger != nil {
+					Logger.WithError(err).Warn("client installer preparation failed")
+				}
+				waitForWork(clientBuildWake, 10*time.Second, true)
+				continue
 			}
-			<-ticker.C
+			delay, scheduled, err := nextClientBuildDelay()
+			if err != nil {
+				if Logger != nil {
+					Logger.WithError(err).Warn("client installer scheduling failed")
+				}
+				waitForWork(clientBuildWake, 10*time.Second, true)
+				continue
+			}
+			waitForWork(clientBuildWake, delay, scheduled)
 		}
 	}()
 }

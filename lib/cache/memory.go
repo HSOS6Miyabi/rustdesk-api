@@ -14,6 +14,8 @@ type MemoryCache struct {
 	ll        *list.List    // 用于实现LRU
 	pq        PriorityQueue // 用于实现TTL
 	quit      chan struct{}
+	wake      chan struct{}
+	closeOnce sync.Once
 	mu        sync.Mutex
 	maxBytes  int64
 	usedBytes int64
@@ -67,26 +69,26 @@ func (m *MemoryCache) Get(key string, value interface{}) error {
 	val.Elem().Set(reflect.Zero(val.Elem().Type()))
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if m.data == nil {
+		m.mu.Unlock()
 		return nil
 	}
-
+	var encoded string
 	if item, ok := m.data[key]; ok {
 		if item.Expiration < time.Now().UnixNano() {
 			m.deleteItem(item)
+			m.signalEviction()
+			m.mu.Unlock()
 			return nil
 		}
-		//移动到队列尾部
 		m.ll.MoveToBack(item.ListEle)
-
-		err := DecodeValue(item.Value, value)
-		if err != nil {
-			return err
-		}
+		encoded = item.Value
 	}
-	return nil
+	m.mu.Unlock()
+	if encoded == "" {
+		return nil
+	}
+	return DecodeValue(encoded, value)
 }
 
 func (m *MemoryCache) Set(key string, value interface{}, exp int) error {
@@ -105,15 +107,15 @@ func (m *MemoryCache) Set(key string, value interface{}, exp int) error {
 	if m.maxBytes != 0 && m.maxBytes < keyBytes+valueBytes {
 		return errors.New("exceed maxBytes")
 	}
-	m.usedBytes += keyBytes + valueBytes
-	if m.maxBytes != 0 && m.usedBytes > m.maxBytes {
-		m.RemoveOldest()
-	}
 	if exp <= 0 {
 		exp = MaxTimeOut
 	}
 	expiration := time.Now().Add(time.Duration(exp) * time.Second).UnixNano()
 	item, exists := m.data[key]
+	if exists {
+		m.usedBytes -= int64(len(item.Key) + len(item.Value))
+	}
+	m.usedBytes += keyBytes + valueBytes
 	if exists {
 		item.Value = v
 		item.Expiration = expiration
@@ -130,7 +132,10 @@ func (m *MemoryCache) Set(key string, value interface{}, exp int) error {
 		m.data[key] = item
 		heap.Push(&m.pq, item)
 	}
-
+	if m.maxBytes != 0 && m.usedBytes > m.maxBytes {
+		m.RemoveOldest()
+	}
+	m.signalEviction()
 	return nil
 }
 
@@ -159,26 +164,41 @@ func (m *MemoryCache) evictExpiredItems() {
 	}
 }
 
-// startEviction starts a goroutine that evicts expired items from the cache.
-func (m *MemoryCache) startEviction() {
-	ticker := time.NewTicker(1 * time.Second)
+// Cache expiration uses the next item's deadline. With no entries, the
+// worker remains asleep until an entry is inserted.
+func (m *MemoryCache) signalEviction() {
+	select {case m.wake <- struct{}{}:default:}
+}
 
+func (m *MemoryCache) startEviction() {
 	go func() {
 		for {
-			select {
-			case <-ticker.C:
+			m.mu.Lock()
+			if len(m.pq)==0 {
+				m.mu.Unlock()
+				select {
+				case <-m.wake:continue
+				case <-m.quit:return
+				}
+			}
+			wait:=time.Until(time.Unix(0,m.pq[0].Expiration))
+			m.mu.Unlock()
+			if wait<=0 {
 				m.evictExpiredItems()
-			case <-m.quit:
-				ticker.Stop()
-				return
+				continue
+			}
+			timer:=time.NewTimer(wait)
+			select {
+			case <-m.wake:timer.Stop()
+			case <-timer.C:m.evictExpiredItems()
+			case <-m.quit:timer.Stop();return
 			}
 		}
 	}()
 }
 
-// stopEviction 停止定时清理
 func (m *MemoryCache) stopEviction() {
-	close(m.quit)
+	m.closeOnce.Do(func(){close(m.quit)})
 }
 
 // deleteItem removes a key from the cache.
@@ -197,6 +217,7 @@ func (m *MemoryCache) Gc() error {
 	m.pq = make(PriorityQueue, 0)
 	heap.Init(&m.pq)
 	m.usedBytes = 0
+	m.signalEviction()
 	return nil
 }
 
@@ -206,6 +227,7 @@ func NewMemoryCache(maxBytes int64) *MemoryCache {
 		data:     make(map[string]*CacheItem),
 		pq:       make(PriorityQueue, 0),
 		quit:     make(chan struct{}),
+		wake:     make(chan struct{},1),
 		ll:       list.New(),
 		maxBytes: maxBytes,
 	}

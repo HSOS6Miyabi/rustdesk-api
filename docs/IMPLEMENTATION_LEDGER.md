@@ -2,6 +2,12 @@
 
 ## 接手总览（截至 2026 年 11 月 10 日）
 
+### 本次性能改进
+
+[拉取请求 #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8) 包括设备心跳按需读取策略和会话、消息订阅状态缓存、在线状态更新、地址簿批量同步、安装包任务唤醒、SQLite WAL、审计数据分批清理以及正常停止时等待消息保存。数据库迁移版本为 **285**。测试及部署注意事项见 [性能与数据保存说明](PERFORMANCE.md)。
+
+
+
 本文件是两仓库的**统一实施台账和工作交接入口**。最新交接快照：[HANDOFF_SNAPSHOT_2026-11-09.md](HANDOFF_SNAPSHOT_2026-11-09.md)；逐项状态、验证步骤和待办条件：[TASK_VERIFICATION_RECORD.md](TASK_VERIFICATION_RECORD.md)。本节记录当前结果与后续事项，后面的“历史实施记录”保留每项功能的具体提交、测试、设计和数据库修改过程。接手人员应先读取本节，再查阅历史记录中的相关功能。
 
 ### 1. 项目定位与开发原则
@@ -23,15 +29,15 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 已发行版本提交 | [`a6d338821cfba2daffa34f9cc3b06605ea1edf03`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a6d338821cfba2daffa34f9cc3b06605ea1edf03) | [`2d0896ecea4cf147f6fb4d2cdadf3278ab390851`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/2d0896ecea4cf147f6fb4d2cdadf3278ab390851) |
-| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 正式发行工作流 | [42689275371：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
-| 正式 Release | [v3.0.0-api.103](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.103) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
+| 正式发行工作流 | [API 编译与发布](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
+| 正式 Release | [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
-正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；组合 Docker 镜像采用 Server v1.1.17-api.21 与 API v3.0.0-api.103。
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；组合 Docker 镜像采用 Server v1.1.17-api.21 与 API v3.0.0-api.106。
 
-当前 API 数据库迁移版本：**282**。两个 PR 已合并；GitHub Release、正式容器镜像和多架构镜像清单已经发布。
+当前 API 数据库迁移版本：**285**。经批准的版本发布包含 GitHub Release、正式容器镜像及多架构镜像清单。
 
 CI 已实际通过的内容：
 
@@ -77,7 +83,7 @@ CI 已实际通过的内容：
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
 | T004 | P0 | 实际 API 与 hbbs 的 JWT、连接规则、设备撤销后拒绝新连接、控制角色、WebRTC SDP/ICE 和中继信令在 AMD64、ARM64 通过；实际远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
-| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 282，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
+| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 285，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 桌面、平板和手机交互及截图检查通过；手机导航布局已检查；实际环境管理员操作待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
@@ -111,7 +117,7 @@ P0 项目的自动化测试已经纳入本阶段发行检查，依赖实际设�
 
 **多中继。** `hbbs` 可根据活动中继、CIDR 网络规则和 GeoLite2 国家数据选择节点；管理员指定的 CIDR 规则优先。GeoLite2 Country MMDB 文件或 CSV 目录由部署者自行提供，程序未包含正式地理位置数据库。未配置托管中继时使用原有中继配置。
 
-**数据库与兼容。** 当前 API 迁移版本 282；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
+**数据库与兼容。** 当前 API 迁移版本 285；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
 
 ### 6. 双仓库代码索引
 

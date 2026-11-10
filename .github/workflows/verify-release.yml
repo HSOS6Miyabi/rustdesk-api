@@ -82,6 +82,8 @@ jobs:
         run: node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
       - name: Go tests
         run: go test ./... -count=1
+      - name: Race checks for concurrent caches and device events
+        run: go test -race ./service ./lib/cache -run 'TestUnusedDevicePoliciesSkipSteadyHeartbeatQueries|TestActivePolicyHeartbeatResolutionUsesCache|TestIdleDeviceSessionsAvoidDatabaseOperations|TestDisabledPushSubscriptionsAvoidDeviceQueries|TestAddressBookSyncDoesNotRewriteIdenticalEntries|TestDevicePresenceTransitionsAndOfflineNotifications|TestMemoryCacheReplacementCountsOnlyCurrentValue|TestMemoryCacheEvictsAfterGrowingReplacement|TestMemoryCacheEvictsAtNextDeadline' -count=1
       - name: Build executable
         run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
 

@@ -9,12 +9,15 @@ import (
 )
 
 type SqliteConfig struct {
+	Path string
 	MaxIdleConns int
 	MaxOpenConns int
 }
 
 func NewSqlite(sqliteConf *SqliteConfig, logwriter logger.Writer) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("./data/rustdeskapi.db"), &gorm.Config{
+	path:=sqliteConf.Path
+	if path=="" {path="./data/rustdeskapi.db"}
+	db, err := gorm.Open(sqlite.Open("file:"+path+"?_journal_mode=WAL&_busy_timeout=5000"), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		Logger: logger.New(
 			logwriter, // io writer
@@ -28,17 +31,26 @@ func NewSqlite(sqliteConf *SqliteConfig, logwriter logger.Writer) *gorm.DB {
 		),
 	})
 	if err != nil {
-		fmt.Println(err)
+		panic(fmt.Errorf("open SQLite database: %w", err))
 	}
-	sqlDB, err2 := db.DB()
-	if err2 != nil {
-		fmt.Println(err2)
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic(fmt.Errorf("obtain SQLite connection pool: %w", err))
 	}
-	// SetMaxIdleConns 设置空闲连接池中连接的最大数量
-	sqlDB.SetMaxIdleConns(sqliteConf.MaxIdleConns)
-
-	// SetMaxOpenConns 设置打开数据库连接的最大数量。
-	sqlDB.SetMaxOpenConns(sqliteConf.MaxOpenConns)
+	// SQLite permits one writer; bound the number of competing connections.
+	maxOpen := sqliteConf.MaxOpenConns
+	if maxOpen <= 0 || maxOpen > 4 {
+		maxOpen = 4
+	}
+	maxIdle := sqliteConf.MaxIdleConns
+	if maxIdle < 0 {
+		maxIdle = 0
+	}
+	if maxIdle > maxOpen {
+		maxIdle = maxOpen
+	}
+	sqlDB.SetMaxOpenConns(maxOpen)
+	sqlDB.SetMaxIdleConns(maxIdle)
 
 	return db
 }
