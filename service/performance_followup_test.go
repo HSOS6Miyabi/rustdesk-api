@@ -509,3 +509,32 @@ func TestSharedOutboxClaimsPreventConcurrentDuplicateProcessing(t *testing.T) {
 		t.Fatalf("processed event is still pending: %d %v", pending, err)
 	}
 }
+
+func TestRepeatedDisconnectCommandsDoNotRewriteDeliveredTimestamp(t *testing.T) {
+	cleanup := setupGroupDB(t)
+	defer cleanup()
+	if err := DB.AutoMigrate(&model.DeviceActiveConnection{}, &model.DeviceDisconnectRequest{}); err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"unchanged-delivery-device"}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SynchronizeDeviceSessions(peer, []int32{77}); err != nil { t.Fatal(err) }
+	if err := RequestDeviceDisconnect(peer.Id, 77, 1); err != nil { t.Fatal(err) }
+	if cmds, err := SynchronizeDeviceSessions(peer, []int32{77}); err != nil || len(cmds) != 1 {
+		t.Fatalf("first disconnect command missing: %v %v", cmds, err)
+	}
+	var before model.DeviceDisconnectRequest
+	if err := DB.Where("device_id = ?", peer.Id).Take(&before).Error; err != nil { t.Fatal(err) }
+	if before.Status != "delivered" || before.DeliveredAt == 0 { t.Fatalf("request was not delivered: %+v", before) }
+	updates := 0
+	key := "perf:duplicate_delivery_update"
+	if err := DB.Callback().Update().Before("gorm:update").Register(key, func(*gorm.DB) { updates++ }); err != nil { t.Fatal(err) }
+	for i := 0; i < 5; i++ {
+		if cmds, err := SynchronizeDeviceSessions(peer, []int32{77}); err != nil || len(cmds) != 1 {
+			t.Fatalf("repeated command missing: %v %v", cmds, err)
+		}
+	}
+	DB.Callback().Update().Remove(key)
+	if updates != 0 { t.Fatalf("unchanged delivered request caused %d updates", updates) }
+	var after model.DeviceDisconnectRequest
+	if err := DB.Where("id = ?", before.Id).Take(&after).Error; err != nil { t.Fatal(err) }
+	if after.DeliveredAt != before.DeliveredAt { t.Fatal("delivery timestamp changed after retry") }
+}

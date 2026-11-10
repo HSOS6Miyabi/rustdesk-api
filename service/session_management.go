@@ -263,9 +263,11 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 				if err:=tx.Model(&request).Updates(fields).Error;err!=nil{return err}
 			default:
 				instructions=append(instructions,request.ConnId)
-				if err:=tx.Model(&request).Updates(map[string]interface{}{
-					"status":"delivered","delivered_at":now,
-				}).Error;err!=nil{return err}
+				if request.Status=="pending" {
+					if err:=tx.Model(&request).Updates(map[string]interface{}{
+						"status":"delivered","delivered_at":now,
+					}).Error;err!=nil{return err}
+				}
 			}
 		}
 		return nil

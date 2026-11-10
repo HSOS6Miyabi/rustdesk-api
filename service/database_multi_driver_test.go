@@ -116,6 +116,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			}
 			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
 				&model.NotificationSetting{},&model.NotificationDelivery{},
+				&model.AuditRetentionPolicy{},
 				&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{
 				t.Fatalf("repeated migrations are not safe: %v",err)
 			}

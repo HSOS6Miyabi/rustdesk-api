@@ -29,8 +29,12 @@ func TestGeoIPReadOnlyPostDoesNotWriteOperationAudit(t *testing.T) {
 	router := gin.New()
 	router.Use(func(c *gin.Context) { c.Set("curUser", user); c.Next() }, RecordOperations())
 	router.POST("/api/admin/geoip/lookup", func(c *gin.Context) { c.Status(200) })
+	router.POST("/api/admin/peer/simpleData", func(c *gin.Context) { c.Status(200) })
+	router.POST("/api/admin/user/groupUsers", func(c *gin.Context) { c.Status(200) })
+	router.POST("/api/admin/user/myOauth", func(c *gin.Context) { c.Status(200) })
 	router.POST("/api/admin/peer/update", func(c *gin.Context) { c.Status(200) })
-	for _, path := range []string{"/api/admin/geoip/lookup", "/api/admin/peer/update"} {
+	for _, path := range []string{"/api/admin/geoip/lookup", "/api/admin/peer/simpleData",
+		"/api/admin/user/groupUsers", "/api/admin/user/myOauth", "/api/admin/peer/update"} {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, path, nil))
 		if response.Code != http.StatusOK { t.Fatalf("%s: %d", path, response.Code) }
