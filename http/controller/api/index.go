@@ -75,6 +75,7 @@ func (i *Index) Heartbeat(c *gin.Context) {
 	}else if len(commands)>0{
 		data["disconnect"]=commands
 	}
+	service.ReportPushHeartbeat(peer,c.ClientIP())
 	c.JSON(http.StatusOK,data)
 }
 

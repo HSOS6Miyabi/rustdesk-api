@@ -64,5 +64,12 @@ func (h *DeviceDeployment) SetStatus(c *gin.Context) {
 		return
 	}
 	service.NotifyEvent("deployment.changed",fmt.Sprintf("deployment:%d:%s",request.Id,request.Status),fmt.Sprintf("部署记录 %d 的状态调整为 %s",request.Id,request.Status))
+	var deployment model.DeviceDeployment
+	if service.DB.Where("id = ?",request.Id).Take(&deployment).Error == nil {
+		service.PublishPushEvent(service.PushEvent{
+			Code:"deployment.changed",Reference:fmt.Sprintf("deployment:%d:%s",request.Id,request.Status),
+			DeviceID:deployment.DeviceId,UserID:deployment.OwnerUserId,Detail:"部署状态："+request.Status,
+		})
+	}
 	response.Success(c, nil)
 }
