@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"hash/fnv"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +27,29 @@ type PushEvent struct {
 	When      time.Time
 }
 
-var pushEvents = make(chan PushEvent, 4096)
+const pushEventShardCount = 4
+const pushEventShardCapacity = 1024
+
+// Route events for the same device to the same worker, preserving order
+// without serializing unrelated devices behind a single database worker.
+var pushEventShards = func() [pushEventShardCount]chan PushEvent {
+	var shards [pushEventShardCount]chan PushEvent
+	for i := range shards {
+		shards[i] = make(chan PushEvent, pushEventShardCapacity)
+	}
+	return shards
+}()
+
+func pushEventShard(event PushEvent) int {
+	if event.PeerRowID != 0 { return int(event.PeerRowID % pushEventShardCount) }
+	key := event.DeviceID
+	if key == "" { key = event.FromPeer }
+	if key == "" { key = event.Reference }
+	if key == "" { key = event.Code }
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(key))
+	return int(hash.Sum32() % pushEventShardCount)
+}
 
 // Coalesce frequent heartbeats in memory before entering the database worker.
 // Presence remains accurate because the stored deadline is much longer than
@@ -68,8 +91,9 @@ func wakePushPresence() {
 // Event handlers never wait for outbound messages or database queue writes.
 func PublishPushEvent(event PushEvent) {
 	if event.When.IsZero() { event.When = time.Now() }
+	worker := pushEventShards[pushEventShard(event)]
 	select {
-	case pushEvents <- event:
+	case worker <- event:
 	default:
 		if Logger != nil { Logger.Warn("push event buffer is full") }
 	}
@@ -93,13 +117,16 @@ func pushEventName(code string) string {
 }
 
 func startPushEventWorker() {
-	go func() {
-		for event := range pushEvents {
-			if err := processPushEvent(event); err != nil && Logger != nil {
-				Logger.WithError(err).Warn("push event processing error")
+	for i := range pushEventShards {
+		events := pushEventShards[i]
+		go func() {
+			for event := range events {
+				if err := processPushEvent(event); err != nil && Logger != nil {
+					Logger.WithError(err).Warn("push event processing error")
+				}
 			}
-		}
-	}()
+		}()
+	}
 	go runPushPresenceScheduler()
 }
 
