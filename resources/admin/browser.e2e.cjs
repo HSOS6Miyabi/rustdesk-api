@@ -126,6 +126,8 @@ function serve(req, res) {
     if(route==="/notification/retry")return answer(res,{});
     if(route==="/geoip/lookup")return answer(res,{
       locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址"},
+      device_status:{"office":true,"home-remote":false,"654321":true,"123456":false,
+        "managed-desk":false,"helpdesk":true,"desk-001":true,"support-123456":true},
       database_ready:false
     });
     if(route==="/push/events")return answer(res,[
@@ -188,6 +190,11 @@ function serve(req, res) {
     ],total:1});
     if(route==="/my/address_book/trash/restore"||route==="/my/address_book/trash/purge")return answer(res,{});
     if(route==="/my/login_log/list")return answer(res, {list:[{id:9,ip:"10.0.0.5",platform:"Windows",created_at:1710000000}],total:1});
+    if(route==="/peer/list"||route==="/my/peer/list")return answer(res,{
+      list:[{row_id:101,id:"office",hostname:"办公电脑",last_online_ip:"10.0.0.5"},
+        {row_id:102,id:"home-remote",hostname:"家庭电脑",last_online_ip:"127.0.0.1"}],
+      total:2
+    });
     if(route==="/user/mfa/reset")return answer(res,{});
     if(route==="/user/list")return answer(res, {
       list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
@@ -923,4 +930,35 @@ test("device and audit IP addresses have GeoIP explanations on desktop and mobil
     }));
     assert.ok(dimensions.scroll<=dimensions.width+2,"GeoIP display overflows mobile screen");
   }finally{await owner.context.close();}
+});
+
+
+test("online and offline dots appear beside devices on desktop and mobile",async()=>{
+  const admin=await pageForViewport(1440,900,true);
+  try {
+    await admin.page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await admin.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
+    await admin.page.getByText("office",{exact:true}).first().waitFor();
+    const row=admin.page.locator(".table-scroll tbody tr");
+    assert.equal(await row.count(),2);
+    assert.equal(await row.nth(0).locator(".device-status-dot.online").count(),1);
+    assert.equal(await row.nth(1).locator(".device-status-dot.offline").count(),1);
+    assert.equal(await admin.page.getByRole("columnheader",{name:"在线状态"}).count(),0);
+  } finally { await admin.context.close(); }
+
+  const regular=await pageForViewport(375,812,false);
+  try {
+    await regular.page.locator('button[data-action="mobile-open"]').click();
+    await regular.page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await regular.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
+    const list=regular.page.locator(".mobile-item");
+    await list.first().waitFor();
+    assert.equal(await list.nth(0).locator(".device-status-dot.online").count(),1);
+    assert.equal(await list.nth(1).locator(".device-status-dot.offline").count(),1);
+    const size=await regular.page.evaluate(()=>({
+      scroll:document.documentElement.scrollWidth,
+      width:window.innerWidth
+    }));
+    assert.ok(size.scroll<=size.width+2,"presence dots must not overflow the phone");
+  } finally {await regular.context.close();}
 });
