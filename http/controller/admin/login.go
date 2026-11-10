@@ -90,6 +90,14 @@ func (ct *Login) Login(c *gin.Context) {
 		global.Logger.Warn(fmt.Sprintf("Login Fail: %s %s %s", "UsernameOrPasswordError", c.RemoteIP(), clientIp))
 		loginLimiter.RecordFailedAttempt(clientIp)
 		service.NotifyEvent("login.failure",fmt.Sprintf("%s:%s:%d",clientIp,f.Username,time.Now().Unix()/900),fmt.Sprintf("登录失败，来源 IP：%s，账户名：%q，客户端：admin",clientIp,f.Username))
+		var attempted model.User
+		if service.DB.Select("id").Where("username = ?",f.Username).Take(&attempted).Error == nil {
+			service.PublishPushEvent(service.PushEvent{
+				Code:"login.failure",
+				Reference:fmt.Sprintf("login-failed:%d:%s:%d",attempted.Id,clientIp,time.Now().Unix()/900),
+				UserID:attempted.Id,SourceIP:clientIp,Detail:"管理控制台密码验证失败",
+			})
+		}
 		if _, needCaptcha = loginLimiter.CheckSecurityStatus(clientIp); needCaptcha {
 			response.Fail(c, 110, response.TranslateMsg(c, "UsernameOrPasswordError"))
 		} else {

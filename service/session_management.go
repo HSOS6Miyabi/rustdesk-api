@@ -72,7 +72,10 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		return nil
 	})
 	if err!=nil{return nil,err}
-	for _,reference:=range completed {NotifyEvent("session.ended",reference,"远程会话已完成结束请求："+reference)}
+	for _,reference:=range completed {
+		NotifyEvent("session.ended",reference,"远程会话已完成结束请求："+reference)
+		PublishPushEvent(PushEvent{Code:"session.ended",Reference:reference,DeviceID:peer.Id,Detail:"远程会话已按管理请求结束"})
+	}
 	return instructions,nil
 }
 
@@ -98,7 +101,13 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 			Status:"pending",ExpiresAt:now+disconnectExpiresSeconds,
 		}).Error
 	})
-	if err==nil {NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))}
+	if err==nil {
+		NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))
+		PublishPushEvent(PushEvent{
+			Code:"session.disconnect_requested",Reference:fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),
+			DeviceID:deviceID,ConnID:int64(connID),UserID:requester,Detail:"管理员请求结束远程连接",
+		})
+	}
 	return err
 }
 
