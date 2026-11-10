@@ -7,7 +7,7 @@ RustDesk API 支持每个用户自行设置消息推送渠道、订阅设备事�
 | 推送方式 | 需要填写的设置 | 说明 |
 | --- | --- | --- |
 | MessagePusher | 服务地址、发送密钥 | 调用 MessagePusher 的 `POST /v1/send`。由 MessagePusher 将消息转发到用户在其平台中配置的 Telegram、邮件等渠道。 |
-| SMTP 邮件 | SMTP 主机、端口、TLS/STARTTLS、用户名、密码、发件邮箱、收件邮箱 | 用户可以使用自己的邮箱服务器。 |
+| SMTP 邮件 | SMTP 主机、端口、TLS/STARTTLS（可信内网还可选择不加密）、用户名、密码、发件邮箱、收件邮箱 | 用户可以使用自己的邮箱服务器。 |
 | Server酱 Turbo | SendKey，必要时填写自建 API 地址 | 调用 `POST /{SendKey}.send`。默认使用官方的 `https://sctapi.ftqq.com`。 |
 
 登录控制台后打开 **账户 → 消息推送**，添加渠道并填写设置。一个用户可以添加多个渠道，例如同时向个人 Telegram 和邮箱发送设备离线通知。
@@ -121,7 +121,7 @@ MessagePusher 返回 HTTP 202 代表它已接收发送任务；用户需要在 M
 export RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS=1
 ```
 
-启用后，请同时限制服务器可访问的网络和推送服务的账户权限。公开访问的服务仍应使用 HTTPS 或 TLS。
+启用后，请同时限制服务器可访问的网络和推送服务的账户权限。公开访问的服务仍应使用 HTTPS 或 TLS。可信的内部 SMTP 服务可以在启用上述环境变量后，选择不加密连接。
 
 ## 7. 管理 API
 

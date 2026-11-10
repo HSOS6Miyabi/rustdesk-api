@@ -837,7 +837,7 @@
       textField("smtp_host","SMTP 主机",existing.smtp_host)+
       '<div class="field"><label for="push-smtp-port">SMTP 端口</label><input id="push-smtp-port" name="smtp_port" type="number" min="1" max="65535" value="'+esc(existing.smtp_port||587)+'"></div>'+
       '<div class="field"><label for="push-smtp-security">连接加密</label><select id="push-smtp-security" name="smtp_security">'+
-      [["starttls","STARTTLS"],["tls","TLS"]].map(([code,label])=>
+      [["starttls","STARTTLS"],["tls","TLS"],["none","不加密（仅可信内网）"]].map(([code,label])=>
         '<option value="'+code+'" '+((existing.smtp_security||"starttls")===code?'selected':'')+'>'+label+'</option>').join("")+'</select></div>'+
       textField("smtp_username","SMTP 用户名",existing.smtp_username)+
       textField("smtp_password","SMTP 密码","","password",existing.password_configured?"已保存，留空保持不变":"请填写邮箱授权码")+

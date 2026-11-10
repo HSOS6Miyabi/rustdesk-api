@@ -220,7 +220,8 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 		record.SMTPTo = strings.TrimSpace(input.SMTPTo)
 		if record.SMTPPort < 1 || record.SMTPPort > 65535 || len(record.SMTPHost) > 253 ||
 			strings.ContainsAny(record.SMTPHost+record.SMTPUsername, "\r\n\t /\\") ||
-			(record.SMTPSecurity != "tls" && record.SMTPSecurity != "starttls") {
+			(record.SMTPSecurity != "tls" && record.SMTPSecurity != "starttls" &&
+				!(record.SMTPSecurity == "none" && pushAllowPrivate())) {
 			return PublicPushChannel{}, errors.New("SMTP 配置无效，请使用 TLS 或 STARTTLS")
 		}
 		if record.Enabled && (record.SMTPHost == "" || !validEmail(record.SMTPFrom) || !validEmail(record.SMTPTo)) {
