@@ -106,7 +106,11 @@ func AuthenticateAPIToken(raw,permission string) (*model.User,error) {
 		First(&user).Error;err!=nil {
 		return nil,errors.New("API token account is no longer active")
 	}
-	_ = DB.Model(&item).UpdateColumn("last_used_at",now).Error
+	if now-item.LastUsedAt >= 60 {
+		_ = DB.Model(&model.APIToken{}).
+			Where("id = ? AND last_used_at <= ?", item.Id, now-60).
+			UpdateColumn("last_used_at", now).Error
+	}
 	return &user,nil
 }
 

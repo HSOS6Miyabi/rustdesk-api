@@ -9,21 +9,18 @@ import (
 )
 
 type FileCache struct {
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
+	locks [64]sync.Mutex
 	Dir   string
 }
 
 func (fc *FileCache) getLock(key string) *sync.Mutex {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
-	if fc.locks == nil {
-		fc.locks = make(map[string]*sync.Mutex)
+	var hash uint32
+	for i := len(key) - 2; i < len(key); i++ {
+		if i >= 0 {
+			hash = hash*33 + uint32(key[i])
+		}
 	}
-	if _, ok := fc.locks[key]; !ok {
-		fc.locks[key] = new(sync.Mutex)
-	}
-	return fc.locks[key]
+	return &fc.locks[hash%uint32(len(fc.locks))]
 }
 
 func (c *FileCache) Get(key string, value interface{}) error {
@@ -35,6 +32,9 @@ func (c *FileCache) Get(key string, value interface{}) error {
 // 获取值,如果文件不存在或者过期，返回空，过滤掉错误
 func (c *FileCache) getValue(key string) (string, error) {
 	f := c.fileName(key)
+	lock := c.getLock(f)
+	lock.Lock()
+	defer lock.Unlock()
 	fileInfo, err := os.Stat(f)
 	if err != nil {
 		//文件不存在
@@ -96,8 +96,5 @@ func (c *FileCache) Gc() error {
 }
 
 func NewFileCache() *FileCache {
-	return &FileCache{
-		locks: make(map[string]*sync.Mutex),
-		Dir:   os.TempDir(),
-	}
+	return &FileCache{Dir: os.TempDir()}
 }

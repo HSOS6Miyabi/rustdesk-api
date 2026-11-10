@@ -67,26 +67,25 @@ func (m *MemoryCache) Get(key string, value interface{}) error {
 	val.Elem().Set(reflect.Zero(val.Elem().Type()))
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if m.data == nil {
+		m.mu.Unlock()
 		return nil
 	}
-
+	var encoded string
 	if item, ok := m.data[key]; ok {
 		if item.Expiration < time.Now().UnixNano() {
 			m.deleteItem(item)
+			m.mu.Unlock()
 			return nil
 		}
-		//移动到队列尾部
 		m.ll.MoveToBack(item.ListEle)
-
-		err := DecodeValue(item.Value, value)
-		if err != nil {
-			return err
-		}
+		encoded = item.Value
 	}
-	return nil
+	m.mu.Unlock()
+	if encoded == "" {
+		return nil
+	}
+	return DecodeValue(encoded, value)
 }
 
 func (m *MemoryCache) Set(key string, value interface{}, exp int) error {
@@ -105,15 +104,15 @@ func (m *MemoryCache) Set(key string, value interface{}, exp int) error {
 	if m.maxBytes != 0 && m.maxBytes < keyBytes+valueBytes {
 		return errors.New("exceed maxBytes")
 	}
-	m.usedBytes += keyBytes + valueBytes
-	if m.maxBytes != 0 && m.usedBytes > m.maxBytes {
-		m.RemoveOldest()
-	}
 	if exp <= 0 {
 		exp = MaxTimeOut
 	}
 	expiration := time.Now().Add(time.Duration(exp) * time.Second).UnixNano()
 	item, exists := m.data[key]
+	if exists {
+		m.usedBytes -= int64(len(item.Key) + len(item.Value))
+	}
+	m.usedBytes += keyBytes + valueBytes
 	if exists {
 		item.Value = v
 		item.Expiration = expiration
@@ -130,7 +129,9 @@ func (m *MemoryCache) Set(key string, value interface{}, exp int) error {
 		m.data[key] = item
 		heap.Push(&m.pq, item)
 	}
-
+	if m.maxBytes != 0 && m.usedBytes > m.maxBytes {
+		m.RemoveOldest()
+	}
 	return nil
 }
 
