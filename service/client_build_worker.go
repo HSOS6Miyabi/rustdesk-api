@@ -211,13 +211,14 @@ func nextClientBuildDelay() (time.Duration, bool, error) {
 }
 
 func StartClientBuildWorker(){
-	go func() {
+	launchServiceWorker(func(ctx context.Context) {
 		for {
+			if ctx.Err() != nil { return }
 			if _, err := ProcessClientBuildQueue(1); err != nil {
 				if Logger != nil {
 					Logger.WithError(err).Warn("client installer preparation failed")
 				}
-				waitForWork(clientBuildWake, 10*time.Second, true)
+				if !waitForWorkContext(ctx, clientBuildWake, 10*time.Second, true) { return }
 				continue
 			}
 			delay, scheduled, err := nextClientBuildDelay()
@@ -228,7 +229,7 @@ func StartClientBuildWorker(){
 				waitForWork(clientBuildWake, 10*time.Second, true)
 				continue
 			}
-			waitForWork(clientBuildWake, delay, scheduled)
+			if !waitForWorkContext(ctx, clientBuildWake, delay, scheduled) { return }
 		}
-	}()
+	})
 }

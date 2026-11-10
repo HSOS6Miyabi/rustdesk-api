@@ -50,7 +50,7 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
-	peer := service.AllService.PeerService.FindById(info.Id)
+	peer := service.AllService.PeerService.FindHeartbeatPeerById(info.Id)
 	if peer == nil || peer.RowId == 0 {
 		c.JSON(http.StatusOK, gin.H{})
 		return
@@ -60,9 +60,13 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
-	if time.Now().Unix()-peer.LastOnlineTime >= 30 {
-		upp := &model.Peer{RowId:peer.RowId,LastOnlineTime:time.Now().Unix(),LastOnlineIp:c.ClientIP()}
-		service.AllService.PeerService.Update(upp)
+	now := time.Now().Unix()
+	if now-peer.LastOnlineTime >= 30 {
+		service.DB.Model(&model.Peer{}).
+			Where("row_id = ? AND last_online_time <= ?", peer.RowId, now-30).
+			Updates(map[string]interface{}{
+				"last_online_time": now, "last_online_ip": c.ClientIP(),
+			})
 	}
 	data,err:=service.HeartbeatDeviceStrategy(peer,info.ModifiedAt)
 	if err!=nil {

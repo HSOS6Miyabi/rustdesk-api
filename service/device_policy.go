@@ -169,6 +169,43 @@ func DeleteDevicePolicy(id uint) error {
 	return err
 }
 
+// InvalidateDevicePolicyCache refreshes the effective policy after a committed change.
+func InvalidateDevicePolicyCache() {
+	invalidatePolicyActivity()
+}
+
+// AssignDevicePolicyByName participates in the caller's transaction. The caller
+// invalidates the policy cache only after that transaction commits successfully.
+func AssignDevicePolicyByName(tx *gorm.DB, deviceID, name string) error {
+	if tx == nil || strings.TrimSpace(deviceID) == "" {
+		return errors.New("device policy assignment needs a transaction and device ID")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return tx.Where("device_id = ?", deviceID).Delete(&model.DevicePolicyAssignment{}).Error
+	}
+	var policy model.DevicePolicy
+	if err := tx.Where("name = ?", name).First(&policy).Error; err != nil {
+		return errors.New("device strategy was not found")
+	}
+	var assignment model.DevicePolicyAssignment
+	err := tx.Where("device_id = ?", deviceID).First(&assignment).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return tx.Create(&model.DevicePolicyAssignment{
+			DeviceId: deviceID, PolicyId: policy.Id, Revision: time.Now().UnixNano(),
+		}).Error
+	}
+	if err != nil {
+		return err
+	}
+	if assignment.PolicyId == policy.Id {
+		return nil
+	}
+	return tx.Model(&assignment).Updates(map[string]interface{}{
+		"policy_id": policy.Id, "revision": time.Now().UnixNano(),
+	}).Error
+}
+
 func SaveDevicePolicyAssignment(item *model.DevicePolicyAssignment) error {
 	if item==nil||item.PolicyId==0 || strings.TrimSpace(item.DeviceId)=="" ||
 		len(strings.TrimSpace(item.DeviceId))>128{return errors.New("invalid policy assignment")}

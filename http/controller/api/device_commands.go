@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/global"
@@ -136,32 +135,8 @@ func (d *DeviceCommands) Assign(c *gin.Context) {
 			}
 		}
 		if f.StrategyName != nil {
-			name := strings.TrimSpace(*f.StrategyName)
-			if name == "" {
-				if err := tx.Where("device_id = ?", f.Id).Delete(&model.DevicePolicyAssignment{}).Error; err != nil {
-					return err
-				}
-			} else {
-				var policy model.DevicePolicy
-				if err := tx.Where("name = ?", name).First(&policy).Error; err != nil {
-					return errors.New("device strategy was not found")
-				}
-				var assignment model.DevicePolicyAssignment
-				err := tx.Where("device_id = ?", f.Id).First(&assignment).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					assignment = model.DevicePolicyAssignment{
-						DeviceId: f.Id, PolicyId: policy.Id, Revision: time.Now().UnixNano(),
-					}
-					if err := tx.Create(&assignment).Error; err != nil {
-						return err
-					}
-				} else if err != nil {
-					return err
-				} else if err := tx.Model(&assignment).Updates(map[string]interface{}{
-					"policy_id": policy.Id, "revision": time.Now().UnixNano(),
-				}).Error; err != nil {
-					return err
-				}
+			if err := service.AssignDevicePolicyByName(tx, f.Id, *f.StrategyName); err != nil {
+				return err
 			}
 		}
 		if f.AddressBookName != nil {
@@ -236,6 +211,9 @@ func (d *DeviceCommands) Assign(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if f.StrategyName != nil || f.UserName != nil || f.DeviceGroupName != nil {
+		service.InvalidateDevicePolicyCache()
 	}
 	c.Status(http.StatusOK)
 }

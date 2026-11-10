@@ -88,18 +88,39 @@ func (p *Peer) SysInfo(c *gin.Context) {
 			PeerRowID:pe.RowId, DeviceID:pe.Id, SourceIP:c.ClientIP(), UserID:pe.UserId,
 		})
 	} else {
-		if pe.UserId == 0 {
-			pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(pe.Uuid, pe.Id)
+		ownerID := pe.UserId
+		if ownerID == 0 {
+			ownerID = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(pe.Uuid, pe.Id)
 		}
-		fpe.RowId = pe.RowId
-		fpe.UserId = pe.UserId
 		if approvedOwner != 0 {
-			fpe.UserId = approvedOwner
+			ownerID = approvedOwner
 		}
-		err = service.AllService.PeerService.Update(fpe)
-		if err != nil {
-			response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
-			return
+		updates := make(map[string]interface{})
+		for _, field := range []struct{ column, previous, next string }{
+			{"cpu", pe.Cpu, fpe.Cpu},
+			{"hostname", pe.Hostname, fpe.Hostname},
+			{"memory", pe.Memory, fpe.Memory},
+			{"os", pe.Os, fpe.Os},
+			{"username", pe.Username, fpe.Username},
+			{"uuid", pe.Uuid, fpe.Uuid},
+			{"version", pe.Version, fpe.Version},
+		} {
+			// Some official clients omit optional inventory fields. Preserve
+			// saved values until a non-empty replacement is supplied.
+			if field.next != "" && field.previous != field.next {
+				updates[field.column] = field.next
+			}
+		}
+		if pe.UserId != ownerID {
+			updates["user_id"] = ownerID
+		}
+		if len(updates) != 0 {
+			err = service.DB.Model(&model.Peer{}).Where("row_id = ?", pe.RowId).
+				Updates(updates).Error
+			if err != nil {
+				response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
+				return
+			}
 		}
 	}
 	//SYSINFO_UPDATED 上传成功

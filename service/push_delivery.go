@@ -45,34 +45,38 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 	if DB == nil { return nil }
 	eventName := pushEventName(event.Code)
 	if eventName == "" { return nil }
-	seen := make(map[uint]bool)
-	now := time.Now().Unix()
-	queued := false
-	title, body := "", ""
-	for _, userID := range users {
-		if userID == 0 || seen[userID] { continue }
-		seen[userID] = true
-		var channels []model.PushChannel
-		if err := DB.Where("user_id = ? AND enabled = ?", userID, true).Find(&channels).Error; err != nil {
-			return err
-		}
-		for _, channel := range channels {
-			if !pushSubscribed(&channel, event.Code) { continue }
-			if title == "" { title, body = formatPushMessage(event) }
-			if title == "" { continue }
-			key := event.Reference
-			if key == "" { key = fmt.Sprintf("%d:%d", now, time.Now().UnixNano()) }
-			record := &model.PushDelivery{
-				UserId: userID, ChannelId: channel.Id, EventType: event.Code,
-				EventKey: eventHash(event.Code + ":" + key), Title: title, Body: body,
-				Status: "pending", NextAttemptAt: now,
-			}
-			inserted := DB.Clauses(clause.OnConflict{DoNothing: true}).Create(record)
-			if inserted.Error != nil { return inserted.Error }
-			if inserted.RowsAffected > 0 { queued = true }
+	seen := make(map[uint]bool, len(users))
+	unique := make([]uint, 0, len(users))
+	for _, id := range users {
+		if id != 0 && !seen[id] {
+			seen[id] = true
+			unique = append(unique, id)
 		}
 	}
-	if queued { wakePushDelivery() }
+	if len(unique) == 0 { return nil }
+	var channels []model.PushChannel
+	if err := DB.Where("user_id IN ? AND enabled = ?", unique, true).
+		Find(&channels).Error; err != nil { return err }
+	if len(channels) == 0 { return nil }
+	now := time.Now().Unix()
+	key := event.Reference
+	if key == "" { key = fmt.Sprintf("%d:%d", now, time.Now().UnixNano()) }
+	var records []model.PushDelivery
+	var title, body string
+	for _, channel := range channels {
+		if !pushSubscribed(&channel, event.Code) { continue }
+		if title == "" { title, body = formatPushMessage(event) }
+		if title == "" { continue }
+		records = append(records, model.PushDelivery{
+			UserId: channel.UserId, ChannelId: channel.Id, EventType: event.Code,
+			EventKey: eventHash(event.Code + ":" + key), Title: title, Body: body,
+			Status: "pending", NextAttemptAt: now,
+		})
+	}
+	if len(records) == 0 { return nil }
+	result := DB.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&records, 100)
+	if result.Error != nil { return result.Error }
+	if result.RowsAffected > 0 { wakePushDelivery() }
 	return nil
 }
 
@@ -306,5 +310,8 @@ func StartPushWorker() {
 	pushWorkerOnce.Do(func() {
 		startPersonalDeliverySchedulers()
 		startPushEventWorker()
+		launchServiceWorker(func(ctx context.Context) {
+			startEventOutboxWorker(ctx, pushOutboxWake, ProcessPushEventOutbox, "push")
+		})
 	})
 }

@@ -86,6 +86,22 @@ func (ll *LoginLimiter) isDisabled() bool {
 	return ll.policy.CaptchaThreshold < 0 && ll.policy.BanThreshold == 0
 }
 
+// BanEnabled reports whether global IP blocking is configured.
+func (ll *LoginLimiter) BanEnabled() bool {
+	return ll != nil && ll.policy.BanThreshold > 0
+}
+
+// IsIPBanned checks an existing ban without scanning CAPTCHA or login attempts.
+func (ll *LoginLimiter) IsIPBanned(ip string) bool {
+	if !ll.BanEnabled() {
+		return false
+	}
+	ll.mu.Lock()
+	defer ll.mu.Unlock()
+	blocked, _ := ll.isBanned(ip)
+	return blocked
+}
+
 // 记录登录失败尝试
 func (ll *LoginLimiter) RecordFailedAttempt(ip string) {
 	if ll.isDisabled() {

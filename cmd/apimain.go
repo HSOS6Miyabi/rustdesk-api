@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 285
+const DatabaseVersion = 286
 
 // @title 管理系统API
 // @version 1.0
@@ -106,10 +106,11 @@ func init() {
 }
 func main() {
 	err:=rootCmd.Execute()
-	if !service.FlushPendingEvents(8*time.Second) && global.Logger!=nil {
-		global.Logger.Warn("pending events did not finish before shutdown")
+	workersStopped := service.StopServiceWorkers(30*time.Second)
+	if !workersStopped && global.Logger != nil {
+		global.Logger.Warn("background workers did not finish before shutdown")
 	}
-	if global.DB!=nil {
+	if workersStopped && global.DB!=nil {
 		if connection,dbErr:=global.DB.DB();dbErr==nil {
 			if closeErr:=connection.Close();closeErr!=nil && global.Logger!=nil {
 				global.Logger.WithError(closeErr).Warn("database close failed")
@@ -225,6 +226,7 @@ func InitGlobal() {
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
 	service.StartAuditMaintenance()
+	service.StartSessionMaintenance()
 	service.StartNotificationWorker()
 	service.StartPushWorker()
 	service.StartClientBuildWorker()
@@ -340,6 +342,8 @@ func Migrate(version uint) {
 		&model.PushChannel{},
 		&model.PushDelivery{},
 		&model.PushPresence{},
+		&model.PushEventOutbox{},
+		&model.NotificationEventOutbox{},
 		&model.ClientBuildProfile{},
 		&model.ClientBuildTask{},
 		&model.PasswordResetToken{},
