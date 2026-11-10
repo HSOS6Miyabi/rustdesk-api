@@ -83,6 +83,10 @@ func (p *Peer) SysInfo(c *gin.Context) {
 			response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
 			return
 		}
+		service.PublishPushEvent(service.PushEvent{
+			Code:"device.registered", Reference:fmt.Sprintf("registration:%d",pe.RowId),
+			PeerRowID:pe.RowId, DeviceID:pe.Id, SourceIP:c.ClientIP(), UserID:pe.UserId,
+		})
 	} else {
 		if pe.UserId == 0 {
 			pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(pe.Uuid, pe.Id)

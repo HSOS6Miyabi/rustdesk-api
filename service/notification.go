@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/mail"
 	"sort"
+	"sync"
 	"strings"
 	"time"
 
@@ -15,6 +16,18 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+var notificationDeliveryWake = make(chan struct{}, 1)
+var notificationEvents = make(chan administrativeEvent, 1024)
+var notificationWorkerOnce sync.Once
+
+type administrativeEvent struct {
+	event, reference, description string
+}
+
+func wakeNotificationDelivery() {
+	select { case notificationDeliveryWake <- struct{}{}: default: }
+}
 
 var notificationEventNames = map[string]string{
 	"login.failure": "登录异常",
@@ -126,14 +139,17 @@ func QueueNotification(event, reference, description string) error {
 			return err
 		}
 	}
+	wakeNotificationDelivery()
 	return nil
 }
 
 // NotifyEvent records an optional alert without changing the result of the
 // originating operation when email delivery is unavailable.
 func NotifyEvent(event, reference, description string) {
-	if err := QueueNotification(event, reference, description); err != nil && Logger != nil {
-		Logger.WithError(err).Warn("unable to queue notification")
+	select {
+	case notificationEvents <- administrativeEvent{event, reference, description}:
+	default:
+		if Logger != nil { Logger.Warn("administrative notification buffer is full") }
 	}
 }
 
@@ -156,6 +172,7 @@ func RetryNotification(id uint) error {
 		Updates(map[string]interface{}{"status": "pending", "next_attempt_at": time.Now().Unix(), "attempts": 0, "last_error": ""})
 	if r.Error != nil { return r.Error }
 	if r.RowsAffected == 0 { return errors.New("delivery is not eligible for retry") }
+	wakeNotificationDelivery()
 	return nil
 }
 
@@ -172,8 +189,9 @@ func ProcessNotificationQueue(limit int) (int, error) {
 	if err != nil { return 0, err }
 	sent := 0
 	for _, row := range rows {
+		now = time.Now().Unix()
 		claim := DB.Model(&model.NotificationDelivery{}).
-			Where("id = ? AND status = ? AND attempts = ?", row.Id, row.Status, row.Attempts).
+			Where("id = ? AND status = ? AND attempts = ? AND locked_at = ?", row.Id, row.Status, row.Attempts, row.LockedAt).
 			Updates(map[string]interface{}{"status":"sending", "locked_at":now})
 		if claim.Error != nil { return sent, claim.Error }
 		if claim.RowsAffected != 1 { continue }
@@ -200,13 +218,14 @@ func ProcessNotificationQueue(limit int) (int, error) {
 }
 
 func StartNotificationWorker() {
-	go func() {
-		ticker := time.NewTicker(20*time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			if _, err := ProcessNotificationQueue(10); err != nil && Logger != nil {
-				Logger.WithError(err).Warn("notification email delivery stopped")
+	notificationWorkerOnce.Do(func() {
+		go func() {
+			for message := range notificationEvents {
+				if err := QueueNotification(message.event, message.reference, message.description); err != nil && Logger != nil {
+					Logger.WithError(err).Warn("unable to queue administrative notification")
+				}
 			}
-		}
-	}()
+		}()
+		startAdministrativeMailScheduler(notificationDeliveryWake)
+	})
 }

@@ -34,7 +34,7 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 	}
 	sort.Slice(keys,func(i,j int)bool{return keys[i]<keys[j]})
 	instructions:=make([]int32,0)
-	completed:=make([]string,0)
+	completed:=make([]model.DeviceDisconnectRequest,0)
 	err:=DB.Transaction(func(tx *gorm.DB) error {
 		if len(records)>0 {
 			if err:=tx.Clauses(clause.OnConflict{
@@ -59,7 +59,7 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 				if request.Status=="delivered" {
 					fields["status"]="completed"
 					fields["completed_at"]=now
-					completed=append(completed,fmt.Sprintf("%d:%s:%d",request.Id,request.DeviceId,request.ConnId))
+					completed=append(completed,request)
 				}
 				if err:=tx.Model(&request).Updates(fields).Error;err!=nil{return err}
 			default:
@@ -72,7 +72,15 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		return nil
 	})
 	if err!=nil{return nil,err}
-	for _,reference:=range completed {NotifyEvent("session.ended",reference,"远程会话已完成结束请求："+reference)}
+	for _,finished:=range completed {
+		reference:=fmt.Sprintf("%d:%s:%d",finished.Id,finished.DeviceId,finished.ConnId)
+		NotifyEvent("session.ended",reference,"远程会话已完成结束请求："+reference)
+		PublishPushEvent(PushEvent{
+			Code:"session.ended",Reference:reference,DeviceID:finished.DeviceId,
+			ConnID:int64(finished.ConnId),UserID:finished.RequestedBy,
+			Detail:"远程会话已按管理请求结束",
+		})
+	}
 	return instructions,nil
 }
 
@@ -98,7 +106,13 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 			Status:"pending",ExpiresAt:now+disconnectExpiresSeconds,
 		}).Error
 	})
-	if err==nil {NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))}
+	if err==nil {
+		NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))
+		PublishPushEvent(PushEvent{
+			Code:"session.disconnect_requested",Reference:fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),
+			DeviceID:deviceID,ConnID:int64(connID),UserID:requester,Detail:"管理员请求结束远程连接",
+		})
+	}
 	return err
 }
 

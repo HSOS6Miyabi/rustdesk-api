@@ -1,0 +1,71 @@
+name: Verify personal notifications and GeoIP
+
+on:
+  push:
+    branches:
+      - feat/messagepusher-event-notifications
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'service/push*.go'
+      - 'service/geoip.go'
+      - 'service/device_presence*.go'
+      - 'service/delivery_scheduler*.go'
+      - 'service/notification.go'
+      - 'http/controller/admin/push.go'
+      - 'resources/admin/**'
+      - 'resources/web2/**'
+      - 'model/push.go'
+      - 'cmd/apimain.go'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Go dependency metadata
+        run: go mod verify
+      - name: Verify Go source syntax and format the test workspace
+        run: gofmt -w service/push*.go service/geoip.go service/device_presence*.go service/delivery_scheduler*.go model/push.go http/controller/admin/push.go
+      - name: Run personal notification and GeoIP tests
+        run: go test ./... -count=1
+      - name: Check management console syntax and interactions
+        run: |
+          node --check resources/admin/app.js
+          node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
+      - name: Build the API server
+        run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium test framework
+        run: |
+          npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+          resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Test personal push settings and IP location display
+        run: node --test resources/admin/browser.e2e.cjs
+      - name: Store interface screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-push-geoip-screenshots
+          path: resources/admin/test-screenshots/
+          if-no-files-found: warn

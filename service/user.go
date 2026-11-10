@@ -259,6 +259,13 @@ func (us *UserService) Delete(u *model.User) error {
 		} {
 			if err := tx.Where("user_id = ?",u.Id).Delete(row).Error; err != nil { return err }
 		}
+
+		if tx.Migrator().HasTable(&model.PushDelivery{}) {
+			if err := tx.Where("user_id = ?",u.Id).Delete(&model.PushDelivery{}).Error; err != nil { return err }
+		}
+		if tx.Migrator().HasTable(&model.PushChannel{}) {
+			if err := tx.Where("user_id = ?",u.Id).Delete(&model.PushChannel{}).Error; err != nil { return err }
+		}
 		if err:=tx.Model(&model.UserInvitation{}).
 			Where("created_by = ? AND accepted_at = 0 AND revoked_at = 0",u.Id).
 			Update("revoked_at",time.Now().Unix()).Error;err!=nil{return err}

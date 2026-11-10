@@ -95,7 +95,9 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 			applyAuditConnParticipants(&row, from, to)
 			if row.Action == "" { row.Action = model.AuditActionNew }
 			if row.Action == model.AuditActionClose { row.CloseTime = time.Now().Unix() }
-			return tx.Create(&row).Error
+			if err := tx.Create(&row).Error; err != nil { return err }
+			event.Id = row.Id
+			return nil
 		}
 
 		changes := make(map[string]interface{})
@@ -118,7 +120,9 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		if previous.FromDeviceName == "" && from.DeviceName != "" { changes["from_device_name"] = from.DeviceName }
 		if previous.ToDeviceName == "" && to.DeviceName != "" { changes["to_device_name"] = to.DeviceName }
 		if len(changes) == 0 { return nil }
-		return tx.Model(&model.AuditConn{}).Where("id = ?", previous.Id).Updates(changes).Error
+		if err := tx.Model(&model.AuditConn{}).Where("id = ?", previous.Id).Updates(changes).Error; err != nil { return err }
+		if event.Action != "" { event.Id = previous.Id }
+		return nil
 	})
 }
 

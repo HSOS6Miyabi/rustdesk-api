@@ -54,10 +54,29 @@
       const result=await request("/shared_devices/list?page=1&page_size=100");
       login.hidden=true;
       info.textContent=result.total?"共 "+result.total+" 台共享设备":"暂无共享设备";
-      for(const item of result.list||[]){
+      const devices=result.list||[];
+      let statuses={};
+      if(devices.length){
+        try{
+          const details=await request("/geoip/lookup","POST",{
+            device_ids:[...new Set(devices.map(item=>String(item.id||"")).filter(Boolean))].slice(0,256)
+          });
+          statuses=details.device_status||{};
+        }catch{
+          statuses={};
+        }
+      }
+      for(const item of devices){
         const btn=document.createElement("button");btn.type="button";btn.className="device";
         const left=document.createElement("span");
-        const title=document.createElement("strong");title.textContent=item.alias||item.hostname||item.id||"未命名设备";
+        const title=document.createElement("strong");
+        const dot=document.createElement("span");
+        const online=statuses[item.id];
+        dot.className="device-status-dot "+(online===true?"online":online===false?"offline":"unknown");
+        dot.setAttribute("role","img");
+        dot.setAttribute("aria-label",online===true?"在线":online===false?"离线":"状态暂不可用");
+        dot.title=online===true?"在线":online===false?"离线":"状态暂不可用";
+        title.append(dot,document.createTextNode(item.alias||item.hostname||item.id||"未命名设备"));
         const sub=document.createElement("small");
         const sources=(item.sources||[]).map(x=>(x.type==="contact"?"联系人":"群组")+"："+x.name).join(" · ");
         sub.textContent=(item.id||"")+" · "+(item.owner_username||"")+" · "+sources;

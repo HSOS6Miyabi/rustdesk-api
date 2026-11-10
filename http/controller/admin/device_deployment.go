@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"time"
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
@@ -53,16 +54,34 @@ func (h *DeviceDeployment) SetStatus(c *gin.Context) {
 		response.Fail(c, 101, "无效的设备部署状态")
 		return
 	}
+	var before model.DeviceDeployment
+	if err := service.DB.Where("id = ?",request.Id).Take(&before).Error;err!=nil{
+		c.JSON(http.StatusNotFound,gin.H{"error":"设备部署记录不存在"})
+		return
+	}
+	if before.Status == request.Status {
+		response.Success(c,nil)
+		return
+	}
 	result := service.DB.Model(&model.DeviceDeployment{}).
-		Where("id = ?", request.Id).Update("status", request.Status)
+		Where("id = ? AND status = ?",request.Id,before.Status).
+		Update("status",request.Status)
 	if result.Error != nil {
-		response.Fail(c, 101, result.Error.Error())
+		response.Fail(c,101,result.Error.Error())
 		return
 	}
 	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "设备部署记录不存在"})
+		response.Fail(c,101,"设备部署状态已改变，请刷新后重试")
 		return
 	}
-	service.NotifyEvent("deployment.changed",fmt.Sprintf("deployment:%d:%s",request.Id,request.Status),fmt.Sprintf("部署记录 %d 的状态调整为 %s",request.Id,request.Status))
+	reference:=fmt.Sprintf("deployment:%d:%s:%d",request.Id,request.Status,time.Now().UnixNano())
+	service.NotifyEvent("deployment.changed",reference,fmt.Sprintf("部署记录 %d 的状态调整为 %s",request.Id,request.Status))
+	actor:=service.AllService.UserService.CurUser(c)
+	detail:="部署状态："+request.Status
+	if actor!=nil && actor.Id!=0 { detail+="；操作账户："+actor.Username }
+	service.PublishPushEvent(service.PushEvent{
+		Code:"deployment.changed",Reference:reference,
+		DeviceID:before.DeviceId,UserID:before.OwnerUserId,Detail:detail,
+	})
 	response.Success(c, nil)
 }

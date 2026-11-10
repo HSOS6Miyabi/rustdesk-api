@@ -285,3 +285,8 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
 ## 数据库和数据文件备份
 
 正式更新 API、Server 或 Docker 镜像之前，应同时备份数据库、Server 身份密钥、API 配置以及客户端构建文件。SQLite、MySQL、PostgreSQL 的备份和恢复命令见 [数据库备份恢复说明](DATABASE_BACKUP_RESTORE.md)。先在独立测试环境恢复并检查业务数据，再安排正式系统升级。
+
+
+## 个人消息推送及 GeoIP
+
+用户可自行配置 MessagePusher、SMTP 和 Server酱通知。若需显示 IP 地址对应的城市和地区，请放置 GeoLite2-City 数据库文件并配置 `RUSTDESK_API_GEOIP_DB`。完整说明见 [消息推送与 IP 地理位置](PUSH_NOTIFICATIONS.md)。

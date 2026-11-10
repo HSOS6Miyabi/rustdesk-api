@@ -291,6 +291,7 @@ func (d *DeviceCommands) Deploy(c *gin.Context) {
 		return
 	}
 	result := "OK"
+	var registeredRowID, registeredUserID uint
 	err := service.DB.Transaction(func(tx *gorm.DB) error {
 		var peer model.Peer
 		err := tx.Where("id = ?", f.Id).First(&peer).Error
@@ -340,9 +341,10 @@ func (d *DeviceCommands) Deploy(c *gin.Context) {
 		// A successful deployment also creates its inventory record, allowing
 		// the official --assign command to run before the next sysinfo upload.
 		if peer.RowId == 0 {
-			return tx.Create(&model.Peer{
-				Id: f.Id, Uuid: f.Uuid, UserId: ownerID,
-			}).Error
+			newPeer := &model.Peer{Id: f.Id, Uuid: f.Uuid, UserId: ownerID}
+			if err := tx.Create(newPeer).Error; err != nil { return err }
+			registeredRowID, registeredUserID = newPeer.RowId, ownerID
+			return nil
 		}
 		updates := map[string]interface{}{}
 		if peer.Uuid == "" {
@@ -360,6 +362,14 @@ func (d *DeviceCommands) Deploy(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"result": "SERVER_ERROR"})
 		return
+	}
+	if result == "OK" && registeredRowID != 0 {
+		service.PublishPushEvent(service.PushEvent{
+			Code: "device.registered",
+			Reference: fmt.Sprintf("registration:%d", registeredRowID),
+			PeerRowID: registeredRowID, DeviceID: f.Id, UserID: registeredUserID,
+			SourceIP: c.ClientIP(), Detail: "设备已完成受管理的部署登记",
+		})
 	}
 	c.JSON(http.StatusOK, gin.H{"result": result})
 }
