@@ -220,11 +220,7 @@ func processPushHeartbeat(event PushEvent) error {
 	if err != nil { return err }
 	if online {
 		wakePushPresence()
-		if persistedEvent != nil {
-			wakePushOutbox()
-			if err := processPushEvent(event); err != nil { return err }
-			return DB.Delete(persistedEvent).Error
-		}
+		if persistedEvent != nil { wakePushOutbox() }
 	}
 	return nil
 }
@@ -305,10 +301,7 @@ func ProcessPushPresenceTimeouts(limit int) error {
 			return nil
 		})
 		if err != nil { return err }
-		if !changed || persistedEvent == nil { continue }
-		wakePushOutbox()
-		if err := processPushEvent(event); err != nil { return err }
-		if err := DB.Delete(persistedEvent).Error; err != nil { return err }
+		if changed && persistedEvent != nil { wakePushOutbox() }
 	}
 	return nil
 }
@@ -320,22 +313,27 @@ func processPushEvent(event PushEvent) error {
 	participants := make([]uint, 0, 3)
 	if event.UserID == 0 && event.AccountUsername != "" {
 		var attempted model.User
-		if DB.Select("id").Where("username = ?", event.AccountUsername).Take(&attempted).Error == nil {
-			event.UserID = attempted.Id
-		}
+		err := DB.Select("id").Where("username = ?", event.AccountUsername).Take(&attempted).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return err }
+		if err == nil { event.UserID = attempted.Id }
 	}
 	if event.UserID != 0 { participants = append(participants, event.UserID) }
 	var peer model.Peer
-	if event.PeerRowID != 0 {
-		_ = DB.Where("row_id = ?", event.PeerRowID).Take(&peer).Error
-	} else if event.DeviceID != "" {
-		_ = DB.Where("id = ?", event.DeviceID).Order("last_online_time DESC, row_id DESC").Take(&peer).Error
+	if event.PeerRowID != 0 || event.DeviceID != "" {
+		var err error
+		if event.PeerRowID != 0 {
+			err = DB.Where("row_id = ?", event.PeerRowID).Take(&peer).Error
+		} else {
+			err = DB.Where("id = ?", event.DeviceID).Order("last_online_time DESC, row_id DESC").Take(&peer).Error
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return err }
 	}
 	if peer.RowId != 0 { event.target = &peer }
 	if peer.UserId != 0 { participants = append(participants, peer.UserId) }
 	if event.FromPeer != "" {
 		var source model.Peer
-		_ = DB.Where("id = ?", event.FromPeer).Order("last_online_time DESC, row_id DESC").Take(&source).Error
+		err := DB.Where("id = ?", event.FromPeer).Order("last_online_time DESC, row_id DESC").Take(&source).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return err }
 		if source.RowId != 0 { event.source = &source }
 		if source.UserId != 0 { participants = append(participants, source.UserId) }
 	}
@@ -344,8 +342,9 @@ func processPushEvent(event PushEvent) error {
 		if event.audit != nil {
 			audit = *event.audit
 		} else {
-			_ = DB.Where("peer_id = ? AND conn_id = ?", event.DeviceID, event.ConnID).
+			err := DB.Where("peer_id = ? AND conn_id = ?", event.DeviceID, event.ConnID).
 				Order("id DESC").Take(&audit).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return err }
 		}
 		if audit.Id != 0 {
 			event.audit = &audit
@@ -382,19 +381,21 @@ func pushLabel(peer model.Peer, id string) string {
 	return name + " (" + pushShort(id, 70) + ")"
 }
 
-func formatPushMessage(event PushEvent) (string, string) {
+func formatPushMessage(event PushEvent) (string, string, error) {
 	name := pushEventName(event.Code)
-	if name == "" { return "", "" }
+	if name == "" { return "", "", nil }
 	var target, source model.Peer
 	if event.target != nil {
 		target = *event.target
 	} else if event.DeviceID != "" {
-		_ = DB.Where("id = ?", event.DeviceID).Order("last_online_time DESC, row_id DESC").Take(&target).Error
+		err := DB.Where("id = ?", event.DeviceID).Order("last_online_time DESC, row_id DESC").Take(&target).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return "", "", err }
 	}
 	if event.source != nil && event.source.Id == event.FromPeer {
 		source = *event.source
 	} else if event.FromPeer != "" {
-		_ = DB.Where("id = ?", event.FromPeer).Order("last_online_time DESC, row_id DESC").Take(&source).Error
+		err := DB.Where("id = ?", event.FromPeer).Order("last_online_time DESC, row_id DESC").Take(&source).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return "", "", err }
 	}
 	userIDs := make([]uint, 0, 3)
 	for _, id := range []uint{event.UserID, target.UserId, source.UserId} {
@@ -403,9 +404,10 @@ func formatPushMessage(event PushEvent) (string, string) {
 	userNames := make(map[uint]string, len(userIDs))
 	if len(userIDs) != 0 {
 		var accounts []model.User
-		if DB.Select("id", "username").Where("id IN ?", userIDs).Find(&accounts).Error == nil {
-			for _, account := range accounts { userNames[account.Id] = account.Username }
+		if err := DB.Select("id", "username").Where("id IN ?", userIDs).Find(&accounts).Error; err != nil {
+			return "", "", err
 		}
+		for _, account := range accounts { userNames[account.Id] = account.Username }
 	}
 	targetLabel := pushLabel(target, event.DeviceID)
 	sourceLabel := pushLabel(source, event.FromPeer)
@@ -450,8 +452,14 @@ func formatPushMessage(event PushEvent) (string, string) {
 	if event.ConnID != 0 { appendField("连接编号", strconv.FormatInt(event.ConnID, 10)) }
 	if strings.HasPrefix(event.Code, "connection.") && event.ConnID != 0 {
 		var audit model.AuditConn
-		if DB.Where("peer_id = ? AND conn_id = ?", event.DeviceID, event.ConnID).
-			Order("id DESC").Take(&audit).Error == nil {
+		if event.audit != nil {
+			audit = *event.audit
+		} else {
+			err := DB.Where("peer_id = ? AND conn_id = ?", event.DeviceID, event.ConnID).
+				Order("id DESC").Take(&audit).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { return "", "", err }
+		}
+		if audit.Id != 0 {
 			appendField("连接方登录名称", audit.FromName)
 			appendField("会话编号", audit.SessionId)
 			appendField("连接关联编号", audit.ConnAuditRef)
@@ -469,5 +477,5 @@ func formatPushMessage(event PushEvent) (string, string) {
 		if len(r) > 2500 { r = r[:2500] }
 		body = string(r)
 	}
-	return pushShort(title, 245), body
+	return pushShort(title, 245), body, nil
 }

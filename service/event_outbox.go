@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -68,6 +69,13 @@ func persistNotificationEvent(event, reference, description string) error {
 // ProcessPushEventOutbox is idempotent because delivery rows have a unique
 // channel/event key. A crash between creating deliveries and deleting the
 // outbox record can safely cause the record to be processed again.
+// A successful prefix is removed even when processing the next item fails.
+// An unfinished event remains available for the next retry.
+func deleteProcessedOutboxRows(table interface{}, ids []uint) error {
+	if len(ids) == 0 { return nil }
+	return DB.Where("id IN ?", ids).Delete(table).Error
+}
+
 func ProcessPushEventOutbox(limit int) (int, error) {
 	if DB == nil { return 0, nil }
 	if limit <= 0 || limit > 100 { limit = 20 }
@@ -75,15 +83,20 @@ func ProcessPushEventOutbox(limit int) (int, error) {
 	if err := DB.Order("id ASC").Limit(limit).Find(&rows).Error; err != nil {
 		return 0, err
 	}
+	processed := make([]uint, 0, len(rows))
+	var processErr error
 	for _, row := range rows {
 		var event PushEvent
-		if err := json.Unmarshal([]byte(row.Payload), &event); err != nil {
-			return 0, err
-		}
-		if err := processPushEvent(event); err != nil { return 0, err }
-		if err := DB.Delete(&row).Error; err != nil { return 0, err }
+		if processErr = json.Unmarshal([]byte(row.Payload), &event); processErr != nil { break }
+		// Persist a stable reference for event types that lack a source ID.
+		if event.Reference == "" { event.Reference = fmt.Sprintf("outbox:%d", row.Id) }
+		if processErr = processPushEvent(event); processErr != nil { break }
+		processed = append(processed, row.Id)
 	}
-	return len(rows), nil
+	if err := deleteProcessedOutboxRows(&model.PushEventOutbox{}, processed); err != nil {
+		return 0, err
+	}
+	return len(processed), processErr
 }
 
 func ProcessNotificationEventOutbox(limit int) (int, error) {
@@ -93,13 +106,16 @@ func ProcessNotificationEventOutbox(limit int) (int, error) {
 	if err := DB.Order("id ASC").Limit(limit).Find(&rows).Error; err != nil {
 		return 0, err
 	}
+	processed := make([]uint, 0, len(rows))
+	var processErr error
 	for _, row := range rows {
-		if err := QueueNotification(row.Event, row.Reference, row.Description); err != nil {
-			return 0, err
-		}
-		if err := DB.Delete(&row).Error; err != nil { return 0, err }
+		if processErr = QueueNotification(row.Event, row.Reference, row.Description); processErr != nil { break }
+		processed = append(processed, row.Id)
 	}
-	return len(rows), nil
+	if err := deleteProcessedOutboxRows(&model.NotificationEventOutbox{}, processed); err != nil {
+		return 0, err
+	}
+	return len(processed), processErr
 }
 
 func startEventOutboxWorker(ctx context.Context, wake <-chan struct{},

@@ -326,7 +326,8 @@ func TestPresenceTransitionRetainsEventUntilDeliveryIsRecorded(t *testing.T) {
 		Code: "device.heartbeat", DeviceID: peer.Id,
 		PeerRowID: peer.RowId, When: time.Now(),
 	}
-	if err := processPushEvent(event); err == nil {
+	if err := processPushEvent(event); err != nil { t.Fatal(err) }
+	if _, err := ProcessPushEventOutbox(20); err == nil {
 		t.Fatal("missing delivery table should interrupt notification processing")
 	}
 	var count int64
