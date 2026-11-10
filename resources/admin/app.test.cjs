@@ -48,6 +48,10 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
     "/notification/settings": {settings:{enabled:true,recipients:"team@example.test",events:"login.failure,audit.file"},catalog:["login.failure","audit.file"]},
     "/notification/list": {list:[{id:4,event_type:"audit.file",recipient:"team@example.test",status:"failed",attempts:3,last_error:"SMTP unreachable"}],total:1},
+    "/geoip/lookup": {locations:{"10.0.0.5":"局域网地址","127.0.0.1":"本地回环地址","192.0.2.1":"位置未知"},database_ready:false},
+    "/push/events": [{code:"device.online",name:"设备上线"},{code:"device.offline",name:"设备离线"},{code:"connection.started",name:"远程连接建立"}],
+    "/push/channels": {list:[{id:11,kind:"messagepusher",name:"我的通知",enabled:true,events:["device.online","connection.started"],base_url:"https://push.example.test",api_key_configured:true}]},
+    "/push/history": {list:[{id:21,channel_id:11,title:"[RustDesk · 设备上线] 办公室电脑",event_type:"device.online",attempts:1,status:"sent",created_at:1710000000}],total:1},
     "/client_builder/profiles": {list:[{
       id:2,name:"Office installer",platform:"windows-x64",version:"1.5.1",
       host:"desk.example.com:21116",public_key:"AA==",api_server:"https://desk.example.com",
@@ -562,4 +566,44 @@ test("visual client builder shows official Windows configurations, tasks and dow
   assert.match(admin.root.innerHTML,/desk.example.com:21116/);
   await admin.action("client-new");
   assert.match(admin.root.innerHTML,/新建配置/);
+});
+
+
+test("personal users can configure MessagePusher, SMTP and Server酱 notifications",async()=>{
+  const app=createConsole();
+  await app.settle();
+  await app.settle();
+  assert.match(app.root.innerHTML,/消息推送/);
+  await app.open("push");
+  assert.ok(app.calls.some(x=>x.endpoint==="/push/channels"));
+  assert.ok(app.calls.some(x=>x.endpoint==="/push/events"));
+  assert.ok(app.calls.some(x=>x.endpoint==="/push/history"));
+  assert.match(app.root.innerHTML,/MessagePusher/);
+  assert.match(app.root.innerHTML,/SMTP 邮件/);
+  assert.match(app.root.innerHTML,/Server酱 Turbo/);
+  assert.match(app.root.innerHTML,/设备上线/);
+  assert.match(app.root.innerHTML,/连接建立/);
+  assert.match(app.root.innerHTML,/我的通知/);
+  assert.match(app.root.innerHTML,/发送记录/);
+  await app.action("push-edit",11);
+  assert.match(app.root.innerHTML,/留空保持不变/);
+  assert.doesNotMatch(app.root.innerHTML,/mpk_example-secret/);
+  await app.action("push-new");
+  assert.match(app.root.innerHTML,/添加推送渠道/);
+});
+
+test("login history and device IP addresses show parenthetical GeoIP locations",async()=>{
+  const app=createConsole();
+  app.fixtures["/my/login_log/list"]={list:[{id:5,client:1,ip:"10.0.0.5",created_at:1710000000}],total:1};
+  app.fixtures["/my/peer/list"]={list:[{id:"office",row_id:6,hostname:"办公室电脑",last_online_ip:"127.0.0.1"}],total:1};
+  await app.settle();
+  await app.settle();
+  await app.open("myloginlogs");
+  assert.ok(app.calls.some(x=>x.endpoint==="/geoip/lookup"&&x.method==="POST"));
+  assert.match(app.root.innerHTML,/10\.0\.0\.5/);
+  assert.match(app.root.innerHTML,/（局域网地址）/);
+  await app.open("devices");
+  assert.match(app.root.innerHTML,/最近上线 IP/);
+  assert.match(app.root.innerHTML,/127\.0\.0\.1/);
+  assert.match(app.root.innerHTML,/（本地回环地址）/);
 });
