@@ -1,8 +1,8 @@
 # RustDesk API 与 Server 全部工作事项及测试记录
 
-记录日期：2026 年 11 月 10 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 和 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `development/m1-device-management` 分支。详细实施历史见 [统一实施台账](IMPLEMENTATION_LEDGER.md)；本文件负责逐项登记 T001–T022 的检查范围、已完成工作、剩余条件及最终完成判断。
+记录日期：2026 年 11 月 10 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 的 `master` 分支及 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `forapi` 分支。详细实施记录见[统一实施台账](IMPLEMENTATION_LEDGER.md)。本文逐项记录 T001–T022 的检查范围、已完成工作、实际环境条件与结果。
 
-当前 API 数据库版本为 **282**。两个开发 PR 分别为 [API #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 和 [Server #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)，均保持草稿状态。正式发布须另行获得维护者明确确认。
+API 数据库版本为 **282**。已合并 [API PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 与 [Server PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)，正式发布 [API v3.0.0-api.103](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.103) 和 [Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。
 
 ## 状态说明与测试记录
 
@@ -119,19 +119,19 @@ Server 脚本：`scripts/test_native_stack.py`、`scripts/test_container_image.p
 
 ### T011：里程碑发布前构建预演
 
-**当前状态：自动化预演已完成。**
+**当前状态：跨架构预演、正式发行文件构建和 Docker 镜像发布均已完成。**
 
 Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构建配套 API 和 Server，运行普通进程及 Docker 服务检查，不创建 Release，也不推送正式镜像。
 
-**完成条件：** 两个架构的构建、启动、WebClient 和数据保持检查通过，并确认未触发发布。本项自动化部分已经满足。
+**完成条件：** 已在 AMD64 和 ARM64 上通过构建、启动、WebClient 和数据保存检查；正式发行文件与容器镜像已经生成。
 
 ### T012：正式里程碑核查与批准
 
-**当前状态：统一台账、功能清单、测试结果及草稿 PR 已更新；需要完成剩余 P0 实际环境检查和维护者明确批准。**
+**当前状态：维护者已批准在现有测试条件下发布，两个 PR 已合并；GitHub Release、双架构 Docker 镜像和配套版本均已确认。真实设备与外部服务检查继续保留。**
 
-实际发布前应确认 T001–T010 的剩余操作均有结果，并再次检查两个分支的最新提交、GitHub Actions、数据库版本及安装文件。发布工作流只允许在维护者确认后通过 `v*` 标签及 `milestone_release` 明确启用。
+本次发行已经核查两个版本的源代码提交、GitHub Actions、数据库版本与发行文件。后续具备实际设备、外部邮箱和业务数据库的测试条件时，继续完成 T001–T010 中相应的实际环境检查。
 
-**完成条件：** 维护者确认真实环境测试及发布内容，并明确批准正式版本。批准前两个 PR 保持草稿，不合并或发布。
+**完成条件：** 本阶段的维护者批准、合并与正式版本发布已经完成；需要真实运行环境的测试继续按任务记录执行。
 
 ### T013：客户端安装文件制作
 
@@ -223,7 +223,6 @@ Server 的 `src/geoip_country.rs` 支持两种格式，优先查询 MMDB，未�
 | 至少两个不同地区的公网中继节点和已获授权的正式 GeoLite2 Country 数据 | T005 | 地区中继选择、重载与故障替代 |
 | 配置好的实际 SMTP 服务、测试域名和可接收邮件的账户 | T007、T019 | 真实发件、收件、邀请及密码恢复 |
 | 业务数据的受保护备份、独立恢复环境以及部署机器的运行权限 | T006、T008 | 实际数据库和安装文件恢复、系统重启后数据保持 |
-| 维护者对发布内容和剩余风险的明确批准 | T012 | 最终发布授权 |
 
 相关资源尚未提供给此开发会话时，仍可继续修正代码、扩充自动化检查和维护台账；上述项目的实际环境结果必须在执行之后登记，不能预先写为完成。
 
@@ -231,4 +230,4 @@ Server 的 `src/geoip_country.rs` 支持两种格式，优先查询 MMDB，未�
 
 以后每次执行 P0 任务，至少登记：**任务编号、执行日期、API 提交、Server 提交、客户端版本及操作系统、测试网络、启用配置、执行步骤、预期结果、实际结果、关联的 GitHub Actions 或测试截图、是否需要修改代码及复查状态**。敏感信息一律删除或遮蔽。
 
-新的自动化检查通过后更新本文件和统一实施台账；如果需要修正代码，应在两个相应分支完成修改和重新测试。两个 PR 在维护者确认正式里程碑前继续保持草稿。
+新增自动化测试通过后更新本文件和统一实施台账；功能代码发生变化时，在相应分支完成修改和复查。以后创建新的正式发行版本仍需维护者批准。

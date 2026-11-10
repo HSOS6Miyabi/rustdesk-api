@@ -14,24 +14,24 @@
 2. **保持默认安装简单。** 预先登记设备、服务器强制登录、集中连接访问检查、TOTP、邮箱登录验证码、托管中继和控制角色均保留可选设置。
 3. **不得破坏已有数据。** 数据库修改使用版本迁移；升级前备份，重要修改同时验证 SQLite、MySQL 和 PostgreSQL。
 4. **每次功能修改都完成代码、测试和文档。** 测试未通过时继续修正。每项任务必须记录修改位置、测试命令和实际结果。
-5. **没有完成并确认里程碑前严禁发布。** 日常提交和草稿 PR 仅进行测试，不创建 Release、不更新正式发行镜像、不合并到默认分支。
+5. **正式发行需要维护者批准。** 已完成的里程碑按批准的版本发布。日常开发继续使用测试工作流，新版本应核查兼容性并取得批准后发行。
 
-### 2. 接手时的准确仓库状态
+### 2. 已发布版本与当前仓库状态
 
 | 项目 | API | RustDesk Server |
 | --- | --- | --- |
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
-| 开发分支 | `development/m1-device-management` | `development/m1-device-management` |
+| 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 最近通过自动测试的代码提交 | [`48eba268f4808f53cadbab4d6ca69d299d841b3d`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/48eba268f4808f53cadbab4d6ca69d299d841b3d) | [`5b0b33500706f47d8885fffed13f3d56c1712b15`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/5b0b33500706f47d8885fffed13f3d56c1712b15) |
-| 开发拉取请求 | [草稿 PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [草稿 PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 综合 CI 检查 | [42670400984：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) | [42669744309：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744309) |
-| 最近已发布的预发布版本 | `v3.0.0-api.102`（2026-11-08） | `v1.1.17-api.20`（2026-11-08） |
-| 里程碑发布 | 未执行 | 未执行 |
+| 已发行版本提交 | [`a6d338821cfba2daffa34f9cc3b06605ea1edf03`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a6d338821cfba2daffa34f9cc3b06605ea1edf03) | [`2d0896ecea4cf147f6fb4d2cdadf3278ab390851`](https://github.com/HSOS6Miyabi/rustdesk-server/commit/2d0896ecea4cf147f6fb4d2cdadf3278ab390851) |
+| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
+| 正式发行工作流 | [42689275371：成功](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42689275371) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
+| 正式 Release | [v3.0.0-api.103](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.103) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 里程碑发布 | 已完成 | 已完成 |
 
-以上是已通过完整自动化测试的功能代码提交。文档修改可以产生更新的分支提交；部署时应同时查看两仓库分支最新提交、对应的 CI 结果和本台账记录。**API 与 Server 开发分支必须配合部署，不能直接把未发布的 API 功能与旧版 Server 混用并假定兼容。**
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；组合 Docker 镜像采用 Server v1.1.17-api.21 与 API v3.0.0-api.103。
 
-当前 API 数据库迁移版本：**282**。当前状态：代码仍在草稿 PR 内，没有合并，没有发行新版本，也没有更新正式发行镜像。
+当前 API 数据库迁移版本：**282**。两个 PR 已合并；GitHub Release、正式容器镜像和多架构镜像清单已经发布。
 
 CI 已实际通过的内容：
 
@@ -82,8 +82,8 @@ CI 已实际通过的内容：
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 桌面、平板和手机交互及截图检查通过；手机导航布局已检查；实际环境管理员操作待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
 | T010 | P0 | 官方 1.5.1 多系统启动和 Android 模拟器测试通过，Linux 客户端与实际 API 的部署、分配通过；真实登录及多版本远程连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
-| T011 | P0 | 已完成自动化预演 | 对正式发布工作流执行一次仅构建和部署检查的预演，验证跨架构可执行文件和 Docker 镜像启动 | 构建包与镜像可以运行，且在正式确认前不推送 Release 或正式镜像 |
-| T012 | P0 | 待执行 | 汇总所有 P0 结果，更新功能清单和两个仓库的兼容版本，提交正式里程碑审核 | 未完成项目均明确标注，里程碑经维护者确认后才可发布 |
+| T011 | P0 | 自动化预演及正式版本构建均已成功 | 检查跨架构可执行文件、GitHub Release、Docker 镜像启动和文件上传 | 本阶段发行文件和镜像已生成并完成自动化检查 |
+| T012 | P0 | 维护者已批准，两个仓库已合并并完成正式发布 | 保存已发布版本和自动化测试记录，继续维护实际环境检查项目 | 当前发行版本与两个仓库的组合关系已经核对 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
 | T014 | P1 | 严格登记模式的心跳许可、设备所有者一致性、策略撤销与界面自动测试通过；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
@@ -193,18 +193,18 @@ python3 scripts/test_connection_access.py target/debug/hbbs
 
 ### 9. 里程碑和发布控制
 
-目前首个里程碑**尚未正式确认完成**。当前两个草稿 PR 的成功 CI 是开发检查结果，不意味着已经批准发布。
+首个里程碑已由维护者批准并完成版本发布。项目继续保留尚需实际设备和外部服务检查的任务，测试结果按任务编号补充。
 
-发布之前依次完成：
+以后发布新版本时执行：
 
 1. 将 P0 任务的结果写入本台账；未完成时说明原因及影响。
 2. 固定两仓库相互兼容的提交和客户端测试版本。
 3. 更新 [FEATURE_MATRIX.md](FEATURE_MATRIX.md)、[UPGRADE.md](UPGRADE.md) 和部署文档。
 4. 备份正式数据库并完成迁移、回退及普通进程与 Docker 部署检查。
 5. 获取维护者对里程碑完成及版本编号的明确确认。
-6. 仅在相应 `v*` 版本标签上手动运行 GitHub Actions，选择 `milestone_release`，再创建 Release 和正式镜像。
+6. 使用相应的 `v*` 版本标签和经确认的发行工作流创建 Release 与正式镜像；核对两种 CPU 架构与镜像版本。
 
-当前工作流的发布任务具有 `workflow_dispatch`、`milestone_release` 和 `v*` 标签条件。不要在日常开发中触发发布，也不要使用合并或自动提交绕过上述条件。
+正式发行通过 `workflow_dispatch`、`milestone_release` 和 `v*` 标签确认。日常开发无需运行发行任务。
 
 ### 10. 接手人员开始工作的顺序
 
@@ -213,7 +213,7 @@ python3 scripts/test_connection_access.py target/debug/hbbs
 3. 运行第 8 节所列测试；若当前环境没有真实客户端或生产数据库，则明确记录尚未执行的检查。
 4. 优先认领第 4 节 P0 项目，其后依使用需求推进 P1；可以把每个任务编号写入 PR 描述或 Issue。
 5. 实现新功能时，在相应功能模块增加自动化测试，实际运行并核查结果；更新本节功能表、待办状态、提交与 CI 链接。
-6. 保持两仓库草稿 PR，直到满足第 9 节的里程碑发布条件。
+6. 后续功能修改通过新的 PR 和自动化测试检查；下一版本继续依照第 9 节的发行程序处理。
 
 **本次交接不包含**真实 SMTP 凭据、数据库密码、JWT 密钥或 GeoLite2 授权资料。接手人员需要从部署环境的合法管理者处获取这些配置。
 

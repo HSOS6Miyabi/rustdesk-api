@@ -29,7 +29,7 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 
 ## 发布
 
-普通提交与标签推送仅运行验证工作流。常规里程碑发布在 `v*` 标签上手动启动 GitHub Actions，并启用 `milestone_release`。2026 年 11 月本次发行已获得维护者批准，合并到 `master` 时使用专用发行标识触发一次正式发布；以后的普通提交不会自动发布。
+普通提交与标签推送仅运行验证工作流。常规里程碑发布在 `v*` 标签上手动启动 GitHub Actions，并启用 `milestone_release`。2026 年 11 月的批准发行已经完成，正式版本为 `v3.0.0-api.103`；以后普通提交仍只运行检查，新的发行版本需要再次批准。
 
 发布前检查配置文件中的端口及 JWT 密钥设置，并备份正式环境数据库。
 
@@ -68,8 +68,8 @@ WebClient 同时支持 WebSocket 中继和 WebRTC。WebSocket 收到消息后直
 
 ## 2026 年 11 月里程碑发行
 
-本次发行版本为 `v3.0.0-api.103`，使用 GitHub Actions 构建 Linux AMD64、Linux ARM64 与 Windows AMD64 安装文件，创建 GitHub Release，并发布 `ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.103` 和 `latest` 多架构 Docker 镜像。只有经维护者批准、包含专用发行标识的合并提交才会启动本次自动发布。
+正式发行版本 `v3.0.0-api.103` 已构建 Linux AMD64、Linux ARM64 与 Windows AMD64 文件，GitHub Release 已发布，`ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.103` 和 `latest` 已生成包含 AMD64、ARM64 的 Docker 镜像。
 
-Server `v1.1.17-api.21` 的组合 Docker 镜像引用本次 API 镜像。应先检查 API 的 Release、镜像及两个平台的容器运行状态，再发布 Server 的相应版本。
+Server `v1.1.17-api.21` 的组合 Docker 镜像引用本次 API 镜像。Server 的对应版本也已发布，两个仓库的发行工作流和镜像构建检查均已完成。
 
 已有 Go、浏览器、WebRTC、数据库和客户端自动化测试均应通过。两台实际设备的远程控制、不同系统的账户登录、真实 SMTP、跨地区公网中继及业务数据库恢复仍需具备相应环境后检查，具体内容保留在 [逐项任务记录](TASK_VERIFICATION_RECORD.md)。

@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **交接入口：[最新开发交接快照](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[统一实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 逐项测试记录](docs/TASK_VERIFICATION_RECORD.md)。** 当前功能位于两个仓库的 `development/m1-device-management` 开发分支，正式里程碑尚未确认，日常提交不发布 Release。
+> **版本与维护资料：** [版本说明](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 检查记录](docs/TASK_VERIFICATION_RECORD.md)。正式版本：[RustDesk API v3.0.0-api.103](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.103)、[RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。API 与 Server 的主分支代码已经合并，两个版本的 Linux AMD64、ARM64 Docker 镜像已经发布。Server 组合镜像使用 API v3.0.0-api.103。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
