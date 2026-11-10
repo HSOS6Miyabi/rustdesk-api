@@ -9,7 +9,6 @@ type PushChannel struct {
 	Name               string `json:"name" gorm:"size:100;not null"`
 	Enabled            bool   `json:"enabled" gorm:"not null;default:false"`
 	Events             string `json:"events" gorm:"type:text;not null"`
-	GeoIPEnabled       bool   `json:"geoip_enabled" gorm:"not null;default:false"`
 	BaseURL            string `json:"base_url" gorm:"size:512;not null;default:''"`
 	KeyCiphertext      string `json:"-" gorm:"type:text;not null"`
 	SMTPHost           string `json:"smtp_host" gorm:"size:253;not null;default:''"`

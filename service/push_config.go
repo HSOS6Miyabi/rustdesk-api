@@ -48,7 +48,6 @@ type PushChannelInput struct {
 	Name          string   `json:"name"`
 	Enabled       bool     `json:"enabled"`
 	Events        []string `json:"events"`
-	GeoIPEnabled  bool     `json:"geoip_enabled"`
 	BaseURL       string   `json:"base_url"`
 	APIKey        string   `json:"api_key"`
 	ClearAPIKey   bool     `json:"clear_api_key"`
@@ -68,7 +67,6 @@ type PublicPushChannel struct {
 	Name               string   `json:"name"`
 	Enabled            bool     `json:"enabled"`
 	Events             []string `json:"events"`
-	GeoIPEnabled       bool     `json:"geoip_enabled"`
 	BaseURL            string   `json:"base_url"`
 	APIKeyConfigured   bool     `json:"api_key_configured"`
 	SMTPHost           string   `json:"smtp_host"`
@@ -160,7 +158,7 @@ func publicPushChannel(row *model.PushChannel) PublicPushChannel {
 	}
 	return PublicPushChannel{
 		Id: row.Id, Kind: row.Kind, Name: row.Name, Enabled: row.Enabled, Events: events,
-		GeoIPEnabled: row.GeoIPEnabled, BaseURL: row.BaseURL,
+		BaseURL: row.BaseURL,
 		APIKeyConfigured: row.KeyCiphertext != "", SMTPHost: row.SMTPHost,
 		SMTPPort: row.SMTPPort, SMTPSecurity: row.SMTPSecurity,
 		SMTPUsername: row.SMTPUsername, PasswordConfigured: row.SMTPPasswordCipher != "",
@@ -206,7 +204,6 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 	record := model.PushChannel{
 		IdModel: model.IdModel{Id: input.Id}, UserId: userID, Kind: input.Kind,
 		Name: input.Name, Enabled: input.Enabled, Events: strings.Join(events, ","),
-		GeoIPEnabled: input.GeoIPEnabled,
 	}
 	if len(input.APIKey) > 512 || len(input.SMTPPassword) > 1024 ||
 		strings.ContainsAny(input.APIKey + input.SMTPPassword, "\r\n") {
@@ -261,7 +258,7 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 		err = DB.Model(&model.PushChannel{}).Where("id = ? AND user_id = ?", input.Id, userID).
 			Updates(map[string]interface{}{
 				"name":record.Name, "enabled":record.Enabled, "events":record.Events,
-				"geo_ip_enabled":record.GeoIPEnabled, "base_url":record.BaseURL,
+				"base_url":record.BaseURL,
 				"key_ciphertext":record.KeyCiphertext, "smtp_host":record.SMTPHost,
 				"smtp_port":record.SMTPPort, "smtp_security":record.SMTPSecurity,
 				"smtp_username":record.SMTPUsername, "smtp_password_cipher":record.SMTPPasswordCipher,

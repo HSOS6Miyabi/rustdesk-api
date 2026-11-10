@@ -54,7 +54,7 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 		}
 		for _, channel := range channels {
 			if !pushSubscribed(&channel, event.Code) { continue }
-			title, body := formatPushMessage(event, channel.GeoIPEnabled)
+			title, body := formatPushMessage(event)
 			if title == "" { continue }
 			key := event.Reference
 			if key == "" { key = fmt.Sprintf("%d:%d", now, time.Now().UnixNano()) }

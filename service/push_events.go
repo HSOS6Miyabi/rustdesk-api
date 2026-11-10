@@ -188,7 +188,7 @@ func pushLabel(peer model.Peer, id string) string {
 	return name + " (" + pushShort(id, 70) + ")"
 }
 
-func formatPushMessage(event PushEvent, includeGeo bool) (string, string) {
+func formatPushMessage(event PushEvent) (string, string) {
 	name := pushEventName(event.Code)
 	if name == "" { return "", "" }
 	var target, source model.Peer
@@ -205,6 +205,9 @@ func formatPushMessage(event PushEvent, includeGeo bool) (string, string) {
 	if sourceLabel != "" && strings.HasPrefix(event.Code, "connection.") {
 		title += " ← " + sourceLabel
 	}
+	if event.SourceIP != "" && len([]rune(title)) < 160 {
+		title += " · " + pushShort(event.SourceIP, 42) + "（" + GeoIPDescription(event.SourceIP) + "）"
+	}
 	lines := make([]string, 0, 20)
 	appendField := func(key, value string) {
 		value = pushText(value)
@@ -214,13 +217,7 @@ func formatPushMessage(event PushEvent, includeGeo bool) (string, string) {
 	appendField("设备", targetLabel)
 	if event.FromPeer != "" { appendField("连接方设备", sourceLabel) }
 	ip := pushText(event.SourceIP)
-	if ip != "" {
-		line := ip
-		if includeGeo {
-			if where := localPushGeoIP(ip); where != "" { line += " · " + where }
-		}
-		appendField("来源 IP", line)
-	}
+	if ip != "" { appendField("来源 IP", ip+"（"+GeoIPDescription(ip)+"）") }
 	if event.UserID != 0 {
 		var user model.User
 		if DB.Select("id,username").Where("id = ?", event.UserID).Take(&user).Error == nil {
@@ -245,11 +242,7 @@ func formatPushMessage(event PushEvent, includeGeo bool) (string, string) {
 	appendField("操作系统", target.Os)
 	appendField("客户端版本", target.Version)
 	if target.LastOnlineIp != "" && target.LastOnlineIp != ip {
-		detail := target.LastOnlineIp
-		if includeGeo {
-			if where := localPushGeoIP(detail); where != "" { detail += " · " + where }
-		}
-		appendField("设备最近 IP", detail)
+		appendField("设备最近 IP", target.LastOnlineIp+"（"+GeoIPDescription(target.LastOnlineIp)+"）")
 	}
 	appendField("连接方主机名", source.Hostname)
 	appendField("连接方系统用户", source.Username)
