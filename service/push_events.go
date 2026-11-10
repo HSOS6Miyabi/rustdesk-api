@@ -93,10 +93,15 @@ func PublishPushEvent(event PushEvent) {
 	if event.Code!="device.heartbeat" && !hasPushSubscription(event.Code) {return}
 	if event.When.IsZero() { event.When = time.Now() }
 	worker := pushEventShards[pushEventShard(event)]
+	pendingPushEvents.Add(1)
 	select {
 	case worker <- event:
 	default:
-		if Logger != nil { Logger.Warn("push event buffer is full") }
+		// Preserve events even when an individual shard reaches capacity.
+		if err:=processPushEvent(event);err!=nil && Logger!=nil {
+			Logger.WithError(err).Warn("push event processing error")
+		}
+		pendingPushEvents.Done()
 	}
 }
 
@@ -122,9 +127,12 @@ func startPushEventWorker() {
 		events := pushEventShards[i]
 		go func() {
 			for event := range events {
-				if err := processPushEvent(event); err != nil && Logger != nil {
-					Logger.WithError(err).Warn("push event processing error")
-				}
+				func(){
+					defer pendingPushEvents.Done()
+					if err := processPushEvent(event); err != nil && Logger != nil {
+						Logger.WithError(err).Warn("push event processing error")
+					}
+				}()
 			}
 		}()
 	}
@@ -134,9 +142,21 @@ func startPushEventWorker() {
 // The first authenticated heartbeat and every offline-to-online change
 // generate an event. Subsequent heartbeats only refresh the last-seen time.
 func processPushHeartbeat(event PushEvent) error {
-	if event.PeerRowID == 0 { return nil }
+	if event.PeerRowID == 0 || DB == nil { return nil }
 	now := event.When.Unix()
 	if now == 0 { now = time.Now().Unix() }
+	// The common online heartbeat only needs one conditional update. First
+	// sightings and offline-to-online changes retain transactional handling.
+	update:=DB.Model(&model.PushPresence{}).
+		Where("peer_row_id = ? AND online = ? AND last_seen_at <= ?",
+			event.PeerRowID,true,now).
+		Updates(map[string]interface{}{
+			"device_id":event.DeviceID,
+			"last_seen_at":now,
+			"last_ip":event.SourceIP,
+		})
+	if update.Error!=nil {return update.Error}
+	if update.RowsAffected==1 {return nil}
 	online := false
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var old model.PushPresence
