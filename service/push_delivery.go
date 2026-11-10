@@ -28,10 +28,12 @@ import (
 
 const pushMaxAttempts = 5
 
-var pushDeliveryWake = make(chan struct{}, 1)
+var pushDeliveryWake = make(chan struct{}, 2)
 
 func wakePushDelivery() {
-	select { case pushDeliveryWake <- struct{}{}: default: }
+	for i := 0; i < 2; i++ {
+		select { case pushDeliveryWake <- struct{}{}: default: }
+	}
 }
 
 func eventHash(reference string) string {
@@ -253,6 +255,8 @@ func ProcessPushQueue(limit int) (int, error) {
 		Order("id ASC").Limit(limit).Find(&rows).Error; err != nil { return 0, err }
 	sent := 0
 	for _, row := range rows {
+		// Each claim starts its own lease after the preceding network request.
+		now = time.Now().Unix()
 		claim := DB.Model(&model.PushDelivery{}).
 			Where("id = ? AND status = ? AND attempts = ?", row.Id, row.Status, row.Attempts).
 			Updates(map[string]interface{}{"status": "sending", "locked_at": now})
@@ -298,19 +302,7 @@ var pushWorkerOnce sync.Once
 
 func StartPushWorker() {
 	pushWorkerOnce.Do(func() {
-		for worker := 0; worker < 2; worker++ {
-			go func() {
-				ticker := time.NewTicker(3 * time.Second)
-				defer ticker.Stop()
-				for {
-					select { case <-ticker.C: case <-pushDeliveryWake: }
-					if _, err := ProcessPushQueue(10); err != nil && Logger != nil {
-						Logger.WithError(err).Warn("push delivery error")
-					}
-				}
-			}()
-		}
+		startPersonalDeliverySchedulers()
 		startPushEventWorker()
 	})
 }
-
