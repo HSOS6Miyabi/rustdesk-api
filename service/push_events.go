@@ -130,6 +130,9 @@ func PublishPushEvent(event PushEvent) {
 
 func ReportPushHeartbeat(peer *model.Peer, ip string) {
 	if peer == nil || peer.RowId == 0 { return }
+	// Ordinary online status is already saved in peers. Preserve the more
+	// frequent presence writes only when transition notifications are in use.
+	if !hasPushSubscription("device.online") && !hasPushSubscription("device.offline") { return }
 	now := time.Now()
 	if !shouldPublishPushHeartbeat(peer.RowId, ip, now) { return }
 	PublishPushEvent(PushEvent{

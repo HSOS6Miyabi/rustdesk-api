@@ -19,6 +19,8 @@ func TestDevicePresenceBatchOwnershipSharingAndExpiry(t *testing.T) {
 	guestDevice := &model.Peer{Id:"batch-offline-1002",UserId:guest.Id,Hostname:"Guest"}
 	if err := DB.Create(ownerDevice).Error; err != nil { t.Fatal(err) }
 	if err := DB.Create(guestDevice).Error; err != nil { t.Fatal(err) }
+	if err := DB.Create(&model.PushChannel{UserId:owner.Id,Enabled:true,Events:"device.online"}).Error;err != nil { t.Fatal(err) }
+	invalidatePushActivity()
 	if err := DB.Create(&model.PushPresence{
 		PeerRowId:ownerDevice.RowId,DeviceId:ownerDevice.Id,
 		Online:true,LastSeenAt:time.Now().Unix(),
@@ -94,5 +96,29 @@ func TestDeviceEventsUseConsistentShards(t *testing.T) {
 			pushEventShard(connection) != pushEventShard(offline) {
 			t.Fatalf("same device events entered different workers: %q",device)
 		}
+	}
+}
+
+func TestPresenceWithoutSubscriptionsReadsExistingPeerTimestamp(t *testing.T) {
+	cleanup := setupPushTestDB(t)
+	defer cleanup()
+	now := time.Now().Unix()
+	user := &model.User{Username: "peer-presence-only", Status: 1}
+	if err := DB.Create(user).Error; err != nil { t.Fatal(err) }
+	online := &model.Peer{Id: "recent-heartbeat", UserId: user.Id, LastOnlineTime: now - 25}
+	offline := &model.Peer{Id: "old-heartbeat", UserId: user.Id, LastOnlineTime: now - 150}
+	for _, peer := range []*model.Peer{online, offline} {
+		if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	}
+	invalidatePushActivity()
+	status, err := DevicePresenceForUser(user, []string{online.Id, offline.Id}, false)
+	if err != nil { t.Fatal(err) }
+	if !status[online.Id] || status[offline.Id] { t.Fatalf("peer timestamp presence: %+v", status) }
+	before := len(pushHeartbeatGate.Entries)
+	ReportPushHeartbeat(online, "192.0.2.1")
+	if len(pushHeartbeatGate.Entries) != before { t.Fatal("disabled presence notifications allocated heartbeat state") }
+	var count int64
+	if err := DB.Model(&model.PushPresence{}).Count(&count).Error; err != nil || count != 0 {
+		t.Fatalf("unsubscribed heartbeat wrote push presence: %d %v", count, err)
 	}
 }

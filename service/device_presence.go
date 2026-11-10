@@ -29,9 +29,10 @@ func DevicePresenceForUser(user *model.User, ids []string, administrator bool) (
 		RowId  uint
 		Id     string
 		UserId uint
+		LastOnlineTime int64
 	}
 	var peers []deviceOwner
-	if err := DB.Model(&model.Peer{}).Select("row_id,id,user_id").
+	if err := DB.Model(&model.Peer{}).Select("row_id,id,user_id,last_online_time").
 		Where("id IN ?", unique).Find(&peers).Error; err != nil {
 		return nil, err
 	}
@@ -99,13 +100,18 @@ func DevicePresenceForUser(user *model.User, ids []string, administrator bool) (
 	}
 	rowIDs := make([]uint, 0, len(peers))
 	byRowID := make(map[uint]string, len(peers))
+	notifyPresence := hasPushSubscription("device.online") || hasPushSubscription("device.offline")
+	cutoff := time.Now().Add(-120*time.Second).Unix()
 	for _, peer := range peers {
-		if allowed[peer.Id] {
-			rowIDs = append(rowIDs, peer.RowId)
-			byRowID[peer.RowId] = peer.Id
+		if !allowed[peer.Id] { continue }
+		if !notifyPresence {
+			results[peer.Id] = peer.LastOnlineTime >= cutoff
+			continue
 		}
+		rowIDs = append(rowIDs, peer.RowId)
+		byRowID[peer.RowId] = peer.Id
 	}
-	if len(rowIDs) == 0 { return results, nil }
+	if !notifyPresence || len(rowIDs) == 0 { return results, nil }
 	var rows []model.PushPresence
 	if err := DB.Select("peer_row_id").Where("peer_row_id IN ? AND online = ? AND last_seen_at >= ?",
 		rowIDs, true, time.Now().Add(-120*time.Second).Unix()).
