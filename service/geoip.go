@@ -48,9 +48,19 @@ type geoIPRecord struct {
 	} `maxminddb:"city"`
 }
 
+// parseGeoIPValue accepts an IP address and the host:port syntax found
+// in some connection audit records.
+func parseGeoIPValue(raw string) net.IP {
+	value := strings.TrimSpace(raw)
+	if ip := net.ParseIP(value); ip != nil { return ip }
+	host, _, err := net.SplitHostPort(value)
+	if err == nil { return net.ParseIP(host) }
+	return nil
+}
+
 // localPushGeoIP returns a country/region/city name when one is known.
 func localPushGeoIP(ipValue string) string {
-	ip := net.ParseIP(strings.TrimSpace(ipValue))
+	ip := parseGeoIPValue(ipValue)
 	if ip == nil || !ip.IsGlobalUnicast() || ip.IsPrivate() { return "" }
 	initGeoIP()
 	if geoIPDB == nil { return "" }
@@ -75,7 +85,7 @@ func localPushGeoIP(ipValue string) string {
 // GeoIPDescription returns display-only geolocation text. Unknown public
 // addresses remain explicit, while private and loopback IPs are identified.
 func GeoIPDescription(rawIP string) string {
-	ip := net.ParseIP(strings.TrimSpace(rawIP))
+	ip := parseGeoIPValue(rawIP)
 	if ip == nil { return "无效 IP 地址" }
 	switch {
 	case ip.IsLoopback(): return "本地回环地址"
