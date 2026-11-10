@@ -21,7 +21,8 @@ function createElement(id = "") {
   const listeners = {};
   return {
     id, listeners, value: "", textContent: "", hidden: false, children: [],
-    className: "", disabled: false, classList: { add() {} },
+    className: "", disabled: false, attributes:{}, classList: { add() {} },
+    setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
     replaceChildren(...items) { this.children = items; },
@@ -46,6 +47,7 @@ function fixture(options = {}) {
   };
   const apiResults = {
     "/config/server": server,
+    "/geoip/lookup": {device_status:{"123456789":true},locations:{},database_ready:false},
     "/shared_devices/list": {
       total: 1,
       list: [{
@@ -73,7 +75,8 @@ function fixture(options = {}) {
       if(selector==="#app #id")return elements.get("native-id");
       return null;
     },
-    createElement(type){return createElement(type);}
+    createElement(type){return createElement(type);},
+    createTextNode(content){return {textContent:String(content)};}
   };
   const fetch = async (url) => {
     const u = new URL(String(url), "https://example.test");
@@ -106,6 +109,11 @@ test("WebClient v2 loads its own server settings and shared device list",async()
   assert.ok(app.apiCalls.includes("/shared_devices/list"));
   assert.match(app.elements.get("shared-info").textContent,/1/);
   assert.equal(app.elements.get("shared-items").children.length,1);
+  assert.ok(app.apiCalls.includes("/geoip/lookup"));
+  const shared=app.elements.get("shared-items").children[0];
+  const dot=shared.children[0].children[0].children[0];
+  assert.equal(dot.className,"device-status-dot online");
+  assert.equal(dot.attributes["aria-label"],"在线");
   app.elements.get("shared-items").children[0].listeners.click();
   assert.equal(app.elements.get("v2-id").value,"123456789");
 });
@@ -151,4 +159,12 @@ test("WebClient v2 enables direct WebRTC only after the user selects it",async()
   toggle.checked=false;
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
   assert.equal(app.sessionStorage.getItem("rustdesk.webclient.webrtc"),"N");
+});
+
+
+test("WebClient v2 displays offline devices in red without periodic requests",async()=>{
+  const app=fixture({token:"session-token"});
+  app.settle();
+  await app.settle();
+  assert.equal(app.apiCalls.filter(path=>path==="/geoip/lookup").length,1);
 });
