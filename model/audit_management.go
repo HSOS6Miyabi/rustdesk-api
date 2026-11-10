@@ -23,5 +23,9 @@ type AuditRetentionPolicy struct {
 	AlarmDays int `json:"alarm_days" gorm:"not null;default:0"`
 	LoginDays int `json:"login_days" gorm:"not null;default:0"`
 	OperationDays int `json:"operation_days" gorm:"not null;default:0"`
+	PushSentDays int `json:"push_sent_days" gorm:"not null;default:30"`
+	PushFailedDays int `json:"push_failed_days" gorm:"not null;default:90"`
+	NotificationSentDays int `json:"notification_sent_days" gorm:"not null;default:30"`
+	NotificationFailedDays int `json:"notification_failed_days" gorm:"not null;default:90"`
 	TimeModel
 }
