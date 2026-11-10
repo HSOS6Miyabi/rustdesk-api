@@ -258,7 +258,7 @@ func ProcessPushQueue(limit int) (int, error) {
 		// Each claim starts its own lease after the preceding network request.
 		now = time.Now().Unix()
 		claim := DB.Model(&model.PushDelivery{}).
-			Where("id = ? AND status = ? AND attempts = ?", row.Id, row.Status, row.Attempts).
+			Where("id = ? AND status = ? AND attempts = ? AND locked_at = ?", row.Id, row.Status, row.Attempts, row.LockedAt).
 			Updates(map[string]interface{}{"status": "sending", "locked_at": now})
 		if claim.Error != nil { return sent, claim.Error }
 		if claim.RowsAffected != 1 { continue }
