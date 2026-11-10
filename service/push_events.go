@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
@@ -26,6 +27,38 @@ type PushEvent struct {
 }
 
 var pushEvents = make(chan PushEvent, 4096)
+
+// Coalesce frequent heartbeats in memory before entering the database worker.
+// Presence remains accurate because the stored deadline is much longer than
+// this interval. No timer or periodic map scan is needed.
+const pushHeartbeatWriteInterval = 15 * time.Second
+const maxHeartbeatCoalesceEntries = 100000
+
+type recentPushHeartbeat struct {
+	Last time.Time
+	IP   string
+}
+
+var pushHeartbeatGate = struct {
+	sync.Mutex
+	Entries map[uint]recentPushHeartbeat
+}{Entries: make(map[uint]recentPushHeartbeat)}
+
+func shouldPublishPushHeartbeat(rowID uint, ip string, now time.Time) bool {
+	pushHeartbeatGate.Lock()
+	defer pushHeartbeatGate.Unlock()
+	if previous, ok := pushHeartbeatGate.Entries[rowID]; ok &&
+		now.Sub(previous.Last) < pushHeartbeatWriteInterval &&
+		previous.IP == ip {
+		return false
+	}
+	if len(pushHeartbeatGate.Entries) >= maxHeartbeatCoalesceEntries {
+		pushHeartbeatGate.Entries = make(map[uint]recentPushHeartbeat)
+	}
+	pushHeartbeatGate.Entries[rowID] = recentPushHeartbeat{Last: now, IP: ip}
+	return true
+}
+
 var pushPresenceWake = make(chan struct{}, 1)
 
 func wakePushPresence() {
@@ -44,9 +77,11 @@ func PublishPushEvent(event PushEvent) {
 
 func ReportPushHeartbeat(peer *model.Peer, ip string) {
 	if peer == nil || peer.RowId == 0 { return }
+	now := time.Now()
+	if !shouldPublishPushHeartbeat(peer.RowId, ip, now) { return }
 	PublishPushEvent(PushEvent{
 		Code: "device.heartbeat", PeerRowID: peer.RowId,
-		DeviceID: peer.Id, SourceIP: ip,
+		DeviceID: peer.Id, SourceIP: ip, When: now,
 	})
 }
 
@@ -95,8 +130,8 @@ func processPushHeartbeat(event PushEvent) error {
 			}).Error
 	})
 	if err != nil { return err }
-	wakePushPresence()
 	if online {
+		wakePushPresence()
 		event.Code = "device.online"
 		event.Reference = fmt.Sprintf("online:%d:%d", event.PeerRowID, now)
 		return processPushEvent(event)
