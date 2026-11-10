@@ -25,6 +25,11 @@ type PushEvent struct {
 }
 
 var pushEvents = make(chan PushEvent, 4096)
+var pushPresenceWake = make(chan struct{}, 1)
+
+func wakePushPresence() {
+	select { case pushPresenceWake <- struct{}{}: default: }
+}
 
 // Event handlers never wait for outbound messages or database queue writes.
 func PublishPushEvent(event PushEvent) {
@@ -59,15 +64,7 @@ func startPushEventWorker() {
 			}
 		}
 	}()
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := ProcessPushPresenceTimeouts(100); err != nil && Logger != nil {
-				Logger.WithError(err).Warn("push presence scan error")
-			}
-		}
-	}()
+	go runPushPresenceScheduler()
 }
 
 // The first authenticated heartbeat and every offline-to-online change
@@ -88,6 +85,7 @@ func processPushHeartbeat(event PushEvent) error {
 			}).Error
 		}
 		if err != nil { return err }
+		if old.LastSeenAt > now { now = old.LastSeenAt }
 		online = !old.Online
 		return tx.Model(&model.PushPresence{}).Where("peer_row_id = ?", event.PeerRowID).
 			Updates(map[string]interface{}{
@@ -96,12 +94,51 @@ func processPushHeartbeat(event PushEvent) error {
 			}).Error
 	})
 	if err != nil { return err }
+	wakePushPresence()
 	if online {
 		event.Code = "device.online"
 		event.Reference = fmt.Sprintf("online:%d:%d", event.PeerRowID, now)
 		return processPushEvent(event)
 	}
 	return nil
+}
+
+// nextPushPresenceDeadline is evaluated when a heartbeat is accepted,
+// when a deadline expires, and once on startup.
+func nextPushPresenceDeadline() (time.Duration, bool, error) {
+	var row struct {
+		Seen *int64 `gorm:"column:seen"`
+	}
+	if err := DB.Model(&model.PushPresence{}).
+		Select("MIN(last_seen_at) AS seen").
+		Where("online = ?", true).
+		Scan(&row).Error; err != nil {
+		return 0, false, err
+	}
+	if row.Seen == nil { return 0, false, nil }
+	// The strict expiry check uses <, so the deadline includes one extra second.
+	delay := time.Until(time.Unix(*row.Seen+121, 0))
+	if delay < 0 { delay = 0 }
+	return delay, true, nil
+}
+
+func runPushPresenceScheduler() {
+	for {
+		delay, hasDeadline, err := nextPushPresenceDeadline()
+		if err != nil {
+			if Logger != nil { Logger.WithError(err).Warn("presence timer error") }
+			waitForWork(pushPresenceWake, 10*time.Second, true)
+			continue
+		}
+		if hasDeadline && delay <= 0 {
+			if err := ProcessPushPresenceTimeouts(100); err != nil {
+				if Logger != nil { Logger.WithError(err).Warn("presence expiration error") }
+				waitForWork(pushPresenceWake, 10*time.Second, true)
+			}
+			continue
+		}
+		waitForWork(pushPresenceWake, delay, hasDeadline)
+	}
 }
 
 // Devices are declared offline after 120 seconds without an authenticated
