@@ -41,8 +41,8 @@ var pushEventShards = func() [pushEventShardCount]chan PushEvent {
 }()
 
 func pushEventShard(event PushEvent) int {
-	if event.PeerRowID != 0 { return int(event.PeerRowID % pushEventShardCount) }
 	key := event.DeviceID
+	if key == "" && event.PeerRowID != 0 { return int(event.PeerRowID % pushEventShardCount) }
 	if key == "" { key = event.FromPeer }
 	if key == "" { key = event.Reference }
 	if key == "" { key = event.Code }
