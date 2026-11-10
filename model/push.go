@@ -44,8 +44,8 @@ type PushDelivery struct {
 type PushPresence struct {
 	PeerRowId  uint   `json:"-" gorm:"primaryKey"`
 	DeviceId   string `json:"-" gorm:"size:253;not null"`
-	Online     bool   `json:"-" gorm:"not null;default:false;index"`
-	LastSeenAt int64  `json:"-" gorm:"not null;index"`
+	Online     bool   `json:"-" gorm:"not null;default:false;index:idx_push_presence_expiry,priority:1"`
+	LastSeenAt int64  `json:"-" gorm:"not null;index:idx_push_presence_expiry,priority:2"`
 	LastIP     string `json:"-" gorm:"size:64;not null;default:''"`
 	TimeModel
 }
