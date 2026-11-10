@@ -825,7 +825,6 @@
       kinds.map(([code,label])=>'<option value="'+code+'" '+(selected===code?'selected':'')+'>'+label+'</option>').join("")+
       '</select></div></div>'+
       '<label class="check"><input type="checkbox" name="enabled" '+(existing.enabled!==false?'checked':'')+'>启用此渠道</label>'+
-      '<label class="check"><input type="checkbox" name="geoip_enabled" '+(existing.geoip_enabled?'checked':'')+'>在消息中显示 GeoIP 地理位置（需在服务端配置本地数据库）</label>'+
       '<div data-push-kind="messagepusher" '+(selected!=="messagepusher"?'hidden':'')+' class="form-grid">'+
       textField("mp_base_url","MessagePusher 服务地址",selected==="messagepusher"?existing.base_url:"","url","https://push.example.com")+
       textField("mp_api_key","发送密钥", "", "password",existing.api_key_configured?"已保存，留空保持不变":"mpk_...")+
@@ -1857,7 +1856,6 @@
         id:Number(input.get("id"))||0,
         kind,name:String(input.get("name")||"").trim(),
         enabled:f.elements.enabled.checked,
-        geoip_enabled:f.elements.geoip_enabled.checked,
         events:[...f.querySelectorAll('input[name="event"]:checked')].map(item=>item.value),
         base_url:kind==="messagepusher"?String(input.get("mp_base_url")||""):
           kind==="serverchan"?String(input.get("sc_base_url")||""):"",
