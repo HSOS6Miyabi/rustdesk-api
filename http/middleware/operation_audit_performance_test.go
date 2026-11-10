@@ -20,13 +20,14 @@ func TestGeoIPReadOnlyPostDoesNotWriteOperationAudit(t *testing.T) {
 	defer conn.Close()
 	conn.SetMaxOpenConns(1)
 	if err := db.AutoMigrate(&model.AuditOperation{}); err != nil { t.Fatal(err) }
-	oldDB := service.DB
+	oldDB, oldServices := service.DB, service.AllService
 	service.DB = db
-	defer func() { service.DB = oldDB }()
-	user := &model.User{Username:"operator"}
+	service.AllService = &service.Service{UserService: &service.UserService{}}
+	defer func() { service.DB, service.AllService = oldDB, oldServices }()
+	user := &model.User{Username:"operator", IdModel:model.IdModel{Id:1}}
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(func(c *gin.Context) { c.Set("curUser", user); user.Id=1; c.Next() }, RecordOperations())
+	router.Use(func(c *gin.Context) { c.Set("curUser", user); c.Next() }, RecordOperations())
 	router.POST("/api/admin/geoip/lookup", func(c *gin.Context) { c.Status(200) })
 	router.POST("/api/admin/peer/update", func(c *gin.Context) { c.Status(200) })
 	for _, path := range []string{"/api/admin/geoip/lookup", "/api/admin/peer/update"} {

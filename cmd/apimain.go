@@ -230,6 +230,9 @@ func InitGlobal() {
 	service.StartNotificationWorker()
 	service.StartPushWorker()
 	service.StartClientBuildWorker()
+	if fileCache, ok := global.Cache.(*cache.FileCache); ok {
+		service.StartFileCacheMaintenance(fileCache)
+	}
 }
 
 func DatabaseAutoUpdate() {
