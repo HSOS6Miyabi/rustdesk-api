@@ -84,3 +84,15 @@ func TestAuthenticatedHeartbeatCoalescing(t *testing.T) {
 		t.Fatal("heartbeat was not persisted after the throttle interval")
 	}
 }
+
+func TestDeviceEventsUseConsistentShards(t *testing.T) {
+	for _, device := range []string{"machine-a","machine-b","192837465"} {
+		heartbeat := PushEvent{Code:"device.heartbeat",PeerRowID:123,DeviceID:device}
+		connection := PushEvent{Code:"connection.started",DeviceID:device,ConnID:991}
+		offline := PushEvent{Code:"device.offline",PeerRowID:123,DeviceID:device}
+		if pushEventShard(heartbeat) != pushEventShard(connection) ||
+			pushEventShard(connection) != pushEventShard(offline) {
+			t.Fatalf("same device events entered different workers: %q",device)
+		}
+	}
+}
