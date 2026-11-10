@@ -58,6 +58,7 @@ func PruneExpiredSessions(now time.Time) (int, error) {
 	}
 	if deleted != 0 {
 		invalidatePersistedSessions()
+		invalidatePendingDisconnectRequests()
 	}
 	return deleted, nil
 }
@@ -106,7 +107,7 @@ func StartSessionMaintenance() {
 				delay, hasDeadline, err := nextSessionMaintenanceDelay()
 				if err != nil {
 					if Logger != nil { Logger.WithError(err).Warn("session scheduling failed") }
-					waitForWork(sessionMaintenanceWake, 10*time.Second, true)
+					if !waitForWorkContext(ctx, sessionMaintenanceWake, 10*time.Second, true) { return }
 					continue
 				}
 				if !waitForWorkContext(ctx, sessionMaintenanceWake, delay, hasDeadline) { return }

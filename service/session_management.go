@@ -227,6 +227,9 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		markPersistedSessionActive()
 	}
 	writeConnections := len(keys) > 0 && !sessionSnapshotMatches(peer.Id, keys, time.Now())
+	hasRequest, requestErr := deviceHasPendingDisconnectRequest(peer.Id)
+	if requestErr != nil { return nil, requestErr }
+	if len(keys) > 0 && !writeConnections && !hasRequest { return nil, nil }
 	instructions:=make([]int32,0)
 	completed:=make([]model.DeviceDisconnectRequest,0)
 	err:=DB.Transaction(func(tx *gorm.DB) error {
@@ -242,8 +245,10 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 				Delete(&model.DeviceActiveConnection{}).Error;err!=nil{return err}
 		}
 		var requests []model.DeviceDisconnectRequest
-		if err:=tx.Where("device_id = ? AND status IN ?",peer.Id,[]string{"pending","delivered"}).
-			Order("id ASC").Find(&requests).Error;err!=nil{return err}
+		if hasRequest {
+			if err:=tx.Where("device_id = ? AND status IN ?",peer.Id,[]string{"pending","delivered"}).
+				Order("id ASC").Find(&requests).Error;err!=nil{return err}
+		}
 		for _,request:=range requests{
 			switch {
 			case request.ExpiresAt<=now:
@@ -308,6 +313,7 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 	})
 	if err==nil {
 		invalidateIdleSession(deviceID)
+		invalidatePendingDisconnectRequests()
 		markPersistedSessionActive()
 		wakeSessionMaintenance()
 		NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))

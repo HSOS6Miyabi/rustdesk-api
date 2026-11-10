@@ -342,3 +342,33 @@ func TestPresenceTransitionRetainsEventUntilDeliveryIsRecorded(t *testing.T) {
 		t.Fatalf("online event was not recovered: %d %v", count, err)
 	}
 }
+
+func TestActiveSessionsWithoutPendingDisconnectSkipDatabaseOperations(t *testing.T) {
+	cleanup := setupGroupDB(t)
+	defer cleanup()
+	if err := DB.AutoMigrate(&model.DeviceActiveConnection{}, &model.DeviceDisconnectRequest{}); err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id: "active-session-no-disconnect"}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SynchronizeDeviceSessions(peer, []int32{52}); err != nil { t.Fatal(err) }
+	if _, err := deviceHasPendingDisconnectRequest(peer.Id); err != nil { t.Fatal(err) }
+	reads, updates, creates := 0, 0, 0
+	if err := DB.Callback().Query().Before("gorm:query").Register("perf:pending_query", func(*gorm.DB) { reads++ }); err != nil { t.Fatal(err) }
+	if err := DB.Callback().Update().Before("gorm:update").Register("perf:pending_update", func(*gorm.DB) { updates++ }); err != nil { t.Fatal(err) }
+	if err := DB.Callback().Create().Before("gorm:create").Register("perf:pending_create", func(*gorm.DB) { creates++ }); err != nil { t.Fatal(err) }
+	for i := 0; i < 20; i++ {
+		if commands, err := SynchronizeDeviceSessions(peer, []int32{52}); err != nil || len(commands) > 0 {
+			t.Fatalf("unchanged active session: %v %v", commands, err)
+		}
+	}
+	DB.Callback().Query().Remove("perf:pending_query")
+	DB.Callback().Update().Remove("perf:pending_update")
+	DB.Callback().Create().Remove("perf:pending_create")
+	if reads != 0 || updates != 0 || creates != 0 {
+		t.Fatalf("no pending request caused SQL: read=%d update=%d create=%d", reads, updates, creates)
+	}
+	if err := RequestDeviceDisconnect(peer.Id, 52, 1); err != nil { t.Fatal(err) }
+	commands, err := SynchronizeDeviceSessions(peer, []int32{52})
+	if err != nil || len(commands) != 1 || commands[0] != 52 {
+		t.Fatalf("pending disconnect was delayed: %v %v", commands, err)
+	}
+}

@@ -42,6 +42,11 @@ func RecordOperations() gin.HandlerFunc {
 		default:
 			c.Next();return
 		}
+		// GeoIP and device status are read-only even though their API uses POST.
+		if c.Request.Method == http.MethodPost && c.FullPath() == "/api/admin/geoip/lookup" {
+			c.Next()
+			return
+		}
 		user := service.AllService.UserService.CurUser(c)
 		if user == nil || user.Id == 0 {c.Next();return}
 		writer := &auditResponseWriter{ResponseWriter:c.Writer}
