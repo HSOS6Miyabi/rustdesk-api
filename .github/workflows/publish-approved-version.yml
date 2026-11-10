@@ -1,0 +1,62 @@
+name: Publish approved RustDesk API version
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .release-version
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: rustdesk-api-approved-version
+  cancel-in-progress: false
+
+jobs:
+  dispatch-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read and validate the approved version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '\r\n' < .release-version)"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-api\.[0-9]+$ ]]; then
+            echo "Invalid API release version" >&2
+            exit 1
+          fi
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Tag the verified master commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>/dev/null)"; then
+            if [[ "$existing" != "$GITHUB_SHA" ]]; then
+              echo "The release tag already points to a different commit" >&2
+              exit 1
+            fi
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" \
+              -f "sha=$GITHUB_SHA" > /dev/null
+          fi
+      - name: Run the existing tested release and multi-platform Docker workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run verify-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$RELEASE_TAG" \
+            --field milestone_release=true
+          echo "Dispatched the release workflow for $RELEASE_TAG"
