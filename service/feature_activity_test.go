@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
@@ -105,5 +106,42 @@ func TestActivePolicyHeartbeatResolutionUsesCache(t *testing.T) {
 	answer,err=HeartbeatDeviceStrategy(peer,revision)
 	if err!=nil||answer["modified_at"]==nil||answer["modified_at"]==revision{
 		t.Fatalf("updated policy was not returned: %v %v",answer,err)
+	}
+}
+
+func TestGloballyUnusedSessionsAvoidAllDeviceWrites(t *testing.T){
+	cleanup:=setupGroupDB(t)
+	defer cleanup()
+	if err:=DB.AutoMigrate(&model.DeviceActiveConnection{},&model.DeviceDisconnectRequest{});err!=nil{t.Fatal(err)}
+	peers:=make([]*model.Peer,30)
+	for i:=range peers{
+		peers[i]=&model.Peer{Id:fmt.Sprintf("idle-device-%d",i)}
+		if err:=DB.Create(peers[i]).Error;err!=nil{t.Fatal(err)}
+	}
+	if empty,err:=persistedSessionsEmpty();err!=nil||!empty{t.Fatalf("unexpected session state: %v %v",empty,err)}
+	reads,updates,deletes:=0,0,0
+	if err:=DB.Callback().Query().Before("gorm:query").Register("perf:global_session_read",func(*gorm.DB){reads++});err!=nil{t.Fatal(err)}
+	if err:=DB.Callback().Update().Before("gorm:update").Register("perf:global_session_update",func(*gorm.DB){updates++});err!=nil{t.Fatal(err)}
+	if err:=DB.Callback().Delete().Before("gorm:delete").Register("perf:global_session_delete",func(*gorm.DB){deletes++});err!=nil{t.Fatal(err)}
+	for _,peer:=range peers {
+		for i:=0;i<10;i++ {
+			commands,err:=SynchronizeDeviceSessions(peer,nil)
+			if err!=nil||len(commands)!=0{t.Fatalf("idle session error: %v %v",commands,err)}
+		}
+	}
+	DB.Callback().Query().Remove("perf:global_session_read")
+	DB.Callback().Update().Remove("perf:global_session_update")
+	DB.Callback().Delete().Remove("perf:global_session_delete")
+	if reads!=0||updates!=0||deletes!=0{
+		t.Fatalf("idle sessions read/updated/deleted: %d/%d/%d",reads,updates,deletes)
+	}
+	if _,err:=SynchronizeDeviceSessions(peers[0],[]int32{99});err!=nil{t.Fatal(err)}
+	var count int64
+	if err:=DB.Model(&model.DeviceActiveConnection{}).Where("device_id = ?",peers[0].Id).Count(&count).Error;err!=nil||count!=1{
+		t.Fatalf("active connection missing: %d %v",count,err)
+	}
+	if _,err:=SynchronizeDeviceSessions(peers[0],nil);err!=nil{t.Fatal(err)}
+	if err:=DB.Model(&model.DeviceActiveConnection{}).Where("device_id = ?",peers[0].Id).Count(&count).Error;err!=nil||count!=0{
+		t.Fatalf("closed connection remains: %d %v",count,err)
 	}
 }

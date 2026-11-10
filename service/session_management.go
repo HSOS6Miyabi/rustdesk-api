@@ -23,6 +23,47 @@ var idleSessionHeartbeats = struct {
 	until map[string]time.Time
 }{until: make(map[string]time.Time)}
 
+// A server with no persisted sessions checks two small indexed queries once
+// per refresh interval and skips the per-device transaction entirely.
+var persistedSessionActivity=struct{
+	sync.Mutex
+	db *gorm.DB
+	expires time.Time
+	empty bool
+}{}
+
+func persistedSessionsEmpty()(bool,error){
+	persistedSessionActivity.Lock()
+	defer persistedSessionActivity.Unlock()
+	now:=time.Now()
+	if persistedSessionActivity.db==DB && now.Before(persistedSessionActivity.expires){
+		return persistedSessionActivity.empty,nil
+	}
+	var ids []uint
+	if err:=DB.Model(&model.DeviceActiveConnection{}).
+		Limit(1).Pluck("id",&ids).Error;err!=nil{return false,err}
+	empty:=len(ids)==0
+	if empty{
+		ids=nil
+		if err:=DB.Model(&model.DeviceDisconnectRequest{}).
+			Where("status IN ?",[]string{"pending","delivered"}).
+			Limit(1).Pluck("id",&ids).Error;err!=nil{return false,err}
+		empty=len(ids)==0
+	}
+	persistedSessionActivity.db=DB
+	persistedSessionActivity.empty=empty
+	persistedSessionActivity.expires=now.Add(optionalFeatureRefresh)
+	return empty,nil
+}
+
+func markPersistedSessionActive(){
+	persistedSessionActivity.Lock()
+	persistedSessionActivity.db=DB
+	persistedSessionActivity.empty=false
+	persistedSessionActivity.expires=time.Now().Add(optionalFeatureRefresh)
+	persistedSessionActivity.Unlock()
+}
+
 func knownIdleSession(id string, now time.Time) bool {
 	idleSessionHeartbeats.Lock()
 	defer idleSessionHeartbeats.Unlock()
@@ -43,7 +84,7 @@ func recordIdleSession(id string) {
 	if len(idleSessionHeartbeats.until) >= 100000 {
 		idleSessionHeartbeats.until = make(map[string]time.Time)
 	}
-	idleSessionHeartbeats.until[id] = time.Now().Add(5*time.Minute)
+	idleSessionHeartbeats.until[id] = time.Now().Add(optionalFeatureRefresh)
 }
 
 func invalidateIdleSession(id string) {
@@ -72,10 +113,15 @@ func SynchronizeDeviceSessions(peer *model.Peer, connections []int32) ([]int32,e
 		records=append(records,model.DeviceActiveConnection{DeviceId:peer.Id,ConnId:id,LastSeenAt:now})
 	}
 	sort.Slice(keys,func(i,j int)bool{return keys[i]<keys[j]})
-	if len(keys)==0 && knownIdleSession(peer.Id,time.Now()) {
-		return nil,nil
+	if len(keys)==0 {
+		empty,err:=persistedSessionsEmpty()
+		if err==nil && empty {return nil,nil}
+		if err==nil && knownIdleSession(peer.Id,time.Now()) {return nil,nil}
 	}
-	if len(keys)>0 {invalidateIdleSession(peer.Id)}
+	if len(keys)>0 {
+		invalidateIdleSession(peer.Id)
+		markPersistedSessionActive()
+	}
 	instructions:=make([]int32,0)
 	completed:=make([]model.DeviceDisconnectRequest,0)
 	err:=DB.Transaction(func(tx *gorm.DB) error {
@@ -152,6 +198,7 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 	})
 	if err==nil {
 		invalidateIdleSession(deviceID)
+		markPersistedSessionActive()
 		NotifyEvent("session.disconnect_requested",fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),fmt.Sprintf("设备 %s 的连接 %d 已请求结束",deviceID,connID))
 		PublishPushEvent(PushEvent{
 			Code:"session.disconnect_requested",Reference:fmt.Sprintf("%s:%d:%d",deviceID,connID,now/120),
