@@ -131,6 +131,7 @@
     activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"系统管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
+    push: {name:"消息推送",icon:"bell",section:"账户"},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
   };
   const drawings = {
@@ -202,7 +203,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -426,6 +427,15 @@
         const result=await request("/shared_devices/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
+      }else if(k==="push"){
+        const [destinations,catalog,history]=await Promise.all([
+          request("/push/channels"), request("/push/events"),
+          request("/push/history?page=1&page_size=20")
+        ]);
+        state.pushChannels=destinations.list||[];
+        state.pushEvents=catalog||[];
+        state.pushHistory=history.list||[];
+        state.pushTotal=history.total||0;
       }else if(k==="profile"){
         const results=await Promise.all([request("/mfa/status"),request("/mfa/email/status")]);
         state.mfa=results[0];
@@ -721,6 +731,85 @@
       '</div><button type="submit" class="btn btn-primary" style="margin-top:16px">发送测试邮件</button></form></section>';
   }
 
+
+  function pushPage(){
+    const existing=state.pushEditing||{};
+    const selected=existing.kind||"messagepusher";
+    const kinds=[["messagepusher","MessagePusher"],["smtp","SMTP 邮件"],["serverchan","Server酱 Turbo"]];
+    const typeLabel=Object.fromEntries(kinds);
+    const eventLabels=state.pushEvents.length?state.pushEvents:[
+      {code:"device.online",name:"设备上线"},{code:"device.offline",name:"设备离线"},
+      {code:"device.registered",name:"新设备登记"},{code:"connection.started",name:"远程连接建立"},
+      {code:"connection.ended",name:"远程连接结束"},{code:"audit.file",name:"文件传输"},
+      {code:"audit.alarm",name:"设备安全告警"}
+    ];
+    const enabledEvents=new Set(existing.events||[]);
+    const textField=(name,label,value="",type="text",placeholder="")=>
+      '<div class="field"><label for="push-'+name+'">'+esc(label)+'</label><input id="push-'+name+
+      '" name="'+name+'" type="'+type+'" value="'+esc(value||"")+'" placeholder="'+esc(placeholder)+
+      '" autocomplete="off"></div>';
+    const fieldSet=
+      '<div class="form-grid">'+textField("name","渠道名称",existing.name||"", "text","例如：个人 Telegram 推送")+
+      '<div class="field"><label for="push-kind">推送方式</label><select id="push-kind" name="kind" '+(existing.id?'disabled':'')+'>'+
+      kinds.map(([code,label])=>'<option value="'+code+'" '+(selected===code?'selected':'')+'>'+label+'</option>').join("")+
+      '</select></div></div>'+
+      '<label class="check"><input type="checkbox" name="enabled" '+(existing.enabled!==false?'checked':'')+'>启用此渠道</label>'+
+      '<label class="check"><input type="checkbox" name="geoip_enabled" '+(existing.geoip_enabled?'checked':'')+'>在消息中显示 GeoIP 地理位置（需在服务端配置本地数据库）</label>'+
+      '<div data-push-kind="messagepusher" '+(selected!=="messagepusher"?'hidden':'')+' class="form-grid">'+
+      textField("mp_base_url","MessagePusher 服务地址",selected==="messagepusher"?existing.base_url:"","url","https://push.example.com")+
+      textField("mp_api_key","发送密钥", "", "password",existing.api_key_configured?"已保存，留空保持不变":"mpk_...")+
+      '</div>'+
+      '<div data-push-kind="serverchan" '+(selected!=="serverchan"?'hidden':'')+' class="form-grid">'+
+      textField("sc_base_url","Server酱 API 地址",selected==="serverchan"?existing.base_url||"https://sctapi.ftqq.com":"https://sctapi.ftqq.com","url","https://sctapi.ftqq.com")+
+      textField("sc_api_key","SendKey", "", "password",existing.api_key_configured?"已保存，留空保持不变":"SCT...")+
+      '</div>'+
+      '<div data-push-kind="smtp" '+(selected!=="smtp"?'hidden':'')+' class="form-grid">'+
+      textField("smtp_host","SMTP 主机",existing.smtp_host)+
+      '<div class="field"><label for="push-smtp-port">SMTP 端口</label><input id="push-smtp-port" name="smtp_port" type="number" min="1" max="65535" value="'+esc(existing.smtp_port||587)+'"></div>'+
+      '<div class="field"><label for="push-smtp-security">连接加密</label><select id="push-smtp-security" name="smtp_security">'+
+      [["starttls","STARTTLS"],["tls","TLS"]].map(([code,label])=>
+        '<option value="'+code+'" '+((existing.smtp_security||"starttls")===code?'selected':'')+'>'+label+'</option>').join("")+'</select></div>'+
+      textField("smtp_username","SMTP 用户名",existing.smtp_username)+
+      textField("smtp_password","SMTP 密码","","password",existing.password_configured?"已保存，留空保持不变":"请填写邮箱授权码")+
+      textField("smtp_from","发件邮箱",existing.smtp_from,"email")+
+      textField("smtp_to","收件邮箱",existing.smtp_to,"email")+
+      '</div>'+
+      '<div class="field"><label>订阅事件</label><div class="option-grid">'+
+      eventLabels.map(e=>'<label class="check"><input type="checkbox" name="event" value="'+esc(e.code)+
+        '" '+(enabledEvents.has(e.code)?'checked':'')+'>'+esc(e.name)+'</label>').join("")+
+      '</div></div>'+
+      '<div class="head-actions"><button type="submit" class="btn btn-primary">保存推送渠道</button>'+
+      '<button class="btn" type="button" data-action="push-new">新建渠道</button></div>';
+    const config='<section class="panel"><div class="panel-header"><div><h2 class="panel-title">'+
+      (existing.id?'编辑推送渠道':'添加推送渠道')+'</h2><p class="panel-sub">各渠道独立配置，并选择需要接收的设备事件。</p></div></div>'+
+      '<form id="push-channel-form" class="tips" style="display:grid;gap:16px">'+
+      '<input type="hidden" name="id" value="'+esc(existing.id||"")+'">'+fieldSet+'</form></section>';
+    const channels=(state.pushChannels||[]).map(x=>
+      '<div class="status-row"><span><strong>'+esc(x.name)+'</strong>'+
+      '<span class="cell-sub">'+esc(typeLabel[x.kind]||x.kind)+' · '+(x.enabled?'已启用':'已停用')+
+      ' · 已订阅 '+esc((x.events||[]).length)+' 种事件'+
+      (x.kind==="smtp"?' · '+esc(x.smtp_to||""):'')+'</span></span>'+
+      '<span class="head-actions"><button class="btn btn-sm" data-action="push-edit" data-id="'+esc(x.id)+'">编辑</button>'+
+      '<button class="btn btn-sm" data-action="push-test" data-id="'+esc(x.id)+'" '+(x.enabled?'':'disabled')+'>测试</button>'+
+      '<button class="btn btn-sm btn-danger" data-action="push-delete" data-id="'+esc(x.id)+'">删除</button></span></div>'
+    ).join("")||'<p>尚未添加推送渠道。</p>';
+    const statusNames={pending:"等待发送",sending:"正在发送",retry:"等待重试",paused:"暂停发送",sent:"发送成功",failed:"发送失败"};
+    const history=(state.pushHistory||[]).map(x=>
+      '<div class="status-row"><span><strong>'+esc(x.title)+'</strong>'+
+      '<span class="cell-sub">'+esc(statusNames[x.status]||x.status)+' · '+esc(x.event_type)+
+      ' · 尝试 '+esc(x.attempts)+' 次 · '+date(x.created_at)+
+      (x.last_error?' · '+esc(x.last_error):'')+'</span></span>'+
+      (x.status==="failed"?'<button class="btn btn-sm" data-action="push-retry" data-id="'+esc(x.id)+'">重新发送</button>':'')+
+      '</div>').join("")||'<p>目前没有发送记录。</p>';
+    return pageHeading("消息推送","支持 MessagePusher、SMTP 邮件和 Server酱。通知标题优先显示事件和设备，正文包含连接双方、IP、时间及其他可用信息。")+
+      '<section class="panel"><div class="panel-header"><h2 class="panel-title">已配置的渠道</h2>'+
+      '<button class="btn btn-sm" data-action="refresh">刷新</button></div><div class="tips">'+channels+'</div></section>'+
+      '<div style="margin-top:16px">'+config+'</div>'+
+      '<section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">发送记录</h2>'+
+      '<p class="panel-sub">最近 20 条，共 '+esc(state.pushTotal)+' 条。发送失败时可重试。</p></div></div>'+
+      '<div class="tips">'+history+'</div></section>';
+  }
+
   function profile(){
     const m=state.mfa||{};
     const mfaText=m.enabled?
@@ -753,6 +842,7 @@
     if(state.page==="mail")return mailPage();
     if(state.page==="notifications")return notificationsPage();
     if(state.page==="clientBuilder")return clientBuilderPage();
+    if(state.page==="push")return pushPage();
     if(state.page==="profile")return profile();
     return genericList();
   }
@@ -1111,6 +1201,35 @@
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
     if(a==="refresh"){await load();return;}
+    if(a==="push-new"){state.pushEditing=null;render();return;}
+    if(a==="push-edit"){
+      const found=state.pushChannels.find(item=>String(item.id)===String(el.dataset.id));
+      if(found){state.pushEditing={...found};render();}
+      return;
+    }
+    if(a==="push-delete"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0||!window.confirm("确定删除该推送渠道和发送记录吗？"))return;
+      try{
+        await request("/push/channels/delete","POST",{id});
+        state.pushEditing=null;toast("推送渠道已删除");await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="push-test"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0)return;
+      try{await request("/push/channels/test","POST",{id});toast("测试通知已加入发送队列");await load();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="push-retry"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0)return;
+      try{await request("/push/history/retry","POST",{id});toast("消息已重新提交");await load();}
+      catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="book-entries"||a==="book-collections"){state.bookTab=a==="book-entries"?"entries":"collections";state.pageNo=1;state.query="";await load();return;}
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
@@ -1507,7 +1626,7 @@
   }
   document.addEventListener("submit",async event=>{
     const f=event.target;
-    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","push-channel-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(f.id))return;
     event.preventDefault();
     if(f.id==="mfa-login-form"){
       const pending=state.modal;
@@ -1660,6 +1779,33 @@
       try{await request("/contact/add","POST",{username:f.elements.username.value.trim()});toast("已向联系人开放您的设备");await load();}catch(e){toast(e.message,true);}
     }
     if(f.id==="command-form")await sendCommand(f);
+    if(f.id==="push-channel-form"){
+      const input=new FormData(f);
+      const kind=String(f.elements.kind.value);
+      const values={
+        id:Number(input.get("id"))||0,
+        kind,name:String(input.get("name")||"").trim(),
+        enabled:f.elements.enabled.checked,
+        geoip_enabled:f.elements.geoip_enabled.checked,
+        events:[...f.querySelectorAll('input[name="event"]:checked')].map(item=>item.value),
+        base_url:kind==="messagepusher"?String(input.get("mp_base_url")||""):
+          kind==="serverchan"?String(input.get("sc_base_url")||""):"",
+        api_key:kind==="messagepusher"?String(input.get("mp_api_key")||""):
+          kind==="serverchan"?String(input.get("sc_api_key")||""):"",
+        smtp_host:String(input.get("smtp_host")||""),
+        smtp_port:Number(input.get("smtp_port")||587),
+        smtp_security:String(input.get("smtp_security")||"starttls"),
+        smtp_username:String(input.get("smtp_username")||""),
+        smtp_password:String(input.get("smtp_password")||""),
+        smtp_from:String(input.get("smtp_from")||""),
+        smtp_to:String(input.get("smtp_to")||"")
+      };
+      try{
+        await request("/push/channels","POST",values);
+        state.pushEditing=null;toast("推送渠道已保存");await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(f.id==="password-form"){
       try{
         await request("/user/changeCurPwd","POST",Object.fromEntries(new FormData(f).entries()));
@@ -1686,6 +1832,11 @@
   });
   document.addEventListener("change",async event=>{
     const el=event.target;
+    if(el.id==="push-kind"){
+      document.querySelectorAll("[data-push-kind]").forEach(item=>{
+        item.hidden=item.dataset.pushKind!==el.value;
+      });
+    }
     if(el.id==="shared-source-type"){state.sourceType=el.value;state.sourceId="0";state.pageNo=1;await load();}
     if(el.id==="shared-source-id"){if(el.value==="0"){state.sourceId="0";}else{const parts=el.value.split(":");state.sourceType=parts[0];state.sourceId=parts[1];}state.pageNo=1;await load();}
   });
