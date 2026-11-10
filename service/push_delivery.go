@@ -47,6 +47,7 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 	if eventName == "" { return nil }
 	seen := make(map[uint]bool)
 	now := time.Now().Unix()
+	queued := false
 	title, body := "", ""
 	for _, userID := range users {
 		if userID == 0 || seen[userID] { continue }
@@ -66,12 +67,12 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 				EventKey: eventHash(event.Code + ":" + key), Title: title, Body: body,
 				Status: "pending", NextAttemptAt: now,
 			}
-			if err := DB.Clauses(clause.OnConflict{DoNothing: true}).Create(record).Error; err != nil {
-				return err
-			}
+			inserted := DB.Clauses(clause.OnConflict{DoNothing: true}).Create(record)
+			if inserted.Error != nil { return inserted.Error }
+			if inserted.RowsAffected > 0 { queued = true }
 		}
 	}
-	wakePushDelivery()
+	if queued { wakePushDelivery() }
 	return nil
 }
 
