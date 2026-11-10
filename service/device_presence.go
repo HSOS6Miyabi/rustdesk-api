@@ -63,6 +63,19 @@ func DevicePresenceForUser(user *model.User, ids []string, administrator bool) (
 			for _, peer := range peers {
 				if len(owners[peer.UserId]) > 0 { allowed[peer.Id] = true }
 			}
+			// Delegated management roles can also grant visibility into
+			// other owners' registered devices.
+			role, err := RoleAccessForUser(user, "devices.view")
+			if err != nil { return nil, err }
+			if role.Global {
+				for _, peer := range peers { allowed[peer.Id] = true }
+			} else if len(role.UserIDs) > 0 {
+				visible := make(map[uint]bool, len(role.UserIDs))
+				for _, id := range role.UserIDs { visible[id] = true }
+				for _, peer := range peers {
+					if visible[peer.UserId] { allowed[peer.Id] = true }
+				}
+			}
 		}
 	}
 	rowIDs := make([]uint, 0, len(peers))
