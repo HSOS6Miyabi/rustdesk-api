@@ -275,6 +275,7 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 			err = DB.Model(&model.PushDelivery{}).Where("channel_id = ? AND status IN ?", input.Id, []string{"pending","retry"}).Update("status", "paused").Error
 		}
 	}
+	if err == nil && record.Enabled { wakePushDelivery() }
 	return publicPushChannel(&record), err
 }
 

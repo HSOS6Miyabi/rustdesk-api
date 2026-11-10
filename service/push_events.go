@@ -21,6 +21,7 @@ type PushEvent struct {
 	ConnID    int64
 	Detail    string
 	UserID    uint
+	AccountUsername string
 	When      time.Time
 }
 
@@ -175,6 +176,12 @@ func processPushEvent(event PushEvent) error {
 	if pushEventName(event.Code) == "" || DB == nil { return nil }
 	if event.When.IsZero() { event.When = time.Now() }
 	participants := make([]uint, 0, 3)
+	if event.UserID == 0 && event.AccountUsername != "" {
+		var attempted model.User
+		if DB.Select("id").Where("username = ?", event.AccountUsername).Take(&attempted).Error == nil {
+			event.UserID = attempted.Id
+		}
+	}
 	if event.UserID != 0 { participants = append(participants, event.UserID) }
 	var peer model.Peer
 	if event.PeerRowID != 0 {
@@ -238,6 +245,7 @@ func formatPushMessage(event PushEvent) (string, string) {
 	targetLabel := pushLabel(target, event.DeviceID)
 	sourceLabel := pushLabel(source, event.FromPeer)
 	title := "[RustDesk · " + name + "]"
+	if event.AccountUsername != "" { title += " " + pushShort(event.AccountUsername, 65) }
 	if targetLabel != "" { title += " " + targetLabel }
 	if sourceLabel != "" && strings.HasPrefix(event.Code, "connection.") {
 		title += " ← " + sourceLabel
