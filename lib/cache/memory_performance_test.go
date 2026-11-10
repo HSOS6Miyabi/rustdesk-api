@@ -3,6 +3,7 @@ package cache
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMemoryCacheReplacementCountsOnlyCurrentValue(t *testing.T) {
@@ -40,4 +41,19 @@ func TestMemoryCacheEvictsAfterGrowingReplacement(t *testing.T) {
 	if err := c.Get("a", &actual); err != nil || actual != strings.Repeat("z", 19) {
 		t.Fatalf("replacement lost: %q %v", actual, err)
 	}
+}
+
+func TestMemoryCacheEvictsAtNextDeadline(t *testing.T) {
+	c:=NewMemoryCache(0)
+	defer c.stopEviction()
+	if err:=c.Set("short","value",1);err!=nil{t.Fatal(err)}
+	deadline:=time.Now().Add(3*time.Second)
+	for time.Now().Before(deadline) {
+		c.mu.Lock()
+		remaining:=len(c.data)
+		c.mu.Unlock()
+		if remaining==0{return}
+		time.Sleep(20*time.Millisecond)
+	}
+	t.Fatal("expired cache item was not removed")
 }
