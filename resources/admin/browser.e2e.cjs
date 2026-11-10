@@ -923,8 +923,10 @@ test("device and audit IP addresses have GeoIP explanations on desktop and mobil
     await owner.page.locator('button[data-action="mobile-open"]').click();
     await owner.page.locator('nav.side-scroll button[data-view="myloginlogs"]').click();
     await owner.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的登录记录");
-    await owner.page.getByText("10.0.0.5",{exact:false}).first().waitFor();
-    assert.match(await owner.page.locator(".content").innerText(),/局域网地址/);
+    await owner.page.waitForFunction(()=>{
+      const text=document.querySelector(".content")?.innerText||"";
+      return text.includes("10.0.0.5")&&text.includes("局域网地址");
+    });
     const dimensions=await owner.page.evaluate(()=>({
       width:window.innerWidth,scroll:document.documentElement.scrollWidth
     }));
