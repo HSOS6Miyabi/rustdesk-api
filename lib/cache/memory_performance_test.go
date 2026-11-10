@@ -29,7 +29,7 @@ func TestMemoryCacheReplacementCountsOnlyCurrentValue(t *testing.T) {
 }
 
 func TestMemoryCacheEvictsAfterGrowingReplacement(t *testing.T) {
-	c := NewMemoryCache(28)
+	c := NewMemoryCache(24)
 	defer c.stopEviction()
 	for _, key := range []string{"a", "b"} {
 		if err := c.Set(key, "x", 60); err != nil { t.Fatal(err) }

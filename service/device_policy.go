@@ -133,7 +133,11 @@ func SaveDevicePolicy(policy *model.DevicePolicy) error {
 	}
 	mergeManagedClientKeys(policy,previous)
 	policy.Revision=time.Now().UnixNano()
-	if policy.Id==0{return DB.Create(policy).Error}
+	if policy.Id==0{
+		err:=DB.Create(policy).Error
+		if err==nil {invalidatePolicyActivity()}
+		return err
+	}
 	result:=DB.Model(&model.DevicePolicy{}).Where("id = ?",policy.Id).Updates(map[string]interface{}{
 		"name":policy.Name,"status":policy.Status,"id_whitelist":policy.IdWhitelist,
 		"ip_whitelist":policy.IpWhitelist,"enable_web_rtc":policy.EnableWebRTC,
@@ -147,12 +151,13 @@ func SaveDevicePolicy(policy *model.DevicePolicy) error {
 	})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return errors.New("device policy was not found")}
+	invalidatePolicyActivity()
 	return nil
 }
 
 func DeleteDevicePolicy(id uint) error {
 	if id==0{return errors.New("invalid policy ID")}
-	return DB.Transaction(func(tx *gorm.DB)error{
+	err:=DB.Transaction(func(tx *gorm.DB)error{
 		result:=tx.Where("id = ?",id).Delete(&model.DevicePolicy{})
 		if result.Error!=nil{return result.Error}
 		if result.RowsAffected==0{return gorm.ErrRecordNotFound}
@@ -160,6 +165,8 @@ func DeleteDevicePolicy(id uint) error {
 		if err:=tx.Where("policy_id = ?",id).Delete(&model.DevicePolicyUserAssignment{}).Error;err!=nil{return err}
 		return tx.Where("policy_id = ?",id).Delete(&model.DevicePolicyGroupAssignment{}).Error
 	})
+	if err==nil {invalidatePolicyActivity()}
+	return err
 }
 
 func SaveDevicePolicyAssignment(item *model.DevicePolicyAssignment) error {
@@ -174,21 +181,26 @@ func SaveDevicePolicyAssignment(item *model.DevicePolicyAssignment) error {
 	if err:=DB.Model(&model.Peer{}).Where("id = ?",item.DeviceId).Count(&count).Error;err!=nil{return err}
 	if count==0{return errors.New("registered device was not found")}
 	if item.Id==0{
-		return DB.Clauses(clause.OnConflict{
+		err:=DB.Clauses(clause.OnConflict{
 			Columns:[]clause.Column{{Name:"device_id"}},
 			DoUpdates:clause.AssignmentColumns([]string{"policy_id","revision","updated_at"}),
 		}).Create(item).Error
+		if err==nil {invalidatePolicyActivity()}
+		return err
 	}
 	result:=DB.Model(&model.DevicePolicyAssignment{}).Where("id = ?",item.Id).
 		Updates(map[string]interface{}{"policy_id":item.PolicyId,"device_id":item.DeviceId,"revision":item.Revision})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return errors.New("policy assignment was not found")}
+	invalidatePolicyActivity()
 	return nil
 }
 
 func DeleteDevicePolicyAssignment(id uint) error {
 	if id==0{return errors.New("invalid assignment ID")}
-	return DB.Where("id = ?",id).Delete(&model.DevicePolicyAssignment{}).Error
+	err:=DB.Where("id = ?",id).Delete(&model.DevicePolicyAssignment{}).Error
+	if err==nil {invalidatePolicyActivity()}
+	return err
 }
 
 // EffectiveDevicePolicy preserves the original API for older callers.
@@ -225,6 +237,20 @@ func EffectiveDevicePolicyDetails(deviceId string,userId uint,admin bool) (map[s
 // applicable policy, without changing the official client's response shape.
 func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]interface{},error) {
 	if peer==nil||peer.RowId==0{return map[string]interface{}{},nil}
+	present,err:=devicePolicyAssignmentsPresent()
+	if err!=nil{return nil,err}
+	if !present {
+		if modifiedAt==0{return map[string]interface{}{},nil}
+		return map[string]interface{}{
+			"modified_at":int64(0),
+			"strategy":map[string]interface{}{"config_options":map[string]string{
+				"id-whitelist":"","whitelist":"",
+				"trusted-device-expiration-days":"",
+				"access-mode":"","enable-keyboard":"","enable-clipboard":"",
+				"enable-file-transfer":"","approve-mode":"",
+			}},
+		},nil
+	}
 	resolved,err:=ResolveDevicePolicy(peer)
 	if err!=nil{return nil,err}
 	if resolved==nil {

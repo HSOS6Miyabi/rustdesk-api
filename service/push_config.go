@@ -275,18 +275,23 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 			err = DB.Model(&model.PushDelivery{}).Where("channel_id = ? AND status IN ?", input.Id, []string{"pending","retry"}).Update("status", "paused").Error
 		}
 	}
-	if err == nil && record.Enabled { wakePushDelivery() }
+	if err == nil {
+		invalidatePushActivity()
+		if record.Enabled {wakePushDelivery()}
+	}
 	return publicPushChannel(&record), err
 }
 
 func DeletePushChannel(userID, channelID uint) error {
 	if userID == 0 || channelID == 0 { return errors.New("无效的推送渠道") }
-	return DB.Transaction(func(tx *gorm.DB) error {
+	err:=DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Where("id = ? AND user_id = ?", channelID, userID).Delete(&model.PushChannel{})
 		if result.Error != nil { return result.Error }
 		if result.RowsAffected == 0 { return gorm.ErrRecordNotFound }
 		return tx.Where("channel_id = ?", channelID).Delete(&model.PushDelivery{}).Error
 	})
+	if err==nil {invalidatePushActivity()}
+	return err
 }
 
 func ListPushDeliveries(userID uint, page, size uint) ([]model.PushDelivery, int64, error) {

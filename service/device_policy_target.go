@@ -87,15 +87,18 @@ func SaveDevicePolicyUserAssignment(item *model.DevicePolicyUserAssignment) erro
 	if err:=policyAssignmentTargetExists(&model.User{},item.UserId);err!=nil{return err}
 	item.Revision=time.Now().UnixNano()
 	if item.Id==0 {
-		return DB.Clauses(clause.OnConflict{
+		err:=DB.Clauses(clause.OnConflict{
 			Columns:[]clause.Column{{Name:"user_id"}},
 			DoUpdates:clause.AssignmentColumns([]string{"policy_id","revision","updated_at"}),
 		}).Create(item).Error
+		if err==nil {invalidatePolicyActivity()}
+		return err
 	}
 	result:=DB.Model(&model.DevicePolicyUserAssignment{}).Where("id = ?",item.Id).
 		Updates(map[string]interface{}{"user_id":item.UserId,"policy_id":item.PolicyId,"revision":item.Revision})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return gorm.ErrRecordNotFound}
+	invalidatePolicyActivity()
 	return nil
 }
 
@@ -104,6 +107,7 @@ func DeleteDevicePolicyUserAssignment(id uint) error {
 	result:=DB.Where("id = ?",id).Delete(&model.DevicePolicyUserAssignment{})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return gorm.ErrRecordNotFound}
+	invalidatePolicyActivity()
 	return nil
 }
 
@@ -113,15 +117,18 @@ func SaveDevicePolicyGroupAssignment(item *model.DevicePolicyGroupAssignment) er
 	if err:=policyAssignmentTargetExists(&model.DeviceGroup{},item.GroupId);err!=nil{return err}
 	item.Revision=time.Now().UnixNano()
 	if item.Id==0 {
-		return DB.Clauses(clause.OnConflict{
+		err:=DB.Clauses(clause.OnConflict{
 			Columns:[]clause.Column{{Name:"group_id"}},
 			DoUpdates:clause.AssignmentColumns([]string{"policy_id","revision","updated_at"}),
 		}).Create(item).Error
+		if err==nil {invalidatePolicyActivity()}
+		return err
 	}
 	result:=DB.Model(&model.DevicePolicyGroupAssignment{}).Where("id = ?",item.Id).
 		Updates(map[string]interface{}{"group_id":item.GroupId,"policy_id":item.PolicyId,"revision":item.Revision})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return gorm.ErrRecordNotFound}
+	invalidatePolicyActivity()
 	return nil
 }
 
@@ -130,5 +137,6 @@ func DeleteDevicePolicyGroupAssignment(id uint) error {
 	result:=DB.Where("id = ?",id).Delete(&model.DevicePolicyGroupAssignment{})
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return gorm.ErrRecordNotFound}
+	invalidatePolicyActivity()
 	return nil
 }

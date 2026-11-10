@@ -90,6 +90,7 @@ func wakePushPresence() {
 
 // Event handlers never wait for outbound messages or database queue writes.
 func PublishPushEvent(event PushEvent) {
+	if event.Code!="device.heartbeat" && !hasPushSubscription(event.Code) {return}
 	if event.When.IsZero() { event.When = time.Now() }
 	worker := pushEventShards[pushEventShard(event)]
 	select {
@@ -235,7 +236,7 @@ func ProcessPushPresenceTimeouts(limit int) error {
 
 func processPushEvent(event PushEvent) error {
 	if event.Code == "device.heartbeat" { return processPushHeartbeat(event) }
-	if pushEventName(event.Code) == "" || DB == nil { return nil }
+	if pushEventName(event.Code) == "" || DB == nil || !hasPushSubscription(event.Code) { return nil }
 	if event.When.IsZero() { event.When = time.Now() }
 	participants := make([]uint, 0, 3)
 	if event.UserID == 0 && event.AccountUsername != "" {
