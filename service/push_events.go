@@ -157,7 +157,7 @@ func processPushEvent(event PushEvent) error {
 			Order("id DESC").Take(&audit).Error == nil {
 			if audit.FromPeer != "" { event.FromPeer = audit.FromPeer }
 			if audit.Ip != "" { event.SourceIP = audit.Ip }
-			event.Reference = fmt.Sprintf("connection:%d:%s", audit.Id, event.Code)
+			if event.Reference == "" { event.Reference = fmt.Sprintf("connection:%d:%s", audit.Id, event.Code) }
 			if audit.FromUserId != 0 { participants = append(participants, audit.FromUserId) }
 			if audit.ToUserId != 0 { participants = append(participants, audit.ToUserId) }
 		}

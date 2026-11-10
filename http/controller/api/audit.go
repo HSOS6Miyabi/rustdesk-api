@@ -32,13 +32,13 @@ func (a *Audit) AuditConn(c *gin.Context) {
 		response.Error(c, err.Error())
 		return
 	}
-	if record.Action == "new" || record.Action == "close" {
+	if record.Id != 0 && (record.Action == "" || record.Action == "new" || record.Action == "close") {
 		code := "connection.started"
 		if record.Action == "close" { code = "connection.ended" }
 		service.PublishPushEvent(service.PushEvent{
 			Code:code, DeviceID:record.PeerId, FromPeer:record.FromPeer,
 			SourceIP:record.Ip, ConnID:record.ConnId,
-			Reference:fmt.Sprintf("conn:%s:%d:%s",record.PeerId,record.ConnId,code),
+			Reference:fmt.Sprintf("conn:%d:%s:%s",record.Id,code,record.EventNonce),
 		})
 	}
 	response.Success(c, "")
@@ -66,10 +66,10 @@ func (a *Audit) AuditFile(c *gin.Context) {
 		return
 	}
 	service.NotifyEvent("audit.file",fmt.Sprintf("audit-file:%d:%s:%s",record.Id,record.PeerId,record.FromPeer),fmt.Sprintf("设备 %s 记录了来自设备 %s 的文件传输",record.PeerId,record.FromPeer))
-	service.PublishPushEvent(service.PushEvent{
+	if record.Id != 0 { service.PublishPushEvent(service.PushEvent{
 		Code:"audit.file",Reference:fmt.Sprintf("audit-file:%d",record.Id),
 		DeviceID:record.PeerId,FromPeer:record.FromPeer,SourceIP:record.Ip,ConnID:record.ConnId,
 		Detail:fmt.Sprintf("文件路径：%s；数量：%d",record.Path,record.Num),
-	})
+	}) }
 	response.Success(c, "")
 }
