@@ -44,6 +44,7 @@ func Init(g *gin.Engine) {
 	MailBind(adg)
 	NotificationsBind(adg)
 	PushChannelsBind(adg)
+	adg.POST("/geoip/lookup", (&admin.PushChannels{}).GeoIPLookup)
 	ClientBuilderBind(adg)
 	InvitationBind(adg)
 	OauthBind(adg)

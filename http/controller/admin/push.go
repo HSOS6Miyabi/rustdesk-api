@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"net/http"
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	"github.com/lejianwen/rustdesk-api/v2/service"
@@ -67,4 +68,15 @@ func (h *PushChannels) Retry(c *gin.Context) {
 		response.Error(c, err.Error()); return
 	}
 	response.Success(c, nil)
+}
+
+func (h *PushChannels) GeoIPLookup(c *gin.Context) {
+	var body struct { IPs []string `json:"ips" binding:"required"` }
+	if c.ShouldBindJSON(&body) != nil || len(body.IPs) > 256 {
+		c.JSON(http.StatusBadRequest,gin.H{"error":"请提交不超过 256 个 IP 地址"})
+		return
+	}
+	result := service.LookupGeoIPBatch(body.IPs)
+	c.Header("Cache-Control","private, max-age=3600")
+	response.Success(c,gin.H{"locations":result,"database_ready":service.GeoIPReady()})
 }

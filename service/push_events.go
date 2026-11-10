@@ -3,15 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
-	"net"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/oschwald/maxminddb-golang"
 	"gorm.io/gorm"
 )
 
@@ -190,44 +186,6 @@ func pushLabel(peer model.Peer, id string) string {
 	name = pushShort(name, 55)
 	if id == "" || name == id { return name }
 	return name + " (" + pushShort(id, 70) + ")"
-}
-
-var geoIPOnce sync.Once
-var geoIPDB *maxminddb.Reader
-
-func localPushGeoIP(ipValue string) string {
-	ip := net.ParseIP(strings.TrimSpace(ipValue))
-	if ip == nil || !ip.IsGlobalUnicast() || ip.IsPrivate() { return "" }
-	geoIPOnce.Do(func() {
-		file := os.Getenv("RUSTDESK_API_PUSH_GEOIP_DB")
-		if file == "" { return }
-		db, err := maxminddb.Open(file)
-		if err != nil {
-			if Logger != nil { Logger.WithError(err).Warn("cannot open local GeoIP database") }
-			return
-		}
-		geoIPDB = db
-	})
-	if geoIPDB == nil { return "" }
-	var location struct {
-		Country struct { Names map[string]string `maxminddb:"names"` } `maxminddb:"country"`
-		Subdivisions []struct { Names map[string]string `maxminddb:"names"` } `maxminddb:"subdivisions"`
-		City struct { Names map[string]string `maxminddb:"names"` } `maxminddb:"city"`
-	}
-	if err := geoIPDB.Lookup(ip, &location); err != nil { return "" }
-	names := make([]string, 0, 3)
-	add := func(m map[string]string) {
-		value := m["zh-CN"]
-		if value == "" { value = m["en"] }
-		value = pushShort(value, 60)
-		if value != "" && (len(names) == 0 || names[len(names)-1] != value) {
-			names = append(names, value)
-		}
-	}
-	add(location.Country.Names)
-	if len(location.Subdivisions) > 0 { add(location.Subdivisions[0].Names) }
-	add(location.City.Names)
-	return strings.Join(names, " / ")
 }
 
 func formatPushMessage(event PushEvent, includeGeo bool) (string, string) {
