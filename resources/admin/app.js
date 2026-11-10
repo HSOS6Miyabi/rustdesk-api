@@ -62,7 +62,7 @@
   };
   const pages = {
     overview: {name:"概览",icon:"home",section:"工作空间"},
-    devices: {name:"设备管理",icon:"monitor",section:"工作空间",endpoint:"peer",search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["note","设备备注"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","操作系统用户"],["os","操作系统"],["group_id","设备组 ID","number"],["note","设备备注","textarea"]]},
+    devices: {name:"设备管理",icon:"monitor",section:"工作空间",endpoint:"peer",search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["last_online_ip","最近上线 IP"],["note","设备备注"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","操作系统用户"],["os","操作系统"],["group_id","设备组 ID","number"],["note","设备备注","textarea"]]},
     shared: {name:"共享设备",icon:"share",section:"工作空间",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["owner_username","设备所有者"],["sources","共享来源"],["last_online_time","最后在线"]]},
     contacts: {name:"联系人",icon:"users",section:"工作空间"},
     addressbooks: {name:"地址簿",icon:"book",section:"工作空间",endpoint:"address_book",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["username","登录账户"],["platform","平台"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","登录账户"],["password","连接密码","password"],["platform","平台"],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"],["forceAlwaysRelay","强制使用中继","checkbox"]]},
@@ -167,7 +167,76 @@
   function esc(v) {return String(v===undefined||v===null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
   function txt(v) {return v===null||v===undefined||v===""?"—":Array.isArray(v)?v.join(", "):typeof v==="object"?JSON.stringify(v):String(v);}
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
+  const geoIPFields=new Set(["ip","client_ip","source_ip","last_online_ip","remote_ip","public_ip","private_ip","device_ip"]);
+  function findDisplayIP(value){
+    const raw=String(value||"").trim();
+    if(/^(?:\d{1,3}\.){3}\d{1,3}$/.test(raw)||/^[a-fA-F0-9:]+:[a-fA-F0-9:]+$/.test(raw))return raw;
+    const bracket=raw.match(/\[([a-fA-F0-9:]+)\]/);
+    if(bracket)return bracket[1];
+    const ipv4=raw.match(/(?:^|[/:])((?:\d{1,3}\.){3}\d{1,3})(?::\d+)?(?:\/|$)/);
+    return ipv4?ipv4[1]:"";
+  }
+  function geoIPText(ip){
+    const name=String(state.geoLocations[ip]||"位置未知");
+    return '<span class="ip-location">（'+esc(name)+'）</span>';
+  }
+  function showIP(value){
+    const raw=String(value||"").trim();
+    if(!raw)return "—";
+    if(raw.includes("/")&&raw.match(/\/\d{1,3}$/))return esc(raw)+'<span class="ip-location">（IP 地址段）</span>';
+    const ip=findDisplayIP(raw);
+    if(!ip)return esc(raw);
+    return esc(raw)+geoIPText(ip);
+  }
+  function showIPList(value){
+    const raw=String(value||"").trim();
+    if(!raw)return "—";
+    return raw.split(/[,;\n\r]+/).map(part=>showIP(part)).join("<span>, </span>");
+  }
+  function showServerAddress(value){
+    const raw=String(value||"").trim();
+    const ip=findDisplayIP(raw);
+    return esc(txt(value))+(ip?geoIPText(ip):"");
+  }
+  function collectGeoIP(raw,out){
+    if(Array.isArray(raw)){for(const item of raw)collectGeoIP(item,out);return;}
+    if(!raw||typeof raw!=="object")return;
+    for(const [key,value] of Object.entries(raw)){
+      if(geoIPFields.has(key) && typeof value==="string"){
+        const ip=findDisplayIP(value);
+        if(ip)out.add(ip);
+      }else if(key==="ip_whitelist"&&typeof value==="string"){
+        for(const part of value.split(/[,;\n\r]+/)){
+          if(!part.includes("/")){
+            const ip=findDisplayIP(part);
+            if(ip)out.add(ip);
+          }
+        }
+      }else if(["id_server","relay_server","api_server","host"].includes(key)&&typeof value==="string"){
+        const ip=findDisplayIP(value);
+        if(ip)out.add(ip);
+      }else if(value&&typeof value==="object"){
+        collectGeoIP(value,out);
+      }
+    }
+  }
+  async function loadGeoIPLocations(){
+    const candidates=new Set();
+    collectGeoIP(state.rows,candidates);
+    collectGeoIP(state.metrics?.recent,candidates);
+    if(state.page==="server")collectGeoIP(state.server,candidates);
+    const ipList=[...candidates].filter(ip=>!(ip in state.geoLocations)).slice(0,256);
+    if(!ipList.length)return;
+    try{
+      const result=await request("/geoip/lookup","POST",{ips:ipList});
+      Object.assign(state.geoLocations,result.locations||{});
+    }catch{
+      for(const ip of ipList)state.geoLocations[ip]="位置未知";
+    }
+  }
   function colValue(v,k){
+    if(geoIPFields.has(k))return showIP(v);
+    if(k==="ip_whitelist")return showIPList(v);
     if(k==="sources"&&Array.isArray(v))return v.map(x=>'<span class="pill '+(x.type==="contact"?"good":"")+'" style="margin:2px">'+esc(x.type==="contact"?"联系人："+x.name:"群组："+x.name)+'</span>').join("");
     if(k==="type"&&(v===1||v===2||v===3))return ["","普通组","共享组","公共锚点组"][v];
     if(permissionFieldNames.has(k))return ["沿用设备设置","禁止","允许"][Number(v)]||"—";
@@ -203,7 +272,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -469,6 +538,8 @@
         state.rows=result.list||[];state.total=result.total||0;
       }
     }catch(e){state.error=e.message;state.rows=[];state.total=0;}
+    if(n!==seq)return;
+    await loadGeoIPLocations();
     if(n!==seq)return;state.loading=false;render();
   }
   function metric(name,value,ic){
@@ -596,7 +667,7 @@
   function server(){
     const d=state.server||{};
     const labels=[["ID 服务器",d.id_server],["中继服务器",d.relay_server],["API 服务",d.api_server]];
-    const details=labels.map(x=>'<div class="status-row"><span>'+esc(x[0])+'</span><strong>'+esc(txt(x[1]))+'</strong></div>').join("");
+    const details=labels.map(x=>'<div class="status-row"><span>'+esc(x[0])+'</span><strong>'+showServerAddress(x[1])+'</strong></div>').join("");
     const opts=state.commands.map((cmd,i)=>'<option value="'+i+'">'+esc((cmd.target==="21115"?"ID 服务器":"中继服务器")+" / "+(cmd.explain||cmd.cmd))+'</option>').join("");
     return pageHeading("服务器管理","查看网络配置并向自托管 RustDesk 服务发送管理指令。")+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><h2 class="panel-title">连接参数</h2></div><div class="tips">'+details+'</div></section><section class="panel"><div class="panel-header"><h2 class="panel-title">管理指令</h2></div><form id="command-form" class="tips"><div class="field"><label for="cmd">选择指令</label><select id="cmd" name="command" required>'+opts+'</select></div><div class="field" style="margin-top:16px"><label for="cmd-arg">参数（可选）</label><input id="cmd-arg" name="option" placeholder="按指令说明填写"></div><button type="submit" class="btn btn-primary" style="margin-top:15px">执行指令</button><pre id="command-output" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></form></section></div>';
