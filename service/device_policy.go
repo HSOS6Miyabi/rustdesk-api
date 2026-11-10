@@ -251,7 +251,7 @@ func HeartbeatDeviceStrategy(peer *model.Peer, modifiedAt int64) (map[string]int
 			}},
 		},nil
 	}
-	resolved,err:=ResolveDevicePolicy(peer)
+	resolved,err:=resolveHeartbeatPolicy(peer)
 	if err!=nil{return nil,err}
 	if resolved==nil {
 		if modifiedAt==0{return map[string]interface{}{},nil}

@@ -75,3 +75,35 @@ func TestDisabledPushSubscriptionsAvoidDeviceQueries(t *testing.T) {
 	DB.Callback().Query().Remove("perf:push_read")
 	if queries!=0 {t.Fatalf("inactive push produced %d queries",queries)}
 }
+
+// Active policies are resolved once per device until an assignment or policy
+// changes. Changing policy options invalidates the snapshot immediately.
+func TestActivePolicyHeartbeatResolutionUsesCache(t *testing.T) {
+	cleanup:=setupGroupDB(t)
+	defer cleanup()
+	if err:=DB.AutoMigrate(&model.DevicePolicy{},&model.DevicePolicyAssignment{},
+		&model.DevicePolicyUserAssignment{},&model.DevicePolicyGroupAssignment{});err!=nil{t.Fatal(err)}
+	peer:=&model.Peer{Id:"cached-policy-device"}
+	if err:=DB.Create(peer).Error;err!=nil{t.Fatal(err)}
+	policy:=&model.DevicePolicy{Name:"Cached",IdWhitelist:"first"}
+	if err:=SaveDevicePolicy(policy);err!=nil{t.Fatal(err)}
+	if err:=SaveDevicePolicyAssignment(&model.DevicePolicyAssignment{DeviceId:peer.Id,PolicyId:policy.Id});err!=nil{t.Fatal(err)}
+	answer,err:=HeartbeatDeviceStrategy(peer,0)
+	if err!=nil||answer["strategy"]==nil{t.Fatalf("policy not initially applied: %v %v",answer,err)}
+	revision:=answer["modified_at"].(int64)
+	queries:=0
+	if err:=DB.Callback().Query().Before("gorm:query").
+		Register("perf:cached_policy_read",func(*gorm.DB){queries++});err!=nil{t.Fatal(err)}
+	for i:=0;i<20;i++{
+		value,err:=HeartbeatDeviceStrategy(peer,revision)
+		if err!=nil||len(value)!=0{t.Fatalf("identical policy was returned: %v %v",value,err)}
+	}
+	if err:=DB.Callback().Query().Remove("perf:cached_policy_read");err!=nil{t.Fatal(err)}
+	if queries!=0{t.Fatalf("unchanged active policy issued %d queries",queries)}
+	policy.IdWhitelist="second"
+	if err:=SaveDevicePolicy(policy);err!=nil{t.Fatal(err)}
+	answer,err=HeartbeatDeviceStrategy(peer,revision)
+	if err!=nil||answer["modified_at"]==nil||answer["modified_at"]==revision{
+		t.Fatalf("updated policy was not returned: %v %v",answer,err)
+	}
+}

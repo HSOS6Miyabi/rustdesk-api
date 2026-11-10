@@ -22,6 +22,9 @@ func invalidatePolicyActivity(){
 	policyActivity.Lock()
 	policyActivity.checked=time.Time{}
 	policyActivity.Unlock()
+	heartbeatPolicyCache.Lock()
+	heartbeatPolicyCache.entries=make(map[uint]heartbeatPolicyEntry)
+	heartbeatPolicyCache.Unlock()
 }
 
 func devicePolicyAssignmentsPresent()(bool,error){
@@ -128,4 +131,48 @@ func hasAdministrativeNotification(event string) bool {
 		administrativeNotificationActivity.checked=time.Now()
 	}
 	return administrativeNotificationActivity.events[event]
+}
+
+// A device-specific snapshot avoids repeatedly resolving three assignment
+// levels when only a small number of devices use advanced policies.
+type heartbeatPolicyEntry struct {
+	userID uint
+	groupID uint
+	expires time.Time
+	value *ResolvedPolicy
+}
+var heartbeatPolicyCache=struct{
+	sync.Mutex
+	db *gorm.DB
+	entries map[uint]heartbeatPolicyEntry
+}{entries:make(map[uint]heartbeatPolicyEntry)}
+
+func resolveHeartbeatPolicy(peer *model.Peer)(*ResolvedPolicy,error){
+	now:=time.Now()
+	heartbeatPolicyCache.Lock()
+	if heartbeatPolicyCache.db!=DB {
+		heartbeatPolicyCache.db=DB
+		heartbeatPolicyCache.entries=make(map[uint]heartbeatPolicyEntry)
+	}
+	entry,exists:=heartbeatPolicyCache.entries[peer.RowId]
+	if exists && entry.userID==peer.UserId && entry.groupID==peer.GroupId &&
+		now.Before(entry.expires) {
+		heartbeatPolicyCache.Unlock()
+		return entry.value,nil
+	}
+	heartbeatPolicyCache.Unlock()
+	value,err:=ResolveDevicePolicy(peer)
+	if err!=nil{return nil,err}
+	heartbeatPolicyCache.Lock()
+	if heartbeatPolicyCache.db==DB {
+		if len(heartbeatPolicyCache.entries)>=100000 {
+			heartbeatPolicyCache.entries=make(map[uint]heartbeatPolicyEntry)
+		}
+		heartbeatPolicyCache.entries[peer.RowId]=heartbeatPolicyEntry{
+			userID:peer.UserId,groupID:peer.GroupId,
+			expires:time.Now().Add(optionalFeatureRefresh),value:value,
+		}
+	}
+	heartbeatPolicyCache.Unlock()
+	return value,nil
 }
