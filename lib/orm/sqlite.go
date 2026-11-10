@@ -9,12 +9,15 @@ import (
 )
 
 type SqliteConfig struct {
+	Path string
 	MaxIdleConns int
 	MaxOpenConns int
 }
 
 func NewSqlite(sqliteConf *SqliteConfig, logwriter logger.Writer) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("file:./data/rustdeskapi.db?_journal_mode=WAL&_busy_timeout=5000"), &gorm.Config{
+	path:=sqliteConf.Path
+	if path=="" {path="./data/rustdeskapi.db"}
+	db, err := gorm.Open(sqlite.Open("file:"+path+"?_journal_mode=WAL&_busy_timeout=5000"), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		Logger: logger.New(
 			logwriter, // io writer

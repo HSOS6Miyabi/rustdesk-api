@@ -105,8 +105,20 @@ func init() {
 	rootCmd.AddCommand(resetPwdCmd, resetUserPwdCmd)
 }
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		global.Logger.Error(err)
+	err:=rootCmd.Execute()
+	if !service.FlushPendingEvents(8*time.Second) && global.Logger!=nil {
+		global.Logger.Warn("pending events did not finish before shutdown")
+	}
+	if global.DB!=nil {
+		if connection,dbErr:=global.DB.DB();dbErr==nil {
+			if closeErr:=connection.Close();closeErr!=nil && global.Logger!=nil {
+				global.Logger.WithError(closeErr).Warn("database close failed")
+			}
+		}
+	}
+	if global.Redis!=nil {_=global.Redis.Close()}
+	if err!=nil {
+		if global.Logger!=nil {global.Logger.Error(err)}
 		os.Exit(1)
 	}
 }
