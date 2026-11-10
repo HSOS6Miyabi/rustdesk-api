@@ -1,4 +1,4 @@
-# RustDesk API v3.0.0-api.104
+# RustDesk API v3.0.0-api.105
 
 本版本新增个人事件通知、设备在线状态显示和 IP 地理位置说明，并优化通知发送队列的调度及数据库查询。
 
@@ -31,4 +31,4 @@
 
 发布工作流完成测试及编译后，GitHub Release 提供 Linux AMD64、Linux ARM64 和 Windows AMD64 安装包；GitHub Container Registry 提供 Linux AMD64、ARM64 多架构镜像。
 
-Docker 镜像地址：`ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.104`。
+Docker 镜像地址：`ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.105`。

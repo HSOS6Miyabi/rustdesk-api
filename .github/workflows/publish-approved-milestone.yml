@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       milestone_release:
-        description: 'Confirm publication of v3.0.0-api.104'
+        description: 'Confirm publication of v3.0.0-api.105'
         type: boolean
         default: false
         required: true
@@ -36,7 +36,7 @@ jobs:
               exit 1
             fi
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110-104")' "$GITHUB_EVENT_PATH" >/dev/null; then
+            if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110-105")' "$GITHUB_EVENT_PATH" >/dev/null; then
               echo "This commit does not request a milestone release."
               exit 0
             fi
@@ -44,7 +44,7 @@ jobs:
             echo "Publication checks run without creating a release."
             exit 0
           fi
-          RELEASE_TAG="v3.0.0-api.104"
+          RELEASE_TAG="v3.0.0-api.105"
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Release tag already exists: $RELEASE_TAG"
             exit 0

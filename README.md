@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **版本与维护资料：** [版本说明](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 检查记录](docs/TASK_VERIFICATION_RECORD.md)。正式版本：[RustDesk API v3.0.0-api.103](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.103)、[RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。API 与 Server 的主分支代码已经合并，两个版本的 Linux AMD64、ARM64 Docker 镜像已经发布。Server 组合镜像使用 API v3.0.0-api.103。
+> **版本与维护资料：** [版本说明](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 检查记录](docs/TASK_VERIFICATION_RECORD.md)。正式版本：[RustDesk API v3.0.0-api.105](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.105)、[RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。API 与 Server 的主分支代码已经合并，两个版本的 Linux AMD64、ARM64 Docker 镜像已经发布。Server 组合镜像使用 API v3.0.0-api.103。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -75,7 +75,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 构建、测试及发布
 
-GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译及 Docker 镜像构建测试。日常提交与拉取请求不会自动发布版本。需要发布 `v3.0.0-api.104` 时，在 GitHub Actions 打开 [Publish approved RustDesk API milestone](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-milestone.yml)，选择 `master` 分支，勾选 `milestone_release` 后运行。工作流会创建版本标签，并启动 `Verify and release RustDesk API`；测试与编译成功后，会发布 Linux AMD64、Linux ARM64、Windows AMD64 安装包和 GHCR 多架构 Docker 镜像。
+GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译及 Docker 镜像构建测试。日常提交与拉取请求不会自动发布版本。需要发布 `v3.0.0-api.105` 时，在 GitHub Actions 打开 [Publish approved RustDesk API milestone](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-milestone.yml)，选择 `master` 分支，勾选 `milestone_release` 后运行。工作流会创建版本标签，并启动 `Verify and release RustDesk API`；测试与编译成功后，会发布 Linux AMD64、Linux ARM64、Windows AMD64 安装包和 GHCR 多架构 Docker 镜像。
 
 查看 [维护说明](docs/MAINTENANCE.md) 了解测试和升级过程。
 
