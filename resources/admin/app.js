@@ -168,6 +168,31 @@
   function txt(v) {return v===null||v===undefined||v===""?"—":Array.isArray(v)?v.join(", "):typeof v==="object"?JSON.stringify(v):String(v);}
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
   const geoIPFields=new Set(["ip","client_ip","source_ip","last_online_ip","remote_ip","public_ip","private_ip","device_ip"]);
+  const deviceReferenceFields=new Set(["device_id","peer_id","from_peer"]);
+  const deviceRowPages=new Set(["devices","shared","addressbooks","trash"]);
+  function deviceStatusDot(id){
+    const key=String(id??"").trim();
+    if(!key)return "";
+    const active=state.devicePresence[key];
+    const appearance=active===true?"online":active===false?"offline":"unknown";
+    const label=active===true?"在线":active===false?"离线":"状态暂不可用";
+    return '<span class="device-status-dot '+appearance+'" role="img" aria-label="'+label+'" title="'+label+'"></span>';
+  }
+  function collectDeviceIDs(raw,out,deviceRows=false){
+    if(Array.isArray(raw)){
+      for(const item of raw)collectDeviceIDs(item,out,deviceRows);
+      return;
+    }
+    if(!raw||typeof raw!=="object")return;
+    for(const [key,value] of Object.entries(raw)){
+      if(typeof value==="string"&&(deviceReferenceFields.has(key)||(deviceRows&&key==="id"))){
+        const deviceID=value.trim();
+        if(deviceID&&deviceID.length<=253)out.add(deviceID);
+      }else if(value&&typeof value==="object"){
+        collectDeviceIDs(value,out,deviceRows);
+      }
+    }
+  }
   function findDisplayIP(value){
     const raw=String(value||"").trim();
     if(/^(?:\d{1,3}\.){3}\d{1,3}$/.test(raw)||/^[a-fA-F0-9:]+:[a-fA-F0-9:]+$/.test(raw))return raw;
@@ -221,20 +246,34 @@
     }
   }
   async function loadGeoIPLocations(){
-    const candidates=new Set();
-    collectGeoIP(state.rows,candidates);
-    collectGeoIP(state.metrics?.recent,candidates);
+    const candidates=new Set(),devices=new Set();
+    const hasRows=state.page==="shared"||Boolean(pages[activeKey()]?.endpoint);
+    if(hasRows){
+      collectGeoIP(state.rows,candidates);
+      collectDeviceIDs(state.rows,devices,deviceRowPages.has(state.page));
+    }
+    if(state.page==="overview"){
+      collectGeoIP(state.metrics?.recent,candidates);
+      collectDeviceIDs(state.metrics?.recent,devices,true);
+    }
     if(state.page==="server")collectGeoIP(state.server,candidates);
     const ipList=[...candidates].filter(ip=>!(ip in state.geoLocations)).slice(0,256);
-    if(!ipList.length)return;
+    const deviceIDs=[...devices].slice(0,256);
+    if(!ipList.length&&!deviceIDs.length)return;
+    for(const id of deviceIDs)state.devicePresence[id]=null;
     try{
-      const result=await request("/geoip/lookup","POST",{ips:ipList});
+      const result=await request("/geoip/lookup","POST",{ips:ipList,device_ids:deviceIDs});
       Object.assign(state.geoLocations,result.locations||{});
+      const statuses=result.device_status||{};
+      for(const id of deviceIDs)state.devicePresence[id]=statuses[id]===true;
     }catch{
       for(const ip of ipList)state.geoLocations[ip]="位置未知";
     }
   }
-  function colValue(v,k){
+  function colValue(v,k,row){
+    if((deviceReferenceFields.has(k)||(k==="id"&&deviceRowPages.has(state.page)&&typeof v==="string"))&&v){
+      return deviceStatusDot(v)+esc(v);
+    }
     if(geoIPFields.has(k))return showIP(v);
     if(k==="ip_whitelist")return showIPList(v);
     if(k==="sources"&&Array.isArray(v))return v.map(x=>'<span class="pill '+(x.type==="contact"?"good":"")+'" style="margin:2px">'+esc(x.type==="contact"?"联系人："+x.name:"群组："+x.name)+'</span>').join("");
@@ -272,7 +311,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -475,7 +514,7 @@
   }
   async function logout(){
     try{await request("/logout","POST",{});}catch{}
-    state.token="";state.user=null;state.isAdmin=false;sessionStorage.removeItem("rustdesk.console.token");localStorage.removeItem("access_token");
+    state.token="";state.user=null;state.isAdmin=false;state.devicePresence={};sessionStorage.removeItem("rustdesk.console.token");localStorage.removeItem("access_token");
     await getOptions();render();
   }
   async function load(){
@@ -549,7 +588,7 @@
     const m=state.metrics||{};
     const shortcuts=["devices","shared","contacts",state.isAdmin?"groups":"mygroups"];
     const quick=shortcuts.map(k=>'<button data-view="'+k+'" class="quick-card">'+icon(pages[k].icon,21)+'<strong>'+esc(pages[k].name)+" "+icon("arrow",14)+'</strong></button>').join("");
-    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+esc(x.alias||x.hostname||x.id)+'</strong><span class="cell-sub">'+esc(x.id)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
+    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+deviceStatusDot(x.id)+esc(x.alias||x.hostname||x.id)+'</strong><span class="cell-sub">'+esc(x.id)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
       '<div class="metric-grid">'+metric("设备数量",state.loading?"…":m.devices,"monitor")+metric(state.isAdmin?"用户数量":"地址簿条目",state.loading?"…":m.users,"users")+metric(state.isAdmin?"用户分组":"联系人数量",state.loading?"…":m.groups===undefined?state.contacts.incoming.length:m.groups,"layers")+metric("当前账户",state.user.username,"shield")+'</div>'+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">快速访问</h2><p class="panel-sub">常用管理功能</p></div></div><div class="quick-grid">'+quick+'</div></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">最近出现的设备</h2><p class="panel-sub">按最后活动时间显示</p></div><button data-view="devices" class="btn btn-sm">查看全部</button></div><div class="tips">'+recent+'</div></section></div>';
@@ -602,8 +641,8 @@
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
     const cols=p.columns;
     const th=cols.map(c=>'<th scope="col">'+esc(c[1])+'</th>').join("");
-    const trs=rows.map(row=>'<tr>'+cols.map((c,i)=>'<td><span class="'+(i===0?"cell-title":"")+'">'+colValue(row[c[0]],c[0])+'</span></td>').join("")+'<td class="cell-actions">'+rowActions(row)+'</td></tr>').join("");
-    const mobile=rows.map(row=>'<article class="mobile-item"><div class="mobile-title">'+colValue(row[cols[0][0]],cols[0][0])+'</div><dl>'+cols.slice(1).map(c=>'<dt>'+esc(c[1])+'</dt><dd>'+colValue(row[c[0]],c[0])+'</dd>').join("")+'</dl><div class="mobile-actions">'+rowActions(row)+'</div></article>').join("");
+    const trs=rows.map(row=>'<tr>'+cols.map((c,i)=>'<td><span class="'+(i===0?"cell-title":"")+'">'+colValue(row[c[0]],c[0],row)+'</span></td>').join("")+'<td class="cell-actions">'+rowActions(row)+'</td></tr>').join("");
+    const mobile=rows.map(row=>'<article class="mobile-item"><div class="mobile-title">'+colValue(row[cols[0][0]],cols[0][0],row)+'</div><dl>'+cols.slice(1).map(c=>'<dt>'+esc(c[1])+'</dt><dd>'+colValue(row[c[0]],c[0])+'</dd>').join("")+'</dl><div class="mobile-actions">'+rowActions(row)+'</div></article>').join("");
     return '<div class="table-scroll"><table class="data-table"><thead><tr>'+th+'<th>操作</th></tr></thead><tbody>'+trs+'</tbody></table></div><div class="mobile-list">'+mobile+'</div>';
   }
   function pagination(){
@@ -1104,7 +1143,7 @@
     }
     if(m.kind==="transfer-device"){
       const body='<form id="device-transfer-form"><div class="form-grid">'+
-        '<div class="field full"><label>设备 ID</label><input readonly value="'+esc(m.device.id)+'"></div>'+
+        '<div class="field full"><label>设备 ID</label><div class="device-status-inline">'+deviceStatusDot(m.device.id)+'<input readonly value="'+esc(m.device.id)+'"></div></div>'+
         '<div class="field full"><label for="transfer-user-id">新所有者的用户编号 <span class="required">*</span></label>'+
         '<input id="transfer-user-id" name="user_id" type="number" min="1" step="1" required value="'+esc(m.device.user_id||"")+'">'+
         '<small>仅允许将设备转移给当前账户有权管理的用户。</small></div></div></form>';
