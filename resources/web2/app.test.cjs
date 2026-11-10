@@ -47,7 +47,7 @@ function fixture(options = {}) {
   };
   const apiResults = {
     "/config/server": server,
-    "/geoip/lookup": {device_status:{"123456789":true},locations:{},database_ready:false},
+    "/geoip/lookup": {device_status:{"123456789":options.online??true},locations:{},database_ready:false},
     "/shared_devices/list": {
       total: 1,
       list: [{
@@ -163,8 +163,11 @@ test("WebClient v2 enables direct WebRTC only after the user selects it",async()
 
 
 test("WebClient v2 displays offline devices in red without periodic requests",async()=>{
-  const app=fixture({token:"session-token"});
-  app.settle();
+  const app=fixture({token:"session-token",online:false});
   await app.settle();
+  const shared=app.elements.get("shared-items").children[0];
+  const dot=shared.children[0].children[0].children[0];
+  assert.equal(dot.className,"device-status-dot offline");
+  assert.equal(dot.attributes["aria-label"],"离线");
   assert.equal(app.apiCalls.filter(path=>path==="/geoip/lookup").length,1);
 });
