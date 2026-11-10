@@ -76,6 +76,27 @@ func DevicePresenceForUser(user *model.User, ids []string, administrator bool) (
 					if visible[peer.UserId] { allowed[peer.Id] = true }
 				}
 			}
+			// A participant may view the devices named in their own
+			// connection audit, even when neither device is shared.
+			stillHidden := false
+			for _, peer := range peers {
+				if !allowed[peer.Id] { stillHidden = true; break }
+			}
+			if stillHidden {
+				var records []struct {
+					FromPeer string
+					PeerId string
+				}
+				if err := DB.Model(&model.AuditConn{}).
+					Select("from_peer,peer_id").
+					Where("(from_user_id = ? OR to_user_id = ?)",user.Id,user.Id).
+					Where("(from_peer IN ? OR peer_id IN ?)",unique,unique).
+					Find(&records).Error; err != nil { return nil, err }
+				for _, record := range records {
+					allowed[record.FromPeer] = true
+					allowed[record.PeerId] = true
+				}
+			}
 		}
 	}
 	rowIDs := make([]uint, 0, len(peers))
