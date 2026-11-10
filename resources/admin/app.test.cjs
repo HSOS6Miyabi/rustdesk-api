@@ -48,7 +48,7 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
     "/notification/settings": {settings:{enabled:true,recipients:"team@example.test",events:"login.failure,audit.file"},catalog:["login.failure","audit.file"]},
     "/notification/list": {list:[{id:4,event_type:"audit.file",recipient:"team@example.test",status:"failed",attempts:3,last_error:"SMTP unreachable"}],total:1},
-    "/geoip/lookup": {locations:{"10.0.0.5":"局域网地址","127.0.0.1":"本地回环地址","192.0.2.1":"位置未知"},database_ready:false},
+    "/geoip/lookup": {locations:{"10.0.0.5":"局域网地址","127.0.0.1":"本地回环地址","192.0.2.1":"位置未知"},device_status:{"office":true,"home-remote":false,"123456":true,"654321":false,"helpdesk":true,"managed-desk":false,"support-123456":true,"deployed-10002":false},database_ready:false},
     "/push/events": [{code:"device.online",name:"设备上线"},{code:"device.offline",name:"设备离线"},{code:"connection.started",name:"远程连接建立"}],
     "/push/channels": {list:[{id:11,kind:"messagepusher",name:"我的通知",enabled:true,events:["device.online","connection.started"],base_url:"https://push.example.test",api_key_configured:true}]},
     "/push/history": {list:[{id:21,channel_id:11,title:"[RustDesk · 设备上线] 办公室电脑",event_type:"device.online",attempts:1,status:"sent",created_at:1710000000}],total:1},
@@ -606,4 +606,53 @@ test("login history and device IP addresses show parenthetical GeoIP locations",
   assert.match(app.root.innerHTML,/最近上线 IP/);
   assert.match(app.root.innerHTML,/127\.0\.0\.1/);
   assert.match(app.root.innerHTML,/（本地回环地址）/);
+});
+
+
+test("device presence uses inline dots in user and administrator views",async()=>{
+  const user=createConsole();
+  user.fixtures["/my/peer/list"]={list:[
+    {row_id:1,id:"office",hostname:"办公室设备"},
+    {row_id:2,id:"home-remote",hostname:"家庭设备"}
+  ],total:2};
+  await user.settle();
+  await user.settle();
+  await user.open("devices");
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.ok(user.calls.some(x=>x.endpoint==="/geoip/lookup"&&x.method==="POST"));
+  assert.doesNotMatch(user.root.innerHTML,/<th[^>]*>在线状态<\/th>/);
+  await user.open("myconnections");
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span>123456/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span>654321/);
+
+  const admin=createConsole(true);
+  admin.fixtures["/peer/list"]={list:[{row_id:3,id:"office",hostname:"管理员设备"}],total:1};
+  await admin.settle();
+  await admin.settle();
+  await admin.open("devices");
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
+  await admin.open("connections");
+  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span>managed-desk/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span>helpdesk/);
+});
+
+test("device status also appears in shared devices and saved address books",async()=>{
+  const app=createConsole();
+  app.fixtures["/shared_devices/list"]={list:[
+    {row_id:6,id:"office",hostname:"办公室电脑",owner_username:"owner",sources:[]},
+    {row_id:7,id:"home-remote",hostname:"家用电脑",owner_username:"owner",sources:[]}
+  ],total:2};
+  app.fixtures["/my/address_book/list"]={list:[
+    {row_id:8,id:"office",alias:"办公室电脑"},
+    {row_id:9,id:"home-remote",alias:"家庭设备"}
+  ],total:2};
+  await app.settle();
+  await app.settle();
+  await app.open("shared");
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  await app.open("addressbooks");
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
 });
