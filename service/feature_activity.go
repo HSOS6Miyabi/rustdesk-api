@@ -23,6 +23,7 @@ func invalidatePolicyActivity(){
 	policyActivity.checked=time.Time{}
 	policyActivity.Unlock()
 	heartbeatPolicyCache.Lock()
+	heartbeatPolicyCache.generation++
 	heartbeatPolicyCache.entries=make(map[uint]heartbeatPolicyEntry)
 	heartbeatPolicyCache.Unlock()
 }
@@ -144,6 +145,7 @@ type heartbeatPolicyEntry struct {
 var heartbeatPolicyCache=struct{
 	sync.Mutex
 	db *gorm.DB
+	generation uint64
 	entries map[uint]heartbeatPolicyEntry
 }{entries:make(map[uint]heartbeatPolicyEntry)}
 
@@ -160,11 +162,12 @@ func resolveHeartbeatPolicy(peer *model.Peer)(*ResolvedPolicy,error){
 		heartbeatPolicyCache.Unlock()
 		return entry.value,nil
 	}
+	generation:=heartbeatPolicyCache.generation
 	heartbeatPolicyCache.Unlock()
 	value,err:=ResolveDevicePolicy(peer)
 	if err!=nil{return nil,err}
 	heartbeatPolicyCache.Lock()
-	if heartbeatPolicyCache.db==DB {
+	if heartbeatPolicyCache.db==DB && heartbeatPolicyCache.generation==generation {
 		if len(heartbeatPolicyCache.entries)>=100000 {
 			heartbeatPolicyCache.entries=make(map[uint]heartbeatPolicyEntry)
 		}

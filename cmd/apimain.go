@@ -21,9 +21,10 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/utils"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 284
+const DatabaseVersion = 285
 
 // @title 管理系统API
 // @version 1.0
@@ -351,6 +352,10 @@ func Migrate(version uint) {
 		global.Logger.Error("migrate err :=>", err)
 		return
 	}
+	if err:=ensureAuditCleanupIndexes(global.DB);err!=nil {
+		global.Logger.WithError(err).Error("audit index migration failed")
+		return
+	}
 	global.DB.Create(&model.Version{Version: version})
 	//如果是初次则创建一个默认用户
 	var vc int64
@@ -395,4 +400,24 @@ func Migrate(version uint) {
 		global.DB.Create(admin)
 	}
 
+}
+
+func ensureAuditCleanupIndexes(db *gorm.DB) error {
+	for _,entry:=range []struct{
+		model interface{}
+		table string
+		name string
+	}{
+		{&model.AuditConn{},"audit_conns","idx_audit_conns_created_at"},
+		{&model.AuditFile{},"audit_files","idx_audit_files_created_at"},
+		{&model.AuditAlarm{},"audit_alarms","idx_audit_alarms_created_at"},
+		{&model.LoginLog{},"login_logs","idx_login_logs_created_at"},
+		{&model.AuditOperation{},"audit_operations","idx_audit_operations_created_at"},
+	}{
+		if db.Migrator().HasIndex(entry.model,entry.name){continue}
+		if err:=db.Exec("CREATE INDEX "+entry.name+" ON "+entry.table+" (created_at)").Error;err!=nil{
+			return fmt.Errorf("create audit retention index %s: %w",entry.name,err)
+		}
+	}
+	return nil
 }

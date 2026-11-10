@@ -66,8 +66,7 @@ func SaveAuditRetention(policy *model.AuditRetentionPolicy) error {
 func PruneOldAuditRecords(now time.Time) error {
 	policy,err:=GetAuditRetention()
 	if err!=nil{return err}
-	return DB.Transaction(func(tx *gorm.DB) error{
-		for _,category:=range []struct{model interface{};days int}{
+	for _,category:=range []struct{model interface{};days int}{
 			{&model.AuditConn{},policy.ConnectionDays},
 			{&model.AuditFile{},policy.FileDays},
 			{&model.AuditAlarm{},policy.AlarmDays},
@@ -76,10 +75,16 @@ func PruneOldAuditRecords(now time.Time) error {
 		}{
 			if category.days==0{continue}
 			cutoff:=now.Add(-time.Duration(category.days)*24*time.Hour)
-			if err:=tx.Where("created_at < ?",cutoff).Delete(category.model).Error;err!=nil{return err}
+			for {
+				var ids []uint
+				if err:=DB.Model(category.model).Where("created_at < ?",cutoff).
+					Order("id ASC").Limit(500).Pluck("id",&ids).Error;err!=nil{return err}
+				if len(ids)==0{break}
+				if err:=DB.Where("id IN ?",ids).Delete(category.model).Error;err!=nil{return err}
+				if len(ids)<500{break}
+			}
 		}
-		return nil
-	})
+	return nil
 }
 
 func StartAuditMaintenance() {

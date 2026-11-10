@@ -25,8 +25,16 @@ func claimAuditNonce(tx *gorm.DB, kind, nonce string) (bool,error) {
 
 // PruneAuditNonces can be called from the scheduled retention worker.
 func PruneAuditNonces(now time.Time) error {
-	return DB.Where("created_at < ?",now.Add(-24*time.Hour).Unix()).
-		Delete(&model.AuditEventNonce{}).Error
+	for {
+		var nonces []string
+		if err:=DB.Model(&model.AuditEventNonce{}).
+			Where("created_at < ?",now.Add(-24*time.Hour).Unix()).
+			Limit(500).Pluck("nonce",&nonces).Error;err!=nil{return err}
+		if len(nonces)==0{return nil}
+		if err:=DB.Where("nonce IN ?",nonces).
+			Delete(&model.AuditEventNonce{}).Error;err!=nil{return err}
+		if len(nonces)<500{return nil}
+	}
 }
 
 func (as *AuditService) SaveAuditAlarm(event *model.AuditAlarm,nonce,sourceIP string) error {
