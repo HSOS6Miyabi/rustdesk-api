@@ -61,3 +61,8 @@ jobs:
         run: go test ./service -run 'TestDatabaseMigrationAcrossDrivers|TestSQLiteOfflineBackupAndRestore' -count=1 -v
       - name: Restore MySQL and PostgreSQL backups and verify historical data
         run: bash scripts/test_database_restore.sh
+      - name: Verify audit retention index migration across all database drivers
+        env:
+          RUSTDESK_TEST_MYSQL_DSN: 'root:test-only-password@tcp(127.0.0.1:3306)/rustdesk_upgrade?charset=utf8mb4&parseTime=true&loc=UTC'
+          RUSTDESK_TEST_POSTGRES_DSN: 'host=127.0.0.1 port=5432 user=rustdesk password=test-only-password dbname=rustdesk_upgrade sslmode=disable TimeZone=UTC'
+        run: go test ./cmd -run 'TestAuditRetentionIndexesAreIdempotent|TestAuditRetentionIndexesAcrossDrivers' -count=1 -v
