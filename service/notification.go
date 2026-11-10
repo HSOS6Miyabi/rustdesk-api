@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/mail"
 	"sort"
+	"sync"
 	"strings"
 	"time"
 
@@ -17,6 +18,12 @@ import (
 )
 
 var notificationDeliveryWake = make(chan struct{}, 1)
+var notificationEvents = make(chan administrativeEvent, 1024)
+var notificationWorkerOnce sync.Once
+
+type administrativeEvent struct {
+	event, reference, description string
+}
 
 func wakeNotificationDelivery() {
 	select { case notificationDeliveryWake <- struct{}{}: default: }
@@ -139,8 +146,10 @@ func QueueNotification(event, reference, description string) error {
 // NotifyEvent records an optional alert without changing the result of the
 // originating operation when email delivery is unavailable.
 func NotifyEvent(event, reference, description string) {
-	if err := QueueNotification(event, reference, description); err != nil && Logger != nil {
-		Logger.WithError(err).Warn("unable to queue notification")
+	select {
+	case notificationEvents <- administrativeEvent{event, reference, description}:
+	default:
+		if Logger != nil { Logger.Warn("administrative notification buffer is full") }
 	}
 }
 
@@ -182,7 +191,7 @@ func ProcessNotificationQueue(limit int) (int, error) {
 	for _, row := range rows {
 		now = time.Now().Unix()
 		claim := DB.Model(&model.NotificationDelivery{}).
-			Where("id = ? AND status = ? AND attempts = ?", row.Id, row.Status, row.Attempts).
+			Where("id = ? AND status = ? AND attempts = ? AND locked_at = ?", row.Id, row.Status, row.Attempts, row.LockedAt).
 			Updates(map[string]interface{}{"status":"sending", "locked_at":now})
 		if claim.Error != nil { return sent, claim.Error }
 		if claim.RowsAffected != 1 { continue }
@@ -209,5 +218,14 @@ func ProcessNotificationQueue(limit int) (int, error) {
 }
 
 func StartNotificationWorker() {
-	startAdministrativeMailScheduler(notificationDeliveryWake)
+	notificationWorkerOnce.Do(func() {
+		go func() {
+			for message := range notificationEvents {
+				if err := QueueNotification(message.event, message.reference, message.description); err != nil && Logger != nil {
+					Logger.WithError(err).Warn("unable to queue administrative notification")
+				}
+			}
+		}()
+		startAdministrativeMailScheduler(notificationDeliveryWake)
+	})
 }
