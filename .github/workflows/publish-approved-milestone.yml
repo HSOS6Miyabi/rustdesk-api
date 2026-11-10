@@ -7,6 +7,13 @@ on:
   pull_request:
     paths:
       - '.github/workflows/publish-approved-milestone.yml'
+  workflow_dispatch:
+    inputs:
+      milestone_release:
+        description: 'Confirm publication of v3.0.0-api.104'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: write
@@ -20,17 +27,28 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MILESTONE_RELEASE: ${{ inputs.milestone_release }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$GITHUB_REF" != "refs/heads/master" || "$MILESTONE_RELEASE" != "true" ]]; then
+              echo "Select the master branch and confirm milestone_release."
+              exit 1
+            fi
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110-104")' "$GITHUB_EVENT_PATH" >/dev/null; then
+              echo "This commit does not request a milestone release."
+              exit 0
+            fi
+          else
             echo "Publication checks run without creating a release."
             exit 0
           fi
-          if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110-104")' "$GITHUB_EVENT_PATH" >/dev/null; then
-            echo "This commit does not request a milestone release."
+          RELEASE_TAG="v3.0.0-api.104"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release tag already exists: $RELEASE_TAG"
             exit 0
           fi
-          RELEASE_TAG="v3.0.0-api.104"
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/verify-release.yml/dispatches" \
             -f "ref=$RELEASE_TAG" -F "inputs[milestone_release]=true"
