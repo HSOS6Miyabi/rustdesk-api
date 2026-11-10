@@ -43,6 +43,7 @@ func Init(g *gin.Engine) {
 	APITokenBind(adg)
 	MailBind(adg)
 	NotificationsBind(adg)
+	PushChannelsBind(adg)
 	ClientBuilderBind(adg)
 	InvitationBind(adg)
 	OauthBind(adg)
@@ -557,4 +558,16 @@ func ClientBuilderBind(rg *gin.RouterGroup) {
 	r.POST("/tasks", handler.Queue)
 	r.POST("/tasks/retry", handler.Retry)
 	r.GET("/tasks/:id/download", handler.Download)
+}
+
+func PushChannelsBind(rg *gin.RouterGroup) {
+	h := &admin.PushChannels{}
+	r := rg.Group("/push")
+	r.GET("/events", h.Catalog)
+	r.GET("/channels", h.List)
+	r.POST("/channels", h.Save)
+	r.POST("/channels/delete", h.Delete)
+	r.POST("/channels/test", h.Test)
+	r.GET("/history", h.History)
+	r.POST("/history/retry", h.Retry)
 }
