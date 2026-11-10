@@ -467,3 +467,45 @@ func TestPresenceTransitionsUseOnlyOutboxWorker(t *testing.T) {
 		t.Fatalf("notification was processed more than once: %d %v", queued, err)
 	}
 }
+
+func TestSharedOutboxClaimsPreventConcurrentDuplicateProcessing(t *testing.T) {
+	cleanup := setupPushTestDB(t)
+	defer cleanup()
+	t.Setenv("RUSTDESK_API_SHARED_EVENT_WORKERS", "1")
+	user := &model.User{Username:"shared-worker-test", Status:model.COMMON_STATUS_ENABLE}
+	if err := DB.Create(user).Error; err != nil { t.Fatal(err) }
+	peer := &model.Peer{Id:"shared-worker-device", UserId:user.Id}
+	if err := DB.Create(peer).Error; err != nil { t.Fatal(err) }
+	if _, err := SavePushChannel(user.Id, PushChannelInput{
+		Name:"shared-worker-channel", Kind:"messagepusher", Enabled:true,
+		BaseURL:"https://push.example.test", APIKey:"mpk_shared",
+		Events:[]string{"device.registered"},
+	}); err != nil { t.Fatal(err) }
+	if err := persistPushEvent(PushEvent{
+		Code:"device.registered", DeviceID:peer.Id, PeerRowID:peer.RowId,
+		Reference:"shared-worker-event", When:time.Now(),
+	}); err != nil { t.Fatal(err) }
+	results := make(chan error, 2)
+	var concurrent sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		concurrent.Add(1)
+		go func() {
+			defer concurrent.Done()
+			_, err := ProcessPushEventOutbox(20)
+			results <- err
+		}()
+	}
+	concurrent.Wait()
+	close(results)
+	for err := range results {
+		if err != nil { t.Fatalf("shared worker processing failed: %v", err) }
+	}
+	var deliveries int64
+	if err := DB.Model(&model.PushDelivery{}).Count(&deliveries).Error; err != nil || deliveries != 1 {
+		t.Fatalf("one event generated %d deliveries: %v", deliveries, err)
+	}
+	var pending int64
+	if err := DB.Model(&model.PushEventOutbox{}).Count(&pending).Error; err != nil || pending != 0 {
+		t.Fatalf("processed event is still pending: %d %v", pending, err)
+	}
+}
