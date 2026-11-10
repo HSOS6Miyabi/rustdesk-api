@@ -121,7 +121,7 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		if previous.ToDeviceName == "" && to.DeviceName != "" { changes["to_device_name"] = to.DeviceName }
 		if len(changes) == 0 { return nil }
 		if err := tx.Model(&model.AuditConn{}).Where("id = ?", previous.Id).Updates(changes).Error; err != nil { return err }
-		event.Id = previous.Id
+		if event.Action != "" { event.Id = previous.Id }
 		return nil
 	})
 }
