@@ -29,7 +29,7 @@ sed -i "s/0.0.0.0:21114/127.0.0.1:$port/" "$test_dir/conf/config.yaml"
 url="http://127.0.0.1:$port/api/admin/config/admin"
 
 start() {
-    (cd "$test_dir" && RUSTDESK_API_ADMIN_TITLE="Environment title" "$binary" > "$test_dir/server.log" 2>&1) &
+    (cd "$test_dir" && exec env RUSTDESK_API_ADMIN_TITLE="Environment title" "$binary" > "$test_dir/server.log" 2>&1) &
     server_pid="$!"
     for _ in $(seq 1 80); do
         if curl -fsS --max-time 1 "$url" > "$test_dir/response.json" 2>/dev/null; then
