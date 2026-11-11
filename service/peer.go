@@ -16,10 +16,14 @@ func (ps *PeerService) FindById(id string) *model.Peer {
 }
 // FindHeartbeatPeerById reads only fields required by the heartbeat protocol.
 func (ps *PeerService) FindHeartbeatPeerById(id string) *model.Peer {
-	peer := &model.Peer{}
-	DB.Select("row_id", "id", "uuid", "user_id", "group_id", "last_online_time").
-		Where("id = ?", id).Take(peer)
-	return peer
+    peer, _ := ps.FindHeartbeatPeerByIdWithError(id)
+    return peer
+}
+func (ps *PeerService) FindHeartbeatPeerByIdWithError(id string) (*model.Peer,error) {
+    peer:=&model.Peer{}
+    err:=DB.Select("row_id", "id", "uuid", "user_id", "group_id", "last_online_time").
+        Where("id = ?",id).Take(peer).Error
+    return peer,err
 }
 
 func (ps *PeerService) FindByUuid(uuid string) *model.Peer {

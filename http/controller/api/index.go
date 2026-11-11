@@ -8,6 +8,8 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/service"
 	"net/http"
+	"errors"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -50,32 +52,47 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
-	peer := service.AllService.PeerService.FindHeartbeatPeerById(info.Id)
-	if peer == nil || peer.RowId == 0 {
+	peer, lookupErr := service.AllService.PeerService.FindHeartbeatPeerByIdWithError(info.Id)
+    if lookupErr != nil && !errors.Is(lookupErr,gorm.ErrRecordNotFound) {
+        c.JSON(http.StatusServiceUnavailable,gin.H{"error":"device database unavailable"})
+        return
+    }
+    if peer == nil || peer.RowId == 0 {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
 	// Check the device identity and managed deployment before returning policies.
-	if !heartbeatDeviceAuthorized(peer, info.Uuid) {
-		c.JSON(http.StatusOK, gin.H{})
-		return
-	}
+	allowed,authErr:=heartbeatDeviceAuthorizedWithError(peer,info.Uuid)
+    if authErr!=nil {
+        c.JSON(http.StatusServiceUnavailable,gin.H{"error":"device authorization unavailable"})
+        return
+    }
+    if !allowed {
+        c.JSON(http.StatusOK, gin.H{})
+        return
+    }
 	now := time.Now().Unix()
 	if now-peer.LastOnlineTime >= 30 {
-		service.DB.Model(&model.Peer{}).
-			Where("row_id = ? AND last_online_time <= ?", peer.RowId, now-30).
-			Updates(map[string]interface{}{
-				"last_online_time": now, "last_online_ip": c.ClientIP(),
-			})
+		updated:=service.DB.Model(&model.Peer{}).
+            Where("row_id = ? AND last_online_time <= ?",peer.RowId,now-30).
+            Updates(map[string]interface{}{"last_online_time":now,"last_online_ip":c.ClientIP()})
+        if updated.Error!=nil {
+            if service.Logger!=nil{service.Logger.WithError(updated.Error).Warn("heartbeat update failed")}
+            c.JSON(http.StatusServiceUnavailable,gin.H{"error":"device heartbeat persistence unavailable"})
+            return
+        }
 	}
 	data,err:=service.HeartbeatDeviceStrategy(peer,info.ModifiedAt)
 	if err!=nil {
 		if service.Logger!=nil{service.Logger.WithError(err).Warn("failed loading device policy for heartbeat")}
-		data=map[string]interface{}{}
+		c.JSON(http.StatusServiceUnavailable,gin.H{"error":"device policy unavailable"})
+		return
 	}
 	commands,err:=service.SynchronizeDeviceSessions(peer,info.Conns)
 	if err!=nil {
 		if service.Logger!=nil{service.Logger.WithError(err).Warn("failed updating device sessions")}
+		c.JSON(http.StatusServiceUnavailable,gin.H{"error":"device session unavailable"})
+		return
 	}else if len(commands)>0{
 		data["disconnect"]=commands
 	}
@@ -83,9 +100,13 @@ func (i *Index) Heartbeat(c *gin.Context) {
 	c.JSON(http.StatusOK,data)
 }
 
-func heartbeatDeviceAuthorized(peer *model.Peer, presentedUUID string) bool {
+func heartbeatDeviceAuthorized(peer *model.Peer,presentedUUID string) bool {
+    allowed,_:=heartbeatDeviceAuthorizedWithError(peer,presentedUUID)
+    return allowed
+}
+func heartbeatDeviceAuthorizedWithError(peer *model.Peer,presentedUUID string) (bool,error) {
 	if peer == nil || peer.RowId == 0 || peer.Uuid == "" || presentedUUID == "" {
-		return false
+		return false,nil
 	}
 	identityMatches := peer.Uuid == presentedUUID
 	if !identityMatches {
@@ -94,22 +115,23 @@ func heartbeatDeviceAuthorized(peer *model.Peer, presentedUUID string) bool {
 		identityMatches = validStored && validPresented && stored == presented
 	}
 	if !identityMatches {
-		return false
+		return false,nil
 	}
 	if !global.Config.App.RequireDeviceDeployment {
-		return true
+		return true,nil
 	}
 	storedUUID, valid := normalizedBase64(peer.Uuid, 8, 128)
 	if !valid {
-		return false
+		return false,nil
 	}
 	var deployment model.DeviceDeployment
 	if err := service.DB.Select("uuid", "status", "owner_user_id").
-		Where("device_id = ?", peer.Id).Take(&deployment).Error; err != nil {
-		return false
-	}
+        Where("device_id = ?",peer.Id).Take(&deployment).Error;err!=nil {
+        if errors.Is(err,gorm.ErrRecordNotFound){return false,nil}
+        return false,err
+    }
 	return deployment.Status == "approved" && deployment.OwnerUserId != 0 &&
-		deployment.OwnerUserId == peer.UserId && deployment.Uuid == storedUUID
+		deployment.OwnerUserId == peer.UserId && deployment.Uuid == storedUUID,nil
 }
 
 // Version 版本
