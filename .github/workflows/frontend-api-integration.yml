@@ -25,11 +25,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Export repository source for isolated integration inspection
         run: |
-          tar --exclude=./rustdesk-api-audit-source.tar.gz --exclude=./.git --exclude=./resources/web/main.dart.js --exclude=./docs/screenshots --exclude='*/node_modules' -czf rustdesk-api-audit-source.tar.gz .
+          tar --exclude=./.git --exclude=./resources/web/main.dart.js --exclude=./docs/screenshots --exclude='*/node_modules' -czf "$RUNNER_TEMP/rustdesk-api-audit-source.tar.gz" .
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-api-audit-source
-          path: rustdesk-api-audit-source.tar.gz
+          path: ${{ runner.temp }}/rustdesk-api-audit-source.tar.gz
           if-no-files-found: error
           retention-days: 3
       - uses: actions/setup-go@v5
