@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       milestone_release:
-        description: 'Confirm publication of v3.0.0-api.105'
+        description: 'Confirm publication of the next approved RustDesk API version'
         type: boolean
         default: false
         required: true
@@ -36,7 +36,7 @@ jobs:
               exit 1
             fi
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            if ! jq -e '.head_commit.message | contains("release-milestone-api-20261110-105")' "$GITHUB_EVENT_PATH" >/dev/null; then
+            if ! jq -e '.head_commit.message | contains("release-milestone-api-20261111-107")' "$GITHUB_EVENT_PATH" >/dev/null; then
               echo "This commit does not request a milestone release."
               exit 0
             fi
@@ -44,11 +44,34 @@ jobs:
             echo "Publication checks run without creating a release."
             exit 0
           fi
-          RELEASE_TAG="v3.0.0-api.105"
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Release tag already exists: $RELEASE_TAG"
-            exit 0
+          # Follow the latest approved release so future manual publications
+          # do not depend on a hard-coded version number.
+          LATEST_TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          if [[ "$LATEST_TAG" =~ ^v3[.]0[.]0-api[.]([0-9]+)$ ]]; then
+            LAST_VERSION="${BASH_REMATCH[1]}"
+            RELEASE_TAG="v3.0.0-api.$((LAST_VERSION + 1))"
+          else
+            echo "Unrecognized latest release tag: $LATEST_TAG" >&2
+            exit 1
           fi
-          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
+
+          # The one-time push approval is limited to this specific release.
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$RELEASE_TAG" != "v3.0.0-api.107" ]]; then
+            echo "Release request version does not match the approved v3.0.0-api.107." >&2
+            exit 1
+          fi
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+            if [[ "$TAG_SHA" != "$GITHUB_SHA" ]]; then
+              echo "The existing release tag points to a different commit." >&2
+              exit 1
+            fi
+            echo "Reusing the approved release tag: $RELEASE_TAG"
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
+          fi
+
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/verify-release.yml/dispatches" \
             -f "ref=$RELEASE_TAG" -F "inputs[milestone_release]=true"
