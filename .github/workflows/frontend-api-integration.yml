@@ -3,7 +3,7 @@ name: Frontend-driven API integration audit
 on:
   push:
     branches:
-      - audit/frontend-backend-contract-20261112
+      - master
   pull_request:
     paths:
       - 'resources/admin/**'
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   frontend-api-contract:
@@ -23,25 +23,6 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare integration test source
-        shell: bash
-        run: |
-          if [ -f scripts/.frontend-api-audit.b64 ]; then
-            python3 - <<'PY'
-          import base64
-          import gzip
-          from pathlib import Path
-          encoded = Path("scripts/.frontend-api-audit.b64").read_text()
-          Path("scripts/test_frontend_api_contract.py").write_bytes(
-              gzip.decompress(base64.b64decode(encoded)))
-          Path("scripts/.frontend-api-audit.b64").unlink()
-          PY
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add scripts/test_frontend_api_contract.py scripts/.frontend-api-audit.b64
-            git commit -m "test: exercise browser API contracts on isolated database"
-            git push origin HEAD:refs/heads/audit/frontend-backend-contract-20261112
-          fi
       - name: Export repository source for isolated integration inspection
         run: |
           tar --exclude=./.git --exclude=./resources/web/main.dart.js --exclude=./docs/screenshots --exclude='*/node_modules' -czf "$RUNNER_TEMP/rustdesk-api-audit-source.tar.gz" .
