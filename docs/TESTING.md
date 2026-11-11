@@ -318,3 +318,21 @@ go test ./http/controller/api -run '^TestManagedHeartbeatChecksApprovedDeploymen
 ```
 
 测试包含未登记、已批准、撤销许可、UUID 不匹配和所有者不一致等情况。Server 配套测试 `scripts/test_real_api_strict_combination.py` 在实际 API 与 `hbbs` 中复核撤销后的新连接拒绝。已通过 [API #42670400984](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42670400984) 和 [Server #42669744598](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42669744598)。
+
+## 设置中心与运行可靠性
+
+更新设置中心后，先运行 Go、JavaScript 与真实 API 进程测试：
+
+```bash
+go test ./... -count=1
+go test -race ./service ./lib/cache ./http/... -count=1
+node --test resources/admin/app.test.cjs
+go build -o /tmp/rustdesk-api ./cmd/apimain.go
+bash scripts/test_settings_startup.sh /tmp/rustdesk-api
+```
+
+其中真实 API 进程测试会检查 SQLite 初次创建、环境变量与数据库覆盖的优先级、关闭覆盖后的恢复，以及 SIGTERM 正常退出。
+
+还需检查设置中心的桌面和移动端浏览器交互、不同管理员同时修改设置时的版本冲突、密码原文不回显、两类通知事件的失败重试和多实例认领。正式升级前应执行 MySQL 与 PostgreSQL 的数据库迁移和恢复工作流。
+
+普通服务器与 Docker 分别通过持久化目录保存启动设置。验证 Docker 时，将数据卷挂载到 `/app/data`，重新创建容器并确认已保存设置能够恢复。

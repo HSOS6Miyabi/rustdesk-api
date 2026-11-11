@@ -1,3 +1,21 @@
+# RustDesk API (maintained fork)
+
+This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
+
+The most recent approved API release is [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106), using database migration version 288. The ongoing settings and reliability development branch uses migration version 290.
+
+System administrators can use **System Management → Settings Center** in `/_admin/` to inspect active configuration values, their sources, descriptions, and website overrides. Website overrides take precedence over environment variables. Restart the API after saving global settings.
+
+For native installations, preserve the `data/` directory. For Docker, mount `/app/data`. Back up the database, server identity files, configuration, and encryption keys before upgrading.
+
+Documentation for maintained fork features:
+
+- [Deployment](docs/DEPLOYMENT.md) and [global configuration reference](docs/CONFIG_REFERENCE.md)
+- [Settings Center](docs/SETTINGS_CENTER.md)
+- [Fork changes](docs/FORK_CHANGELOG.md) and [upstream integration](docs/UPSTREAM_SYNC.md)
+- [API guide](docs/API.md), [testing](docs/TESTING.md), and [version compatibility](docs/COMPATIBILITY.md)
+
+---
 > Optional strict connection access is available. When enabled on hbbs with
 > `RUSTDESK_API_CONNECTION_ACCESS_URL`, authenticated clients must be permitted
 > by device ownership or an explicit administrator rule before hbbs forwards
