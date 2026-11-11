@@ -321,8 +321,9 @@ func ApplyDatabaseOverrides(c *Config, overrides map[string]SettingOverride) err
 func RuntimeOption(key string) string {
     settingCatalog.RLock()
     value,ok:=settingCatalog.runtime[key]
+    override:=settingCatalog.bootstrap.Overrides[key]
     settingCatalog.RUnlock()
-    if ok { return value }
+    if ok && override.Enabled { return value }
     return readRuntimeEnvironment(key)
 }
 func RuntimeBool(key string) bool {
