@@ -41,6 +41,38 @@ jobs:
         run: RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/browser.e2e.cjs
       - name: Copy selected screenshots into the documentation
         run: python3 scripts/refresh_readme_gallery.py
+      - name: Prepare complete screenshot collection
+        run: |
+          mkdir -p screenshot-collection/readme screenshot-collection/browser-tests
+          cp -a docs/screenshots/. screenshot-collection/readme/
+          cp -a resources/admin/test-screenshots/. screenshot-collection/browser-tests/
+          python3 - <<'PY'
+          from pathlib import Path
+          import csv
+          import struct
+          root = Path("screenshot-collection")
+          images = sorted(root.rglob("*.png"))
+          if len(images) < 400:
+              raise SystemExit(f"Expected at least 400 screenshots, got {len(images)}")
+          with (root / "screenshot-index.csv").open("w", encoding="utf-8-sig", newline="") as out:
+              writer = csv.writer(out)
+              writer.writerow(["文件路径", "宽度（像素）", "高度（像素）"])
+              for path in images:
+                  data = path.read_bytes()
+                  if data[:8] != b"\\x89PNG\\r\\n\\x1a\\n":
+                      raise SystemExit(f"Invalid PNG: {path}")
+                  width, height = struct.unpack(">II", data[16:24])
+                  writer.writerow([path.relative_to(root), width, height])
+          print(f"Prepared {len(images)} screenshots")
+          PY
+      - name: Upload complete screenshots as ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-console-complete-screenshots
+          path: screenshot-collection/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
       - name: Update README screenshots in master
         run: |
           set -euo pipefail
