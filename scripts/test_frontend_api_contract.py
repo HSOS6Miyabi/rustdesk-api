@@ -234,6 +234,43 @@ def all_route_requests(client, contracts):
     return len(tested)
 
 
+
+def verify_browser_response_shapes(client):
+    """Check properties actually accessed by the administration and WebClient screens."""
+    contracts = {
+        "/config/admin": ("title",),
+        "/config/server": ("id_server", "relay_server", "api_server", "key"),
+        "/login-options": ("ops", "need_captcha", "disable_pwd"),
+        "/contact/list": ("incoming", "outgoing"),
+        "/shared_devices/list?page=1&page_size=5": ("list",),
+        "/shared_devices/sources": ("sources",),
+        "/push/channels": ("list",),
+        "/push/history?page=1&page_size=5": ("list", "total"),
+        "/notification/settings": ("settings", "catalog"),
+        "/notification/list?page=1&page_size=5": ("list", "total"),
+        "/mail/settings": ("enabled",),
+        "/client_builder/profiles?page=1&page_size=5": ("list",),
+        "/client_builder/tasks?page=1&page_size=5": ("list",),
+        "/settings/effective": ("items",),
+        "/settings/overview": ("summary", "outbox"),
+        "/settings/history?limit=5": ("list",),
+        "/settings/outbox?category=push": ("list",),
+        "/mfa/status": ("enabled",),
+        "/mfa/email/status": ("enabled",),
+    }
+    for path, keys in contracts.items():
+        data=client.success("GET",path)
+        check(isinstance(data,dict), f"Invalid browser response object: {path}")
+        missing=set(keys)-set(data)
+        check(not missing, f"Browser response at {path} is missing: {sorted(missing)}")
+    device_data=client.success("POST","/geoip/lookup",{
+        "ips":["127.0.0.1"],"device_ids":["does-not-exist"]
+    })
+    check(isinstance(device_data,dict)
+          and "locations" in device_data and "device_status" in device_data,
+          "Device presence response is incompatible with the browser")
+
+
 def check_real_changes(admin):
     username = "contract_" + secrets.token_hex(4)
     password = "Contract-" + secrets.token_hex(8)
@@ -409,6 +446,7 @@ def main():
             check("*" in (client.success("GET", "/user/current").get("route_names") or []),
                   "Administrator authentication failed")
             tested = all_route_requests(client, browser)
+            verify_browser_response_shapes(client)
             personal_requests = check_real_changes(client)
             logout_client = Client(client.url)
             logout_client.token=logout_client.success("POST","/login",{
