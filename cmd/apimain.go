@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 288
+const DatabaseVersion = 289
 
 // @title 管理系统API
 // @version 1.0
@@ -137,25 +137,6 @@ func InitGlobal() error {
 
 	global.InitI18n()
 
-	//redis
-	global.Redis = redis.NewClient(&redis.Options{
-		Addr:     global.Config.Redis.Addr,
-		Password: global.Config.Redis.Password,
-		DB:       global.Config.Redis.Db,
-	})
-
-	//cache
-	if global.Config.Cache.Type == cache.TypeFile {
-		fc := cache.NewFileCache()
-		fc.SetDir(global.Config.Cache.FileDir)
-		global.Cache = fc
-	} else if global.Config.Cache.Type == cache.TypeRedis {
-		global.Cache = cache.NewRedis(&redis.Options{
-			Addr:     global.Config.Cache.RedisAddr,
-			Password: global.Config.Cache.RedisPwd,
-			DB:       global.Config.Cache.RedisDb,
-		})
-	}
 	//gorm
 	if global.Config.Gorm.Type == config.TypeMysql {
 
@@ -195,6 +176,27 @@ func InitGlobal() error {
 		}, global.Logger)
 	}
 
+	if err := DatabaseAutoUpdate(); err != nil { return fmt.Errorf("database startup migration: %w", err) }
+	if err := service.LoadConfiguredSettings(&global.Config); err != nil { return err }
+	//redis
+	global.Redis = redis.NewClient(&redis.Options{
+		Addr:     global.Config.Redis.Addr,
+		Password: global.Config.Redis.Password,
+		DB:       global.Config.Redis.Db,
+	})
+
+	//cache
+	if global.Config.Cache.Type == cache.TypeFile {
+		fc := cache.NewFileCache()
+		fc.SetDir(global.Config.Cache.FileDir)
+		global.Cache = fc
+	} else if global.Config.Cache.Type == cache.TypeRedis {
+		global.Cache = cache.NewRedis(&redis.Options{
+			Addr:     global.Config.Cache.RedisAddr,
+			Password: global.Config.Cache.RedisPwd,
+			DB:       global.Config.Cache.RedisDb,
+		})
+	}
 	//validator
 	global.ApiInitValidator()
 
@@ -224,7 +226,6 @@ func InitGlobal() error {
 		BanDuration:      30 * time.Minute,
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
-	if err := DatabaseAutoUpdate(); err != nil { return fmt.Errorf("database startup migration: %w", err) }
 	service.StartAuditMaintenance()
 	service.StartSessionMaintenance()
 	service.StartNotificationWorker()
@@ -365,6 +366,9 @@ func Migrate(version uint) error {
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
 		&model.DeviceGroup{},
+		&model.SystemSettingOverride{},
+		&model.SystemSettingRevision{},
+		&model.SystemSettingHistory{},
 	)
 	if err != nil {
 		return fmt.Errorf("auto-migrate database tables: %w", err)

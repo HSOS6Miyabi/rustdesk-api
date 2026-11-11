@@ -108,6 +108,8 @@ func Init(rowVal *Config, path string) *viper.Viper {
 			panic(fmt.Errorf("invalid REQUIRE_DEVICE_DEPLOYMENT value: %s", value))
 		}
 	}
+	markSettingsBase(*rowVal,v)
+	if err := loadBootstrapOverrides(rowVal); err != nil { panic(fmt.Errorf("invalid bootstrap settings: %w",err)) }
 	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()
 	return v
