@@ -381,3 +381,14 @@ RUSTDESK_VISUAL_AUDIT=1 node --test --test-name-pattern="responsive data tables"
 ~~~
 
 测试会逐一打开有示例数据的列表，检查桌面、笔记本、平板、手机以及普通用户界面。检查内容包括表格各列的实际宽度、连接方向和设备 ID 是否发生意外换行、表格横向滚动、手机详情卡片和页面整体宽度。截图与逐页检查结果保存在 resources/admin/test-screenshots/table-layout/，可通过 GitHub Actions 的完整截图压缩包下载。
+
+## 管理界面的布局检查
+
+安装 Playwright、Chromium 和 Noto Sans CJK SC 简体中文字体后，可以执行以下命令：
+
+```bash
+node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
+RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/browser.e2e.cjs
+```
+
+浏览器测试覆盖导航、表格宽度、表单间距、按钮换行、弹窗布局、设备状态和主要操作。截图及检查结果保存在 `resources/admin/test-screenshots/`，也可以在 GitHub Actions 的 `Verify console visual layouts` 检查中获取。

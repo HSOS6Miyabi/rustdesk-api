@@ -112,6 +112,7 @@ func (ct *User) List(c *gin.Context) {
 			records.Page=int64(query.Page)
 			records.PageSize=int64(query.PageSize)
 			tx:=service.DB.Model(&model.User{}).Where("id IN ?",scope.UserIDs)
+			tx=service.DirectoryUserKeyword(tx,query.Keyword)
 			if query.Username!=""{
 				tx=tx.Where("username LIKE ?","%"+query.Username+"%")
 			}
@@ -123,6 +124,7 @@ func (ct *User) List(c *gin.Context) {
 		}
 	}
 	res := service.AllService.UserService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		service.DirectoryUserKeyword(tx,query.Keyword)
 		if query.Username != "" {
 			tx.Where("username like ?", "%"+query.Username+"%")
 		}

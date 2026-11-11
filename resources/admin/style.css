@@ -137,3 +137,102 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 @media(max-width:380px){
   .mobile-item dl{grid-template-columns:104px minmax(0,1fr);column-gap:9px}
 }
+
+/* Section navigation, keyboard sorting and consistent control spacing */
+.side-section-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:8px 0 3px;padding:14px 13px 9px;border:0;background:transparent;color:#95b1c8;font-size:11px;font-weight:750;letter-spacing:1px;text-align:left}
+.side-section-toggle:hover,.side-section-toggle:focus-visible{color:#fff;background:#203a53;border-radius:9px}
+.side-section-toggle svg{transition:transform .17s}
+.side-section-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.side-section-links[hidden]{display:none!important}
+.side-section-links{padding-bottom:5px}
+.sort-heading{display:inline-flex;justify-content:flex-start;align-items:center;gap:7px;max-width:100%;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;text-align:left;white-space:nowrap}
+.sort-heading:hover{color:var(--main)}
+.sort-heading span{opacity:.6;font-size:10px}
+.data-table th[aria-sort]:not([aria-sort="none"]) .sort-heading{color:var(--main)}
+.cell-actions{display:table-cell;vertical-align:middle}
+.cell-action-list{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cell-actions .btn{margin:0}
+.login-submit + [data-action="forgot-password"]{margin-top:12px;min-height:38px}
+.brand-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.brand-copy .side-name,.brand-copy .side-sub{white-space:nowrap}
+@media(max-width:600px){.mobile-list .mobile-actions{gap:10px}.table-toolbar .btn{max-width:100%;white-space:normal}}
+
+/* Searchable references and ARGB color selection */
+.entity-picker{display:grid;gap:8px;min-width:0}
+.picker-control{display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap}
+.field .picker-control input.picker-query{width:auto;min-width:120px;flex:1 1 155px}
+.picker-control .btn{flex:0 0 auto}
+.picker-results{border:1px solid var(--line);border-radius:11px;max-height:245px;overflow-y:auto;background:var(--panel);box-shadow:var(--shadow)}
+.picker-results[hidden]{display:none!important}
+.picker-result{display:flex;gap:7px;align-items:flex-start;flex-direction:column;text-align:left;border:0;border-bottom:1px solid var(--line);padding:10px 12px;width:100%;background:var(--panel);color:var(--text);min-width:0;overflow-wrap:anywhere}
+.picker-result:hover,.picker-result:focus-visible{background:var(--main-soft)}
+.picker-result span{font-size:11px;color:var(--muted)}
+.picker-result:last-child{border-bottom:0}
+.picker-empty{margin:10px 12px;font-size:12px;color:var(--muted)}
+.field .picker-selection{display:block;margin:0;overflow-wrap:anywhere}
+.color-picker{display:flex;flex-direction:column;gap:12px}
+.field .color-picker>input[type=color]{padding:3px;width:92px;min-height:46px;cursor:pointer}
+.color-picker label{display:grid;gap:7px;font-size:12px;color:var(--muted)}
+.field .color-picker input[type=range]{padding:0;min-height:24px}
+.color-label{display:inline-flex;gap:9px;align-items:center;white-space:nowrap}
+.color-swatch{width:19px;height:19px;border:1px solid var(--line);border-radius:5px;display:inline-block}
+@media(max-width:480px){.picker-control .btn{flex:1 1 85px}.field .picker-control input.picker-query{flex-basis:100%}}
+
+/* Server management: descriptions, validated forms and readable results */
+.server-config-panel{margin-bottom:20px}
+.server-info{padding:8px 22px}
+.server-info .status-row{min-height:58px;flex-wrap:wrap}
+.server-info .status-row strong{max-width:100%;overflow-wrap:anywhere}
+.server-editor{margin-bottom:20px;scroll-margin-top:22px}
+.server-editor-body{display:grid;gap:18px;padding:20px 22px}
+.server-command-help{margin:0;color:var(--muted);font-size:13px;line-height:1.75}
+.server-submit-row{display:flex;flex-wrap:wrap;gap:10px}
+.server-output{padding:16px;margin:0;min-height:90px;max-height:300px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line);background:var(--panel2);border-radius:11px;color:var(--text);font-size:12px;line-height:1.7}
+.server-command-sections{display:grid;gap:20px}
+.server-command-section .panel-header{flex-wrap:wrap}
+.server-action-grid{padding:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:11px}
+.server-action-card{display:grid;gap:7px;text-align:left;align-content:start;padding:15px;border:1px solid var(--line);border-radius:12px;color:var(--text);background:var(--panel);min-width:0;min-height:97px}
+.server-action-card:hover,.server-action-card:focus-visible{background:var(--main-soft);border-color:var(--main)}
+.server-action-card.selected{border-color:var(--main);background:var(--main-soft)}
+.server-action-card strong{font-size:13px}
+.server-action-card small{font-size:11px;line-height:1.65;color:var(--muted)}
+@media(max-width:480px){.server-action-grid{grid-template-columns:1fr;padding:12px}.server-info,.server-editor-body{padding:16px}.server-config-panel{margin-bottom:14px}}
+
+.picker-selected{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.picker-chip{display:inline-flex;align-items:center;gap:7px;min-height:30px;max-width:100%;border-radius:999px;border:1px solid var(--line);background:var(--main-soft);color:var(--text);font-size:11px;padding:6px 11px;overflow-wrap:anywhere}
+.picker-chip:hover{border-color:var(--main)}
+.entity-picker-multi .picker-results{width:100%}
+.mobile-sort{display:none}
+@media(max-width:900px){
+ .mobile-sort{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:12px 18px}
+ .mobile-sort label{color:var(--muted);font-size:12px;font-weight:700}
+ .mobile-sort select{flex:1 1 135px;min-width:0;max-width:300px;min-height:38px;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:6px 9px}
+}
+
+/* Interactive device and account references */
+.entity-link{display:inline-flex;align-items:center;vertical-align:middle;gap:3px;max-width:100%;min-width:0;border:0;background:transparent;padding:2px 0;color:var(--main);font:inherit;font-weight:inherit;text-align:left;cursor:pointer}
+.entity-link:hover,.entity-link:focus-visible{color:var(--good);text-decoration:underline;text-underline-offset:3px}
+.entity-link>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entity-link>.device-status-dot{flex:0 0 9px;margin-right:4px}
+.entity-separator{color:var(--muted)}
+.cell-multiline .entity-link{margin-right:3px}
+.picker-result-row{display:flex;align-items:center;justify-content:space-between;gap:7px;border-bottom:1px solid var(--line)}
+.picker-result-row:last-child{border-bottom:0}
+.picker-result-row .picker-result{flex:1 1 auto;border:0}
+.picker-result-detail{border:1px solid var(--line);background:var(--panel);border-radius:7px;color:var(--main);font-size:11px;min-height:34px;padding:5px 9px;flex:0 0 auto;margin-right:9px}
+.picker-result-detail:hover,.picker-result-detail:focus-visible{background:var(--main-soft)}
+.picker-result strong>.device-status-dot{margin-right:7px}
+
+.entity-summary{display:grid;gap:15px;min-width:0}
+.entity-presence{display:inline-flex;align-items:center;gap:9px}
+.entity-presence .device-status-dot{flex:none;margin:0}
+.entity-data{display:grid;gap:0;margin:0}
+.entity-data-row{display:grid;grid-template-columns:minmax(90px,130px) minmax(0,1fr);gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.entity-data-row dt{color:var(--muted);font-size:12px}
+.entity-data-row dd{margin:0;min-width:0;font-size:13px;color:var(--text);overflow-wrap:anywhere}
+.entity-summary>.subtitle{margin:0}
+@media(max-width:440px){.entity-data-row{grid-template-columns:minmax(90px,110px) minmax(0,1fr);gap:9px}}
+
+/* Keep secondary authentication controls separated from the submit button. */
+.login-card #login-form + button[data-action="forgot-password"]{display:inline-flex;margin-top:12px;min-height:38px}
+@media(max-width:600px){.login-card #login-form + button[data-action="forgot-password"]{margin-top:14px}}

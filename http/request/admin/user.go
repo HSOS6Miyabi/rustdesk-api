@@ -52,6 +52,7 @@ type PageQuery struct {
 type UserQuery struct {
 	PageQuery
 	Username string `form:"username"`
+	Keyword string `form:"keyword"`
 }
 type UserPasswordForm struct {
 	Id       uint   `json:"id" validate:"required"`

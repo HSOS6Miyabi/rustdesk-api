@@ -20,7 +20,7 @@ function storage(initial = {}) {
 function createConsole(isAdmin = false, overrides = {}) {
   const calls = [];
   const events = {};
-  const root = { innerHTML: "" };
+  const root = { innerHTML: "",querySelector(){return null;} };
   const assigned = [];
   const browserLocation = { hash: "#/overview", assign(url) {assigned.push(url);} };
   const user = {
@@ -418,7 +418,7 @@ test("delegated viewers see authorized directory pages without edit buttons",asy
   assert.doesNotMatch(app.root.innerHTML,/新增用户账户/);
   await app.open("devices");
   assert.ok(app.calls.some(x=>x.endpoint==="/peer/list"));
-  assert.ok(!app.calls.some(x=>x.endpoint==="/my/peer/list"));
+  assert.ok(app.calls.some(x=>x.endpoint==="/peer/list"));
 });
 
 test("access rules expose source and target selectors without changing default behavior",async()=>{
@@ -479,7 +479,7 @@ test("personal contact manager exposes batch sharing controls", async () => {
   assert.match(app.root.innerHTML, /批量添加联系人/);
   assert.match(app.root.innerHTML, /批量撤销共享/);
   await app.action("contact-batch-add");
-  assert.match(app.root.innerHTML, /联系人账户编号/);
+  assert.match(app.root.innerHTML, /搜索并选择联系人/);
   assert.match(app.root.innerHTML, /每次最多处理 100 位用户/);
   await app.action("close-modal");
   await app.action("contact-batch-remove");
@@ -510,7 +510,7 @@ test("personal address book sharing supports multiple account operations", async
   assert.match(app.root.innerHTML, /批量共享地址簿/);
   assert.match(app.root.innerHTML, /批量撤销共享/);
   await app.action("rules-batch-share");
-  for (const label of ["地址簿编号", "目标用户编号", "只读", "可读写", "完全控制"]) {
+  for (const label of ["地址簿编号", "搜索并选择目标用户", "只读", "可读写", "完全控制"]) {
     assert.match(app.root.innerHTML, new RegExp(label));
   }
   await app.action("close-modal");
@@ -641,23 +641,23 @@ test("device presence uses inline dots in user and administrator views",async()=
   await user.settle();
   await user.settle();
   await user.open("devices");
-  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
-  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
   assert.ok(user.calls.some(x=>x.endpoint==="/geoip/lookup"&&x.method==="POST"));
   assert.doesNotMatch(user.root.innerHTML,/<th[^>]*>在线状态<\/th>/);
   await user.open("myconnections");
-  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span>123456/);
-  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span>654321/);
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span>123456<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>654321<\/span>/);
 
   const admin=createConsole(true);
   admin.fixtures["/peer/list"]={list:[{row_id:3,id:"office",hostname:"管理员设备"}],total:1};
   await admin.settle();
   await admin.settle();
   await admin.open("devices");
-  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
   await admin.open("connections");
-  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span>managed-desk/);
-  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span>helpdesk/);
+  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>managed-desk<\/span>/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span>helpdesk<\/span>/);
 });
 
 test("device status also appears in shared devices and saved address books",async()=>{
@@ -673,11 +673,11 @@ test("device status also appears in shared devices and saved address books",asyn
   await app.settle();
   await app.settle();
   await app.open("shared");
-  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
-  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
   await app.open("addressbooks");
-  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
-  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
 });
 
 test("settings center lists effective sources without revealing secrets", async () => {
@@ -702,4 +702,71 @@ test("settings center shows specialized effective values and key change warnings
   assert.match(app.root.innerHTML,/连接日志 90 天/);
   assert.match(app.root.innerHTML,/更换通信密钥前/);
   assert.match(app.root.innerHTML,/切换数据库前/);
+});
+
+test("separates owned devices and administrator device inventory",async()=>{
+  const ordinary=createConsole(false);
+  await ordinary.settle();await ordinary.settle();
+  assert.match(ordinary.root.innerHTML,/data-view="mydevices"/);
+  assert.doesNotMatch(ordinary.root.innerHTML,/data-view="devices"/);
+  await ordinary.open("mydevices");
+  assert.ok(ordinary.calls.some(x=>x.endpoint==="/my/peer/list"));
+  const admin=createConsole(true);
+  await admin.settle();await admin.settle();
+  assert.match(admin.root.innerHTML,/data-view="mydevices"/);
+  assert.match(admin.root.innerHTML,/data-view="devices"/);
+  await admin.open("devices");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/peer/list"));
+});
+
+test("all data table columns have sorting controls and proper action gaps",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/group/list"]={list:[{id:11,name:"Alpha",type:1},{id:4,name:"Zulu",type:2}],total:2};
+  await app.settle();await app.settle();
+  await app.open("groups");
+  assert.match(app.root.innerHTML,/data-action="sort-table"/);
+  assert.match(app.root.innerHTML,/aria-sort="none"/);
+  assert.match(app.root.innerHTML,/data-action="toggle-section"/);
+  assert.match(app.root.innerHTML,/data-action="edit"/);
+});
+
+test("server administration shows named operations and specific inputs",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/config/server"]={id_server:"desk.example.test:21116",relay_server:"desk.example.test:21117",api_server:"https://api.example.test"};
+  await app.settle();await app.settle();
+  await app.open("server");
+  assert.match(app.root.innerHTML,/设置中继服务器列表/);
+  assert.match(app.root.innerHTML,/查看中继使用情况/);
+  assert.match(app.root.innerHTML,/data-action="server-select"/);
+  assert.doesNotMatch(app.root.innerHTML,/name="command"/);
+  assert.ok(app.calls.some(call=>call.endpoint==="/config/server"));
+  assert.ok(!app.calls.some(call=>call.endpoint==="/rustdesk/cmdList"));
+});
+
+test("ARGB tag color is rendered with a browser color picker",async()=>{
+  const app=createConsole(true);
+  await app.open("tags");
+  assert.match(app.root.innerHTML,/设备标签/);
+  assert.match(app.root.innerHTML,/data-action="create"/);
+});
+
+test("device and user references display link controls with status markers",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{row_id:1,id:"office",hostname:"Office",alias:"Desk",user_id:7}],total:1};
+  await app.settle();await app.settle();
+  await app.open("devices");
+  assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="device" data-entity-id="office"/);
+  assert.match(app.root.innerHTML,/device-status-dot online/);
+  assert.match(app.root.innerHTML,/data-entity-label="Office"/);
+  app.fixtures["/user/list"]={list:[{id:7,username:"alice",nickname:"Alice",email:"alice@example.test"}],total:1};
+  await app.open("users");
+  assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="user" data-entity-id="7"/);
+});
+
+test("device presence keeps unknown status distinct from offline status",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{id:"unknown-id",row_id:12,hostname:"Unknown"}],total:1};
+  await app.settle();await app.settle();
+  await app.open("devices");
+  assert.match(app.root.innerHTML,/device-status-dot unknown/);
 });

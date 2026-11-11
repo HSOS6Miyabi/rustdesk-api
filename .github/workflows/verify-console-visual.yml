@@ -1,0 +1,48 @@
+name: Verify console visual layouts
+
+on:
+  pull_request:
+    paths:
+      - 'resources/admin/**'
+      - 'resources/web2/**'
+      - '.github/workflows/verify-console-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install simplified Chinese fonts
+        run: |
+          mkdir -p "$HOME/.local/share/fonts"
+          curl --fail --location --silent --show-error --retry 4 --connect-timeout 20 \
+            "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf" \
+            --output "$HOME/.local/share/fonts/NotoSansCJKsc-Regular.otf"
+          fc-cache -f "$HOME/.local/share/fonts"
+          fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -F 'Noto Sans CJK SC'
+      - name: Install Chromium test framework
+        run: |
+          npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+          resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Check responsive screens, forms, and data tables
+        env:
+          RUSTDESK_VISUAL_AUDIT: '1'
+          RUSTDESK_REQUIRE_CJK_FONT: '1'
+        run: node --test resources/admin/browser.e2e.cjs
+      - name: Upload inspection reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-console-responsive-visual-audit
+          path: resources/admin/test-screenshots/
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 0

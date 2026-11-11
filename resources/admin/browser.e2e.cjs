@@ -96,7 +96,12 @@ function serve(req, res) {
       list:[{id:7,name:"我的家庭设备",type:3,owner_user_id:3}],total:1
     });
     if(route==="/group/list")return answer(res, {
-      list:[{id:1,name:"系统分组",type:1,owner_user_id:0}],total:1
+      list:[{id:1,name:"系统分组",type:1,owner_user_id:0},
+        {id:2,name:"帮助台用户组",type:1,owner_user_id:0},
+        {id:3,name:"研究人员组",type:1,owner_user_id:0}],total:3
+    });
+    if(route==="/device_group/list")return answer(res,{
+      list:[{id:3,name:"实验室设备组"}],total:1
     });
     if(route==="/audit_conn/list")return answer(res,{list:[
       {id:21,peer_id:"managed-desk",from_peer:"helpdesk",note:"现场支持",created_at:1710000000}
@@ -500,7 +505,7 @@ test("ordinary users can configure address books shared with everyone",async()=>
     const editor=page.locator('#edit-form');
     await editor.waitFor({state:"visible"});
     await editor.locator('select[name="type"]').selectOption("3");
-    await editor.locator('input[name="to_id"]').fill("0");
+    await editor.locator('input[name="to_id"]').waitFor({state:"attached"});
     assert.equal(await editor.locator('select[name="type"]').inputValue(),"3");
     assert.equal(await editor.locator('input[name="to_id"]').inputValue(),"0");
     assert.match(await page.locator("section.drawer").innerText(),/所有用户/);
@@ -742,7 +747,10 @@ test("full administrator configures management role permissions and scope",async
     await page.locator('#edit-form input[name="permissions"][value="users.view"]').check();
     await page.locator('#edit-form input[name="permissions"][value="devices.view"]').check();
     await page.locator('#edit-form select[name="scope_type"]').selectOption("group");
-    await page.locator('#edit-form input[name="scope_id"]').fill("3");
+    const scopePicker=page.locator('.entity-picker[data-picker-field="scope_id"]');
+    await scopePicker.locator('.picker-query').fill("研究人员组");
+    await scopePicker.locator('button[data-action="picker-search"]').click();
+    await scopePicker.locator('button[data-action="picker-select"][data-id="3"]').click();
     await page.locator('#edit-form input[name="enabled"]').check();
     const submit=page.waitForRequest(req=>req.url().endsWith("/api/admin/admin_role/create")&&req.method()==="POST");
     await page.locator('button[data-action="submit-admin-role"]').click();
@@ -809,9 +817,15 @@ test("administrator can create a device-group connection access rule",async()=>{
     const editor=page.locator('#edit-form');
     await editor.locator('input[name="name"]').fill("Shared support group");
     await editor.locator('select[name="source_type"]').selectOption("group");
-    await editor.locator('input[name="source_id"]').fill("2");
+    const sourcePicker=editor.locator('.entity-picker[data-picker-field="source_id"]');
+    await sourcePicker.locator('.picker-query').fill("帮助台用户组");
+    await sourcePicker.locator('button[data-action="picker-search"]').click();
+    await sourcePicker.locator('button[data-action="picker-select"][data-id="2"]').click();
     await editor.locator('select[name="target_type"]').selectOption("device_group");
-    await editor.locator('input[name="target_id"]').fill("3");
+    const targetPicker=editor.locator('.entity-picker[data-picker-field="target_id"]');
+    await targetPicker.locator('.picker-query').fill("实验室设备组");
+    await targetPicker.locator('button[data-action="picker-search"]').click();
+    await targetPicker.locator('button[data-action="picker-select"][data-id="3"]').click();
     await editor.locator('select[name="effect"]').selectOption("allow");
     await editor.locator('input[name="enabled"]').check();
     const sending=page.waitForRequest(req=>req.url().endsWith("/api/admin/access_rule/create")&&req.method()==="POST");
@@ -977,20 +991,20 @@ test("online and offline dots appear beside devices on desktop and mobile",async
     await admin.page.getByText("office",{exact:true}).first().waitFor();
     const row=admin.page.locator(".table-scroll tbody tr");
     assert.equal(await row.count(),2);
-    assert.equal(await row.nth(0).locator(".device-status-dot.online").count(),1);
-    assert.equal(await row.nth(1).locator(".device-status-dot.offline").count(),1);
+    assert.ok(await row.nth(0).locator(".device-status-dot.online").count()>=1);
+    assert.ok(await row.nth(1).locator(".device-status-dot.offline").count()>=1);
     assert.equal(await admin.page.getByRole("columnheader",{name:"在线状态"}).count(),0);
   } finally { await admin.context.close(); }
 
   const regular=await pageForViewport(375,812,false);
   try {
     await regular.page.locator('button[data-action="mobile-open"]').click();
-    await regular.page.locator('nav.side-scroll button[data-view="devices"]').click();
-    await regular.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
+    await regular.page.locator('nav.side-scroll button[data-view="mydevices"]').click();
+    await regular.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的设备");
     const list=regular.page.locator(".mobile-item");
     await list.first().waitFor();
-    assert.equal(await list.nth(0).locator(".device-status-dot.online").count(),1);
-    assert.equal(await list.nth(1).locator(".device-status-dot.offline").count(),1);
+    assert.ok(await list.nth(0).locator(".device-status-dot.online").count()>=1);
+    assert.ok(await list.nth(1).locator(".device-status-dot.offline").count()>=1);
     const size=await regular.page.evaluate(()=>({
       scroll:document.documentElement.scrollWidth,
       width:window.innerWidth
@@ -1382,9 +1396,7 @@ test("responsive data tables keep columns readable across screen sizes",async()=
         const result=await page.evaluate(()=>{
           const table=document.querySelector(".data-table");
           const region=table.closest(".table-scroll");
-          const cards=table.parentElement.nextElementSibling?.classList.contains("table-scroll-hint")?
-            table.parentElement.nextElementSibling.nextElementSibling:
-            table.parentElement.nextElementSibling;
+          const cards=table.closest(".panel").querySelector(".mobile-list");
           const visibleTable=getComputedStyle(region).display!=="none";
           const headings=[...table.querySelectorAll("thead th")];
           const cells=[...table.querySelectorAll("tbody tr:first-child td")];
@@ -1484,3 +1496,104 @@ test("responsive data tables keep columns readable across screen sizes",async()=
   console.log("Verified "+report.length+" responsive table screenshots.");
 });
 }
+
+test("navigation groups remain stable while opening lower items",async()=>{
+  const {context,page}=await pageForViewport(1440,850,true);
+  try{
+    const sidebar=page.locator(".side-scroll");
+    const headings=await page.locator(".side-section-toggle").allTextContents();
+    assert.ok(headings.includes("设备管理"));
+    assert.ok(headings.includes("审计管理"));
+    await page.locator('button[data-section="系统管理"]').click();
+    assert.equal(await page.locator('button[data-section="系统管理"]').getAttribute("aria-expanded"),"false");
+    await page.locator('button[data-section="系统管理"]').click();
+    await sidebar.evaluate(node=>node.scrollTop=node.scrollHeight);
+    const before=await sidebar.evaluate(node=>node.scrollTop);
+    await page.locator('nav button[data-view="settings"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    const after=await sidebar.evaluate(node=>node.scrollTop);
+    assert.ok(after>before-65,"navigation scroll must remain at the selected lower section");
+  }finally{await context.close();}
+});
+
+test("device inventories have separate owner and administration navigation",async()=>{
+  const owner=await pageForViewport(1360,850,false);
+  const administrator=await pageForViewport(1360,850,true);
+  try{
+    assert.equal(await owner.page.locator('nav button[data-view="devices"]').count(),0);
+    assert.equal(await owner.page.locator('nav button[data-view="mydevices"]').count(),1);
+    assert.equal(await administrator.page.locator('nav button[data-view="devices"]').count(),1);
+    assert.equal(await administrator.page.locator('nav button[data-view="mydevices"]').count(),1);
+    await owner.page.locator('nav button[data-view="mydevices"]').click();
+    await owner.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的设备");
+  }finally{await owner.context.close();await administrator.context.close();}
+});
+
+test("administrator group editing sends update endpoint and table headings sort",async()=>{
+  const {context,page}=await pageForViewport(1360,850,true);
+  try{
+    await page.locator('nav button[data-view="groups"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户分组");
+    const heading=page.locator('button[data-action="sort-table"][data-column="name"]');
+    await heading.click();
+    assert.equal(await page.locator('th[data-column="name"]').getAttribute("aria-sort"),"ascending");
+    await heading.click();
+    assert.equal(await page.locator('th[data-column="name"]').getAttribute("aria-sort"),"descending");
+    await page.locator('button[data-action="edit"]').first().click();
+    const form=page.locator("#edit-form");
+    await form.waitFor({state:"visible"});
+    await form.locator('[name="name"]').fill("更新后的分组");
+    let requestPath="";
+    await page.route("**/api/admin/group/update",async route=>{
+      requestPath=new URL(route.request().url()).pathname;
+      await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({code:0,data:{}})});
+    });
+    await page.locator('[type="submit"][form="edit-form"]').click();
+    await page.waitForTimeout(300);
+    assert.equal(requestPath,"/api/admin/group/update");
+  }finally{await context.close();}
+});
+
+test("interactive server management presents form explanations",async()=>{
+  const {context,page}=await pageForViewport(1360,850,true);
+  try{
+    await page.locator('nav button[data-view="server"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
+    await page.locator('button[data-id="id-block-add"]').click();
+    const form=page.locator("#command-form");
+    assert.equal(await form.locator('[name="option"]').count(),1);
+    await form.locator('[name="option"]').fill("invalid-ip");
+    await form.locator('button[type="submit"]').click();
+    assert.match(await page.locator(".toast-wrap").innerText(),/有效的 IPv4 或 IPv6/);
+  }finally{await context.close();}
+});
+
+test("device and user names open detail panels with management links",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
+    const device=page.locator('.table-scroll [data-action="entity-detail"][data-entity-type="device"]').first();
+    await device.click();
+    await page.locator('.drawer[aria-label="设备信息"]').waitFor();
+    assert.match(await page.locator(".drawer").innerText(),/设备 ID/);
+    assert.equal(await page.locator(".drawer .device-status-dot").count()>0,true);
+    await page.locator('[data-action="entity-open-list"]').click();
+    assert.match(await page.locator("#table-search").inputValue(),/office|managed/);
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
+    await page.locator('.table-scroll [data-action="entity-detail"][data-entity-type="user"]').first().click();
+    await page.locator('.drawer[aria-label="用户信息"]').waitFor();
+    assert.match(await page.locator(".drawer").innerText(),/用户名/);
+    assert.equal(await page.locator('[data-action="entity-open-list"]').count(),1);
+  }finally{await context.close();}
+});
+
+test("direct entity links from WebClient open the authorized detail view",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.goto(baseUrl+"/_admin/#/overview?entity=device&value=office",{waitUntil:"networkidle"});
+    await page.locator('.drawer[aria-label="设备信息"]').waitFor();
+    assert.match(await page.locator(".drawer").innerText(),/office/);
+  }finally{await context.close();}
+});
