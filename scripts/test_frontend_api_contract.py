@@ -211,6 +211,8 @@ def all_route_requests(client, contracts):
             continue
         path = route.replace(":id", "0")
         if verb == "GET" and (path.endswith("/export") or path.endswith("/download")):
+            client.send(verb, path, raw=True)
+            tested.add((verb, route))
             continue
         if verb == "GET":
             params = {"page": "1", "page_size": "5"}
@@ -383,15 +385,32 @@ def main():
                 config=json.load(reply)
             check(config.get("code")==0 and isinstance(config["data"].get("peers"),dict),
                   "Legacy WebClient server-config did not return its required data")
-            invalid=client.success("GET","/config/server")
             status,share=client.send("POST","/api/shared-peer",{"share_token":123})
             check(status<500 and share.get("code")!=0,
                   "Malformed WebClient sharing token must be rejected safely")
+            for invalid_share in ({}, {"share_token":None}, {"share_token":[]}, {"share_token":""}):
+                status,result=client.send("POST","/api/shared-peer",invalid_share)
+                check(status<500 and result.get("code")!=0,
+                      "Invalid shared-peer payload should return a validation error")
+            webclient_v2=urllib.request.Request(
+                client.url+"/api/server-config-v2", data=b"{}",
+                headers=headers, method="POST")
+            with urllib.request.urlopen(webclient_v2, timeout=7) as reply:
+                response=json.load(reply)
+            check(response.get("code")==0 and "id_server" in response.get("data",{}),
+                  "Legacy WebClient server-config-v2 is inconsistent")
             check(client.success("GET", "/user/current").get("is_admin") is True,
                   "Administrator authentication failed")
             tested = all_route_requests(client, browser)
             personal_requests = check_real_changes(client)
-            print(f"Passed {tested} browser API routes, {client.count + personal_requests} real HTTP requests, "
+            logout_client = Client(client.url)
+            logout_client.token=logout_client.success("POST","/login",{
+                "username":"admin","password":password,"platform":"web"
+            })["token"]
+            logout_client.success("POST","/logout",{})
+            _,revoked=logout_client.send("GET","/user/current")
+            check(revoked.get("code")!=0,"Logout did not revoke the browser session")
+            print(f"Passed {tested} browser API routes, {client.count + personal_requests + logout_client.count + 7} real HTTP requests, "
                   f"{len(pages)} views, and authenticated administrator/personal CRUD operations.")
 
 
