@@ -62,7 +62,8 @@
   };
   const pages = {
     overview: {name:"概览",icon:"home",section:"工作空间"},
-    devices: {name:"设备管理",icon:"monitor",section:"工作空间",endpoint:"peer",search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["last_online_ip","最近上线 IP"],["note","设备备注"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","操作系统用户"],["os","操作系统"],["group_id","设备组 ID","number"],["note","设备备注","textarea"]]},
+    devices: {name:"设备管理",icon:"monitor",section:"设备管理",endpoint:"peer",admin:true,search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["last_online_ip","最近上线 IP"],["note","设备备注"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","操作系统用户"],["os","操作系统"],["group_id","设备组 ID","number"],["note","设备备注","textarea"]]},
+    mydevices: {name:"我的设备",icon:"monitor",section:"工作空间",endpoint:"my/peer",noCreate:true,search:"id",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["os","系统"],["last_online_time","最后在线"],["last_online_ip","最近上线 IP"],["note","设备备注"]],fields:[["alias","备注"],["note","设备备注","textarea"]]},
     shared: {name:"共享设备",icon:"share",section:"工作空间",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["owner_username","设备所有者"],["sources","共享来源"],["last_online_time","最后在线"]]},
     contacts: {name:"联系人",icon:"users",section:"工作空间"},
     addressbooks: {name:"地址簿",icon:"book",section:"工作空间",endpoint:"address_book",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["username","登录账户"],["platform","平台"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","登录账户"],["password","连接密码","password"],["platform","平台"],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"],["forceAlwaysRelay","强制使用中继","checkbox"]]},
@@ -71,8 +72,8 @@
     mygroups: {name:"我的群组",icon:"layers",section:"个人管理",endpoint:"my/group",columns:[["id","编号"],["name","群组名称"],["type","分组类型"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
     groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"],["owner_user_id","创建者用户 ID"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
     users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"username",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
-    deployed: {name:"设备部署记录",icon:"monitor",section:"系统管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
-    devicegroups: {name:"设备分组",icon:"grid",section:"成员管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
+    deployed: {name:"设备部署记录",icon:"monitor",section:"设备管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
+    devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
     oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的分组 ID（逗号分隔）"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
@@ -82,46 +83,46 @@
     myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
     mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     myalarms: {name:"我的安全告警",icon:"shield",section:"我的审计记录",endpoint:"my/audit_alarm",readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["conn_id","连接编号"],["info","告警详情"],["created_at","时间"]]},
-    alarms: {name:"安全告警",icon:"shield",section:"系统管理",endpoint:"audit_alarm",admin:true,readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["from_user_id","发起方用户 ID"],["to_user_id","接收方用户 ID"],["conn_id","连接编号"],["source_ip","来源 IP"],["info","告警详情"],["created_at","时间"]]},
-    operations: {name:"管理操作记录",icon:"clock",section:"系统管理",endpoint:"audit_operation",admin:true,readonly:true,columns:[["id","编号"],["account","操作账户"],["method","请求方法"],["path","操作内容"],["client_ip","来源 IP"],["success","结果"],["created_at","时间"]]},
-    policies: {name:"设备安全策略",icon:"shield",section:"系统管理",endpoint:"device_policy",admin:true,columns:[["id","编号"],["name","策略名称"],["id_whitelist","设备 ID 白名单"],["ip_whitelist","IP 白名单"],["enable_webrtc","启用 WebRTC"],["trust_duration_days","可信设备有效期（天）"],["status","策略状态"]],fields:[["name","策略名称","text",true],["status","策略状态","status"],["id_whitelist","设备 ID 白名单","textarea"],["ip_whitelist","IP 白名单（单个地址或 CIDR）","textarea"],["enable_webrtc","允许 WebRTC 连接","checkbox"],["trust_duration_days","可信设备有效期（天）","trusted_days"],
+    alarms: {name:"安全告警",icon:"shield",section:"审计管理",endpoint:"audit_alarm",admin:true,readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["from_user_id","发起方用户 ID"],["to_user_id","接收方用户 ID"],["conn_id","连接编号"],["source_ip","来源 IP"],["info","告警详情"],["created_at","时间"]]},
+    operations: {name:"管理操作记录",icon:"clock",section:"审计管理",endpoint:"audit_operation",admin:true,readonly:true,columns:[["id","编号"],["account","操作账户"],["method","请求方法"],["path","操作内容"],["client_ip","来源 IP"],["success","结果"],["created_at","时间"]]},
+    policies: {name:"设备安全策略",icon:"shield",section:"设备管理",endpoint:"device_policy",admin:true,columns:[["id","编号"],["name","策略名称"],["id_whitelist","设备 ID 白名单"],["ip_whitelist","IP 白名单"],["enable_webrtc","启用 WebRTC"],["trust_duration_days","可信设备有效期（天）"],["status","策略状态"]],fields:[["name","策略名称","text",true],["status","策略状态","status"],["id_whitelist","设备 ID 白名单","textarea"],["ip_whitelist","IP 白名单（单个地址或 CIDR）","textarea"],["enable_webrtc","允许 WebRTC 连接","checkbox"],["trust_duration_days","可信设备有效期（天）","trusted_days"],
       ["access_mode","允许的远程连接方式","policy_access"],
       ["enable_keyboard","允许远程键盘和鼠标","policy_bool"],
       ["enable_clipboard","允许远程剪贴板","policy_bool"],
       ["enable_file_transfer","允许远程文件传输","policy_bool"],
       ["approval_mode","远程连接确认方式","policy_approve"]]},
-    policyAssignments: {name:"设备策略分配",icon:"grid",section:"系统管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
-    userPolicyAssignments: {name:"用户策略分配",icon:"users",section:"系统管理",endpoint:"device_policy/user_assignment",admin:true,columns:[["id","编号"],["user_id","用户 ID"],["policy_id","策略编号"]],fields:[["user_id","用户 ID","number",true],["policy_id","策略编号","number",true]]},
-    groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"系统管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
-    retention: {name:"日志保留设置",icon:"settings",section:"系统管理",admin:true},
+    policyAssignments: {name:"设备策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
+    userPolicyAssignments: {name:"用户策略分配",icon:"users",section:"设备管理",endpoint:"device_policy/user_assignment",admin:true,columns:[["id","编号"],["user_id","用户 ID"],["policy_id","策略编号"]],fields:[["user_id","用户 ID","number",true],["policy_id","策略编号","number",true]]},
+    groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
+    retention: {name:"日志保留设置",icon:"settings",section:"审计管理",admin:true},
     myloginlogs: {name:"我的登录记录",icon:"clock",section:"我的审计记录",endpoint:"my/login_log",readonly:true,columns:[["id","编号"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
-    loginlogs: {name:"登录记录",icon:"clock",section:"系统管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
-    connections: {name:"全部连接记录",icon:"link",section:"系统管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
-    transfers: {name:"全部文件传输",icon:"file",section:"系统管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
+    loginlogs: {name:"登录记录",icon:"clock",section:"审计管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
+    connections: {name:"全部连接记录",icon:"link",section:"审计管理",endpoint:"audit_conn",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
+    transfers: {name:"全部文件传输",icon:"file",section:"审计管理",endpoint:"audit_file",admin:true,readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     invitations: {name:"成员邮件邀请",icon:"users",section:"成员管理",endpoint:"invite",admin:true,columns:[["id","编号"],["email","收件邮箱"],["group_id","用户组 ID"],["expires_at","有效期截止"],["accepted_at","接受时间"],["revoked_at","撤销时间"]],fields:[["email","成员邮箱","email",true],["group_id","加入的用户组 ID（默认 1）","number"],["expires_in_days","有效天数（默认 7）","number"]]},
     relayNodes: {name:"中继节点管理",icon:"network",section:"系统管理",endpoint:"relay",admin:true,
       columns:[["id","编号"],["name","节点名称"],["address","中继服务器地址"],["subnets","优先使用的网络范围"],["countries","优先使用的国家代码"],["priority","优先级"],["enabled","是否启用"]],
       fields:[["name","节点名称","text",true],["address","中继服务器地址","text",true],
         ["subnets","优先使用的 IP 网络（每行一个 CIDR）","textarea"],["countries","优先使用的国家代码（例如 JP,US）","textarea"],["priority","优先级（越小越高）","number"],
         ["enabled","是否启用","checkbox"]]},
-    accessRules: {name:"连接访问规则",icon:"shield",section:"系统管理",endpoint:"access_rule",admin:true,
+    accessRules: {name:"连接访问规则",icon:"shield",section:"设备管理",endpoint:"access_rule",admin:true,
       columns:[["id","编号"],["name","规则名称"],["source_type","访问方类型"],["source_id","访问方编号"],["target_type","目标类型"],["target_id","目标编号"],["effect","访问结果"],["enabled","是否启用"]],
       fields:[["name","规则名称","text",true],
         ["source_type","允许访问的用户范围","access_source",true],["source_id","来源用户或用户组编号（所有用户填写 0）","number"],
         ["target_type","目标设备范围","access_target",true],["target_id","目标设备 ID 或用户/设备组编号（所有设备留空）"],
         ["effect","匹配时的操作","access_effect",true],["enabled","启用此规则","checkbox"]]},
-    adminRoles: {name:"管理员角色",icon:"shield",section:"系统管理",endpoint:"admin_role",admin:true,
+    adminRoles: {name:"管理员角色",icon:"shield",section:"成员管理",endpoint:"admin_role",admin:true,
       columns:[["id","编号"],["name","角色名称"],["scope_type","管理范围"],["scope_id","范围编号"],["permissions","允许的操作"],["enabled","是否启用"]],
       fields:[["name","角色名称","text",true],["permissions","管理权限","admin_permissions",true],
         ["scope_type","权限适用范围","admin_scope",true],["scope_id","指定用户或群组编号（全局填 0）","number"],
         ["enabled","启用此角色","checkbox"]]},
-    adminRoleAssignments: {name:"管理员角色分配",icon:"users",section:"系统管理",endpoint:"admin_role_assignment",admin:true,
+    adminRoleAssignments: {name:"管理员角色分配",icon:"users",section:"成员管理",endpoint:"admin_role_assignment",admin:true,
       columns:[["id","编号"],["user_id","成员用户 ID"],["role_id","管理员角色 ID"]],
       fields:[["user_id","成员用户 ID","number",true],["role_id","管理员角色 ID","number",true]]},
-    controlRoles: {name:"远程控制角色",icon:"shield",section:"系统管理",endpoint:"control_role",admin:true,
+    controlRoles: {name:"远程控制角色",icon:"shield",section:"设备管理",endpoint:"control_role",admin:true,
       columns:[["id","编号"],["name","角色名称"],["keyboard","键盘和鼠标"],["clipboard","剪贴板"],["file","文件传输"],["terminal","远程终端"],["remote_modify","修改远程设置"]],
       fields:[["name","角色名称","text",true],...controlPermissionFields]},
-    controlAssignments: {name:"远程控制角色分配",icon:"grid",section:"系统管理",endpoint:"control_assignment",admin:true,
+    controlAssignments: {name:"远程控制角色分配",icon:"grid",section:"设备管理",endpoint:"control_assignment",admin:true,
       columns:[["id","编号"],["target_type","分配范围"],["target_id","设备或账户编号"],["role_id","控制角色编号"]],
       fields:[["target_type","分配范围","control_target",true],["target_id","设备 ID 或用户/设备组编号","text",true],
         ["role_id","控制角色编号","number",true]]},
@@ -129,8 +130,8 @@
     clientBuilder: {name:"客户端安装包构建",icon:"package",section:"系统管理",admin:true},
     notifications: {name:"邮件事件通知",icon:"bell",section:"系统管理",endpoint:"notification",admin:true,readonly:true,columns:[["id","编号"],["event_type","事件类型"],["recipient","收件邮箱"],["status","发送状态"],["attempts","尝试次数"],["sent_at","发送时间"],["last_error","最近一次错误"]]},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔，例如 devices.read）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
-    activeSessions: {name:"活动远程连接",icon:"link",section:"系统管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
-    disconnectHistory: {name:"结束连接记录",icon:"clock",section:"系统管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
+    activeSessions: {name:"活动远程连接",icon:"link",section:"设备管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
+    disconnectHistory: {name:"结束连接记录",icon:"clock",section:"设备管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
     push: {name:"消息推送",icon:"bell",section:"账户"},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
@@ -162,7 +163,8 @@
     moon:'<path d="M20 15.4A8 8 0 0 1 8.6 4a8.5 8.5 0 1 0 11.4 11.4z"/>',
     logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5m5 5H9"/>',
     arrow:'<path d="M5 12h14m-7-7 7 7-7 7"/>',
-    info:'<circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/>'
+    info:'<circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/>',
+    chevron:'<path d="m6 9 6 6 6-6"/>'
   };
   function icon(name,size=20) { return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(drawings[name]||drawings.info)+'</svg>'; }
   function esc(v) {return String(v===undefined||v===null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -311,6 +313,7 @@
   const state={
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
+    sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
     groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
@@ -421,20 +424,35 @@
   }
   function shell(){
     const username=state.user&&state.user.nickname||state.user&&state.user.username||"用户";
-    let section="",nav="";
-    for(const [key,p] of Object.entries(pages)){
-      if(!available(key)||key==="collections")continue;
-      if(p.section!==section){section=p.section;nav+='<div class="side-section">'+esc(section)+'</div>';}
-      nav+='<button class="nav-link '+(key===state.page?"active":"")+'" type="button" data-view="'+esc(key)+'" '+(key===state.page?'aria-current="page"':'')+'>'+icon(p.icon,18)+esc(p.name)+'</button>';
+    const sections=["工作空间","个人管理","我的审计记录","成员管理","设备管理","审计管理","系统管理","账户","客户端"];
+    const items=Object.entries(pages).filter(([key])=>key!=="collections"&&available(key));
+    let nav="";
+    for(const section of sections){
+      const links=items.filter(([,p])=>p.section===section);
+      if(section==="客户端")links.push(["webclient",{name:"WebClient v2",icon:"monitor"}]);
+      if(!links.length)continue;
+      const collapsed=!!state.navCollapsed[section] && !links.some(([key])=>key===state.page);
+      nav+='<button type="button" class="side-section-toggle" data-action="toggle-section" data-section="'+esc(section)+'" aria-expanded="'+(!collapsed)+'">'+
+        '<span>'+esc(section)+'</span>'+icon("chevron",16)+'</button><div class="side-section-links" '+(collapsed?"hidden":"")+'>';
+      for(const [key,p] of links){
+        nav+='<button class="nav-link '+(key===state.page?"active":"")+'" type="button" '+
+          (key==="webclient"?'data-action="webclient"':'data-view="'+esc(key)+'"')+
+          ' '+(key===state.page?'aria-current="page"':'')+'>'+icon(p.icon,18)+esc(p.name)+'</button>';
+      }
+      nav+="</div>";
     }
-    nav+='<div class="side-section">客户端</div><button class="nav-link" data-action="webclient">'+icon("monitor",18)+'WebClient v2</button>';
-    return '<div class="workspace"><div class="sidebar-backdrop '+(state.mobile?"show":"")+'" data-action="mobile-close"></div><aside class="sidebar '+(state.mobile?"open":"")+'"><div class="side-head">'+brand()+'</div><nav class="side-scroll" aria-label="导航">'+nav+'</nav><div class="side-bottom"><div class="side-avatar"><span class="avatar">'+esc(username[0]||"R").toUpperCase()+'</span><div class="side-account"><strong>'+esc(username)+'</strong><small>'+(state.isAdmin?"系统管理员":"普通用户")+'</small></div></div></div></aside><div class="main"><header class="topbar"><div class="breadcrumbs"><button class="icon-btn mobile-only" data-action="mobile-open" aria-label="打开导航">'+icon("menu")+'</button><span>工作空间</span><span>/</span><span class="crumb-current">'+esc(pages[state.page].name)+'</span></div><div class="top-actions"><button class="icon-btn" data-action="refresh" title="刷新">'+icon("refresh")+'</button><button class="icon-btn" data-action="theme" title="切换主题">'+icon(state.theme==="dark"?"sun":"moon")+'</button><button class="top-user" data-view="profile"><span class="mini-avatar">'+esc(username[0]||"R").toUpperCase()+'</span>'+esc(username)+'</button><button class="icon-btn" data-action="logout" title="退出登录">'+icon("logout")+'</button></div></header><main class="content">'+renderPage()+'</main></div></div>'+renderModal();
+    return '<div class="workspace"><div class="sidebar-backdrop '+(state.mobile?"show":"")+'" data-action="mobile-close"></div><aside class="sidebar '+(state.mobile?"open":"")+'"><div class="side-head">'+brand()+'</div><nav class="side-scroll" aria-label="导航">'+nav+'</nav><div class="side-bottom"><div class="side-avatar"><span class="avatar">'+esc(username[0]||"R").toUpperCase()+'</span><div class="side-account"><strong>'+esc(username)+'</strong><small>'+(state.isAdmin?"系统管理员":"普通用户")+'</small></div></div></div></aside><div class="main"><header class="topbar"><div class="breadcrumbs"><button class="icon-btn mobile-only" data-action="mobile-open" aria-label="打开导航">'+icon("menu")+'</button><span>'+esc(pages[state.page].section)+'</span><span>/</span><span class="crumb-current">'+esc(pages[state.page].name)+'</span></div><div class="top-actions"><button class="icon-btn" data-action="refresh" title="刷新">'+icon("refresh")+'</button><button class="icon-btn" data-action="theme" title="切换主题">'+icon(state.theme==="dark"?"sun":"moon")+'</button><button class="top-user" data-view="profile"><span class="mini-avatar">'+esc(username[0]||"R").toUpperCase()+'</span>'+esc(username)+'</button><button class="icon-btn" data-action="logout" title="退出登录">'+icon("logout")+'</button></div></header><main class="content">'+renderPage()+'</main></div></div>'+renderModal();
   }
   function render(){
     if(!state.token||!state.user){login();return;}
+    const oldScroll=root.querySelector(".side-scroll");
+    if(oldScroll)state.navScroll=oldScroll.scrollTop;
     root.innerHTML=shell();
+    const newScroll=root.querySelector(".side-scroll");
+    if(newScroll)newScroll.scrollTop=state.navScroll;
   }
   function view(k){
+    if(k==="devices"&&!available("devices"))k="mydevices";
     if(!available(k))return;
     state.page=k;if(k==="addressbooks")state.bookTab="entries";state.pageNo=1;state.query="";state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
     location.hash="#/"+k;render();load();
@@ -478,7 +496,7 @@
     if(!state.token){await getOptions();render();return;}
     if(returnToWebClient())return;
     const hash=location.hash.replace(/^#\/?/,"").split("?")[0];
-    state.page=available(hash)?hash:"overview";render();await load();
+    state.page=hash==="devices"&&!available(hash)?"mydevices":available(hash)?hash:"overview";render();await load();
   }
   async function getOptions(){
     try{state.options=await request("/login-options");}catch{state.options={ops:[]};}
@@ -523,7 +541,7 @@
     state.loading=true;state.error="";render();
     try{
       if(k==="overview"){
-        const reqs=[request(endpoint("devices")+"/list?page=1&page_size=5")];
+        const reqs=[request(endpoint(state.isAdmin?"devices":"mydevices")+"/list?page=1&page_size=5")];
         reqs.push(state.isAdmin?request("/user/list?page=1&page_size=1"):request("/my/address_book/list?page=1&page_size=1"));
         reqs.push(state.isAdmin?request("/group/list?page=1&page_size=1"):request("/contact/list"));
         const out=await Promise.allSettled(reqs);
@@ -594,12 +612,12 @@
   }
   function overview(){
     const m=state.metrics||{};
-    const shortcuts=["devices","shared","contacts",state.isAdmin?"groups":"mygroups"];
+    const shortcuts=["mydevices","shared","contacts",state.isAdmin?"devices":"mygroups"];
     const quick=shortcuts.map(k=>'<button type="button" data-view="'+k+'" class="quick-card"><span class="quick-icon">'+icon(pages[k].icon,21)+'</span><strong class="quick-label">'+esc(pages[k].name)+'</strong><span class="quick-arrow">'+icon("arrow",17)+'</span></button>').join("");
     const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+deviceStatusDot(x.id)+esc(x.alias||x.hostname||x.id)+'</strong><span class="cell-sub">'+esc(x.id)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
       '<div class="metric-grid">'+metric("设备数量",state.loading?"…":m.devices,"monitor")+metric(state.isAdmin?"用户数量":"地址簿条目",state.loading?"…":m.users,"users")+metric(state.isAdmin?"用户分组":"联系人数量",state.loading?"…":m.groups===undefined?state.contacts.incoming.length:m.groups,"layers")+metric("当前账户",state.user.username,"shield")+'</div>'+
-      '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">快速访问</h2><p class="panel-sub">常用管理功能</p></div></div><div class="quick-grid">'+quick+'</div></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">最近出现的设备</h2><p class="panel-sub">按最后活动时间显示</p></div><button data-view="devices" class="btn btn-sm">查看全部</button></div><div class="tips">'+recent+'</div></section></div>';
+      '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">快速访问</h2><p class="panel-sub">常用管理功能</p></div></div><div class="quick-grid">'+quick+'</div></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">最近出现的设备</h2><p class="panel-sub">按最后活动时间显示</p></div><button data-view="'+(state.isAdmin?"devices":"mydevices")+'" class="btn btn-sm">查看全部</button></div><div class="tips">'+recent+'</div></section></div>';
   }
   function rowIdentifier(row){return String(row.row_id===undefined?row.id:row.row_id);}
   function rowActions(row){
@@ -625,8 +643,7 @@
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
     let out="";
-    const editable=pages[state.page]?.admin?canPageAction(state.page,"edit"):
-      (state.isAdmin||state.page!=="devices");
+    const editable=pages[state.page]?.admin?canPageAction(state.page,"edit"):true;
     if(editable)out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
     if(state.page==="devices"&&(state.isAdmin||hasPrivilege("devices.transfer"))){
       out+='<button class="btn btn-sm" data-action="transfer-device" data-id="'+id+'">转移设备</button>';
@@ -638,13 +655,12 @@
       out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">重置双重认证</button>';
     }
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
-    const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):
-      (state.isAdmin||state.page!=="devices");
+    const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
     if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
     return out;
   }
   function tableColumnWidth(key,label,page){
-    const deviceIDPages=new Set(["devices","shared","addressbooks","trash"]);
+    const deviceIDPages=new Set(["devices","mydevices","shared","addressbooks","trash"]);
     const widths={
       id:deviceIDPages.has(page)?164:80,
       device_id:168,peer_id:168,from_peer:168,
@@ -672,7 +688,21 @@
       sum+(char.charCodeAt(0)>255?13:7),0)+36;
     return Math.max(widths[key]||144,Math.min(300,labelWidth));
   }
-  function table(p,rows){
+  function sortedRows(rows){
+    const selection=state.sort[state.page];
+    if(!selection||!selection.key)return rows;
+    const collator=new Intl.Collator("zh-CN",{numeric:true,sensitivity:"base"});
+    return [...rows].sort((a,b)=>{
+      const av=a[selection.key],bv=b[selection.key];
+      if(av===bv)return 0;
+      if(av===null||av===undefined||av==="")return 1;
+      if(bv===null||bv===undefined||bv==="")return -1;
+      if(typeof av==="number"&&typeof bv==="number")return (av-bv)*selection.dir;
+      return collator.compare(String(av),String(bv))*selection.dir;
+    });
+  }
+  function table(p,sourceRows){
+    const rows=sortedRows(sourceRows);
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
@@ -680,12 +710,13 @@
     const actions=rows.map(row=>rowActions(row));
     const hasActions=actions.some(Boolean);
     const widths=cols.map(([key,label])=>tableColumnWidth(key,label,state.page));
-    const actionWidth=hasActions?(["devices","users"].includes(state.page)?248:174):0;
+    const actionWidth=hasActions?(["devices","users"].includes(state.page)?286:186):0;
     const totalWidth=widths.reduce((sum,width)=>sum+width,actionWidth);
     const longTextFields=new Set(["note","remark","info","description","sources","permissions","id_whitelist","ip_whitelist","last_error"]);
     const colgroup='<colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join("")+
       (hasActions?'<col style="width:'+actionWidth+'px">':"")+'</colgroup>';
-    const th=cols.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" title="'+esc(label)+'">'+esc(label)+'</th>').join("");
+    const order=state.sort[state.page]||{};
+    const th=cols.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+(order.key===key?(order.dir===1?"ascending":"descending"):"none")+'" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+esc(label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button></th>').join("");
     const trs=rows.map((row,index)=>'<tr>'+cols.map(([key],i)=>{
       const longText=longTextFields.has(key);
       const title=txt(row[key]);
@@ -698,7 +729,7 @@
       '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
       '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
       '</article>').join("");
-    const hint=totalWidth>1000?'<p class="table-scroll-hint">表格内容较多，可左右滚动查看其他列。</p>':"";
+    const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对当前页记录排序。</p>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
       '表格，可左右滚动查看" tabindex="0"><table class="data-table" style="--table-min-width:'+
       totalWidth+'px">'+colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
@@ -711,7 +742,7 @@
   }
   function genericList(){
     const p=pages[activeKey()];
-    const add=p.readonly||state.page==="devices"&&!canPageAction("devices","create")||
+    const add=p.readonly||p.noCreate||state.page==="devices"&&!canPageAction("devices","create")||
       (p.admin&&!canPageAction(state.page,"create"))?"":'<button class="btn btn-primary" data-action="create">'+icon("plus",16)+'新增'+esc(p.name)+'</button>';
     const search='<div class="table-toolbar"><div class="search">'+icon("search",16)+'<input id="table-search" aria-label="搜索" placeholder="'+(p.search?"按关键词搜索…":"筛选本页内容…")+'" value="'+esc(state.query)+'"></div><span class="toolbar-meta">共 '+state.total+' 项</span></div>';
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
@@ -1405,7 +1436,8 @@
       if(oldData.row_id!==undefined)data.row_id=oldData.row_id;
     }
     try{
-      const result=await request(endpoint(activeKey())+"/"+state.modal.action,"POST",data);
+      const operation=state.modal.action==="edit"?"update":"create";
+      const result=await request(endpoint(activeKey())+"/"+operation,"POST",data);
       if(p.endpoint==="api_token"&&state.modal.action==="create"){
         if(!result?.token)throw Error("服务器未返回新令牌");
         state.modal={kind:"created-api-token",token:result.token};
@@ -1516,6 +1548,18 @@
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
     if(a==="refresh"){await load();return;}
+    if(a==="toggle-section"){
+      const section=el.dataset.section;
+      state.navCollapsed[section]=!state.navCollapsed[section];
+      localStorage.setItem("rustdesk.console.nav-collapsed",JSON.stringify(state.navCollapsed));
+      render();return;
+    }
+    if(a==="sort-table"){
+      const key=el.dataset.column,order=state.sort[state.page]||{};
+      if(!pages[activeKey()]?.columns?.some(([column])=>column===key))return;
+      state.sort[state.page]={key,dir:order.key===key&&order.dir===1?-1:1};
+      render();return;
+    }
     if(a==="setting-save"||a==="setting-reset"){
       const item=state.settings?.items?.find(x=>x.key===el.dataset.id);
       if(!item)return;
