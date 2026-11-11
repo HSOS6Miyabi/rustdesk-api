@@ -83,7 +83,7 @@ def browser_routes():
         if page not in readonly:
             if page != "mydevices":
                 routes.add(("POST", uri + "/create"))
-            if page != "invitations":
+            if page not in ("invitations", "apiTokens"):
                 routes.add(("POST", uri + "/update"))
                 routes.add(("POST", uri + "/delete"))
     # The legacy WebClient sends two additional API requests outside the
