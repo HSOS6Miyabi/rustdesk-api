@@ -86,6 +86,11 @@ def browser_routes():
             if page != "invitations":
                 routes.add(("POST", uri + "/update"))
                 routes.add(("POST", uri + "/delete"))
+    # The legacy WebClient sends two additional API requests outside the
+    # administration URL prefix. Keep their HTTP methods in the inventory.
+    legacy=(ROOT / "resources/web/js/src/ljw.js").read_text(encoding="utf-8")
+    for match in re.finditer(r'fetch\(apiserver\s*\+\s*"(/api/[^"]+)"\s*,\s*\{\s*method:\s*["\'](\w+)["\']', legacy):
+        routes.add((match.group(2).upper(), match.group(1)))
     for endpoint in ("address_book", "address_book_collection", "tag"):
         for operation in ("list", "create", "update", "delete"):
             routes.add(("GET" if operation == "list" else "POST",
@@ -115,7 +120,7 @@ class Client:
         self.url, self.token, self.count = url, token, 0
 
     def send(self, method, path, body=None, raw=False):
-        uri = path if path.startswith(PREFIX + "/") else PREFIX + path
+        uri = path if path.startswith("/api/") else PREFIX + path
         headers = {"Accept": "application/json", "Accept-Language": "zh-CN"}
         if self.token:
             headers["api-token"] = self.token
@@ -201,6 +206,8 @@ def all_route_requests(client, contracts):
     tested = set()
     for verb, route in sorted(contracts):
         if route.endswith("/logout"):
+            continue
+        if route in ("/api/shared-peer", "/api/server-config"):
             continue
         path = route.replace(":id", "0")
         if verb == "GET" and (path.endswith("/export") or path.endswith("/download")):
@@ -345,9 +352,10 @@ def check_real_changes(admin):
 def main():
     browser, pages = browser_routes()
     backend = backend_routes()
+    backend.update({("POST","/api/shared-peer"),("POST","/api/server-config"),("POST","/api/server-config-v2")})
     missing = browser - backend
     check(not missing, f"Unregistered browser API calls: {sorted(missing)}")
-    check(len(browser) >= 190 and len(pages) >= 35, "The browser API inventory is incomplete")
+    check(len(browser) >= 212 and len(pages) >= 35, "The browser API inventory is incomplete")
     if len(sys.argv) == 2 and sys.argv[1] == "--static":
         print(f"Matched {len(browser)} browser routes, {len(pages)} views, {len(backend)} server routes")
         return
@@ -366,6 +374,19 @@ def main():
         with live_server(binary, directory, port) as client:
             result = client.success("POST", "/login", {"username": "admin", "password": password, "platform": "web"})
             client.token = result["token"]
+            headers={"Authorization":"Bearer "+client.token,"Content-Type":"application/json"}
+            webclient=urllib.request.Request(
+                client.url+"/api/server-config", data=b"{}",
+                headers=headers, method="POST"
+            )
+            with urllib.request.urlopen(webclient, timeout=7) as reply:
+                config=json.load(reply)
+            check(config.get("code")==0 and isinstance(config["data"].get("peers"),dict),
+                  "Legacy WebClient server-config did not return its required data")
+            invalid=client.success("GET","/config/server")
+            status,share=client.send("POST","/api/shared-peer",{"share_token":123})
+            check(status<500 and share.get("code")!=0,
+                  "Malformed WebClient sharing token must be rejected safely")
             check(client.success("GET", "/user/current").get("is_admin") is True,
                   "Administrator authentication failed")
             tested = all_route_requests(client, browser)
