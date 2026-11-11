@@ -1060,3 +1060,36 @@ test("settings center: mobile and tablet navigation do not overflow",async()=>{
     }finally{await context.close();}
   }
 });
+
+test("README gallery captures current administration pages at desktop and mobile sizes", async()=>{
+  const desktop=await pageForViewport(1440,900,true);
+  const folder=path.join(__dirname,"test-screenshots");
+  fs.mkdirSync(folder,{recursive:true});
+  try{
+    for(const [section,title,filename] of [
+      ["overview","概览","overview-preview-desktop.png"],
+      ["devices","设备管理","devices-preview-desktop.png"],
+      ["settings","设置中心","settings-preview-desktop.png"],
+    ]){
+      if(section!=="overview")await desktop.page.locator('nav.side-scroll button[data-view="'+section+'"]').click();
+      await desktop.page.waitForFunction(name=>document.querySelector("h1")?.textContent===name,title);
+      await desktop.page.screenshot({path:path.join(folder,filename),fullPage:false,animations:"disabled"});
+    }
+  }finally{await desktop.context.close()}
+
+  const mobile=await pageForViewport(375,812,true);
+  try{
+    await mobile.page.locator('button[data-action="mobile-open"]').click();
+    await mobile.page.locator('nav.side-scroll button[data-view="settings"]').click();
+    await mobile.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    await mobile.page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
+    await mobile.page.locator('[data-setting-item="app.register"]').scrollIntoViewIfNeeded();
+    const width=await mobile.page.evaluate(()=>({
+      page:document.documentElement.scrollWidth,viewport:window.innerWidth
+    }));
+    assert.ok(width.page<=width.viewport+2,"settings mobile preview overflows viewport");
+    await mobile.page.screenshot({
+      path:path.join(folder,"settings-preview-mobile.png"),fullPage:false,animations:"disabled"
+    });
+  }finally{await mobile.context.close()}
+});

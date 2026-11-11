@@ -1,0 +1,43 @@
+name: Update README interface screenshots
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/readme-screenshots.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test framework
+        run: |
+          npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+          resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Generate screenshots from actual web console
+        run: node --test resources/admin/browser.e2e.cjs
+      - name: Copy selected screenshots into the documentation
+        run: python3 scripts/refresh_readme_gallery.py
+      - name: Update README screenshots in master
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md docs/screenshots/
+          if git diff --cached --quiet; then
+            echo "README and screenshots are already up to date."
+            exit 0
+          fi
+          git commit -m "docs: show real administration screenshots in README"
+          git push origin HEAD:master
