@@ -37,7 +37,7 @@ function fixture(options = {}) {
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc", "app",
-    "host", "key", "v2-page-fullscreen", "v2-screen-fullscreen"
+    "host", "key", "v2-page-fullscreen", "v2-screen-fullscreen", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
@@ -49,7 +49,8 @@ function fixture(options = {}) {
   };
   const apiResults = {
     "/config/server": server,
-    "/geoip/lookup": {device_status:{"123456789":options.online??true},locations:{},database_ready:false},
+    "/my/peer/list":{list:[{id:"owned-01",hostname:"Owned Workstation",alias:"Office owned",os:"Windows 11"}],total:1},
+    "/geoip/lookup": {device_status:{"123456789":options.online??true,"owned-01":true},locations:{},database_ready:false},
     "/shared_devices/list": {
       total: 1,
       list: [{
@@ -207,4 +208,21 @@ test("Shared device names and owner names link to the corresponding control-cons
   assert.match(details.href,/entity=device&value=123456789/);
   assert.match(owner.href,/entity=user&value=alice/);
   assert.equal(device.children[1].textContent,"选中连接");
+});
+
+test("WebClient v2 searches owned and shared devices by their details",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-device-query").value="workstation";
+  await app.elements.get("v2-search-device").listeners.click();
+  await app.settle();
+  assert.ok(app.apiCalls.includes("/my/peer/list"));
+  assert.ok(app.apiCalls.includes("/shared_devices/list"));
+  const results=app.elements.get("v2-device-results");
+  assert.equal(results.children.length,2);
+  const ownerResult=results.children[0];
+  assert.match(ownerResult.children[0].children[0].href,/entity=device&value=owned-01/);
+  assert.match(ownerResult.children[0].children[0].children[0].className,/device-status-dot online/);
+  ownerResult.children[1].listeners.click();
+  assert.equal(app.elements.get("v2-id").value,"owned-01");
 });

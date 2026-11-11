@@ -182,6 +182,62 @@
     message("连接已断开");
   });
   el("v2-refresh").addEventListener("click",loadDevices);
+  let lookupSequence=0;
+  async function searchDevices(){
+    const term=el("v2-device-query").value.trim(),target=el("v2-device-results");
+    const sequence=++lookupSequence;
+    if(term.length<2){target.textContent="请至少输入两个字符以搜索设备。";return;}
+    if(!state.token){target.textContent="登录后可搜索名下设备及共享设备。";return;}
+    target.textContent="正在搜索设备…";
+    try{
+      const [owned,shared]=await Promise.all([
+        request("/my/peer/list?page=1&page_size=30&keyword="+encodeURIComponent(term)),
+        request("/shared_devices/list?page=1&page_size=30&search="+encodeURIComponent(term))
+      ]);
+      if(sequence!==lookupSequence)return;
+      const devices=new Map();
+      for(const peer of [...(owned.list||[]),...(shared.list||[])]){
+        if(peer.id&&!devices.has(String(peer.id)))devices.set(String(peer.id),peer);
+      }
+      const found=[...devices.values()].slice(0,30);
+      let statuses={};
+      if(found.length){
+        try{
+          const data=await request("/geoip/lookup","POST",{device_ids:found.map(device=>String(device.id))});
+          statuses=data.device_status||{};
+        }catch{}
+      }
+      if(sequence!==lookupSequence)return;
+      target.replaceChildren();
+      if(!found.length){target.textContent="没有找到匹配的设备，请尝试其他信息。";return;}
+      for(const peer of found){
+        const row=document.createElement("div");row.className="webclient-search-result";
+        const detail=document.createElement("a");
+        detail.href="/_admin/#/overview?entity=device&value="+encodeURIComponent(peer.id);
+        detail.className="webclient-search-detail";
+        detail.title="查看设备信息";
+        const indicator=document.createElement("span");
+        const status=statuses[peer.id];
+        indicator.className="device-status-dot "+(status===true?"online":status===false?"offline":"unknown");
+        indicator.setAttribute("role","img");
+        indicator.setAttribute("aria-label",status===true?"在线":status===false?"离线":"状态暂不可用");
+        detail.append(indicator,document.createTextNode(peer.alias||peer.hostname||peer.id));
+        const meta=document.createElement("small");
+        meta.textContent=[peer.id,peer.hostname,peer.os,peer.owner_username].filter(Boolean).join(" · ");
+        const label=document.createElement("span");label.className="webclient-search-description";label.append(detail,meta);
+        const choose=document.createElement("button");
+        choose.type="button";choose.className="secondary";choose.textContent="选择此设备";
+        choose.addEventListener("click",()=>useDevice(peer.id));
+        row.append(label,choose);target.append(row);
+      }
+    }catch(error){
+      if(sequence===lookupSequence)target.textContent="设备搜索失败："+error.message;
+    }
+  }
+  el("v2-search-device").addEventListener("click",searchDevices);
+  el("v2-device-query").addEventListener("keydown",event=>{
+    if(event.key==="Enter"){event.preventDefault();searchDevices();}
+  });
   el("sso-login-link").addEventListener("click",()=>{
     sessionStorage.setItem("rustdesk.console.return","/webclient2/");
   });

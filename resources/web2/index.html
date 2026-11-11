@@ -34,6 +34,14 @@
    <p class="helper rtc-help">适用于 RustDesk 1.5.x 客户端。若无法建立直接连接，将自动尝试原有的 WebSocket 中继连接。</p>
    <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
   </form>
+  <div class="webclient-device-search">
+    <label for="v2-device-query">搜索我的设备与共享设备</label>
+    <div class="webclient-search-row">
+      <input id="v2-device-query" type="search" autocomplete="off" placeholder="设备 ID、备注、主机名、操作系统或用户">
+      <button class="secondary" type="button" id="v2-search-device">搜索设备</button>
+    </div>
+    <div id="v2-device-results" class="webclient-device-results" role="status" aria-live="polite"></div>
+  </div>
   <div class="separator"></div>
   <div class="section-caption">SHARED DEVICES</div>
   <div class="row-title"><h2>共享给我的设备</h2><button class="text-button" id="v2-refresh" type="button">刷新</button></div>
