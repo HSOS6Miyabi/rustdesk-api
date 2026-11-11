@@ -479,7 +479,7 @@ test("personal contact manager exposes batch sharing controls", async () => {
   assert.match(app.root.innerHTML, /批量添加联系人/);
   assert.match(app.root.innerHTML, /批量撤销共享/);
   await app.action("contact-batch-add");
-  assert.match(app.root.innerHTML, /联系人账户编号/);
+  assert.match(app.root.innerHTML, /搜索并选择联系人/);
   assert.match(app.root.innerHTML, /每次最多处理 100 位用户/);
   await app.action("close-modal");
   await app.action("contact-batch-remove");
@@ -510,7 +510,7 @@ test("personal address book sharing supports multiple account operations", async
   assert.match(app.root.innerHTML, /批量共享地址簿/);
   assert.match(app.root.innerHTML, /批量撤销共享/);
   await app.action("rules-batch-share");
-  for (const label of ["地址簿编号", "目标用户编号", "只读", "可读写", "完全控制"]) {
+  for (const label of ["地址簿编号", "搜索并选择目标用户", "只读", "可读写", "完全控制"]) {
     assert.match(app.root.innerHTML, new RegExp(label));
   }
   await app.action("close-modal");
@@ -748,4 +748,25 @@ test("ARGB tag color is rendered with a browser color picker",async()=>{
   await app.open("tags");
   assert.match(app.root.innerHTML,/设备标签/);
   assert.match(app.root.innerHTML,/data-action="create"/);
+});
+
+test("device and user references display link controls with status markers",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{row_id:1,id:"office",hostname:"Office",alias:"Desk",user_id:7}],total:1};
+  await app.settle();await app.settle();
+  await app.open("devices");
+  assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="device" data-entity-id="office"/);
+  assert.match(app.root.innerHTML,/device-status-dot online/);
+  assert.match(app.root.innerHTML,/data-entity-label="Office"/);
+  app.fixtures["/user/list"]={list:[{id:7,username:"alice",nickname:"Alice",email:"alice@example.test"}],total:1};
+  await app.open("users");
+  assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="user" data-entity-id="7"/);
+});
+
+test("device presence keeps unknown status distinct from offline status",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{id:"unknown-id",row_id:12,hostname:"Unknown"}],total:1};
+  await app.settle();await app.settle();
+  await app.open("devices");
+  assert.match(app.root.innerHTML,/device-status-dot unknown/);
 });

@@ -1706,7 +1706,7 @@
       else if(lookupKind(name,oldData)){
         const raw=el.value.trim(),kind=lookupKind(name,oldData);
         if(required&&kind!=="all"&&!raw){toast("请先搜索并选择："+f[1],true);return;}
-        data[name]=kind==="device"||name==="target_id"&&kind==="all"?raw:Number(raw||0);
+        data[name]=kind==="device"||name==="target_id"?raw:Number(raw||0);
       }
       else if(type==="number"||["status","group_type","rule_type","rule","permission_state"].includes(type)){
         if(el.value.trim()!==""||required)data[name]=Number(el.value||0);
