@@ -643,15 +643,67 @@
     if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
     return out;
   }
+  function tableColumnWidth(key,label,page){
+    const deviceIDPages=new Set(["devices","shared","addressbooks","trash"]);
+    const widths={
+      id:deviceIDPages.has(page)?164:80,
+      device_id:168,peer_id:168,from_peer:168,
+      device_uuid:176,conn_id:145,conn_audit_ref:190,
+      direction:172,type:128,rule:136,status:130,enabled:126,
+      name:180,alias:162,hostname:168,nickname:164,
+      username:170,owner_username:178,from_account:178,to_account:178,
+      account:160,email:236,sender_email:226,
+      from_name:174,from_device_name:174,to_device_name:174,
+      from_user_id:160,to_user_id:160,owner_user_id:160,
+      user_id:136,group_id:140,collection_id:142,policy_id:158,
+      client_ip:192,last_online_ip:192,source_ip:192,ip:192,
+      created_at:190,deleted_at:190,updated_at:190,last_online_time:190,
+      last_used_at:190,expires_at:190,completed_at:190,delivered_at:190,
+      os:140,platform:160,method:116,primary_auth:152,two_factor:148,
+      path:270,info:272,note:250,remark:240,description:260,
+      sources:230,issuer:262,permissions:250,
+      id_whitelist:250,ip_whitelist:250,source_type:164,target_type:164,
+      target_id:160,source_id:160,scope_type:166,scope_id:145,
+      event_type:178,recipients:220,last_error:250,
+      auto_group_ids:190,trust_duration_days:195,
+      oauth_type:138,op:172,typ:150
+    };
+    const labelWidth=Array.from(label).reduce((sum,char)=>
+      sum+(char.charCodeAt(0)>255?13:7),0)+36;
+    return Math.max(widths[key]||144,Math.min(300,labelWidth));
+  }
   function table(p,rows){
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
     const cols=p.columns;
-    const th=cols.map(c=>'<th scope="col">'+esc(c[1])+'</th>').join("");
-    const trs=rows.map(row=>'<tr>'+cols.map((c,i)=>'<td><span class="'+(i===0?"cell-title":"")+'">'+colValue(row[c[0]],c[0],row)+'</span></td>').join("")+'<td class="cell-actions">'+rowActions(row)+'</td></tr>').join("");
-    const mobile=rows.map(row=>'<article class="mobile-item"><div class="mobile-title">'+colValue(row[cols[0][0]],cols[0][0],row)+'</div><dl>'+cols.slice(1).map(c=>'<dt>'+esc(c[1])+'</dt><dd>'+colValue(row[c[0]],c[0])+'</dd>').join("")+'</dl><div class="mobile-actions">'+rowActions(row)+'</div></article>').join("");
-    return '<div class="table-scroll"><table class="data-table"><thead><tr>'+th+'<th>操作</th></tr></thead><tbody>'+trs+'</tbody></table></div><div class="mobile-list">'+mobile+'</div>';
+    const actions=rows.map(row=>rowActions(row));
+    const hasActions=actions.some(Boolean);
+    const widths=cols.map(([key,label])=>tableColumnWidth(key,label,state.page));
+    const actionWidth=hasActions?(["devices","users"].includes(state.page)?248:174):0;
+    const totalWidth=widths.reduce((sum,width)=>sum+width,actionWidth);
+    const longTextFields=new Set(["note","remark","info","description","sources","permissions","id_whitelist","ip_whitelist","last_error"]);
+    const colgroup='<colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join("")+
+      (hasActions?'<col style="width:'+actionWidth+'px">':"")+'</colgroup>';
+    const th=cols.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" title="'+esc(label)+'">'+esc(label)+'</th>').join("");
+    const trs=rows.map((row,index)=>'<tr>'+cols.map(([key],i)=>{
+      const longText=longTextFields.has(key);
+      const title=txt(row[key]);
+      return '<td data-column="'+esc(key)+'" class="'+(longText?"cell-multiline ":"")+
+        (i===0?"cell-primary":"")+'" title="'+esc(title)+'"><span class="'+
+        (i===0?"cell-title":"")+'">'+colValue(row[key],key,row)+'</span></td>';
+    }).join("")+(hasActions?'<td class="cell-actions">'+actions[index]+'</td>':"")+'</tr>').join("");
+    const mobile=rows.map((row,index)=>'<article class="mobile-item"><div class="mobile-title">'+
+      colValue(row[cols[0][0]],cols[0][0],row)+'</div><dl>'+cols.slice(1).map(([key,label])=>
+      '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
+      '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
+      '</article>').join("");
+    const hint=totalWidth>1000?'<p class="table-scroll-hint">表格内容较多，可左右滚动查看其他列。</p>':"";
+    return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
+      '表格，可左右滚动查看" tabindex="0"><table class="data-table" style="--table-min-width:'+
+      totalWidth+'px">'+colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
+      '</tr></thead><tbody>'+trs+'</tbody></table></div>'+hint+
+      '<div class="mobile-list">'+mobile+'</div>';
   }
   function pagination(){
     const pagesCount=Math.max(1,Math.ceil(state.total/state.pageSize));

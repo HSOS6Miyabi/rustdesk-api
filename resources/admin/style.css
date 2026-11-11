@@ -111,3 +111,29 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
  form.tips{gap:17px}
  .btn{max-width:100%}
 }
+
+
+/* Each data column has a content-appropriate minimum width. Wide tables scroll horizontally. */
+.table-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+.table-scroll:focus-visible{outline:3px solid var(--main);outline-offset:-3px}
+.data-table{min-width:var(--table-min-width,680px);table-layout:fixed}
+.data-table td{max-width:none;white-space:nowrap;overflow-wrap:normal;overflow:hidden;text-overflow:ellipsis}
+.data-table td.cell-multiline{white-space:normal;overflow-wrap:break-word;line-height:1.65}
+.data-table th{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.data-table .cell-actions{white-space:normal;overflow:visible}
+.data-table td.cell-multiline [class^="pill"]{max-width:100%;white-space:normal}
+.table-scroll-hint{margin:0;padding:10px 20px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+@media(max-width:900px){
+  .table-scroll,.table-scroll-hint{display:none}
+  .mobile-list{display:block}
+  .mobile-item{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .mobile-item:last-child{border:0}
+  .mobile-title{font-size:14px;font-weight:750;overflow-wrap:anywhere}
+  .mobile-item dl{display:grid;grid-template-columns:minmax(106px,128px) minmax(0,1fr);gap:9px 12px;margin:14px 0;font-size:12px;line-height:1.6}
+  .mobile-item dt{color:var(--muted)}
+  .mobile-item dd{min-width:0;margin:0;overflow-wrap:anywhere}
+  .mobile-actions{display:flex;gap:8px;flex-wrap:wrap}
+}
+@media(max-width:380px){
+  .mobile-item dl{grid-template-columns:104px minmax(0,1fr);column-gap:9px}
+}

@@ -1354,3 +1354,133 @@ test("modal audit: inspect all creation and editing drawers",async()=>{
 
 
 }
+
+if(process.env.RUSTDESK_VISUAL_AUDIT==="1"){
+test("responsive data tables keep columns readable across screen sizes",async()=>{
+  const folder=path.join(__dirname,"test-screenshots","table-layout");
+  fs.mkdirSync(folder,{recursive:true});
+  const report=[];
+  for(const [role,width,height,isAdmin] of [
+    ["desktop",1440,900,true],
+    ["laptop",1024,800,true],
+    ["tablet",820,1000,true],
+    ["small-tablet",768,1024,true],
+    ["phone",375,812,true],
+    ["small-phone",320,700,true],
+    ["member-phone",375,812,false]
+  ]){
+    const {context,page}=await pageForViewport(width,height,isAdmin);
+    try{
+      const keys=await page.locator('nav.side-scroll button[data-view]').evaluateAll(links=>
+        [...new Set(links.map(link=>link.dataset.view).filter(Boolean))]);
+      for(const key of keys){
+        if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+        await page.locator('nav.side-scroll button[data-view="'+key+'"]').first().click();
+        await page.waitForFunction(()=>!document.querySelector(".loading-table"),null,{timeout:10000});
+        const table=page.locator(".data-table");
+        if(await table.count()===0)continue;
+        const result=await page.evaluate(()=>{
+          const table=document.querySelector(".data-table");
+          const region=table.closest(".table-scroll");
+          const cards=table.parentElement.nextElementSibling?.classList.contains("table-scroll-hint")?
+            table.parentElement.nextElementSibling.nextElementSibling:
+            table.parentElement.nextElementSibling;
+          const visibleTable=getComputedStyle(region).display!=="none";
+          const headings=[...table.querySelectorAll("thead th")];
+          const cells=[...table.querySelectorAll("tbody tr:first-child td")];
+          const getWidth=element=>element.getBoundingClientRect().width;
+          const firstColumn=table.querySelector("colgroup col");
+          const direction=table.querySelector('tbody td[data-column="direction"] span');
+          const device=table.querySelector('tbody td[data-column="id"] span, tbody td[data-column="device_id"] span');
+          const oneLine=(span)=>{
+            if(!span)return true;
+            const s=getComputedStyle(span);
+            const lineHeight=parseFloat(s.lineHeight)||20;
+            return span.getBoundingClientRect().height<=lineHeight*1.4;
+          };
+          const narrow=cells.filter(td=>{
+            const field=td.getAttribute("data-column");
+            const value=td.textContent.trim();
+            if(td.classList.contains("cell-multiline")||td.classList.contains("cell-actions"))return false;
+            return value.length>=4&&getWidth(td)<100;
+          }).map(td=>({field:td.getAttribute("data-column"),value:td.textContent.trim(),width:Math.round(getWidth(td))}));
+          const expectedWidth=parseFloat(table.style.getPropertyValue("--table-min-width"))||0;
+          const cardsVisible=getComputedStyle(cards).display!=="none";
+          const cardItems=[...cards.querySelectorAll(".mobile-item")];
+          const mobileField=cardItems[0]?.querySelector("dd");
+          return{
+            pageWidth:document.documentElement.scrollWidth,
+            viewport:innerWidth,
+            tableVisible:visibleTable,
+            cardsVisible,
+            columns:headings.length,
+            columnWidth:Math.round(getWidth(firstColumn)),
+            minWidth:expectedWidth,
+            renderedTableWidth:Math.round(getWidth(table)),
+            regionWidth:Math.round(getWidth(region)),
+            cardCount:cardItems.length,
+            mobileFieldWidth:mobileField?Math.round(getWidth(mobileField)):0,
+            narrow,nonwrappingDirection:oneLine(direction),nonwrappingDevice:oneLine(device),
+            firstCellText:cells[0]?.textContent.trim()||"",
+            hasScrollableRegion:region.scrollWidth>region.clientWidth+1
+          };
+        });
+        assert.ok(result.pageWidth<=result.viewport+2,
+          "Page "+key+" overflows at "+role+": "+JSON.stringify(result));
+        assert.equal(result.tableVisible,width>900,
+          "Unexpected table visibility on "+role+" "+key);
+        if(width>900){
+          assert.equal(result.narrow.length,0,
+            "Narrow table cells on "+role+" "+key+": "+JSON.stringify(result.narrow));
+          assert.ok(result.renderedTableWidth>=result.minWidth-2,
+            "Table lost its required minimum width on "+role+" "+key);
+          assert.ok(result.nonwrappingDirection,
+            "Connection direction wrapped on "+role+" "+key);
+          assert.ok(result.nonwrappingDevice,
+            "Device identifier wrapped on "+role+" "+key);
+          if(result.minWidth>result.regionWidth+2)
+            assert.ok(result.hasScrollableRegion,"Wide table cannot scroll on "+role+" "+key);
+          const cellWidths=await page.locator(".data-table tbody tr:first-child td:not(.cell-actions)").evaluateAll(cells=>
+            cells.map(cell=>({label:cell.dataset.column,width:cell.getBoundingClientRect().width})));
+          assert.ok(cellWidths.every(item=>item.width>=78),
+            "Found compressed columns in "+role+" "+key+": "+JSON.stringify(cellWidths));
+        }else{
+          assert.ok(result.cardsVisible&&result.cardCount>0,
+            "Detail cards are missing on "+role+" "+key);
+          assert.ok(result.mobileFieldWidth>=88,
+            "Mobile field content is too narrow on "+role+" "+key);
+        }
+        await page.mouse.move(width-8,height-8);
+        const file=role+"-"+key+".png";
+        await page.screenshot({
+          path:path.join(folder,file),fullPage:width<=900,animations:"disabled"
+        });
+        if(result.tableVisible&&result.hasScrollableRegion){
+          const scroller=page.locator(".table-scroll");
+          if(result.renderedTableWidth>result.regionWidth*1.8){
+            await scroller.evaluate(element=>{
+              element.scrollLeft=(element.scrollWidth-element.clientWidth)/2;
+            });
+            await page.screenshot({
+              path:path.join(folder,role+"-"+key+"-middle.png"),animations:"disabled"
+            });
+          }
+          const end=await scroller.evaluate(element=>{
+            element.scrollLeft=element.scrollWidth;
+            return element.scrollLeft;
+          });
+          assert.ok(end>0,"Cannot scroll to the last column of "+key);
+          await page.screenshot({
+            path:path.join(folder,role+"-"+key+"-end.png"),animations:"disabled"
+          });
+        }
+        report.push({role,view:key,...result,file});
+      }
+    }finally{await context.close()}
+  }
+  fs.writeFileSync(path.join(folder,"table-layout-report.json"),JSON.stringify(report,null,2));
+  assert.ok(report.length>=100,
+    "Expected to inspect every populated table in different viewport sizes");
+  console.log("Verified "+report.length+" responsive table screenshots.");
+});
+}

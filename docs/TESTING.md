@@ -368,3 +368,16 @@ RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/
 ~~~
 
 Playwright 会检查管理员和普通用户可以访问的页面，并在桌面、笔记本、平板以及两种手机宽度下生成截图。检查内容包括表单字段间距、按钮文字换行、控件之间的间距、页面横向溢出、文字裁切，以及新增数据时的编辑窗口。字体检查直接读取 Chromium 实际使用的中文字体。截图保存在 resources/admin/test-screenshots/，README 截图由 GitHub Actions 重新生成。
+
+
+## 检查管理控制台的表格布局
+
+管理控制台根据字段内容给表格列设置最小宽度。连接方向、设备 ID、账户、IP 地址和时间等信息会保持完整的行内排列。长文本列可以在单元格内换行，鼠标悬停时也能查看原始内容。屏幕宽度超过 900 像素时，宽表格可以在表格区域内横向滚动；900 像素及以下显示逐条详情卡片。
+
+在已安装 Chromium 和 Playwright 的环境中运行：
+
+~~~bash
+RUSTDESK_VISUAL_AUDIT=1 node --test --test-name-pattern="responsive data tables" resources/admin/browser.e2e.cjs
+~~~
+
+测试会逐一打开有示例数据的列表，检查桌面、笔记本、平板、手机以及普通用户界面。检查内容包括表格各列的实际宽度、连接方向和设备 ID 是否发生意外换行、表格横向滚动、手机详情卡片和页面整体宽度。截图与逐页检查结果保存在 resources/admin/test-screenshots/table-layout/，可通过 GitHub Actions 的完整截图压缩包下载。
