@@ -226,6 +226,18 @@ func SpecializedSettingsSummary() (map[string]interface{},error) {
         if err:=DB.Model(category.model).Count(&amount).Error;err!=nil{return nil,err}
         totals[category.key]=amount
     }
+
+    smtp,err:=GetPublicMailSettings()
+    if err!=nil{return nil,err}
+    notification,err:=CurrentNotificationSettings()
+    if err!=nil{return nil,err}
+    retention,err:=GetAuditRetention()
+    if err!=nil{return nil,err}
+    totals["smtp_settings"]=smtp
+    totals["notification_settings"]=map[string]interface{}{
+        "enabled":notification.Enabled,"events":notification.Events,"recipients":notification.Recipients,
+    }
+    totals["audit_retention"]=retention
     return totals,nil
 }
 func SettingsCategoryNames() []string {

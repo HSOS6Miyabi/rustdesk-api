@@ -39,7 +39,12 @@ function createConsole(isAdmin = false, overrides = {}) {
         environment:"RUSTDESK_API_JWT_KEY",value_type:"string",source:"环境变量",
         configured:true,current_value:"",override_enabled:false,bootstrap:true,sensitive:true,requires_restart:true,active:true}
     ]},
-    "/settings/overview": {summary:{},outbox:{push:{pending:0,failed:0},notification:{pending:0,failed:0}}},
+    "/settings/overview": {summary:{
+      smtp_settings:{enabled:true,host:"mail.example.test",port:587,sender_email:"team@example.test"},
+      notification_settings:{enabled:false,events:""},
+      audit_retention:{connection_days:90,login_days:30},
+      device_policies:2,access_rules:0,relay_nodes:1,push_channels:1
+    },outbox:{push:{pending:0,failed:0},notification:{pending:0,failed:0}}},
     "/settings/history": {list:[]},
     "/settings/outbox": {list:[]},
     "/settings/validate": {valid:true},
@@ -685,4 +690,13 @@ test("settings center lists effective sources without revealing secrets", async 
   assert.match(admin.root.innerHTML, /环境变量/);
   assert.match(admin.root.innerHTML, /已配置（隐藏具体内容）/);
   assert.ok(admin.calls.some(call=>call.endpoint==="/settings/effective"));
+});
+
+test("settings center shows specialized effective values and key change warnings",async()=>{
+  const app=createConsole(true);
+  await app.settle();await app.settle();await app.open("settings");
+  assert.match(app.root.innerHTML,/mail.example.test/);
+  assert.match(app.root.innerHTML,/连接日志 90 天/);
+  assert.match(app.root.innerHTML,/更换通信密钥前/);
+  assert.match(app.root.innerHTML,/切换数据库前/);
 });

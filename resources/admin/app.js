@@ -963,9 +963,42 @@
     const actions=[
       ["mail","SMTP 邮件服务"],["notifications","邮件通知"],["retention","日志保留期限"],
       ["policies","设备策略"],["controlRoles","控制角色"],["relayNodes","中继节点"],
-      ["accessRules","连接访问规则"],["clientBuilder","安装包任务"],["push","个人推送"]
+      ["accessRules","连接访问规则"],["clientBuilder","安装包任务"],["push","个人推送"],
+      ["oauth","OIDC / SSO"],["adminRoles","管理员权限角色"],["profile","个人双重认证"]
     ];
     const summary=state.settingsOverview||{},outbox=summary.outbox||{};
+    const specialized=summary.summary||{};
+    const mailInfo=specialized.smtp_settings||{};
+    const noticeInfo=specialized.notification_settings||{};
+    const retainInfo=specialized.audit_retention||{};
+    const specializedDetails='<div class="tips" style="display:grid;gap:8px">'+
+      '<p>SMTP：'+esc(mailInfo.enabled?"已启用":"未启用")+'；服务地址：'+esc(mailInfo.host||"未配置")+
+      (mailInfo.port?'：'+esc(mailInfo.port):"")+'；发件邮箱：'+esc(mailInfo.sender_email||"未配置")+'</p>'+
+      '<p>管理员邮件通知：'+esc(noticeInfo.enabled?"已启用":"未启用")+
+      '；事件：'+esc(noticeInfo.events||"未配置")+'</p>'+
+      '<p>数据保留：连接日志 '+esc(retainInfo.connection_days??0)+' 天；登录记录 '+
+      esc(retainInfo.login_days??0)+' 天；0 表示不自动清理。</p>'+
+      '<p>已配置策略：'+esc(specialized.device_policies??0)+'；连接规则：'+
+      esc(specialized.access_rules??0)+'；中继节点：'+esc(specialized.relay_nodes??0)+
+      '；个人推送渠道：'+esc(specialized.push_channels??0)+'</p></div>';
+    const riskNotice=key=>{
+      if(key==="jwt.key"||key==="app.internal-key"){
+        return "更换通信密钥前，请核对 API 与 RustDesk Server 的对应设置，并安排客户端重新登录。";
+      }
+      if(key==="runtime.mail-encryption-key"||key==="runtime.push-encryption-key"){
+        return "更换加密密钥前，请备份现有密钥与数据库，并确认已有加密凭据可以重新加密。";
+      }
+      if(key==="gorm.type"||key.startsWith("mysql.")||key.startsWith("postgresql.")){
+        return "切换数据库前，请在新数据库恢复原有业务数据。保存时将检查目标数据库连接和迁移版本。";
+      }
+      if(key==="gin.api-addr"||key==="gin.trust-proxy"){
+        return "修改监听地址或可信代理前，请确认管理控制台的网络访问方式。";
+      }
+      if(key==="runtime.push-allow-private-urls"){
+        return "此设置允许推送服务访问内部网络，启用前应确认相关网络访问权限。";
+      }
+      return "";
+    };
     const links=actions.map(([id,label])=>'<button class="btn btn-sm" data-view="'+id+'">'+esc(label)+'</button>').join("");
     const itemView=item=>{
       const id="setting-value-"+item.key;
@@ -985,6 +1018,7 @@
       }
       const run=item.sensitive?(item.configured?"已配置（隐藏具体内容）":"未配置"):
         (item.current_value===""?"（空字符串）":esc(item.current_value));
+      const warning=riskNotice(item.key);
       const status=item.pending_restart?
         '<span class="pill warn">待重启生效</span>':
         '<span class="pill muted">运行中</span>';
@@ -992,6 +1026,7 @@
         '<div class="panel-header"><div><h2 class="panel-title">'+esc(item.name)+'</h2>'+
         '<p class="panel-sub"><code>'+esc(item.key)+'</code></p></div>'+status+'</div>'+
         '<p class="subtitle">'+esc(item.description)+'</p>'+
+        (warning?'<p class="subtitle" role="note">'+esc(warning)+'</p>':"")+
         '<div class="status-row"><span>当前运行值：<strong>'+run+'</strong></span>'+
         '<span class="pill">'+esc(item.source)+'</span></div>'+
         '<p class="subtitle">环境变量：<code>'+esc(item.environment)+'</code> · '+
@@ -1019,7 +1054,8 @@
     return pageHeading("设置中心","查看每项设置的实际运行值、来源及用途，保存后按提示重新启动 API。")+
       '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
       '<p class="subtitle">邮件、策略和用户推送等设置继续使用原有专用页面，避免重复保存同一项配置。</p>'+
-      '<div class="head-actions" style="margin-top:12px;flex-wrap:wrap">'+links+'</div></section>'+
+      '<div class="head-actions" style="margin-top:12px;flex-wrap:wrap">'+links+'</div>'+
+      '<div style="margin-top:18px">'+specializedDetails+'</div></section>'+
       '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">通知任务状态</h2></div>'+
       '<p class="subtitle">个人推送：'+esc(push.pending||0)+' 条等待处理，'+esc(push.failed||0)+' 条失败；管理员邮件：'+
       esc(mail.pending||0)+' 条等待处理，'+esc(mail.failed||0)+' 条失败。</p>'+
@@ -1422,7 +1458,8 @@
         if(item.sensitive&&field.value===""&&!item.override_enabled){
           toast("请先填写需要保存的敏感设置值",true);return;
         }
-        if(!window.confirm("保存后需要重新启动 API。确定修改「"+item.name+"」吗？"))return;
+        const notice=[item.name,"保存后需要重新启动 API。",riskNotice(item.key)].filter(Boolean).join("\n");
+        if(!window.confirm(notice+"\n确认保存吗？"))return;
       }
       const current=state.settings;
       const payload={bootstrap_version:current.bootstrap_version,

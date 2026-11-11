@@ -68,7 +68,12 @@ function serve(req, res) {
       ]
     });
     if(route==="/settings/overview")return answer(res,{
-      summary:{push_channels:1},outbox:{push:{pending:0,failed:1},notification:{pending:0,failed:0}}
+      summary:{
+        push_channels:1,device_policies:2,access_rules:1,relay_nodes:1,
+        smtp_settings:{enabled:true,host:"smtp.example.test",port:587,sender_email:"alerts@example.test"},
+        notification_settings:{enabled:true,events:"login.failure",recipients:"alerts@example.test"},
+        audit_retention:{connection_days:90,login_days:30}
+      },outbox:{push:{pending:0,failed:1},notification:{pending:0,failed:0}}
     });
     if(route==="/settings/history")return answer(res,{list:[]});
     if(route==="/settings/outbox")return answer(res,{list:[
@@ -1002,6 +1007,8 @@ test("settings center: administrator can inspect and save overrides on desktop",
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
     await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/环境变量/);
+    assert.match(await page.locator(".content").innerText(),/smtp.example.test/);
+    assert.match(await page.locator(".content").innerText(),/连接日志 90 天/);
     assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
     assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
     assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
