@@ -734,7 +734,11 @@ func (a *Ab) PeerUpdate(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
-	fidstr := fid.(string)
+	fidstr, valid := fid.(string)
+	if !valid || fidstr == "" {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 
 	ab := service.AllService.AddressBookService.InfoByUserIdAndIdAndCid(uid, fidstr, cid)
 	if ab == nil || ab.RowId == 0 {
