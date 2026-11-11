@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -302,7 +301,7 @@ func ProcessPushQueue(limit int) (int, error) {
 			_ = DB.Model(&model.PushDelivery{}).Where("id = ?", row.Id).Updates(map[string]interface{}{"status":"paused","locked_at":0}).Error
 			continue
 		}
-		err = sendPushDelivery(&channel, &row)
+		err := sendPushDelivery(&channel, &row)
 		values := map[string]interface{}{"attempts": row.Attempts + 1, "locked_at": int64(0)}
 		if err == nil {
 			values["status"] = "sent"
