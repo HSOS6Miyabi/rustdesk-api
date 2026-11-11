@@ -2,7 +2,7 @@
 
 以下清单记录当前分支中已经实现的功能，实际发布范围应与 GitHub Release 对应提交核对。详细模块位置见 [分支功能说明](FORK_CHANGELOG.md)，历史实施记录见 [实施台账](IMPLEMENTATION_LEDGER.md)。
 
-本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前 `master` 分支和自动化测试结果为依据；实际设备、生产数据库及邮件服务商的检查另行列明。正式发行版 `v3.0.0-api.108` 的数据库迁移版本为 **290**。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
+本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前 `master` 分支和自动化测试结果为依据；实际设备、生产数据库及邮件服务商的检查另行列明。正式发行版 `v3.0.0-api.109` 的数据库迁移版本为 **290**。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
 
 | 功能 | 当前情况 | 对应模块 | 后续工作 |
 | --- | --- | --- | --- |
@@ -18,6 +18,9 @@
 | 设备与用户详情 | 点击设备名称、设备 ID、用户名可查看相关信息；设备状态显示为在线、离线或暂时无法确定 | `resources/admin/app.js`、`resources/web2/app.js` | 根据访问权限显示管理操作 |
 | 管理导航和数据表格 | 一级分类可折叠，导航滚动位置保留；表格支持当前页按列升序或降序排序 | `resources/admin/app.js`、`resources/admin/style.css` | 已加入电脑与手机浏览器测试 |
 | 用户与设备选择器 | 在设置及关联记录编辑时搜索用户、设备和相关分组 | `resources/admin/app.js`、`service/directory_search.go` | 查询范围受账户权限限制 |
+| 个人地址簿与共享规则编辑 | 保留未提交字段，根据登录账户确认记录归属 | `http/controller/admin/my/addressBook.go`、`addressBookCollection.go`、`addressBookCollectionRule.go` | 仅记录所有者可修改 |
+| 设备标签透明颜色 | 支持保存所有有效 ARGB 整数颜色 | `http/request/admin/tag.go`、`resources/admin/app.js` | 颜色与透明度均可修改 |
+| 前端接口检查 | 根据浏览器请求验证路由、响应格式和授权操作 | `scripts/test_frontend_api_contract.py` | 独立 SQLite 测试服务，无需访问生产数据库 |
 | 服务器管理操作 | 根据操作说明填写参数，浏览器和 API 分别检查后执行 | `resources/admin/app.js`、`http/controller/admin/server_command_validation.go` | 需要配套 RustDesk Server 的管理端口 |
 | 设备策略心跳同步 | 已实现三级分配及访问模式、键盘、剪贴板、文件传输和连接确认方式 | `service/device_policy.go`、`service/device_policy_target.go` | 真实客户端设置生效检查 |
 | 官方客户端 `--assign` | 已实现 API 接口及集成测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端完成分配操作测试（T001） |

@@ -3,6 +3,7 @@ package my
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
@@ -117,7 +118,7 @@ func (ct *AddressBook) Create(c *gin.Context) {
 // @Security token
 func (ct *AddressBook) Update(c *gin.Context) {
 	f := &admin.AddressBookForm{}
-	if err := c.ShouldBindJSON(f); err != nil {
+	if err := c.ShouldBindBodyWith(f, binding.JSON); err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
@@ -131,11 +132,6 @@ func (ct *AddressBook) Update(c *gin.Context) {
 		return
 	}
 	u := service.AllService.UserService.CurUser(c)
-	if f.UserId != u.Id {
-		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
-		return
-	}
-
 	ex := service.AllService.AddressBookService.InfoByRowId(f.RowId)
 	if ex.RowId == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
@@ -145,13 +141,34 @@ func (ct *AddressBook) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
 		return
 	}
-	t := f.ToAddressBook()
-	if t.CollectionId > 0 && !service.AllService.AddressBookService.CheckCollectionOwner(t.UserId, t.CollectionId) {
+
+	var provided map[string]json.RawMessage
+	if err := c.ShouldBindBodyWith(&provided, binding.JSON); err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
+		return
+	}
+	updated := *ex
+	if _, ok := provided["id"]; ok { updated.Id = f.Id }
+	if _, ok := provided["username"]; ok { updated.Username = f.Username }
+	if _, ok := provided["password"]; ok { updated.Password = f.Password }
+	if _, ok := provided["hostname"]; ok { updated.Hostname = f.Hostname }
+	if _, ok := provided["alias"]; ok { updated.Alias = f.Alias }
+	if _, ok := provided["platform"]; ok { updated.Platform = f.Platform }
+	if _, ok := provided["tags"]; ok { updated.Tags = f.ToAddressBook().Tags }
+	if _, ok := provided["hash"]; ok { updated.Hash = f.Hash }
+	if _, ok := provided["forceAlwaysRelay"]; ok { updated.ForceAlwaysRelay = f.ForceAlwaysRelay }
+	if _, ok := provided["rdpPort"]; ok { updated.RdpPort = f.RdpPort }
+	if _, ok := provided["rdpUsername"]; ok { updated.RdpUsername = f.RdpUsername }
+	if _, ok := provided["online"]; ok { updated.Online = f.Online }
+	if _, ok := provided["loginName"]; ok { updated.LoginName = f.LoginName }
+	if _, ok := provided["sameServer"]; ok { updated.SameServer = f.SameServer }
+	if _, ok := provided["collection_id"]; ok { updated.CollectionId = f.CollectionId }
+	updated.UserId = u.Id
+	if updated.CollectionId > 0 && !service.AllService.AddressBookService.CheckCollectionOwner(u.Id, updated.CollectionId) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
-	err := service.AllService.AddressBookService.UpdateAll(t)
-	if err != nil {
+	if err := service.AllService.AddressBookService.UpdateAll(&updated); err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return
 	}

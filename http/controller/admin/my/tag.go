@@ -106,10 +106,6 @@ func (ct *Tag) Update(c *gin.Context) {
 	}
 
 	u := service.AllService.UserService.CurUser(c)
-	if f.UserId != u.Id {
-		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
-		return
-	}
 	ex := service.AllService.TagService.InfoById(f.Id)
 	if ex.Id == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
@@ -119,6 +115,7 @@ func (ct *Tag) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
 		return
 	}
+	f.UserId = u.Id
 
 	t := f.ToTag()
 	if t.CollectionId > 0 && !service.AllService.AddressBookService.CheckCollectionOwner(t.UserId, t.CollectionId) {

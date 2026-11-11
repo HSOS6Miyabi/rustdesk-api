@@ -1,0 +1,52 @@
+name: Frontend-driven API integration audit
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    paths:
+      - 'resources/admin/**'
+      - 'resources/web2/**'
+      - 'http/**'
+      - 'service/**'
+      - 'scripts/test_frontend_api_contract.py'
+      - '.github/workflows/frontend-api-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-api-contract:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export repository source for isolated integration inspection
+        run: |
+          tar --exclude=./.git --exclude=./resources/web/main.dart.js --exclude=./docs/screenshots --exclude='*/node_modules' -czf "$RUNNER_TEMP/rustdesk-api-audit-source.tar.gz" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-api-audit-source
+          path: ${{ runner.temp }}/rustdesk-api-audit-source.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax and run existing interaction tests
+        run: |
+          node --check resources/admin/app.js
+          node --check resources/web2/app.js
+          node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
+      - name: Run existing Go tests
+        run: go test ./... -count=1
+      - name: Verify browser endpoints with real HTTP requests
+        run: |
+          go build -o /tmp/rustdesk-api-contract ./cmd/apimain.go
+          python3 scripts/test_frontend_api_contract.py /tmp/rustdesk-api-contract

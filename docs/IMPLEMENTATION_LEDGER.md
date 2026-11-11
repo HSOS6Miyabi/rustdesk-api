@@ -2,6 +2,13 @@
 
 ## 接手总览（更新于 2026 年 11 月 12 日）
 
+### API 与网页接口检查
+
+[拉取请求 #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14) 为管理控制台、WebClient v2 和原版 WebClient 增加请求匹配和独立 SQLite 环境下的 HTTP 集成测试，检查不同账户的操作权限、数据修改结果和响应格式。个人地址簿、分类、共享规则和设备标签的编辑使用登录账户的用户编号，更新地址簿时保留请求中未提供的字段；WebClient 的分享令牌先验证数据类型。设备标签支持保存完全透明的 ARGB 颜色。
+
+自动测试位于 `scripts/test_frontend_api_contract.py`，GitHub Actions 设置位于 `.github/workflows/frontend-api-integration.yml`。本次修改保留数据库迁移版本 **290**。
+
+
 ### 控制台及 WebClient
 
 [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13) 将个人设备和管理员设备分别放在“我的设备”和“设备管理”中，增加按权限查看的设备、用户详情，以及用户、设备和相关分组的搜索功能。导航分类可以折叠，切换页面时保留侧边栏的滚动位置。管理表格支持点击列标题排序，手机页面使用独立排序控件。服务器管理按照具体操作及参数说明组织，浏览器和 API 均检查输入。WebClient 增加网页全屏、显示器全屏及设备搜索。

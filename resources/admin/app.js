@@ -339,8 +339,10 @@
       "session.ended":"远程连接已结束","audit.file":"文件传输"
     }[v]||v);
     if(k==="color"&&v!==undefined&&v!==null){
-      const hex="#"+((Number(v)>>>0)&0xffffff).toString(16).padStart(6,"0");
-      return '<span class="color-label"><span class="color-swatch" style="background:'+hex+'"></span>'+esc(hex.toUpperCase())+'</span>';
+      const argb=Number(v)>>>0;
+      const rgb="#"+(argb&0xffffff).toString(16).padStart(6,"0");
+      const alpha=(argb>>>24).toString(16).padStart(2,"0");
+      return '<span class="color-label"><span class="color-swatch" style="background:'+rgb+alpha+'"></span>'+esc("#"+argb.toString(16).padStart(8,"0").toUpperCase())+'</span>';
     }
     if(k==="status"&&typeof v==="string")return esc({
       approved:"已登记",revoked:"已撤销",pending:"等待处理",
@@ -1409,7 +1411,7 @@
     }
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
     else if(type==="color"){
-      const color=Number(value||0xff5b9bd5)>>>0;
+      const color=Number(value===0||value==="0"?0:value||0xff5b9bd5)>>>0;
       const rgb="#"+(color&0xffffff).toString(16).padStart(6,"0");
       const alpha=color>>>24;
       input='<div class="color-picker"><input name="'+esc(name)+'" type="color" value="'+rgb+'" required aria-label="选择颜色">'+

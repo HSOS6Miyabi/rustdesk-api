@@ -186,8 +186,8 @@ func (l *Login) LoginOptions(c *gin.Context) {
 func (l *Login) Logout(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
 	token, ok := c.Get("token")
-	if ok {
-		service.AllService.UserService.Logout(u, token.(string))
+	if accessToken, valid := token.(string); ok && valid {
+		service.AllService.UserService.Logout(u, accessToken)
 	}
 	c.JSON(http.StatusOK, nil)
 

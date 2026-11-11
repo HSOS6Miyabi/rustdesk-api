@@ -194,9 +194,15 @@ func (ct *Login) Captcha(c *gin.Context) {
 // @Router /admin/logout [post]
 func (ct *Login) Logout(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
-	token, ok := c.Get("token")
-	if ok {
-		service.AllService.UserService.Logout(u, token.(string))
+	value, ok := c.Get("token")
+	accessToken, valid := value.(string)
+	if !ok || !valid || accessToken == "" || u == nil || u.Id == 0 {
+		response.Fail(c, 403, response.TranslateMsg(c, "NeedLogin"))
+		return
+	}
+	if err := service.AllService.UserService.Logout(u, accessToken); err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
+		return
 	}
 	response.Success(c, nil)
 }

@@ -175,6 +175,7 @@ func (abcr *AddressBookCollectionRule) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
 		return
 	}
+	f.UserId = u.Id
 	t := f
 	msg, res := abcr.CheckForm(u, t)
 	if !res {
