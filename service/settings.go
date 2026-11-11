@@ -85,7 +85,7 @@ func SettingStates() (SettingsView,error) {
         } else if active.Enabled {
             state.StoredValue=active.Value
         }
-        if active.Enabled && value!=active.Value {
+        if active.Enabled && (value!=active.Value || running.Source!="网页设置") {
             state.PendingRestart=true
         }
         if !active.Enabled && running.Source=="网页设置" {
