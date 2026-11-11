@@ -126,7 +126,7 @@ func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,cli
 }
 
 func RecoverInterruptedClientBuilds(now int64)error{
-	if DB==nil||!DB.Migrator().HasTable(&model.ClientBuildTask{}){return nil}
+	if DB==nil{return nil}
 	return DB.Model(&model.ClientBuildTask{}).
 		Where("status = ? AND started_at <= ?", "building", now-600).
 		Updates(map[string]interface{}{
@@ -136,7 +136,7 @@ func RecoverInterruptedClientBuilds(now int64)error{
 }
 
 func ProcessClientBuildQueue(limit int)(int,error){
-	if DB==nil||!DB.Migrator().HasTable(&model.ClientBuildTask{}){return 0,nil}
+	if DB==nil{return 0,nil}
 	if err:=RecoverInterruptedClientBuilds(time.Now().Unix());err!=nil{return 0,err}
 	if limit<1||limit>2{limit=1}
 	var queued []model.ClientBuildTask
@@ -226,7 +226,7 @@ func StartClientBuildWorker(){
 				if Logger != nil {
 					Logger.WithError(err).Warn("client installer scheduling failed")
 				}
-				waitForWork(clientBuildWake, 10*time.Second, true)
+				if !waitForWorkContext(ctx,clientBuildWake,10*time.Second,true) {return}
 				continue
 			}
 			if !waitForWorkContext(ctx, clientBuildWake, delay, scheduled) { return }
