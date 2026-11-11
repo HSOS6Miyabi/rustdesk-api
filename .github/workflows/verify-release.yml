@@ -86,6 +86,8 @@ jobs:
         run: go test -race ./service ./lib/cache -run 'TestUnusedDevicePoliciesSkipSteadyHeartbeatQueries|TestActivePolicyHeartbeatResolutionUsesCache|TestIdleDeviceSessionsAvoidDatabaseOperations|TestDisabledPushSubscriptionsAvoidDeviceQueries|TestAddressBookSyncDoesNotRewriteIdenticalEntries|TestDevicePresenceTransitionsAndOfflineNotifications|TestMemoryCacheReplacementCountsOnlyCurrentValue|TestMemoryCacheEvictsAfterGrowingReplacement|TestMemoryCacheEvictsAtNextDeadline|TestPolicyInvalidationDoesNotWaitForSlowDatabaseRead|TestUnchangedActiveConnectionsAvoidRepeatedWrites|TestAcceptedPushEventSurvivesWorkerRestart|TestAcceptedAdministrativeNotificationSurvivesRestart|TestSharedOutboxClaimsPreventConcurrentDuplicateProcessing|TestSparsePolicyAssignmentsSkipUnrelatedHeartbeatQueries|TestActiveSessionsWithoutPendingDisconnectSkipDatabaseOperations|TestFailedPeerLookupKeepsOutboxEventForRetry|TestPresenceWithoutSubscriptionsReadsExistingPeerTimestamp|TestRepeatedDisconnectCommandsDoNotRewriteDeliveredTimestamp|TestOutboxCleansSuccessfulPrefixOnProcessingFailure|TestDeliveryHistoryCleanupPreservesUnfinishedMessages' -count=1
       - name: Build executable
         run: go build -o /tmp/rustdesk-api ./cmd/apimain.go
+      - name: Verify real API startup and persisted settings
+        run: bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 
   browser-e2e:
     runs-on: ubuntu-24.04
