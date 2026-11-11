@@ -357,3 +357,14 @@ RUSTDESK_VISUAL_AUDIT=1 node --test --test-name-pattern="visual audit:" resource
 ~~~
 
 此检查会分别遍历管理员桌面、平板、手机界面及普通用户手机界面的所有导航页面。截图和页面宽度检查结果保存在 resources/admin/test-screenshots/audit/。每次更改管理控制台的页面代码后，GitHub Actions 会重新生成 README 中的界面截图。
+
+
+## 检查表单间距、换行和中文字体
+
+在截图测试环境安装 Noto Sans CJK SC 后，运行：
+
+~~~bash
+RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/browser.e2e.cjs
+~~~
+
+Playwright 会检查管理员和普通用户可以访问的页面，并在桌面、笔记本、平板以及两种手机宽度下生成截图。检查内容包括表单字段间距、按钮文字换行、控件之间的间距、页面横向溢出、文字裁切，以及新增数据时的编辑窗口。字体检查直接读取 Chromium 实际使用的中文字体。截图保存在 resources/admin/test-screenshots/，README 截图由 GitHub Actions 重新生成。

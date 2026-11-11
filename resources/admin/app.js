@@ -769,7 +769,7 @@
       textField("relay_server","中继服务器地址（可留空）")+
       '</div><div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
       '<button class="btn" type="button" data-action="client-new">新建配置</button></div></form>';
-    const profileList=profiles.map(profile=>'<div class="status-row"><span><strong>'+esc(profile.name)+'</strong>'+
+    const profileList=profiles.map(profile=>'<div class="status-row client-profile-row"><span><strong>'+esc(profile.name)+'</strong>'+
       '<span class="cell-sub">'+esc(profile.platform)+' · '+esc(profile.host)+'</span></span>'+
       '<span class="head-actions">'+
       '<button class="btn btn-sm" data-action="client-edit" data-id="'+esc(profile.id)+'">编辑</button>'+
@@ -777,7 +777,7 @@
       '<button class="btn btn-sm btn-danger" data-action="client-delete" data-id="'+esc(profile.id)+'">删除配置</button>'+
       '</span></div>').join("")||'<p class="tips">暂无客户端配置，可以填写上方表单创建。</p>';
     const status={pending:"等待处理",building:"正在获取官方安装包",ready:"安装包已准备好",failed:"处理失败"};
-    const history=tasks.map(task=>'<div class="status-row"><span><strong>任务 #'+esc(task.id)+'</strong>'+
+    const history=tasks.map(task=>'<div class="status-row client-task-row"><span><strong>任务 #'+esc(task.id)+'</strong>'+
       '<span class="cell-sub">'+esc(task.platform)+' · RustDesk '+esc(task.version)+' · '+esc(status[task.status]||task.status)+
       (task.error?' · '+esc(task.error):'')+'</span></span>'+
       (task.status==="ready"?'<button class="btn btn-sm" data-action="client-download" data-id="'+esc(task.id)+'">下载安装程序</button>':

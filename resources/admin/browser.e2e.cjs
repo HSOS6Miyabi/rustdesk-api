@@ -280,7 +280,7 @@ function serve(req, res) {
 
 async function pageForViewport(width, height, admin=false) {
   const context = await browser.newContext({
-    viewport:{width,height},deviceScaleFactor:1,
+    viewport:{width,height},deviceScaleFactor:1,locale:"zh-CN",
     isMobile:width<600,hasTouch:width<600
   });
   const page=await context.newPage();
@@ -1163,6 +1163,22 @@ test("layout: brand, shortcuts and settings are arranged consistently",async()=>
   }
 });
 
+test("font audit: verify actual Chinese glyph font",async()=>{
+ if(process.env.RUSTDESK_REQUIRE_CJK_FONT!=="1")return;
+ const {context,page}=await pageForViewport(1440,900,true);
+ try{
+   const cdp=await context.newCDPSession(page);
+   await cdp.send("DOM.enable");await cdp.send("CSS.enable");
+   const {root}=await cdp.send("DOM.getDocument");
+   const {nodeId}=await cdp.send("DOM.querySelector",{nodeId:root.nodeId,selector:".page-head h1"});
+   const data=await cdp.send("CSS.getPlatformFontsForNode",{nodeId});
+   assert.ok(data.fonts.some(font=>font.glyphCount>0&&font.familyName.includes("Noto Sans CJK SC")),
+      "Chromium must render Chinese text with Noto Sans CJK SC: "+JSON.stringify(data));
+ }finally{await context.close()}
+});
+
+
+
 if(process.env.RUSTDESK_VISUAL_AUDIT==="1"){
 test("visual audit: capture all administration pages", async()=>{
   const folder=path.join(__dirname,"test-screenshots","audit");
@@ -1208,6 +1224,132 @@ test("visual audit: capture all administration pages", async()=>{
   const defects=results.filter(item=>item.error||item.viewportOverflow||item.clipped?.length);
   assert.equal(defects.length,0,JSON.stringify(defects.slice(0,8)));
   console.log("Captured "+results.length+" page screenshots across desktop, tablet and phone layouts.");
+});
+
+
+test("quality audit: inspect layout, controls, text and fonts",async()=>{
+ const out=path.join(__dirname,"test-screenshots","quality-audit");
+ fs.mkdirSync(out,{recursive:true});
+ const results=[];
+ const screens=[["desktop",1440,900,true],["laptop",1100,800,true],["tablet",768,1000,true],["phone",375,812,true],["small-phone",320,700,true],["member-phone",375,812,false]];
+ for(const [role,width,height,admin] of screens){
+  const {page,context}=await pageForViewport(width,height,admin);
+  try{
+   const views=await page.locator('nav.side-scroll button[data-view]').evaluateAll(nodes=>[...new Set(nodes.map(e=>e.dataset.view))]);
+   for(const view of views){
+    try{
+     if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+     await page.locator('nav.side-scroll button[data-view="'+view+'"]').first().click();
+     await page.waitForTimeout(60);
+     const metrics=await page.evaluate(()=>{
+      function rect(node){const r=node.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,r:r.right,b:r.bottom};}
+      function visible(el){const st=getComputedStyle(el),r=el.getBoundingClientRect();return !el.hidden && st.visibility!=="hidden" && st.display!=="none" &&r.width>0&&r.height>0;}
+      const formGaps=[];
+      const forms=[...document.querySelectorAll('form')].filter(visible);
+      for(const f of forms){
+       const children=[...f.children].filter(e=>visible(e)&&!["hidden"].includes(e.type));
+       for(let i=0;i<children.length-1;i++){
+        const a=children[i],b=children[i+1],r=rect(a),s=rect(b);
+        const overlap=Math.min(r.r,s.r)-Math.max(r.x,s.x);
+        if(overlap>Math.min(r.w,s.w)*.4&&s.y>=r.b-1&&s.y-r.b<8)
+         formGaps.push({form:f.id||f.className,from:a.tagName+"."+a.className,to:b.tagName+"."+b.className,gap:Math.round((s.y-r.b)*10)/10});
+       }
+      }
+      const controlGaps=[];
+      for(const f of forms){
+       const els=[...f.querySelectorAll('button,input:not([type="hidden"]),textarea,select')].filter(visible);
+       for(let i=0;i<els.length;i++)for(let j=i+1;j<els.length;j++){
+        const a=els[i],b=els[j],r=rect(a),s=rect(b);
+        if(!(a.matches('button')||b.matches('button')))continue;
+        const overlapY=Math.min(r.b,s.b)-Math.max(r.y,s.y);
+        const overlapX=Math.min(r.r,s.r)-Math.max(r.x,s.x);
+        if(overlapY>Math.min(r.h,s.h)*.65){
+           const gap=Math.max(r.x,s.x)-Math.min(r.r,s.r);
+           if(gap>=0&&gap<8)controlGaps.push({parent:f.id,a:a.tagName,b:b.tagName,gap:Math.round(gap)});
+        }else if(overlapX>Math.min(r.w,s.w)*.65){
+           const gap=Math.max(r.y,s.y)-Math.min(r.b,s.b);
+           if(gap>=0&&gap<8)controlGaps.push({parent:f.id,a:a.tagName,b:b.tagName,gap:Math.round(gap)});
+        }
+       }
+      }
+      const wrapped=[];
+      for(const btn of [...document.querySelectorAll('button')].filter(visible)){
+       const first=[...btn.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE&&n.textContent.trim());
+       const allRects=[];
+       for(const n of first){const range=document.createRange();range.selectNodeContents(n);allRects.push(...[...range.getClientRects()])}
+       const ys=[...new Set(allRects.filter(x=>x.width>0).map(r=>Math.round(r.y)))];
+       if(ys.length>1)wrapped.push({label:btn.innerText.slice(0,50),lines:ys.length,cls:btn.className});
+      }
+      const clips=[...document.querySelectorAll('.page-head h1,.panel-title,.btn,.nav-link,.field label,.settings-highlight h3')].filter(visible)
+         .filter(e=>e.scrollWidth>e.clientWidth+3).slice(0,20).map(e=>({text:e.textContent?.slice(0,32),cls:e.className,w:e.clientWidth,scroll:e.scrollWidth}));
+      return {title:document.querySelector('h1')?.textContent||'',
+        pageWidth:document.documentElement.scrollWidth,viewport:innerWidth,
+        fonts:getComputedStyle(document.querySelector('h1')||document.body).fontFamily,
+        formCount:forms.length,formGaps,controlGaps,wrapped,clips};
+     });
+     if(view==="overview"||view==="settings"||view==="notifications"||view==="mail"||view==="clientBuilder"||view==="push"||view==="contacts"||view==="server"){
+      await page.screenshot({path:path.join(out,role+"-"+view+".png"),fullPage:true,animations:"disabled"});
+     }else{
+      await page.screenshot({path:path.join(out,role+"-"+view+".png"),fullPage:false,animations:"disabled"});
+     }
+     results.push({role,view,...metrics});
+    }catch(err){results.push({role,view,error:String(err).slice(0,300)});}
+   }
+  }finally{await context.close()}
+ }
+ const data=JSON.stringify(results,null,2);
+ fs.writeFileSync(path.join(out,"report.json"),data);
+ const issues=results.filter(x=>x.error||x.formGaps?.length||x.controlGaps?.length||x.wrapped?.length||x.clips?.length||x.pageWidth>x.viewport+2);
+ assert.equal(issues.length,0,"Layout defects: "+JSON.stringify(issues.slice(0,8)));
+ console.log("Checked "+results.length+" responsive page screenshots and control spacing.");
+});
+
+
+
+test("modal audit: inspect all creation and editing drawers",async()=>{
+ const out=path.join(__dirname,"test-screenshots","quality-audit","drawers");
+ fs.mkdirSync(out,{recursive:true});
+ const reports=[];
+ for(const [role,width,height] of [["desktop",1440,900],["phone",375,812],["small-phone",320,700]]){
+  const {context,page}=await pageForViewport(width,height,true);
+  try{
+   const nav=await page.locator('nav.side-scroll button[data-view]').evaluateAll(nodes=>[...new Set(nodes.map(x=>x.dataset.view))]);
+   for(const view of nav){
+    if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+    await page.locator('nav.side-scroll button[data-view="'+view+'"]').first().click();
+    const create=page.locator('.content button[data-action="create"]').first();
+    if(!await create.count())continue;
+    try{
+     await create.click();
+     const drawer=page.locator('.drawer');
+     if(!await drawer.count()){reports.push({role,view,error:"no drawer"});continue;}
+     const m=await page.evaluate(()=>{
+      const d=document.querySelector('.drawer'),body=d.querySelector('.drawer-body'),foot=d.querySelector('.drawer-footer');
+      const rect=e=>e.getBoundingClientRect(),visible=e=>e&&getComputedStyle(e).display!=="none"&&rect(e).width>0;
+      const r=rect(d),rBody=rect(body),buttons=[...foot.querySelectorAll('button')].filter(visible);
+      const buttonGaps=[];
+      for(let i=1;i<buttons.length;i++){
+       const a=rect(buttons[i-1]),b=rect(buttons[i]),gap=b.left-a.right;
+       if(gap<8&&b.top<a.bottom)buttonGaps.push({gap,one:buttons[i-1].textContent,two:buttons[i].textContent});
+      }
+      const fields=[...d.querySelectorAll('.form-grid .field')].filter(visible);
+      const widths=fields.filter(e=>rect(e).right>r.right-6||rect(e).left<r.left+6).slice(0,4).map(e=>e.textContent.slice(0,30));
+      return{width:r.width,viewport:innerWidth,right:r.right,bodyInset:rBody.left-r.left,
+       footerButtonGaps:buttonGaps,fieldOverflow:widths,fields:fields.length,
+       documentWidth:document.documentElement.scrollWidth,
+       scrollHeight:d.scrollHeight,viewportHeight:innerHeight};
+     });
+     await page.screenshot({path:path.join(out,role+"-"+view+".png"),fullPage:false,animations:"disabled"});
+     reports.push({role,view,...m});
+     await page.locator('.drawer-head button[data-action="close-modal"]').click();
+    }catch(err){reports.push({role,view,error:String(err).slice(0,250)});}
+   }
+  }finally{await context.close()}
+ }
+ fs.writeFileSync(path.join(out,"report.json"),JSON.stringify(reports,null,2));
+ const issues=reports.filter(x=>x.error||x.fieldOverflow?.length||x.footerButtonGaps?.length||x.documentWidth>x.viewport+2||x.right>x.viewport+3);
+ assert.equal(issues.length,0,"Drawer layout defects: "+JSON.stringify(issues.slice(0,8)));
+ console.log("Checked "+reports.length+" creation drawer screenshots.");
 });
 
 

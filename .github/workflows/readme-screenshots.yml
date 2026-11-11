@@ -25,6 +25,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install simplified Chinese fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk fontconfig
+          fc-cache -f
+          fc-match -f '%{family}\\n' 'Noto Sans CJK SC' | grep -F 'Noto Sans CJK SC'
       - name: Install browser test framework
         run: |
           npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
@@ -32,7 +38,7 @@ jobs:
       - name: Check screenshot preparation script
         run: python3 -m py_compile scripts/refresh_readme_gallery.py
       - name: Generate screenshots from actual web console
-        run: node --test resources/admin/browser.e2e.cjs
+        run: RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/browser.e2e.cjs
       - name: Copy selected screenshots into the documentation
         run: python3 scripts/refresh_readme_gallery.py
       - name: Update README screenshots in master
