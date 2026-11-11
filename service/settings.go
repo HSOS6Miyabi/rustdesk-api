@@ -154,6 +154,7 @@ func SaveSettingChanges(actor uint, input SettingsRevisionInput) error {
             }
             updated.Overrides[change.Key]=old
         }
+        if err:=validateChangedDatabaseSettings(input.Changes,updated);err!=nil{return err}
         // Both the audit entry and the file update must succeed.
         err=DB.Transaction(func(tx *gorm.DB) error {
             if err:=tx.CreateInBatches(&history,50).Error;err!=nil{return err}
