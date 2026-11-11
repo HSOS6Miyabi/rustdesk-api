@@ -2,7 +2,7 @@
 
 This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
 
-The most recent approved API release is [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106), using database migration version 288. The ongoing settings and reliability development branch uses migration version 290.
+The current approved API release is [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107), using database migration version 290. It includes the Settings Center, resilient notification processing, and database query improvements.
 
 System administrators can use **System Management → Settings Center** in `/_admin/` to inspect active configuration values, their sources, descriptions, and website overrides. Website overrides take precedence over environment variables. Restart the API after saving global settings.
 
@@ -23,7 +23,7 @@ Documentation for maintained fork features:
 > [deployment instructions](docs/DEPLOYMENT.md) and
 > [API documentation](docs/API.md).
 
-> This development branch supports delegated administrator roles with multiple
+> This maintained release supports delegated administrator roles with multiple
 > role assignments per user. Global roles can grant selected administration
 > operations; user- and group-scoped roles currently provide read-only access
 > to their matching users and devices. Existing full administrators retain
@@ -35,7 +35,7 @@ Documentation for maintained fork features:
 > locally by the administrator and are not included with this repository.
 > See [deployment instructions](docs/DEPLOYMENT.md).
 
-> The active milestone branch also supports address-book CSV import/export,
+> The maintained release also supports address-book CSV import/export,
 > recovery of deleted entries, SMTP settings with encrypted credentials,
 > email password recovery, and invitation-based team registration.
 > Configure `RUSTDESK_API_MAIL_ENCRYPTION_KEY` to store SMTP passwords.
@@ -44,10 +44,10 @@ Documentation for maintained fork features:
 
 > **Maintained fork:** This repository is developed together with
 > [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server).
-> Development changes are maintained in `development/m1-device-management` and
-> reviewed through a draft pull request. Routine commits and tag pushes never
-> publish a Release or distribution Docker image. An approved milestone must
-> be published manually from a `v*` tag with `milestone_release` enabled.
+> Development changes are reviewed through pull requests against `master`.
+> Ordinary commits and tag pushes do not publish a Release or distribution Docker image.
+> To publish an approved milestone, run the publishing workflow on `master`
+> with `milestone_release` enabled; it creates the next version tag and verifies the release.
 > See [feature status](docs/FEATURE_MATRIX.md),
 > [implementation records](docs/IMPLEMENTATION_LEDGER.md), and
 > [handoff instructions](docs/HANDOFF.md) for this fork's current behavior.

@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)，数据库迁移版本为 288。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。当前设置中心整改分支采用数据库迁移版本 290；完整版本关系参见 [兼容版本](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新包含设置中心、通知恢复与性能改进。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -146,7 +146,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 
-当前整改分支的数据库迁移版本为 290；已发行 v3.0.0-api.106 对应迁移版本 288。最新正式版本为 [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。发布流程由版本授权文件控制，具体操作见 [性能与数据保存说明](docs/PERFORMANCE.md)。
+当前正式版本 `v3.0.0-api.107` 的数据库迁移版本为 **290**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
 

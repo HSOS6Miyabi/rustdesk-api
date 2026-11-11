@@ -2,7 +2,7 @@
 
 本仓库基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 持续维护，保留原项目账户、地址簿、Web 客户端及 Go API 的主要结构。下表按实际使用的功能整理增加的模块，便于接手开发人员理解用途、启用条件与受影响的位置。
 
-当前正式发布以 [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) 为准。设置中心和后续可靠性改进位于 `feat/settings-center-reliability-20261111` 开发分支，正式发布前应先完成测试、审核与合并。
+当前正式发布为 [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107)。设置中心及可靠性改进已通过 [拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并至 `master`。
 
 | 功能 | 管理页面或使用入口 | 主要代码 | 使用条件 |
 | --- | --- | --- | --- |
@@ -25,7 +25,7 @@
 
 ## 主要数据库变化
 
-相对于上游新增了群组成员、联系人、策略分配、会话管理、管理员角色、个人推送和通知记录等业务表。现有数据库在启动时由 `cmd/apimain.go` 按迁移版本更新。最新开发分支使用迁移版本 290，正式版本 `v3.0.0-api.106` 使用迁移版本 288。
+相对于上游新增了群组成员、联系人、策略分配、会话管理、管理员角色、个人推送和通知记录等业务表。现有数据库在启动时由 `cmd/apimain.go` 按迁移版本更新。当前正式版本 `v3.0.0-api.107` 使用数据库迁移版本 **290**。
 
 设置中心增加 `system_setting_overrides`、`system_setting_revisions` 和 `system_setting_histories`。通知事件表还保存处理状态、失败次数、下一次重试时间和共享处理权的标识。升级前需备份数据库，回退旧版程序之前先核对其对新增字段的兼容性。
 

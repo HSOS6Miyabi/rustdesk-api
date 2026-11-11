@@ -1,6 +1,6 @@
 # 开发交接与项目维护
 
-本项目基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 开发，并与 [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 联合使用。API 的主分支为 `master`。最新正式 API 版本为 `v3.0.0-api.106`，配套 RustDesk Server 正式版本为 `v1.1.17-api.21`。设置中心与运行可靠性改进通过 API [拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 审核。
+本项目基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 开发，并与 [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 联合使用。API 的主分支为 `master`。最新正式 API 版本为 `v3.0.0-api.107`，配套 RustDesk Server 正式版本为 `v1.1.17-api.21`。设置中心与运行可靠性改进已通过 API [拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并到 `master`。
 
 ## 接手工作顺序
 
@@ -33,7 +33,7 @@
 
 ## 数据库升级与备份
 
-正式 API `v3.0.0-api.106` 对应迁移版本 288；当前整改分支迁移版本为 290。整改分支增加设置覆盖数据库表、修改记录及事件处理权标识。升级之前应备份数据库、`data/settings-bootstrap.json`、API 配置、Server 身份密钥和用于解密持久化凭据的密钥。
+正式 API `v3.0.0-api.107` 对应迁移版本 **290**。本次更新增加设置覆盖数据库表、修改记录及事件处理权标识。升级之前应备份数据库、`data/settings-bootstrap.json`、API 配置、Server 身份密钥和用于解密持久化凭据的密钥。
 
 默认 SQLite 数据库位于 `data/rustdeskapi.db`。MySQL 与 PostgreSQL 使用各自的备份工具。先在独立环境恢复备份，运行升级和业务测试，再升级正式服务。
 
