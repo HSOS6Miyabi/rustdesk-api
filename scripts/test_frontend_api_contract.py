@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+"""Check the HTTP contracts used by the browser clients against a fresh API database."""
+
+import contextlib
+import json
+from pathlib import Path
+import re
+import secrets
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+PREFIX = "/api/admin"
+
+
+def check(value, message):
+    if not value:
+        raise AssertionError(message)
+
+
+def backend_routes():
+    routes = set()
+    func = re.compile(r"(?m)^func\s+(\w+)\s*\(([^)]*)\)\s*\{")
+    group = re.compile(r"(\w+)\s*:?=\s*(\w+)\.Group\(\"([^\"]+)\"\)")
+    alias = re.compile(r"(\w+)\s*:?=\s*(\w+)\.Use\(")
+    method = re.compile(r'\b(\w+)\.(GET|POST|PUT|PATCH|DELETE|OPTIONS)\("([^"]+)"')
+    for path in (ROOT / "http/router/admin.go", ROOT / "http/controller/admin/device_deployment.go"):
+        source = path.read_text(encoding="utf-8")
+        for item in func.finditer(source):
+            name = item.group(1)
+            if not (name.endswith("Bind") or name == "Init" and path.name == "admin.go"):
+                continue
+            depth = 1
+            end = item.end()
+            while depth and end < len(source):
+                depth += (source[end] == "{") - (source[end] == "}")
+                end += 1
+            variables = {item.group(2).split()[0]: "" if name == "Init" else PREFIX}
+            for line in source[item.end():end-1].splitlines():
+                for match in group.finditer(line):
+                    child, parent, suffix = match.groups()
+                    if parent in variables:
+                        variables[child] = variables[parent] + suffix
+                for match in alias.finditer(line):
+                    child, parent = match.groups()
+                    if parent in variables:
+                        variables[child] = variables[parent]
+                for match in method.finditer(line):
+                    parent, verb, suffix = match.groups()
+                    if parent in variables:
+                        routes.add((verb, variables[parent] + suffix))
+    return routes
+
+
+def browser_routes():
+    routes = set()
+    pages = {}
+    for path in (ROOT / "resources/admin/app.js", ROOT / "resources/web2/app.js"):
+        code = path.read_text(encoding="utf-8")
+        for match in re.finditer(
+            r'''request\(\s*["'](/[^"']+)["']\s*(?:,\s*["'](GET|POST|PATCH|PUT|DELETE)["'])?''', code
+        ):
+            uri, method = match.groups()
+            routes.add((method or "GET", PREFIX + uri.split("?")[0]))
+        for match in re.finditer(
+            r'''(?m)^\s*(\w+):\s*\{[^\n]*?endpoint:"([^"]+)"''', code
+        ):
+            pages[match.group(1)] = match.group(2)
+    readonly = {"deployed", "trash", "myconnections", "mytransfers", "myalarms",
+                "alarms", "operations", "myloginlogs", "loginlogs", "connections",
+                "transfers", "notifications", "activeSessions", "disconnectHistory", "sessions"}
+    for page, endpoint in pages.items():
+        uri = PREFIX + "/" + endpoint
+        routes.add(("GET", uri + "/list"))
+        if page not in readonly:
+            if page != "mydevices":
+                routes.add(("POST", uri + "/create"))
+            if page != "invitations":
+                routes.add(("POST", uri + "/update"))
+                routes.add(("POST", uri + "/delete"))
+    for endpoint in ("address_book", "address_book_collection", "tag"):
+        for operation in ("list", "create", "update", "delete"):
+            routes.add(("GET" if operation == "list" else "POST",
+                        PREFIX + "/my/" + endpoint + "/" + operation))
+    extra = {
+        "GET": ("/audit/export", "/client_builder/tasks/:id/download", "/my/group/members",
+                "/my/group/anchors", "/group/members", "/group/anchors",
+                "/address_book/export", "/my/address_book/export", "/my/peer/list"),
+        "POST": ("/my/group/members/batch", "/my/group/anchors", "/group/members/batch",
+                 "/group/anchors", "/address_book/import", "/my/address_book/import",
+                 "/my/address_book/trash/batchRestore", "/my/address_book/trash/batchPurge",
+                 "/my/address_book/trash/restore", "/my/address_book/trash/purge",
+                 "/address_book/trash/batchRestore", "/address_book/trash/batchPurge",
+                 "/address_book/trash/restore", "/address_book/trash/purge",
+                 "/settings/overrides/reset", "/mfa/disable", "/mfa/recovery/regenerate",
+                 "/my/peer/update", "/my/peer/delete", "/peer/transfer"),
+        "PATCH": ("/settings/overrides",),
+    }
+    for verb, paths in extra.items():
+        routes.update((verb, PREFIX + path) for path in paths)
+    routes = {x for x in routes if not x[1].endswith("/client_builder/tasks/")}
+    return routes, pages
+
+
+class Client:
+    def __init__(self, url, token=""):
+        self.url, self.token, self.count = url, token, 0
+
+    def send(self, method, path, body=None, raw=False):
+        uri = path if path.startswith(PREFIX + "/") else PREFIX + path
+        headers = {"Accept": "application/json", "Accept-Language": "zh-CN"}
+        if self.token:
+            headers["api-token"] = self.token
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(
+            self.url + uri, method=method, headers=headers,
+            data=json.dumps(body).encode() if body is not None else None
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=7) as reply:
+                status, payload = reply.status, reply.read(2_000_000)
+                content_type = reply.headers.get("Content-Type", "")
+        except urllib.error.HTTPError as error:
+            status, payload = error.code, error.read(2_000_000)
+            content_type = error.headers.get("Content-Type", "")
+        self.count += 1
+        check(status < 500, f"{method} {uri} returned HTTP {status}")
+        if raw:
+            return status, payload
+        check(status != 404 or payload.startswith(b"{"), f"Unregistered API: {method} {uri}")
+        check("json" in content_type or payload.startswith(b"{"),
+              f"Unexpected response type for {method} {uri}: HTTP {status}")
+        try:
+            return status, json.loads(payload)
+        except (ValueError, UnicodeDecodeError):
+            raise AssertionError(f"Invalid JSON from {method} {uri}")
+
+    def success(self, method, path, body=None):
+        status, value = self.send(method, path, body)
+        check(status == 200 and value.get("code") == 0,
+              f"{method} {path}: HTTP {status}, {value.get('message', value.get('error'))}")
+        return value.get("data")
+
+
+@contextlib.contextmanager
+def live_server(binary, directory, port):
+    logfile = open(directory / "api-test.log", "ab", buffering=0)
+    process = subprocess.Popen([str(binary)], cwd=directory, stdout=logfile,
+                               stderr=subprocess.STDOUT, start_new_session=True)
+    url = f"http://127.0.0.1:{port}"
+    try:
+        for _ in range(120):
+            if process.poll() is not None:
+                raise AssertionError("The test API exited during startup")
+            try:
+                with urllib.request.urlopen(url + PREFIX + "/config/admin", timeout=.5) as reply:
+                    if reply.status == 200:
+                        break
+            except (urllib.error.URLError, TimeoutError):
+                time.sleep(.1)
+        else:
+            raise AssertionError("The test API failed to start")
+        yield Client(url)
+    finally:
+        if process.poll() is None:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=12)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+        logfile.close()
+
+
+def install(directory):
+    shutil.copytree(ROOT / "conf", directory / "conf")
+    (directory / "data").mkdir()
+    (directory / "runtime").mkdir()
+    (directory / "resources").symlink_to(ROOT / "resources", target_is_directory=True)
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    path = directory / "conf/config.yaml"
+    source = path.read_text()
+    check('"0.0.0.0:21114"' in source, "Unexpected listener configuration")
+    path.write_text(source.replace('"0.0.0.0:21114"', f'"127.0.0.1:{port}"'))
+    return port
+
+
+def all_route_requests(client, contracts):
+    tested = set()
+    for verb, route in sorted(contracts):
+        if route.endswith("/logout"):
+            continue
+        path = route.replace(":id", "0")
+        if verb == "GET" and (path.endswith("/export") or path.endswith("/download")):
+            continue
+        if verb == "GET":
+            params = {"page": "1", "page_size": "5"}
+            if path.endswith("/members") or path.endswith("/anchors"):
+                params["group_id"] = "1"
+            if path.endswith("/lookup"):
+                params["username"] = "no-such-user"
+            path += "?" + urllib.parse.urlencode(params)
+            status, result = client.send(verb, path)
+            if route.endswith("/list") and status == 200 and result.get("code") == 0:
+                value = result.get("data")
+                check(isinstance(value, dict) and isinstance(value.get("list"), list),
+                      f"Frontend list data is inconsistent at {route}")
+        else:
+            client.send(verb, path, {})
+        tested.add((verb, route))
+    check(len(tested) >= 100, "Too few real browser API calls were tested")
+    return len(tested)
+
+
+def check_real_changes(admin):
+    username = "contract_" + secrets.token_hex(4)
+    password = "Contract-" + secrets.token_hex(8)
+    admin.success("POST", "/user/create", {
+        "username": username, "password": password, "nickname": "First",
+        "group_id": 1, "is_admin": False, "status": 1, "remark": "",
+    })
+    users = admin.success("GET", "/user/list?keyword=" + username + "&page=1&page_size=30")
+    user_id = next(row["id"] for row in users["list"] if row["username"] == username)
+    admin.success("POST", "/user/update", {
+        "id": user_id, "username": username, "nickname": "Updated",
+        "group_id": 1, "is_admin": False, "status": 1, "remark": "",
+    })
+    check(admin.success("GET", f"/user/detail/{user_id}")["nickname"] == "Updated",
+          "Account editing did not persist")
+    for resource, name in (("/group", "Global group"), ("/my/group", "Personal group")):
+        admin.success("POST", resource + "/create", {"name": name, "type": 1})
+        rows = admin.success("GET", resource + "/list?page=1&page_size=100")["list"]
+        group_id = next(row["id"] for row in rows if row["name"] == name)
+        admin.success("POST", resource + "/update", {"id": group_id, "name": name + " updated", "type": 1})
+        check(any(row["name"] == name + " updated" for row in
+                  admin.success("GET", resource + "/list?page=1&page_size=100")["list"]),
+              "Group changes did not persist")
+        admin.success("POST", resource + "/delete", {"id": group_id})
+    device_id = "contract-device-" + secrets.token_hex(4)
+    admin.success("POST", "/peer/create", {"id": device_id, "hostname": "Test device", "alias": "First"})
+    peers = admin.success("GET", "/peer/list?keyword=" + device_id + "&page=1&page_size=30")
+    row_id = next(row["row_id"] for row in peers["list"] if row["id"] == device_id)
+    admin.success("POST", "/peer/transfer", {"row_id": row_id, "user_id": user_id})
+    user = Client(admin.url)
+    response = user.success("POST", "/login", {"username": username, "password": password, "platform": "web"})
+    user.token = response["token"]
+    rows = user.success("GET", "/my/peer/list?keyword=" + device_id + "&page=1&page_size=30")["list"]
+    check(any(row["id"] == device_id for row in rows), "Device is missing from owner listing")
+    user.success("POST", "/my/peer/update", {"row_id": row_id, "alias": "Personal update", "note": "Owner note"})
+    rows = user.success("GET", "/my/peer/list?keyword=" + device_id + "&page=1&page_size=30")["list"]
+    check(any(row["alias"] == "Personal update" and row["note"] == "Owner note" for row in rows),
+          "Personal device editing did not persist")
+    _, denied = user.send("POST", "/user/create", {"username": "denied", "password": "denied"})
+    check(denied.get("code") != 0, "An ordinary user could manage administrator accounts")
+    return user.count
+
+
+def main():
+    browser, pages = browser_routes()
+    backend = backend_routes()
+    missing = browser - backend
+    check(not missing, f"Unregistered browser API calls: {sorted(missing)}")
+    check(len(browser) >= 190 and len(pages) >= 35, "The browser API inventory is incomplete")
+    if len(sys.argv) == 2 and sys.argv[1] == "--static":
+        print(f"Matched {len(browser)} browser routes, {len(pages)} views, {len(backend)} server routes")
+        return
+    check(len(sys.argv) == 2, "Provide an API executable or --static")
+    binary = Path(sys.argv[1]).resolve()
+    with tempfile.TemporaryDirectory(prefix="rustdesk-api-contract-") as temporary:
+        directory = Path(temporary)
+        port = install(directory)
+        with live_server(binary, directory, port):
+            pass
+        password = "Admin-" + secrets.token_hex(9)
+        reset = subprocess.run([str(binary), "reset-admin-pwd", password],
+                               cwd=directory, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=45)
+        check(reset.returncode == 0, "Administrator password setup failed")
+        with live_server(binary, directory, port) as client:
+            result = client.success("POST", "/login", {"username": "admin", "password": password, "platform": "web"})
+            client.token = result["token"]
+            check(client.success("GET", "/user/current").get("is_admin") is True,
+                  "Administrator authentication failed")
+            tested = all_route_requests(client, browser)
+            personal_requests = check_real_changes(client)
+            print(f"Passed {tested} browser API routes, {client.count + personal_requests} real HTTP requests, "
+                  f"{len(pages)} views, and authenticated administrator/personal CRUD operations.")
+
+
+if __name__ == "__main__":
+    main()
