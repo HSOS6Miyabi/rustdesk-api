@@ -29,15 +29,15 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 正式版本标签 | [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 正式发行工作流 | [API 编译与发布](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
-| 正式 Release | [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式 Release | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
-正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；组合 Docker 镜像采用 Server v1.1.17-api.21 与 API v3.0.0-api.106。
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.107`。
 
-当前 API 数据库迁移版本：**285**。经批准的版本发布包含 GitHub Release、正式容器镜像及多架构镜像清单。
+当前 API 数据库迁移版本：**290**。经批准的版本发布包含 GitHub Release、正式容器镜像及多架构镜像清单。
 
 CI 已实际通过的内容：
 
@@ -117,7 +117,7 @@ P0 项目的自动化测试已经纳入本阶段发行检查，依赖实际设�
 
 **多中继。** `hbbs` 可根据活动中继、CIDR 网络规则和 GeoLite2 国家数据选择节点；管理员指定的 CIDR 规则优先。GeoLite2 Country MMDB 文件或 CSV 目录由部署者自行提供，程序未包含正式地理位置数据库。未配置托管中继时使用原有中继配置。
 
-**数据库与兼容。** 当前 API 迁移版本 285；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
+**数据库与兼容。** 当前 API 迁移版本 290；其中，设备登记、三级策略、会话管理、独立令牌、共享地址簿、SMTP/TOTP/邮箱验证码、GeoLite2 节点设置、控制角色、管理员角色和访问规则分别有对应的新表或字段。历史数据库必须先备份再迁移。详见 [数据库升级说明](UPGRADE.md)。
 
 ### 6. 双仓库代码索引
 
@@ -862,6 +862,6 @@ T002、T004、T009、T022 的相应自动化检查已完成。真实终端登录
 
 使用两台实际设备检查远程控制、权限效果和重新连接；跨地区公网中继、真实 SMTP、业务数据库恢复及目标主机部署继续按照逐项任务记录执行。
 
-## 当前设置中心整改分支（2026 年 11 月 11 日）
+## 2026 年 11 月 11 日：设置中心与可靠性改进
 
-当前 API 整改分支的数据库迁移版本为 290。新增系统设置覆盖与修改记录表，并为共享通知事件增加处理权标识。正式发布版 `v3.0.0-api.106` 仍使用迁移版本 288。本次功能、数据库升级、普通服务器与 Docker 设置的使用方法见 [设置中心](SETTINGS_CENTER.md)、[版本兼容性](COMPATIBILITY.md) 和 [升级说明](UPGRADE.md)。
+改进已通过 [API 拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并至 `master`，从 `v3.0.0-api.107` 开始正式发行，数据库迁移版本为 **290**。新增系统设置覆盖与修改记录表，并为共享通知事件增加处理权标识。本次功能、数据库升级、普通服务器与 Docker 设置的使用方法见 [设置中心](SETTINGS_CENTER.md)、[版本兼容性](COMPATIBILITY.md) 和 [升级说明](UPGRADE.md)。

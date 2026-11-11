@@ -1,6 +1,6 @@
 # RustDesk API 数据库备份与恢复
 
-适用范围：RustDesk API 开发分支，数据库迁移版本 **288**，使用 SQLite、MySQL 或 PostgreSQL。文中示例可以用于准备测试环境，正式恢复操作应在维护时间进行，并先核对自己的数据库地址、账户及备份路径。
+适用范围：RustDesk API 正式版本 `v3.0.0-api.107`，数据库迁移版本 **290**，使用 SQLite、MySQL 或 PostgreSQL。文中示例可以用于准备独立测试环境，生产环境恢复应在维护时间进行，并先核对自己的数据库地址、账户及备份路径。
 
 需要同时保存 API 数据、RustDesk Server 身份密钥，以及客户端安装文件；只保存数据库可能导致安装文件记录与实际文件不一致。
 
@@ -106,7 +106,7 @@ pg_restore --host=127.0.0.1 --port=5432 --username=rustdesk \
 
 自动化恢复测试由 `service/database_restore_test.go`、`service/database_multi_driver_test.go`、`scripts/test_database_restore.sh` 和 `.github/workflows/verify-database-upgrades.yml` 组成。GitHub Actions 使用一次性数据库进行测试，不会访问实际部署环境。
 
-**正式升级前应另行完成真实备份恢复演练。** 完成后再安排新版本切换；当前开发分支尚未进入正式发布阶段。
+**正式升级前应另行完成真实备份恢复演练。** 完成后再安排新版本切换；正式发行版 `v3.0.0-api.107` 已包含此数据库结构，升级前仍需完成业务数据库备份恢复演练。
 
 ## 设置中心的数据备份
 
