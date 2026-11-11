@@ -117,67 +117,86 @@ func ValidateSettingChanges(changes []SettingsChange) error {
     return err
 }
 func SaveSettingChanges(actor uint, input SettingsRevisionInput) error {
-    if actor==0{return errors.New("需要系统管理员身份")}
+    if actor == 0 { return errors.New("需要系统管理员身份") }
     isBootstrap,err:=validateChanges(input.Changes)
     if err!=nil{return err}
     settingsUpdateMu.Lock()
     defer settingsUpdateMu.Unlock()
+
     now:=time.Now()
-    if isBootstrap {
-        store,err:=config.ReadBootstrapSettings()
-        if err!=nil{return err}
-        if store.Version!=input.BootstrapVersion{return ErrSettingsConflict}
-        for _,change:=range input.Changes {
-            old:=store.Overrides[change.Key]
-            if change.Enabled&&change.Value==nil&&!old.Enabled{return fmt.Errorf("%s 尚未设置覆盖值",change.Key)}
-            if change.Value!=nil {old.Value=*change.Value}
-            old.Enabled=change.Enabled
-            if old.Enabled {
-                if err:=config.ValidateSettingValue(change.Key,old.Value);err!=nil{return err}
-            }
-            store.Overrides[change.Key]=old
-        }
-        store.Version++
-        if err:=config.WriteBootstrapSettings(store);err!=nil{return err}
-    } else {
-        err=DB.Transaction(func(tx *gorm.DB) error {
-            updated:=tx.Model(&model.SystemSettingRevision{}).
-                Where("id = ? AND version = ?",1,input.DatabaseVersion).
-                Update("version",input.DatabaseVersion+1)
-            if updated.Error!=nil{return updated.Error}
-            if updated.RowsAffected==0{return ErrSettingsConflict}
-            for _,change:=range input.Changes {
-                var previous model.SystemSettingOverride
-                query:=tx.Where("key = ?",change.Key).Take(&previous)
-                if query.Error!=nil&&!errors.Is(query.Error,gorm.ErrRecordNotFound){return query.Error}
-                if change.Enabled&&change.Value==nil&&!previous.Enabled{
-                    return fmt.Errorf("%s 尚未设置覆盖值",change.Key)
-                }
-                if change.Value!=nil{previous.Value=*change.Value}
-                if change.Enabled {
-                    if err:=config.ValidateSettingValue(change.Key,previous.Value);err!=nil{return err}
-                }
-                row:=model.SystemSettingOverride{Key:change.Key,Value:previous.Value,
-                    Enabled:change.Enabled,UpdatedAt:now}
-                if err:=tx.Clauses(clause.OnConflict{
-                    Columns:[]clause.Column{{Name:"key"}},
-                    DoUpdates:clause.AssignmentColumns([]string{"enabled","value","updated_at"}),
-                }).Create(&row).Error;err!=nil{return err}
-            }
-            return nil
-        })
-        if err!=nil{return err}
-    }
-    // The history contains only setting names and enabled flags.
+    storage:="database"
+    if isBootstrap {storage="bootstrap"}
     history:=make([]model.SystemSettingHistory,0,len(input.Changes))
-    storage:="database";if isBootstrap{storage="bootstrap"}
-    for _,change:=range input.Changes {
+    for _,change:=range input.Changes{
         history=append(history,model.SystemSettingHistory{
             ActorID:actor,SettingKey:change.Key,Enabled:change.Enabled,
             Storage:storage,ChangedAt:now,
         })
     }
-    return DB.CreateInBatches(&history,50).Error
+
+    if isBootstrap {
+        original,readErr:=config.ReadBootstrapSettings()
+        if readErr!=nil{return readErr}
+        if original.Version!=input.BootstrapVersion{return ErrSettingsConflict}
+        updated:=config.BootstrapSettings{
+            Version:original.Version+1,Overrides:make(map[string]config.SettingOverride,len(original.Overrides)),
+        }
+        for key,value:=range original.Overrides {updated.Overrides[key]=value}
+        for _,change:=range input.Changes{
+            old:=updated.Overrides[change.Key]
+            if change.Enabled&&change.Value==nil&&!old.Enabled {
+                return fmt.Errorf("%s 尚未设置覆盖值",change.Key)
+            }
+            if change.Value!=nil {old.Value=*change.Value}
+            old.Enabled=change.Enabled
+            if old.Enabled {
+                if err:=config.ValidateSettingValue(change.Key,old.Value);err!=nil{return err}
+            }
+            updated.Overrides[change.Key]=old
+        }
+        // Both the audit entry and the file update must succeed.
+        err=DB.Transaction(func(tx *gorm.DB) error {
+            if err:=tx.CreateInBatches(&history,50).Error;err!=nil{return err}
+            return config.WriteBootstrapSettings(updated)
+        })
+        if err!=nil {
+            // A transaction failure may follow the file replacement. Restore
+            // the startup configuration whenever this request wrote it.
+            if current,readErr:=config.ReadBootstrapSettings();readErr==nil&&current.Version==updated.Version {
+                if restoreErr:=config.WriteBootstrapSettings(original);restoreErr!=nil {
+                    return fmt.Errorf("保存启动设置未完成且无法恢复原配置: %w; %v",err,restoreErr)
+                }
+            }
+        }
+        return err
+    }
+
+    return DB.Transaction(func(tx *gorm.DB) error {
+        updated:=tx.Model(&model.SystemSettingRevision{}).
+            Where("id = ? AND version = ?",1,input.DatabaseVersion).
+            Update("version",input.DatabaseVersion+1)
+        if updated.Error!=nil{return updated.Error}
+        if updated.RowsAffected==0{return ErrSettingsConflict}
+        for _,change:=range input.Changes {
+            var previous model.SystemSettingOverride
+            query:=tx.Where("key = ?",change.Key).Take(&previous)
+            if query.Error!=nil&&!errors.Is(query.Error,gorm.ErrRecordNotFound){return query.Error}
+            if change.Enabled&&change.Value==nil&&!previous.Enabled{
+                return fmt.Errorf("%s 尚未设置覆盖值",change.Key)
+            }
+            if change.Value!=nil {previous.Value=*change.Value}
+            if change.Enabled {
+                if err:=config.ValidateSettingValue(change.Key,previous.Value);err!=nil{return err}
+            }
+            row:=model.SystemSettingOverride{Key:change.Key,Value:previous.Value,
+                Enabled:change.Enabled,UpdatedAt:now}
+            if err:=tx.Clauses(clause.OnConflict{
+                Columns:[]clause.Column{{Name:"key"}},
+                DoUpdates:clause.AssignmentColumns([]string{"enabled","value","updated_at"}),
+            }).Create(&row).Error;err!=nil{return err}
+        }
+        return tx.CreateInBatches(&history,50).Error
+    })
 }
 func ResetSettingChanges(actor uint, input SettingsRevisionInput) error {
     for i:=range input.Changes {
