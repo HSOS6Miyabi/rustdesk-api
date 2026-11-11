@@ -6,6 +6,26 @@
 
 本项目提供设备和用户管理、地址簿、联系人共享、远程访问记录、OIDC/SSO 登录、WebClient v2，以及适合电脑和平板、手机使用的管理界面。
 
+## 界面截图
+
+以下截图来自管理控制台的 Chromium 浏览器测试，使用示例数据展示实际界面。
+
+### 控制台概览
+
+![RustDesk API 管理控制台概览](docs/screenshots/overview.png)
+
+| 设备管理 | 设置中心 |
+| :---: | :---: |
+| <img src="docs/screenshots/devices.png" alt="设备列表与管理操作" width="600"> | <img src="docs/screenshots/settings.png" alt="全局设置中心与配置来源" width="600"> |
+
+| 邮件事件通知 | 客户端安装包构建 |
+| :---: | :---: |
+| <img src="docs/screenshots/notifications.png" alt="邮件通知订阅与发送记录" width="600"> | <img src="docs/screenshots/client-builder.png" alt="客户端安装文件构建任务" width="600"> |
+
+### 手机界面
+
+<p align="center"><img src="docs/screenshots/settings-mobile.png" alt="手机端设置中心" width="320"></p>
+
 ## 主要功能
 
 - **控制台**：在 `/_admin/` 登录。可管理用户、设备、群组、地址簿、联系人、共享设备和访问记录。移动端可使用完整管理功能。
