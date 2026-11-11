@@ -302,3 +302,9 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
 ## 多台 API 实例共享数据库
 
 需要多个 API 实例共同处理设备心跳时，可在各实例设置 `RUSTDESK_API_MULTI_INSTANCE_CACHE=1`，把策略分配和通知订阅的缓存刷新时间缩短至约 5 秒。如果还需要多个实例共同处理通知事件，再设置 `RUSTDESK_API_SHARED_EVENT_WORKERS=1`。两项功能独立启用；单实例使用默认配置即可。更改配置后逐台重启，并检查 API 与配套 RustDesk Server 的连接许可设置。
+
+## Docker 容器停止时间
+
+程序收到停止信号后，会先停止接收新的 HTTP 请求，再等待正在处理的请求，并让后台任务保存当前状态。容器建议保留至少 75 秒用于完成停止操作。
+
+仓库的 `docker-compose.yaml` 与 `docker-compose.build.yaml` 已设置 `stop_grace_period: 75s`。使用 `docker run` 启动时，可以添加 `--stop-timeout 75`。如任务未完成，数据库中的通知暂存记录会在下一次启动时继续处理。

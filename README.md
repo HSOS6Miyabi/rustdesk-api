@@ -56,7 +56,7 @@ Docker 构建与运行：
 docker build -t rustdesk-api .
 docker run -d --name rustdesk-api -p 21114:21114 \
   -v "$PWD/data:/app/data" \
-  --restart unless-stopped rustdesk-api
+  --stop-timeout 75 --restart unless-stopped rustdesk-api
 ```
 
 Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/rustdesk-api`。
