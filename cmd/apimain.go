@@ -177,7 +177,8 @@ func InitGlobal() error {
 	}
 
 	if err := DatabaseAutoUpdate(); err != nil { return fmt.Errorf("database startup migration: %w", err) }
-	if err := service.LoadConfiguredSettings(&global.Config); err != nil { return err }
+	service.DB = global.DB
+	if err := service.LoadConfiguredSettings(&global.Config); err != nil { return fmt.Errorf("load application settings: %w", err) }
 	//redis
 	global.Redis = redis.NewClient(&redis.Options{
 		Addr:     global.Config.Redis.Addr,
