@@ -71,7 +71,10 @@ function serve(req, res) {
       summary:{push_channels:1},outbox:{push:{pending:0,failed:1},notification:{pending:0,failed:0}}
     });
     if(route==="/settings/history")return answer(res,{list:[]});
-    if(route==="/settings/outbox")return answer(res,{list:[]});
+    if(route==="/settings/outbox")return answer(res,{list:[
+      {id:requestUrl.searchParams.get("category")==="notification"?58:47,
+        status:"failed",attempts:8,last_error:"temporary delivery preparation failure"}
+    ]});
     if(route==="/settings/validate")return answer(res,{valid:true});
     if(route==="/settings/overrides"||route==="/settings/overrides/reset")return answer(res,{saved:true});
 
@@ -1012,6 +1015,24 @@ test("settings center: administrator can inspect and save overrides on desktop",
     await page.getByText(/已保存覆盖设置/).waitFor();
     fs.mkdirSync(path.join(__dirname,"test-screenshots"),{recursive:true});
     await page.screenshot({path:path.join(__dirname,"test-screenshots","settings-desktop.png"),fullPage:true});
+  }finally{await context.close();}
+});
+
+test("settings center: administrator inspects and retries failed email events",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    page.on("dialog",dialog=>dialog.accept());
+    await page.locator('nav.side-scroll button[data-view="settings"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    await page.locator('[data-action="settings-outbox-category"][data-category="notification"]').click();
+    const failure=page.locator('[data-action="settings-outbox-retry"][data-category="notification"]');
+    await failure.waitFor({state:"visible"});
+    const retry=page.waitForRequest(req=>
+      req.url().endsWith("/api/admin/settings/outbox/retry")&&req.method()==="POST");
+    await failure.click();
+    const request=(await retry).postDataJSON();
+    assert.equal(request.category,"notification");
+    assert.equal(request.id,58);
   }finally{await context.close();}
 });
 
