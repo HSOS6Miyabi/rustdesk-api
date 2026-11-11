@@ -47,3 +47,9 @@ func NewRedis(conf *redis.Options) *RedisCache {
 	cache := RedisCacheInit(conf)
 	return cache
 }
+
+// Close releases connections owned by this cache instance.
+func (c *RedisCache) Close() error {
+    if c==nil || c.rdb==nil { return nil }
+    return c.rdb.Close()
+}

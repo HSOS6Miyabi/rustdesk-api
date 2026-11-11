@@ -117,6 +117,7 @@ func main() {
 			}
 		}
 	}
+	if closer,ok:=global.Cache.(interface{Close() error});ok {_=closer.Close()}
 	if global.Redis!=nil {_=global.Redis.Close()}
 	if err!=nil {
 		if global.Logger!=nil {global.Logger.Error(err)}
@@ -189,8 +190,16 @@ func InitGlobal() error {
 	//cache
 	if global.Config.Cache.Type == cache.TypeFile {
 		fc := cache.NewFileCache()
-		fc.SetDir(global.Config.Cache.FileDir)
-		global.Cache = fc
+		if global.Config.Cache.FileDir == "" {
+            global.Config.Cache.FileDir = "./data/cache"
+        }
+        if err:=os.MkdirAll(global.Config.Cache.FileDir,0700);err!=nil{
+            return fmt.Errorf("prepare file cache directory: %w",err)
+        }
+        fc.SetDir(global.Config.Cache.FileDir)
+        global.Cache=fc
+	} else if global.Config.Cache.Type == cache.TypeMem {
+		global.Cache = cache.NewMemoryCache(32 * 1024 * 1024)
 	} else if global.Config.Cache.Type == cache.TypeRedis {
 		global.Cache = cache.NewRedis(&redis.Options{
 			Addr:     global.Config.Cache.RedisAddr,

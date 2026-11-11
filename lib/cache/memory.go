@@ -235,3 +235,9 @@ func NewMemoryCache(maxBytes int64) *MemoryCache {
 	cache.startEviction()
 	return cache
 }
+
+// Close stops the expiration worker when the cache is no longer used.
+func (m *MemoryCache) Close() error {
+    if m != nil { m.stopEviction() }
+    return nil
+}
