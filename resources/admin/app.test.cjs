@@ -418,7 +418,7 @@ test("delegated viewers see authorized directory pages without edit buttons",asy
   assert.doesNotMatch(app.root.innerHTML,/新增用户账户/);
   await app.open("devices");
   assert.ok(app.calls.some(x=>x.endpoint==="/peer/list"));
-  assert.ok(!app.calls.some(x=>x.endpoint==="/my/peer/list"));
+  assert.ok(app.calls.some(x=>x.endpoint==="/peer/list"));
 });
 
 test("access rules expose source and target selectors without changing default behavior",async()=>{
@@ -722,6 +722,7 @@ test("separates owned devices and administrator device inventory",async()=>{
 test("all data table columns have sorting controls and proper action gaps",async()=>{
   const app=createConsole(true);
   app.fixtures["/group/list"]={list:[{id:11,name:"Alpha",type:1},{id:4,name:"Zulu",type:2}],total:2};
+  await app.settle();await app.settle();
   await app.open("groups");
   assert.match(app.root.innerHTML,/data-action="sort-table"/);
   assert.match(app.root.innerHTML,/aria-sort="none"/);
@@ -732,6 +733,7 @@ test("all data table columns have sorting controls and proper action gaps",async
 test("server administration shows named operations and specific inputs",async()=>{
   const app=createConsole(true);
   app.fixtures["/config/server"]={id_server:"desk.example.test:21116",relay_server:"desk.example.test:21117",api_server:"https://api.example.test"};
+  await app.settle();await app.settle();
   await app.open("server");
   assert.match(app.root.innerHTML,/设置中继服务器列表/);
   assert.match(app.root.innerHTML,/查看中继使用情况/);

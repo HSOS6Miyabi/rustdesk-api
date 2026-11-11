@@ -21,7 +21,7 @@ function createElement(id = "") {
   const listeners = {};
   return {
     id, listeners, value: "", textContent: "", hidden: false, children: [],
-    className: "", disabled: false, attributes:{}, classList: { add() {} },
+    className: "", disabled: false, attributes:{}, classList: { add() {},toggle() {} },
     setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
@@ -37,9 +37,11 @@ function fixture(options = {}) {
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc", "app",
-    "host", "key"
+    "host", "key", "v2-page-fullscreen", "v2-screen-fullscreen"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
+  const stage=createElement("stage");
+  const docEvents={};
   elements.set("native-id", createElement("native-id"));
   const server = {
     id_server: "desk.example.com:21116",
@@ -69,8 +71,13 @@ function fixture(options = {}) {
     location:{assign(url){assigned.push(url);}}
   };
   const document = {
+    fullscreenElement:null,
+    body:{classList:{toggle(){}}},
+    addEventListener(type,listener){docEvents[type]=listener;},
+    async exitFullscreen(){this.fullscreenElement=null;docEvents.fullscreenchange?.();},
     getElementById(id) {return elements.get(id) || null;},
     querySelector(selector) {
+      if(selector===".stage")return stage;
       if(selector==="#app #connect")return createElement();
       if(selector==="#app #id")return elements.get("native-id");
       return null;
@@ -78,6 +85,7 @@ function fixture(options = {}) {
     createElement(type){return createElement(type);},
     createTextNode(content){return {textContent:String(content)};}
   };
+  stage.requestFullscreen=async()=>{document.fullscreenElement=stage;docEvents.fullscreenchange?.();};
   const fetch = async (url) => {
     const u = new URL(String(url), "https://example.test");
     const endpoint = u.pathname.replace(/^\/api\/admin/, "");
@@ -96,7 +104,7 @@ function fixture(options = {}) {
     console
   }, {filename:"resources/web2/app.js"});
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
-  return {elements,sessionStorage,localStorage,apiCalls,assigned,
+  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,
     settle,connectCount:()=>connectionCount};
 }
 
@@ -170,4 +178,22 @@ test("WebClient v2 displays offline devices in red without periodic requests",as
   assert.equal(dot.className,"device-status-dot offline");
   assert.equal(dot.attributes["aria-label"],"离线");
   assert.equal(app.apiCalls.filter(path=>path==="/geoip/lookup").length,1);
+});
+
+test("WebClient v2 supports both page and display fullscreen with exit controls",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const page=app.elements.get("v2-page-fullscreen");
+  const screen=app.elements.get("v2-screen-fullscreen");
+  await page.listeners.click();
+  assert.equal(page.attributes["aria-pressed"],"true");
+  assert.match(page.textContent,/退出网页全屏/);
+  app.docEvents.keydown({key:"Escape"});
+  assert.equal(page.attributes["aria-pressed"],"false");
+  await screen.listeners.click();
+  assert.equal(app.document.fullscreenElement,app.stage);
+  assert.equal(screen.attributes["aria-pressed"],"true");
+  await screen.listeners.click();
+  assert.equal(app.document.fullscreenElement,null);
+  assert.equal(screen.attributes["aria-pressed"],"false");
 });

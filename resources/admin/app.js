@@ -172,7 +172,7 @@
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
   const geoIPFields=new Set(["ip","client_ip","source_ip","last_online_ip","remote_ip","public_ip","private_ip","device_ip"]);
   const deviceReferenceFields=new Set(["device_id","peer_id","from_peer"]);
-  const deviceRowPages=new Set(["devices","shared","addressbooks","trash"]);
+  const deviceRowPages=new Set(["devices","mydevices","shared","addressbooks","trash"]);
   function deviceStatusDot(id){
     const key=String(id??"").trim();
     if(!key)return "";
