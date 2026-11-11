@@ -786,7 +786,7 @@
     return pageHeading("联系人","添加联系人即表示向对方开放您名下的所有设备，对方无须确认。",
       '<button class="btn" data-action="contact-batch-add">批量添加联系人</button>'+
       '<button class="btn" data-action="contact-batch-remove">批量撤销共享</button>')+
-      '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">我向谁共享设备</h2><p class="panel-sub">只有您主动添加的人才能通过联系人关系查看您的设备</p></div></div><div class="tips">'+accountRows(v.outgoing||[],true)+'</div><form id="contact-form" class="table-toolbar" style="gap:10px"><div class="search">'+icon("search",16)+'<input required name="username" aria-label="用户名" placeholder="输入对方的用户名"></div><button type="submit" class="btn btn-primary">'+icon("plus",16)+'添加联系人</button></form></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">向我共享设备的人</h2><p class="panel-sub">这些用户已主动向您开放他们的设备</p></div></div><div class="tips">'+accountRows(v.incoming||[],false)+'</div></section></div>';
+      '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">我向谁共享设备</h2><p class="panel-sub">只有您主动添加的人才能通过联系人关系查看您的设备</p></div></div><div class="tips">'+accountRows(v.outgoing||[],true)+'</div><form id="contact-form" class="table-toolbar" style="gap:10px"><div class="field" style="flex:1 1 230px;min-width:0"><label>搜索并选择用户</label>'+pickerField("user_id","",true,{})+'<button type="submit" class="btn btn-primary">'+icon("plus",16)+'添加联系人</button></form></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">向我共享设备的人</h2><p class="panel-sub">这些用户已主动向您开放他们的设备</p></div></div><div class="tips">'+accountRows(v.incoming||[],false)+'</div></section></div>';
   }
   function shared(){
     const groups=(state.groups||[]);
@@ -1263,14 +1263,14 @@
     return "";
   }
   const lookupLabels={user:"用户",device:"设备",user_group:"用户分组",device_group:"设备组",collection:"地址簿",policy:"安全策略",control_role:"控制角色",admin_role:"管理角色"};
-  function pickerField(name,value,required,row){
+  function pickerField(name,value,required,row,inputID=""){
     const kind=lookupKind(name,row),selected=String(value??"");
     const all=kind==="all",display=selected&&selected!=="0"?"当前编号："+selected:"";
     const dep={to_id:"type",source_id:"source_type",target_id:"target_type",scope_id:"scope_type"}[name]||"";
     const empty=all?name==="target_id"?"":"0":selected;
     return '<div class="entity-picker" data-picker="'+esc(kind)+'" data-picker-dep="'+esc(dep)+'" data-picker-field="'+esc(name)+'">'+
       '<div class="picker-control"><input type="search" class="picker-query" aria-label="搜索'+esc(lookupLabels[kind]||"选择对象")+'" placeholder="'+esc(all?"适用于全部对象":"搜索编号、名称及其他信息")+'" value="'+esc(all?"":display)+'" autocomplete="off" '+(all?"disabled":"")+'>'+
-      '<input type="hidden" class="picker-id" name="'+esc(name)+'" value="'+esc(empty)+'">'+
+      '<input type="hidden" class="picker-id" name="'+esc(name)+'" id="'+esc(inputID)+'" value="'+esc(empty)+'">'+
       '<button type="button" class="btn btn-sm" data-action="picker-search" '+(all?"disabled":"")+'>搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear" '+(all?"disabled":"")+'>清除</button></div>'+
       '<div class="picker-results" role="listbox" hidden></div>'+
@@ -1400,7 +1400,7 @@
     if(m.kind==="csv"){
       const importing=m.operation==="import";
       const ownerInput=state.isAdmin?'<div class="field"><label for="csv-owner">所属账户 ID</label>'+
-        '<input type="number" id="csv-owner" min="1" value="'+esc(state.user?.id||1)+'" required>'+
+        pickerField("user_id",state.user?.id||1,true,{},"csv-owner")+
         '<small>管理员可以指定需要管理的用户账户。</small></div>':"";
       const upload=importing?'<div class="field"><label for="csv-file">选择 UTF-8 CSV 文件</label>'+
         '<input id="csv-file" type="file" accept=".csv,text/csv" required>'+
@@ -1462,7 +1462,9 @@
         '<button class="btn btn-primary" data-action="copy-api-token">复制令牌</button><button class="btn" data-action="close-modal">关闭</button>');
     }
     if(m.kind==="audit-export"){
-      const field=(id,label,type="text")=>'<div class="field"><label for="audit-filter-'+id+'">'+label+'</label><input id="audit-filter-'+id+'" type="'+type+'"></div>';
+      const field=(id,label,type="text")=>'<div class="field"><label for="audit-filter-'+id+'">'+label+'</label>'+
+        (["peer_id","from_peer"].includes(id)?pickerField(id,"",false,{},"audit-filter-"+id):
+          '<input id="audit-filter-'+id+'" type="'+type+'">')+'</div>';
       const body='<div class="form-grid">'+
         field("from_date","开始日期","date")+field("to_date","结束日期","date")+
         (["audit_conn","audit_file","audit_alarm"].includes(m.kindName)?
@@ -1483,7 +1485,7 @@
         '<div class="field full"><label for="rules-batch-collection">地址簿编号</label>'+
         '<input type="number" id="rules-batch-collection" min="1" step="1" required></div>'+
         '<div class="field full"><label for="rules-batch-users">目标用户编号（最多 100 位）</label>'+
-        '<textarea id="rules-batch-users" rows="5" placeholder="例如：3,7,9" required></textarea></div>'+
+        multiPicker("rules-batch-users")+'</div>'+
         (revoke?"":'<div class="field full"><label for="rules-batch-level">共享权限</label>'+
         '<select id="rules-batch-level"><option value="1">只读</option>'+
         '<option value="2">可读写</option><option value="3">完全控制</option></select></div>')+
@@ -1506,7 +1508,7 @@
     if(m.kind==="contact-batch"){
       const remove=m.action==="remove";
       const body='<div class="field"><label for="contact-batch-ids">联系人账户编号</label>'+
-        '<textarea id="contact-batch-ids" rows="5" placeholder="例如：2,3,5" required></textarea>'+
+        multiPicker("contact-batch-ids")+
         '<small>每次最多处理 100 位用户，编号可通过用户列表或现有联系人查看。所有共享关系均属于当前账户。</small></div>';
       return modal(remove?"批量撤销联系人共享":"批量添加联系人",
         remove?"选中联系人将无法再通过联系人关系查看您的设备。":"添加后对方可查看您公开的设备。",body,
@@ -1527,7 +1529,7 @@
       const body='<form id="device-transfer-form"><div class="form-grid">'+
         '<div class="field full"><label>设备 ID</label><div class="device-status-inline">'+deviceStatusDot(m.device.id)+'<input readonly value="'+esc(m.device.id)+'"></div></div>'+
         '<div class="field full"><label for="transfer-user-id">新所有者的用户编号 <span class="required">*</span></label>'+
-        '<input id="transfer-user-id" name="user_id" type="number" min="1" step="1" required value="'+esc(m.device.user_id||"")+'">'+
+        pickerField("user_id",m.device.user_id||"",true,m.device,"transfer-user-id")+
         '<small>仅允许将设备转移给当前账户有权管理的用户。</small></div></div></form>';
       return modal("转移设备所有者","设备登记记录将同步更新。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+
@@ -1541,7 +1543,7 @@
       const anchor=m.kind==="anchors";
       const rows=(m.users||[]).map(u=>'<label class="status-row" style="cursor:pointer"><span><strong>'+esc(u.nickname||u.username)+'</strong><span class="cell-sub">@'+esc(u.username)+' · ID '+esc(u.id)+'</span></span><input style="width:18px;height:18px;accent-color:var(--main)" type="checkbox" name="selected" value="'+esc(u.id)+'" '+(m.selected.has(u.id)?"checked":"")+'></label>').join("");
       const personalHint=m.personal?'<div class="field" style="margin-top:18px"><label for="lookup-username">通过用户名添加成员</label><div style="display:flex;gap:9px"><input id="lookup-username" placeholder="输入完整用户名" autocomplete="off"><button class="btn" type="button" data-action="lookup-user">查找并选中</button></div><small>请输入准确的用户名，系统不会公开其他群组的成员列表。</small></div>':"";
-      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的成员，包括管理员。":"当前成员已经勾选。取消勾选可以移除成员，添加新用户后保存即可一次修改多人。")+'</p>'+personalHint+'<div class="field" style="margin-top:20px"><label for="user-filter">筛选已显示的用户</label><input id="user-filter" placeholder="输入用户名或编号"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>补充用户 ID（逗号分隔，可选）</label><input name="manual_ids" placeholder="例如：2,5,8"></div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
+      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的成员，包括管理员。":"当前成员已经勾选。取消勾选可以移除成员，添加新用户后保存即可一次修改多人。")+'</p>'+personalHint+'<div class="field" style="margin-top:20px"><label for="user-filter">筛选已显示的用户</label><input id="user-filter" placeholder="输入用户名或编号"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>补充用户 ID（逗号分隔，可选）</label>'+multiPicker("manual_ids")+'</div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
       const footer='<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" data-action="member-replace">'+(anchor?"保存公共成员":"保存群组成员")+'</button>';
       return modal(anchor?"设置公共成员":"批量管理成员",m.group.name,details,footer);
     }
@@ -2420,7 +2422,9 @@
       }catch(e){toast(e.message,true);}
     }
     if(formID==="contact-form"){
-      try{await request("/contact/add","POST",{username:f.elements.username.value.trim()});toast("已向联系人开放您的设备");await load();}catch(e){toast(e.message,true);}
+      const picker=f.querySelector(".entity-picker"),username=picker?.dataset.username||"";
+      if(!username){toast("请先搜索并选择要添加的用户",true);return;}
+      try{await request("/contact/add","POST",{username});toast("已向联系人开放您的设备");await load();}catch(e){toast(e.message,true);}
     }
     if(formID==="command-form")await sendCommand(f);
     if(formID==="push-channel-form"){
