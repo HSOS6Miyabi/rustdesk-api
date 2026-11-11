@@ -2,7 +2,7 @@
 
 以下清单记录当前分支中已经实现的功能，实际发布范围应与 GitHub Release 对应提交核对。详细模块位置见 [分支功能说明](FORK_CHANGELOG.md)，历史实施记录见 [实施台账](IMPLEMENTATION_LEDGER.md)。
 
-本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前 `master` 分支和自动化测试结果为依据；实际设备、生产数据库及邮件服务商的检查另行列明。正式发行版 `v3.0.0-api.107` 的数据库迁移版本为 **290**。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
+本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前 `master` 分支和自动化测试结果为依据；实际设备、生产数据库及邮件服务商的检查另行列明。正式发行版 `v3.0.0-api.108` 的数据库迁移版本为 **290**。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
 
 | 功能 | 当前情况 | 对应模块 | 后续工作 |
 | --- | --- | --- | --- |
@@ -14,7 +14,11 @@
 | 地址簿 CSV 导入导出 | 已实现，支持普通账户及管理员 | `service/address_book_csv.go`、`http/controller/admin/address_book_csv.go` | 更多第三方格式 |
 | 地址簿回收站 | 已实现恢复、永久删除和批量处理，自动测试通过 | `service/address_book_trash.go`、`service/address_book_batch.go` | 正式数据备份与恢复 |
 | 连接日志、文件传输及告警 | 已实现连接备注、日期与设备筛选及 CSV 导出，自动测试通过 | `service/audit.go`、`service/session_management.go`、`service/audit_note.go`、`http/controller/admin/peer_export.go` | 正式数据查询与导出 |
-| WebClient v2、WebSocket、WebRTC | 已实现基本功能 | `resources/web2`、`resources/web/js` | 实际设备回归测试 |
+| WebClient v2、WebSocket、WebRTC | 支持网页全屏、显示器全屏和设备搜索 | `resources/web2`、`resources/web/js` | 在实际设备上检查远程连接 |
+| 设备与用户详情 | 点击设备名称、设备 ID、用户名可查看相关信息；设备状态显示为在线、离线或暂时无法确定 | `resources/admin/app.js`、`resources/web2/app.js` | 根据访问权限显示管理操作 |
+| 管理导航和数据表格 | 一级分类可折叠，导航滚动位置保留；表格支持当前页按列升序或降序排序 | `resources/admin/app.js`、`resources/admin/style.css` | 已加入电脑与手机浏览器测试 |
+| 用户与设备选择器 | 在设置及关联记录编辑时搜索用户、设备和相关分组 | `resources/admin/app.js`、`service/directory_search.go` | 查询范围受账户权限限制 |
+| 服务器管理操作 | 根据操作说明填写参数，浏览器和 API 分别检查后执行 | `resources/admin/app.js`、`http/controller/admin/server_command_validation.go` | 需要配套 RustDesk Server 的管理端口 |
 | 设备策略心跳同步 | 已实现三级分配及访问模式、键盘、剪贴板、文件传输和连接确认方式 | `service/device_policy.go`、`service/device_policy_target.go` | 真实客户端设置生效检查 |
 | 官方客户端 `--assign` | 已实现 API 接口及集成测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端完成分配操作测试（T001） |
 | 官方客户端 `--deploy` | 已实现 API 接口和真实 hbbs 测试 | `http/controller/api/device_commands.go` | 使用真实官方客户端测试安装、部署与撤销（T001） |
