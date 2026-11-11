@@ -953,6 +953,25 @@
       '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div><div class="tips" style="display:grid;gap:10px"><p>启用后将通过邮件接收登录验证码。已启用 TOTP 的账户优先使用身份验证器。</p>'+
       emailButton+(!email.mail_configured?'<p>管理员尚未启用 SMTP 邮件服务。</p>':'')+'</div></section>';
   }
+  function riskNotice(key){
+      if(key==="jwt.key"||key==="app.internal-key"){
+        return "更换通信密钥前，请核对 API 与 RustDesk Server 的对应设置，并安排客户端重新登录。";
+      }
+      if(key==="runtime.mail-encryption-key"||key==="runtime.push-encryption-key"){
+        return "更换加密密钥前，请备份现有密钥与数据库，并确认已有加密凭据可以重新加密。";
+      }
+      if(key==="gorm.type"||key.startsWith("mysql.")||key.startsWith("postgresql.")){
+        return "切换数据库前，请在新数据库恢复原有业务数据。保存时将检查目标数据库连接和迁移版本。";
+      }
+      if(key==="gin.api-addr"||key==="gin.trust-proxy"){
+        return "修改监听地址或可信代理前，请确认管理控制台的网络访问方式。";
+      }
+      if(key==="runtime.push-allow-private-urls"){
+        return "此设置允许推送服务访问内部网络，启用前应确认相关网络访问权限。";
+      }
+      return "";
+  }
+
   function settingsPage(){
     const current=state.settings||{items:[]},items=current.items||[];
     const filtered=items.filter(item=>
@@ -981,24 +1000,6 @@
       '<p>已配置策略：'+esc(specialized.device_policies??0)+'；连接规则：'+
       esc(specialized.access_rules??0)+'；中继节点：'+esc(specialized.relay_nodes??0)+
       '；个人推送渠道：'+esc(specialized.push_channels??0)+'</p></div>';
-    const riskNotice=key=>{
-      if(key==="jwt.key"||key==="app.internal-key"){
-        return "更换通信密钥前，请核对 API 与 RustDesk Server 的对应设置，并安排客户端重新登录。";
-      }
-      if(key==="runtime.mail-encryption-key"||key==="runtime.push-encryption-key"){
-        return "更换加密密钥前，请备份现有密钥与数据库，并确认已有加密凭据可以重新加密。";
-      }
-      if(key==="gorm.type"||key.startsWith("mysql.")||key.startsWith("postgresql.")){
-        return "切换数据库前，请在新数据库恢复原有业务数据。保存时将检查目标数据库连接和迁移版本。";
-      }
-      if(key==="gin.api-addr"||key==="gin.trust-proxy"){
-        return "修改监听地址或可信代理前，请确认管理控制台的网络访问方式。";
-      }
-      if(key==="runtime.push-allow-private-urls"){
-        return "此设置允许推送服务访问内部网络，启用前应确认相关网络访问权限。";
-      }
-      return "";
-    };
     const links=actions.map(([id,label])=>'<button class="btn btn-sm" data-view="'+id+'">'+esc(label)+'</button>').join("");
     const itemView=item=>{
       const id="setting-value-"+item.key;

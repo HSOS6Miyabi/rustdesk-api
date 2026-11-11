@@ -35,6 +35,9 @@ function createConsole(isAdmin = false, overrides = {}) {
       {key:"app.register",name:"开放注册",description:"允许新用户注册",category:"常规与登录",
         environment:"RUSTDESK_API_APP_REGISTER",value_type:"bool",source:"环境变量",
         current_value:"true",override_enabled:false,bootstrap:false,requires_restart:true,active:true},
+      {key:"gorm.type",name:"数据库类型",description:"选择要连接的数据库",category:"数据库",
+        environment:"RUSTDESK_API_GORM_TYPE",value_type:"string",source:"配置文件",
+        current_value:"sqlite",override_enabled:false,bootstrap:true,active:true},
       {key:"jwt.key",name:"JWT 签名密钥",description:"登录令牌签名",category:"令牌",
         environment:"RUSTDESK_API_JWT_KEY",value_type:"string",source:"环境变量",
         configured:true,current_value:"",override_enabled:false,bootstrap:true,sensitive:true,requires_restart:true,active:true}
