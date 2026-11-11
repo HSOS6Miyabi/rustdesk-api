@@ -9,7 +9,7 @@ import (
 
 const outboxMaxAttempts = 8
 
-func recordOutboxFailure(table interface{}, id uint, attempts int, cause error, permanent bool) error {
+func recordOutboxFailure(table interface{}, id uint, attempts int, cause error, owner string, permanent bool) error {
     attempts++
     status := "retry"
     wait := int64(0)
@@ -22,9 +22,11 @@ func recordOutboxFailure(table interface{}, id uint, attempts int, cause error, 
     }
     message := cause.Error()
     if len(message) > 240 { message = message[:240] }
-    return DB.Model(table).Where("id = ?", id).Updates(map[string]interface{}{
+    query:=DB.Model(table).Where("id = ?", id)
+    if owner!="" {query=query.Where("lease_owner = ?",owner)}
+    return query.Updates(map[string]interface{}{
         "status": status, "attempts": attempts, "last_error": message,
-        "next_attempt_at": time.Now().Unix()+wait, "lease_until": int64(0),
+        "next_attempt_at": time.Now().Unix()+wait, "lease_until": int64(0), "lease_owner":"",
     }).Error
 }
 
@@ -68,13 +70,19 @@ func RetryFailedOutboxEvent(category string, id uint) error {
 type OutboxStatus struct {
     Pending int64 `json:"pending"`
     Failed int64 `json:"failed"`
+    OldestPendingAt *time.Time `json:"oldest_pending_at"`
 }
 
 func ReadOutboxStatus(table interface{}) (OutboxStatus, error) {
     var stats OutboxStatus
     if err := DB.Model(table).Where("status IN ?", []string{"pending", "retry"}).Count(&stats.Pending).Error; err != nil { return stats, err }
     if err := DB.Model(table).Where("status = ?", "failed").Count(&stats.Failed).Error; err != nil { return stats, err }
-    return stats, nil
+    if stats.Pending>0 {
+        var oldest struct {CreatedAt *time.Time `gorm:"column:created_at"`}
+        if err:=DB.Model(table).Select("MIN(created_at) AS created_at").Where("status IN ?",[]string{"pending","retry"}).Scan(&oldest).Error;err!=nil{return stats,err}
+        stats.OldestPendingAt=oldest.CreatedAt
+    }
+    return stats,nil
 }
 
 func FailedOutboxEntries(category string, limit int) (interface{}, error) {
