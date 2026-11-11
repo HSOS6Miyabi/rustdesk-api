@@ -232,3 +232,7 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .entity-data-row dd{margin:0;min-width:0;font-size:13px;color:var(--text);overflow-wrap:anywhere}
 .entity-summary>.subtitle{margin:0}
 @media(max-width:440px){.entity-data-row{grid-template-columns:minmax(90px,110px) minmax(0,1fr);gap:9px}}
+
+/* Keep secondary authentication controls separated from the submit button. */
+.login-card #login-form + button[data-action="forgot-password"]{display:inline-flex;margin-top:12px;min-height:38px}
+@media(max-width:600px){.login-card #login-form + button[data-action="forgot-password"]{margin-top:14px}}

@@ -641,23 +641,23 @@ test("device presence uses inline dots in user and administrator views",async()=
   await user.settle();
   await user.settle();
   await user.open("devices");
-  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
-  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
   assert.ok(user.calls.some(x=>x.endpoint==="/geoip/lookup"&&x.method==="POST"));
   assert.doesNotMatch(user.root.innerHTML,/<th[^>]*>在线状态<\/th>/);
   await user.open("myconnections");
-  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span>123456/);
-  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span>654321/);
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span>123456<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>654321<\/span>/);
 
   const admin=createConsole(true);
   admin.fixtures["/peer/list"]={list:[{row_id:3,id:"office",hostname:"管理员设备"}],total:1};
   await admin.settle();
   await admin.settle();
   await admin.open("devices");
-  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
   await admin.open("connections");
-  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span>managed-desk/);
-  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span>helpdesk/);
+  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>managed-desk<\/span>/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span>helpdesk<\/span>/);
 });
 
 test("device status also appears in shared devices and saved address books",async()=>{
@@ -673,11 +673,11 @@ test("device status also appears in shared devices and saved address books",asyn
   await app.settle();
   await app.settle();
   await app.open("shared");
-  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
-  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
   await app.open("addressbooks");
-  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
-  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
 });
 
 test("settings center lists effective sources without revealing secrets", async () => {

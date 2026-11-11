@@ -881,6 +881,7 @@
     if(mode==="ip-pair")return '<div class="form-grid"><div class="field"><label for="command-ip1">第一个 IP 地址</label><input id="command-ip1" name="ip1" type="text" placeholder="'+ip+'" spellcheck="false" required></div><div class="field"><label for="command-ip2">第二个 IP 地址</label><input id="command-ip2" name="ip2" type="text" placeholder="'+ip+'" spellcheck="false" required></div></div>';
     const title=mode==="servers"?"中继服务器地址（逗号分隔）":mode==="number"?"数值":mode==="identifier"?"设备 ID":"IP 地址";
     const placeholder=mode==="servers"?"例如：relay.example.com:21117,relay2.example.com:21117":mode==="number"?"填写 0 或正数":mode==="identifier"?"例如：123456789":ip;
+    if(mode==="identifier")return '<div class="field"><label>选择需要查询的设备</label>'+pickerField("device_id","",true,{},"command-option")+'</div>';
     const attr=mode==="number"?'type="number" min="0" max="1000000000" step="any"':'type="text" spellcheck="false"';
     return '<div class="field"><label for="command-option">'+title+'</label><input id="command-option" name="option" '+attr+' placeholder="'+placeholder+'" required maxlength="1800"></div>';
   }
@@ -1822,7 +1823,7 @@
   async function sendCommand(form){
     const cmd=serverCommandCatalog.find(item=>item.id===state.commandSelected);
     if(!cmd)return;
-    let option="",value=String(form.elements.option?.value||"").trim();
+    let option="",value=String(form.elements.option?.value||form.elements.device_id?.value||"").trim();
     if(cmd.mode.startsWith("fixed-"))option=cmd.mode.slice(6);
     else if(cmd.mode==="ip-pair"){
       const a=form.elements.ip1.value.trim(),b=form.elements.ip2.value.trim();
