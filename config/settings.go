@@ -268,19 +268,42 @@ func ReadBootstrapSettings() (BootstrapSettings,error) {
     return store,nil
 }
 func WriteBootstrapSettings(store BootstrapSettings) error {
-    folder:=filepath.Dir(BootstrapSettingsPath)
+    return writeBootstrapSettingsFile(BootstrapSettingsPath,store)
+}
+
+// Save an independent previous copy so an administrator can recover the
+// startup configuration if a newly applied network setting prevents login.
+func writeBootstrapSettingsFile(path string,store BootstrapSettings) error {
+    folder:=filepath.Dir(path)
     if err:=os.MkdirAll(folder,0700);err!=nil{return err}
-    f,err:=os.CreateTemp(folder,".bootstrap-*.tmp")
-    if err!=nil{return err}
-    name:=f.Name()
-    defer os.Remove(name)
-    if err:=f.Chmod(0600);err!=nil{f.Close();return err}
     data,err:=json.MarshalIndent(store,"","  ")
-    if err!=nil{f.Close();return err}
-    if _,err=f.Write(append(data,'\n'));err!=nil{f.Close();return err}
-    if err=f.Sync();err!=nil{f.Close();return err}
-    if err=f.Close();err!=nil{return err}
-    if err=os.Rename(name,BootstrapSettingsPath);err!=nil{return err}
+    if err!=nil{return err}
+    data=append(data,'\n')
+
+    writeFile:=func(data []byte)(string,error){
+        f,err:=os.CreateTemp(folder,".rustdesk-settings-*.tmp")
+        if err!=nil{return "",err}
+        name:=f.Name()
+        fail:=func(err error)(string,error){_ = f.Close();_ = os.Remove(name);return "",err}
+        if err:=f.Chmod(0600);err!=nil{return fail(err)}
+        if _,err:=f.Write(data);err!=nil{return fail(err)}
+        if err:=f.Sync();err!=nil{return fail(err)}
+        if err:=f.Close();err!=nil{_ = os.Remove(name);return "",err}
+        return name,nil
+    }
+
+    nextPath,err:=writeFile(data)
+    if err!=nil{return err}
+    defer os.Remove(nextPath)
+    previous,readErr:=os.ReadFile(path)
+    if readErr!=nil&&!errors.Is(readErr,os.ErrNotExist){return readErr}
+    if readErr==nil{
+        backupPath,err:=writeFile(previous)
+        if err!=nil{return err}
+        defer os.Remove(backupPath)
+        if err:=os.Rename(backupPath,path+".previous");err!=nil{return err}
+    }
+    if err:=os.Rename(nextPath,path);err!=nil{return err}
     if dir,err:=os.Open(folder);err==nil{_ = dir.Sync();_ = dir.Close()}
     return nil
 }
