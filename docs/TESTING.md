@@ -392,3 +392,16 @@ RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/
 ```
 
 浏览器测试覆盖导航、表格宽度、表单间距、按钮换行、弹窗布局、设备状态和主要操作。截图及检查结果保存在 `resources/admin/test-screenshots/`，也可以在 GitHub Actions 的 `Verify console visual layouts` 检查中获取。
+
+## 前端请求与 API 集成测试
+
+在项目根目录运行：
+
+```bash
+go build -o /tmp/rustdesk-api-contract ./cmd/apimain.go
+python3 scripts/test_frontend_api_contract.py /tmp/rustdesk-api-contract
+```
+
+测试脚本根据管理控制台、WebClient v2 和原版 WebClient 实际使用的 HTTP 方法与路径检查后端路由。随后在临时目录中创建 SQLite 数据库、启动独立 API 服务，以管理员和普通用户身份发送 HTTP 请求。测试检查返回格式、个人资料及设备信息的修改结果、跨账户访问限制、无效输入和退出登录。测试完成时会关闭测试服务，临时数据库不会写入正式安装目录。
+
+如需单独检查已注册路由，可运行 `python3 scripts/test_frontend_api_contract.py --static`。GitHub Actions 的 `Frontend-driven API integration audit` 会同时执行前后端现有测试和上述 HTTP 集成测试。
