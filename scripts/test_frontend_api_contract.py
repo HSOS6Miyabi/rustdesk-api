@@ -413,13 +413,13 @@ def check_real_changes(admin):
         status,denied=stranger.send("GET",path+"?page=1&page_size=5")
         check(status!=200 or denied.get("code")!=0,
               f"An ordinary user could read administrator-only records at {path}")
-    for path,payload in (
-        ("/user/delete",{"id":user_id}),
-        ("/peer/delete",{"row_id":row_id}),
-        ("/group/update",{"id":1,"name":"Unauthorized","type":1}),
-        ("/settings/overrides",{"changes":[]}),
+    for method,path,payload in (
+        ("POST","/user/delete",{"id":user_id}),
+        ("POST","/peer/delete",{"row_id":row_id}),
+        ("POST","/group/update",{"id":1,"name":"Unauthorized","type":1}),
+        ("PATCH","/settings/overrides",{"changes":[]}),
     ):
-        _,denied=stranger.send("POST",path,payload)
+        _,denied=stranger.send(method,path,payload)
         check(denied.get("code")!=0,
               f"An ordinary user could change administrator-only data at {path}")
     return user.count + stranger.count
