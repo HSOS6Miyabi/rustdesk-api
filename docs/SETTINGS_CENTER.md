@@ -117,3 +117,14 @@ docker compose logs --tail=100 rustdesk-api
 ## 客户端安装文件保存位置
 
 “客户端安装包保存目录” (`runtime.client-build-dir`) 可以通过设置中心覆盖环境变量 `RUSTDESK_CLIENT_BUILD_DIR`。修改后应先将现有安装文件迁移至新目录，确认 API 有读写权限，然后重新启动。已经记录在数据库中的构建任务不会自动移动对应文件。
+
+## 恢复上一版启动设置
+
+每次成功修改启动设置时，程序会在 `data/settings-bootstrap.json.previous` 中保留原配置，文件权限为 `0600`。如果新的数据库连接参数或监听地址导致 API 无法启动，可以先正常停止 API，在备份整个 `data/` 目录后，将该文件复制为 `data/settings-bootstrap.json`，然后重新启动 API。恢复时请使用服务运行账户，确保文件仍只有该账户能够读取。
+
+```bash
+cp data/settings-bootstrap.json.previous data/settings-bootstrap.json
+chmod 600 data/settings-bootstrap.json
+```
+
+Docker 部署时，以上操作应在挂载至 `/app/data` 的主机目录进行。恢复之前，先检查新旧文件和密钥的对应关系。

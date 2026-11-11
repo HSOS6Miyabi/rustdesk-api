@@ -122,6 +122,8 @@
 | `runtime.push-encryption-key` | 推送加密密钥。用于加密个人消息推送渠道的凭据。 | 空（敏感值） | `RUSTDESK_API_PUSH_ENCRYPTION_KEY` | 本机启动文件 |
 | `runtime.mail-encryption-key` | 邮件加密密钥。用于加密 SMTP、双重认证等持久保存的秘密。 | 空（敏感值） | `RUSTDESK_API_MAIL_ENCRYPTION_KEY` | 本机启动文件 |
 | `runtime.push-allow-private-urls` | 允许内部推送地址。允许推送访问内部网络 HTTP 地址，启用会增加安全风险。 | 未在配置模板列出 | `RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS` | 本机启动文件 |
+| `runtime.multi-instance-cache` | 多实例缓存同步。多个 API 实例共同使用一个数据库时，将策略与通知订阅缓存的有效时间缩短到约 5 秒。 | 未在配置模板列出 | `RUSTDESK_API_MULTI_INSTANCE_CACHE` | 本机启动文件 |
+| `runtime.client-build-dir` | 客户端安装包保存目录。自定义安装包任务生成文件的保存位置。 | `data/client-builds`（程序默认） | `RUSTDESK_CLIENT_BUILD_DIR` | 本机启动文件 |
 
 配置表中若某项没有列在 `conf/config.yaml`，请在管理控制台查看其实际来源。尚未启用的 `gin.admin-addr` 仅展示说明，当前无法通过它额外启动一个管理监听服务。
 

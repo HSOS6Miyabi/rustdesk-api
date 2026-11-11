@@ -95,5 +95,9 @@ func verifyDatabaseTarget(target config.Config) error {
     if !version.Valid||version.Int64<=0 {
         return fmt.Errorf("目标数据库没有有效的迁移版本，无法切换")
     }
+    var users int64
+    if err:=db.QueryRowContext(ctx,"SELECT COUNT(*) FROM users").Scan(&users);err!=nil||users==0 {
+        return errors.New("目标数据库缺少原有用户记录，请先恢复数据库备份")
+    }
     return nil
 }
