@@ -171,7 +171,7 @@
   function txt(v) {return v===null||v===undefined||v===""?"—":Array.isArray(v)?v.join(", "):typeof v==="object"?JSON.stringify(v):String(v);}
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
   const geoIPFields=new Set(["ip","client_ip","source_ip","last_online_ip","remote_ip","public_ip","private_ip","device_ip"]);
-  const deviceReferenceFields=new Set(["device_id","peer_id","from_peer"]);
+  const deviceReferenceFields=new Set(["device_id","peer_id","from_peer","to_peer"]);
   const deviceRowPages=new Set(["devices","mydevices","shared","addressbooks","trash"]);
   function deviceStatusDot(id){
     const key=String(id??"").trim();
@@ -191,7 +191,10 @@
       if(typeof value==="string"&&(deviceReferenceFields.has(key)||(deviceRows&&key==="id"))){
         const deviceID=value.trim();
         if(deviceID&&deviceID.length<=253)out.add(deviceID);
-      }else if(value&&typeof value==="object"){
+      }else if(key==="id_whitelist"&&typeof value==="string"){
+        for(const id of value.split(/[,;\s]+/).filter(Boolean).slice(0,256))if(id.length<=253)out.add(id);
+      }else if(key==="target_id"&&raw.target_type==="device"&&typeof value==="string"&&value)out.add(value);
+      else if(value&&typeof value==="object"){
         collectDeviceIDs(value,out,deviceRows);
       }
     }
@@ -268,15 +271,50 @@
       const result=await request("/geoip/lookup","POST",{ips:ipList,device_ids:deviceIDs});
       Object.assign(state.geoLocations,result.locations||{});
       const statuses=result.device_status||{};
-      for(const id of deviceIDs)state.devicePresence[id]=statuses[id]===true;
+      for(const id of deviceIDs)state.devicePresence[id]=Object.prototype.hasOwnProperty.call(statuses,id)?statuses[id]===true:null;
     }catch{
       for(const ip of ipList)state.geoLocations[ip]="位置未知";
     }
   }
+  const userReferenceFields=new Set(["user_id","owner_user_id","from_user_id","to_user_id","requested_by"]);
+  const accountReferenceFields=new Set(["owner_username","from_account","to_account","account"]);
+  function entityLink(kind,id,text,showStatus=false){
+    if(id===undefined||id===null||String(id).trim()==="")return esc(txt(text));
+    const label=String(text??id);
+    return '<button type="button" class="entity-link" data-action="entity-detail" data-entity-type="'+esc(kind)+
+      '" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(label)+'" title="查看'+(kind==="device"?"设备":"用户")+'信息">'+
+      (showStatus?deviceStatusDot(id):"")+'<span>'+esc(label)+'</span></button>';
+  }
+  function linkedDeviceID(row,k,v){
+    if(deviceReferenceFields.has(k))return String(v??"");
+    if(k==="id"&&deviceRowPages.has(state.page)&&typeof v==="string")return v;
+    if(["alias","hostname"].includes(k)&&deviceRowPages.has(state.page))return String(row?.id??"");
+    if(k==="from_device_name")return String(row?.from_peer||"");
+    if(k==="to_device_name")return String(row?.peer_id||"");
+    if(k==="target_id"&&row?.target_type==="device")return String(v??"");
+    return "";
+  }
+  function linkedAccountID(row,k,v){
+    if(userReferenceFields.has(k))return String(v??"");
+    if(k==="id"&&state.page==="users")return String(v??"");
+    if(["username","nickname"].includes(k)&&state.page==="users")return String(row?.id||v||"");
+    if(k==="owner_username")return String(row?.owner_user_id||row?.user_id||v||"");
+    if(k==="from_account")return String(row?.from_user_id||v||"");
+    if(k==="to_account")return String(row?.to_user_id||v||"");
+    if(k==="account")return String(v||"");
+    if(["source_id","target_id"].includes(k)&&
+      (k==="source_id"?row?.source_type==="user":row?.target_type==="user"))return String(v??"");
+    if(k==="to_id"&&Number(row?.type)===1)return String(v??"");
+    return "";
+  }
   function colValue(v,k,row){
-    if((deviceReferenceFields.has(k)||(k==="id"&&deviceRowPages.has(state.page)&&typeof v==="string"))&&v){
-      return deviceStatusDot(v)+esc(v);
+    if(k==="id_whitelist"&&typeof v==="string"&&v.trim()){
+      return v.split(/[,;\s]+/).filter(Boolean).map(id=>entityLink("device",id,id,true)).join('<span class="entity-separator">, </span>');
     }
+    const device=linkedDeviceID(row,k,v);
+    if(device&&v)return entityLink("device",device,v,true);
+    const account=linkedAccountID(row,k,v);
+    if(account&&v!==undefined&&v!==null&&String(v)!=="")return entityLink("user",account,v,false);
     if(geoIPFields.has(k))return showIP(v);
     if(k==="ip_whitelist")return showIPList(v);
     if(k==="sources"&&Array.isArray(v))return v.map(x=>'<span class="pill '+(x.type==="contact"?"good":"")+'" style="margin:2px">'+esc(x.type==="contact"?"联系人："+x.name:"群组："+x.name)+'</span>').join("");
@@ -616,7 +654,7 @@
     const m=state.metrics||{};
     const shortcuts=["mydevices","shared","contacts",state.isAdmin?"devices":"mygroups"];
     const quick=shortcuts.map(k=>'<button type="button" data-view="'+k+'" class="quick-card"><span class="quick-icon">'+icon(pages[k].icon,21)+'</span><strong class="quick-label">'+esc(pages[k].name)+'</strong><span class="quick-arrow">'+icon("arrow",17)+'</span></button>').join("");
-    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+deviceStatusDot(x.id)+esc(x.alias||x.hostname||x.id)+'</strong><span class="cell-sub">'+esc(x.id)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
+    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+entityLink("device",x.id,x.alias||x.hostname||x.id,true)+'</strong><span class="cell-sub">'+entityLink("device",x.id,x.id,false)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
       '<div class="metric-grid">'+metric("设备数量",state.loading?"…":m.devices,"monitor")+metric(state.isAdmin?"用户数量":"地址簿条目",state.loading?"…":m.users,"users")+metric(state.isAdmin?"用户分组":"联系人数量",state.loading?"…":m.groups===undefined?state.contacts.incoming.length:m.groups,"layers")+metric("当前账户",state.user.username,"shield")+'</div>'+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">快速访问</h2><p class="panel-sub">常用管理功能</p></div></div><div class="quick-grid">'+quick+'</div></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">最近出现的设备</h2><p class="panel-sub">按最后活动时间显示</p></div><button data-view="'+(state.isAdmin?"devices":"mydevices")+'" class="btn btn-sm">查看全部</button></div><div class="tips">'+recent+'</div></section></div>';
@@ -784,7 +822,7 @@
     function accountRows(rows,canDelete){
       if(state.loading)return '<div class="loading-table"><span class="spinner"></span>加载中…</div>';
       if(!rows.length)return '<div class="empty"><h3>暂无联系人</h3><p>'+(canDelete?"您还没有主动向其他用户公开设备。":"目前没有用户向您公开设备。")+'</p></div>';
-      return rows.map(x=>'<div class="status-row"><span><strong>'+esc(x.nickname||x.username)+'</strong><span class="cell-sub">@'+esc(x.username)+' · 用户 ID '+esc(x.user_id)+'</span></span>'+(canDelete?'<button class="btn btn-sm btn-danger" data-action="contact-delete" data-id="'+esc(x.user_id)+'">撤销共享</button>':'<button class="btn btn-sm" data-action="contact-devices" data-id="'+esc(x.user_id)+'">查看设备</button>')+'</div>').join("");
+      return rows.map(x=>'<div class="status-row"><span><strong>'+entityLink("user",x.user_id||x.id||x.username,x.nickname||x.username)+'</strong><span class="cell-sub">@'+entityLink("user",x.user_id||x.id||x.username,x.username)+' · 用户 ID '+esc(x.user_id)+'</span></span>'+(canDelete?'<button class="btn btn-sm btn-danger" data-action="contact-delete" data-id="'+esc(x.user_id)+'">撤销共享</button>':'<button class="btn btn-sm" data-action="contact-devices" data-id="'+esc(x.user_id)+'">查看设备</button>')+'</div>').join("");
     }
     return pageHeading("联系人","添加联系人即表示向对方开放您名下的所有设备，对方无须确认。",
       '<button class="btn" data-action="contact-batch-add">批量添加联系人</button>'+
@@ -1314,6 +1352,13 @@
         const filter=(kind==="user"||kind==="device")?"&keyword="+encodeURIComponent(q):"";
         const data=await request(path+"?page=1&page_size=100"+filter);
         rows=Array.isArray(data)?data:data?.list||[];
+        if(kind==="device"&&rows.length){
+          const ids=[...new Set(rows.map(row=>String(row.id||"")).filter(Boolean))].slice(0,100);
+          try{
+            const reply=await request("/geoip/lookup","POST",{device_ids:ids});
+            for(const id of ids)state.devicePresence[id]=Object.prototype.hasOwnProperty.call(reply.device_status||{},id)?reply.device_status[id]===true:null;
+          }catch{}
+        }
         if(!filter){
           const normalized=q.toLowerCase();
           rows=rows.filter(item=>[item.id,item.name,item.alias,item.username,item.nickname].some(value=>String(value??"").toLowerCase().includes(normalized)));
@@ -1324,8 +1369,9 @@
         const id=item.id;
         const name=kind==="device"?[item.alias,item.hostname,item.username,item.os].filter(Boolean).join(" · "):
           [item.name,item.nickname||item.username,item.email].filter(Boolean).join(" · ");
-        return '<button type="button" role="option" class="picker-result" data-action="picker-select" data-id="'+esc(id)+'" data-username="'+esc(item.username||"")+'" data-title="'+esc(name)+'">'+
-          '<strong>'+esc(id)+'</strong><span>'+esc(name||"")+'</span></button>';
+        return '<div role="option" class="picker-result-row"><button type="button" class="picker-result" data-action="picker-select" data-id="'+esc(id)+'" data-username="'+esc(item.username||"")+'" data-title="'+esc(name)+'">'+
+          '<strong>'+(kind==="device"?deviceStatusDot(id):"")+esc(id)+'</strong><span>'+esc(name||"")+'</span></button>'+
+          '<button type="button" class="picker-result-detail" data-action="entity-detail" data-entity-type="'+(kind==="device"?"device":"user")+'" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(name||id)+'">查看信息</button></div>';
       }).join(""):'<p class="picker-empty">没有找到匹配项，请尝试其他关键词。</p>';
     }catch(err){
       if(!picker.isConnected||Number(picker.dataset.sequence)!==sequence)return;

@@ -208,3 +208,17 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
  .mobile-sort label{color:var(--muted);font-size:12px;font-weight:700}
  .mobile-sort select{flex:1 1 135px;min-width:0;max-width:300px;min-height:38px;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:6px 9px}
 }
+
+/* Interactive device and account references */
+.entity-link{display:inline-flex;align-items:center;vertical-align:middle;gap:3px;max-width:100%;min-width:0;border:0;background:transparent;padding:2px 0;color:var(--main);font:inherit;font-weight:inherit;text-align:left;cursor:pointer}
+.entity-link:hover,.entity-link:focus-visible{color:var(--good);text-decoration:underline;text-underline-offset:3px}
+.entity-link>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entity-link>.device-status-dot{flex:0 0 9px;margin-right:4px}
+.entity-separator{color:var(--muted)}
+.cell-multiline .entity-link{margin-right:3px}
+.picker-result-row{display:flex;align-items:center;justify-content:space-between;gap:7px;border-bottom:1px solid var(--line)}
+.picker-result-row:last-child{border-bottom:0}
+.picker-result-row .picker-result{flex:1 1 auto;border:0}
+.picker-result-detail{border:1px solid var(--line);background:var(--panel);border-radius:7px;color:var(--main);font-size:11px;min-height:34px;padding:5px 9px;flex:0 0 auto;margin-right:9px}
+.picker-result-detail:hover,.picker-result-detail:focus-visible{background:var(--main-soft)}
+.picker-result strong>.device-status-dot{margin-right:7px}
