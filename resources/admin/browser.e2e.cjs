@@ -1396,9 +1396,7 @@ test("responsive data tables keep columns readable across screen sizes",async()=
         const result=await page.evaluate(()=>{
           const table=document.querySelector(".data-table");
           const region=table.closest(".table-scroll");
-          const cards=table.parentElement.nextElementSibling?.classList.contains("table-scroll-hint")?
-            table.parentElement.nextElementSibling.nextElementSibling:
-            table.parentElement.nextElementSibling;
+          const cards=table.closest(".panel").querySelector(".mobile-list");
           const visibleTable=getComputedStyle(region).display!=="none";
           const headings=[...table.querySelectorAll("thead th")];
           const cells=[...table.querySelectorAll("tbody tr:first-child td")];
