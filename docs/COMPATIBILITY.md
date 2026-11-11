@@ -20,3 +20,6 @@ API 可与配套 Server 分开部署。Server 的 `v1.1.17-api.21` 组合镜像�
 设备部署审批、连接访问规则、控制角色、国家级中继选择和多实例通知任务分别需要额外的设置。未启用时按原有自托管服务方式运行。详见 [部署说明](DEPLOYMENT.md)、[配置参考](CONFIG_REFERENCE.md) 与 [功能改动](FORK_CHANGELOG.md)。
 
 本次版本已通过 API 自动化测试以及 SQLite、MySQL、PostgreSQL 的升级检查。正式 SMTP、真实客户端连接和生产数据恢复仍需在实际部署环境中检查；升级前应备份数据库与加密密钥。
+## 发行测试记录
+
+[正式发行工作流 #42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) 的九项任务均已通过；其 Release 包含 Linux AMD64、Linux ARM64 和 Windows AMD64 文件，Docker 镜像支持 `linux/amd64` 与 `linux/arm64`。数据库的自动升级和恢复检查见 [#42975509940](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42975509940)。这些测试记录与实际业务数据恢复、真实设备连接和正式 SMTP 收发分别保存。

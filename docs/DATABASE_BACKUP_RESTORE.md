@@ -6,7 +6,7 @@
 
 ## 操作前检查
 
-1. 记录当前正在运行的 API 与 Server 版本。开发分支需要使用对应的 API 和 RustDesk Server 代码。
+1. 记录当前正在运行的 API 与 Server 版本。API 与 Server 应使用相互兼容的正式版本，并分别核对已发布的镜像或可执行文件。
 2. 查看配置文件中的 `gorm.type`，确认实际数据库为 `sqlite`、`mysql` 或 `postgresql`。
 3. 准备只有管理员能读取的备份目录，确认可用空间大于数据库及安装文件的大小。
 4. 将 `conf` 配置文件及实际设置的环境变量保存在安全位置。邮件服务启用时尤其需要保存 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`；密码、数据库连接信息和内部通信密钥不得上传 GitHub。

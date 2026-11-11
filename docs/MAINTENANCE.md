@@ -86,3 +86,14 @@ bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 ```
 
 使用说明见 [设置中心](SETTINGS_CENTER.md)、[上游同步](UPSTREAM_SYNC.md) 和 [版本兼容性](COMPATIBILITY.md)。
+
+## v3.0.0-api.107 发行检查记录
+
+2026 年 11 月 11 日，API 的 [PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 已合并至 `master`，数据库迁移版本为 **290**。[GitHub Actions #42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) 的九项任务全部通过，涵盖 Go、浏览器、Linux AMD64/ARM64、Windows AMD64、正式 Release 和 Docker 镜像发布。
+
+- 正式安装文件：[v3.0.0-api.107 Release](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107)。
+- Docker：`ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.107` 与 `latest` 均已发布，支持 AMD64 和 ARM64。
+- 配套 Server 版本保持 `v1.1.17-api.21`，组合 Docker 镜像中现有 API 版本需要单独核查。
+- 实际 SMTP 服务商、两台设备的远程操作、跨地区中继和生产数据恢复，应根据部署环境继续检查。
+
+详细任务结果见 [统一实施台账](IMPLEMENTATION_LEDGER.md)、[逐项测试记录](TASK_VERIFICATION_RECORD.md) 与 [本次版本说明](releases/v3.0.0-api.107.md)。

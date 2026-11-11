@@ -61,3 +61,9 @@ WebClient 编译、真实客户端协议和 Chromium 浏览器测试见 [测试�
 普通代码提交与拉取请求仅执行自动化检查。正式 Release 和 Docker 镜像发布必须先完成相应测试并取得明确批准。发布记录应写明 API、Server、客户端和数据库的兼容版本。
 
 早期的开发记录见 [2026 年 11 月 9 日交接快照](HANDOFF_SNAPSHOT_2026-11-09.md)、[实施台账](IMPLEMENTATION_LEDGER.md) 与 [逐项检查记录](TASK_VERIFICATION_RECORD.md)。这些材料记录对应日期的开发和测试状态，当前状态以 GitHub 最新提交、拉取请求和发行标签为准。
+
+## 当前发行记录（2026 年 11 月 11 日）
+
+API 最新正式版为 [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107)，数据库迁移版本为 **290**。合并记录为 [PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)，正式发行工作流 [#42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) 的九项任务已通过。
+
+当前可直接从 Release 下载三个平台的 API 安装文件。Docker 镜像 `ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.107` 和 `latest` 已完成 AMD64/ARM64 发布。详细功能与任务结果在 [实施台账](IMPLEMENTATION_LEDGER.md) 和 [逐项记录](TASK_VERIFICATION_RECORD.md) 中维护。

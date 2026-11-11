@@ -333,6 +333,6 @@ bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 
 其中真实 API 进程测试会检查 SQLite 初次创建、环境变量与数据库覆盖的优先级、关闭覆盖后的恢复，以及 SIGTERM 正常退出。
 
-还需检查设置中心的桌面和移动端浏览器交互、不同管理员同时修改设置时的版本冲突、密码原文不回显、两类通知事件的失败重试和多实例认领。正式升级前应执行 MySQL 与 PostgreSQL 的数据库迁移和恢复工作流。
+已通过 Chromium 检查设置中心的桌面、平板与手机操作；Go 测试覆盖管理员权限、数据库覆盖版本冲突、敏感值保护、通知失败重试及多实例任务认领。正式发行流程为 [#42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619)，数据库升级与恢复检查为 [#42975509940](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42975509940)。实际 SMTP 服务商收发、两台设备远程控制和生产数据恢复仍需在部署环境执行。
 
 普通服务器与 Docker 分别通过持久化目录保存启动设置。验证 Docker 时，将数据卷挂载到 `/app/data`，重新创建容器并确认已保存设置能够恢复。

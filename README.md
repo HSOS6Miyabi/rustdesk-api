@@ -103,7 +103,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 ## 邮件与地址簿增强
 
-此开发分支支持地址簿 CSV 导入导出和回收站恢复、SMTP 邮件服务、用户密码恢复以及成员邮件邀请。相关页面包括“地址簿”“地址簿回收站”“SMTP 邮件服务”和“成员邮件邀请”。使用 SMTP 密码时，需要设置 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，完整配置参见 [部署与配置](docs/DEPLOYMENT.md)。
+当前正式版本支持地址簿 CSV 导入导出和回收站恢复、SMTP 邮件服务、用户密码恢复以及成员邮件邀请。相关页面包括“地址簿”“地址簿回收站”“SMTP 邮件服务”和“成员邮件邀请”。使用 SMTP 密码时，需要设置 `RUSTDESK_API_MAIL_ENCRYPTION_KEY`，完整配置参见 [部署与配置](docs/DEPLOYMENT.md)。
 
 ## 连接记录备注
 
@@ -119,7 +119,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 ## 多中继服务器
 
-开发分支支持在 Web 管理控制台配置多个中继节点，并为每个节点设置优先使用的 IP 网络范围。`hbbs` 可以从 API 定期同步配置，在可用中继之间进行自动选择，并在节点断开连接时选择其他可用节点。具体设置参见 [部署说明](docs/DEPLOYMENT.md)。
+当前版本支持在 Web 管理控制台配置多个中继节点，并为每个节点设置优先使用的 IP 网络范围。`hbbs` 可以从 API 定期同步配置，在可用中继之间进行自动选择，并在节点断开连接时选择其他可用节点。具体设置参见 [部署说明](docs/DEPLOYMENT.md)。
 
 ## GeoLite2 国家级中继选择
 
@@ -142,7 +142,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 ## 多平台客户端安装文件与自动化管理
 
-开发分支的管理控制台提供“客户端安装包构建”，可保存服务器地址、公钥和 API 地址，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务，并下载经过 SHA-256 检查的官方 RustDesk 1.5.1 安装程序。Windows 文件名包含服务器配置；Linux 和 macOS 提供带有配置脚本的 ZIP，保留原始 DEB 或 DMG 内容。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
+当前管理控制台提供“客户端安装包构建”，可保存服务器地址、公钥和 API 地址，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务，并下载经过 SHA-256 检查的官方 RustDesk 1.5.1 安装程序。Windows 文件名包含服务器配置；Linux 和 macOS 提供带有配置脚本的 ZIP，保留原始 DEB 或 DMG 内容。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 

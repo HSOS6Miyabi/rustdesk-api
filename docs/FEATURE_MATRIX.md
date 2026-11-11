@@ -34,7 +34,7 @@
 | 批量联系人、共享、部署和回收站管理 | 已实现，支持事务检查与管理界面操作，Go 和浏览器测试通过 | `service/address_book_batch.go`、`http/controller/admin/contact_batch.go` | 在真实团队数据上检查操作 |
 | 自定义客户端构建器 | 已实现 Windows、Linux、macOS 的 x64/ARM64 任务、校验下载和配置脚本打包，自动测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
 
-既有功能的合并记录包括 API [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 与 Server [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。当前设置中心与可靠性整改见 API [#11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)。
+既有功能的合并记录包括 API [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 与 Server [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。设置中心与可靠性改进已通过 API [#11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并至 `master`，并纳入正式发行版 `v3.0.0-api.107`。
 
 ## 发布说明
 
@@ -67,4 +67,4 @@
 
 ## 设置中心与运行可靠性
 
-整改分支增加设置中心、网页配置覆盖、数据库迁移失败处理、通知失败隔离与共享处理保护。管理员可在设置中心查看当前运行值和来源，保存覆盖设置后按提示重新启动。详见 [设置中心](SETTINGS_CENTER.md) 和 [性能测试](PERFORMANCE_TESTING.md)。
+正式版 `v3.0.0-api.107` 已提供设置中心、网页配置覆盖、数据库迁移失败检查、通知失败隔离与共享处理保护，并改善管理员角色查询、批量推送和安装包任务处理。系统管理员可以查看配置当前运行值和来源，修改后按提示重新启动 API。使用方法见 [设置中心](SETTINGS_CENTER.md)、[性能测试](PERFORMANCE_TESTING.md) 和 [版本发行记录](releases/v3.0.0-api.107.md)。
