@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func ApiInit() {
+func ApiInit() error {
 	gin.SetMode(global.Config.Gin.Mode)
 	g := gin.New()
 
@@ -37,5 +37,5 @@ func ApiInit() {
 	router.WebInit(g)
 	router.Init(g)
 	router.ApiInit(g)
-	Run(g, global.Config.Gin.ApiAddr)
+	return Run(g, global.Config.Gin.ApiAddr)
 }
