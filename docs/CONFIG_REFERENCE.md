@@ -138,3 +138,9 @@
 普通服务器应将 `data/` 目录作为需要备份的数据目录。Docker 至少挂载 `/app/data`，保证 `/app/data/settings-bootstrap.json` 与 SQLite 数据库在容器重建后仍然存在。所有实例都要保留自己使用的启动文件；共享数据库中的应用设置则由多个实例共同读取。
 
 有关管理页面操作、权限和重启流程，参见 [设置中心使用说明](SETTINGS_CENTER.md)。部署前请阅读 [数据库备份与恢复说明](DATABASE_BACKUP_RESTORE.md) 和 [部署说明](DEPLOYMENT.md)。
+
+## 多实例缓存更新
+
+设置 `RUSTDESK_API_MULTI_INSTANCE_CACHE=1` 或在设置中心启用 `runtime.multi-instance-cache`，重启每个 API 实例后，设备策略分配和通知订阅缓存的有效时间缩短为约 5 秒。单实例默认使用约 30 秒的缓存有效时间，且本实例修改相关配置后会主动清除缓存。多实例设置只在有访问请求或设备心跳时检查数据库，不增加空闲状态下的周期查询。身份验证和严格连接许可仍由原有接口执行。
+
+多实例缓存刷新时间还会受到客户端心跳间隔影响。远程连接许可更改应通过配套 RustDesk Server 的连接授权接口处理。

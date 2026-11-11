@@ -6,10 +6,20 @@ import (
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/lejianwen/rustdesk-api/v2/config"
 	"gorm.io/gorm"
 )
 
 const optionalFeatureRefresh = 30 * time.Second
+
+// Shared-database installations can shorten cache freshness to five seconds.
+// Single-instance installations retain the longer, low-query interval.
+func featureCacheRefreshInterval() time.Duration {
+    if config.RuntimeBool("runtime.multi-instance-cache") {
+        return 5 * time.Second
+    }
+    return optionalFeatureRefresh
+}
 
 // State mutexes protect snapshots only. A separate refresh mutex serializes
 // database work without blocking readers of still-valid snapshots.
@@ -104,7 +114,7 @@ func policyMayApplyToPeer(peer *model.Peer) bool {
 	policyActivity.Lock()
 	defer policyActivity.Unlock()
 	if policyActivity.db != DB || policyActivity.checked.IsZero() ||
-		time.Since(policyActivity.checked) >= optionalFeatureRefresh {
+		time.Since(policyActivity.checked) >= featureCacheRefreshInterval() {
 		return true
 	}
 	return policyActivity.snapshot.mayApply(peer)
@@ -116,7 +126,7 @@ func devicePolicyAssignmentsPresent() (bool, error) {
 		db := DB
 		policyActivity.Lock()
 		if policyActivity.db == db && !policyActivity.checked.IsZero() &&
-			time.Since(policyActivity.checked) < optionalFeatureRefresh {
+			time.Since(policyActivity.checked) < featureCacheRefreshInterval() {
 			value := policyActivity.assigned
 			policyActivity.Unlock()
 			return value, nil
@@ -125,7 +135,7 @@ func devicePolicyAssignmentsPresent() (bool, error) {
 		policyActivity.refresh.Lock()
 		policyActivity.Lock()
 		if policyActivity.db == db && !policyActivity.checked.IsZero() &&
-			time.Since(policyActivity.checked) < optionalFeatureRefresh {
+			time.Since(policyActivity.checked) < featureCacheRefreshInterval() {
 			value := policyActivity.assigned
 			policyActivity.Unlock()
 			policyActivity.refresh.Unlock()
@@ -174,7 +184,7 @@ func hasPushSubscription(code string) bool {
 		db := DB
 		pushActivity.Lock()
 		if pushActivity.db == db && !pushActivity.checked.IsZero() &&
-			time.Since(pushActivity.checked) < optionalFeatureRefresh {
+			time.Since(pushActivity.checked) < featureCacheRefreshInterval() {
 			value := pushActivity.events[code]
 			pushActivity.Unlock()
 			return value
@@ -183,7 +193,7 @@ func hasPushSubscription(code string) bool {
 		pushActivity.refresh.Lock()
 		pushActivity.Lock()
 		if pushActivity.db == db && !pushActivity.checked.IsZero() &&
-			time.Since(pushActivity.checked) < optionalFeatureRefresh {
+			time.Since(pushActivity.checked) < featureCacheRefreshInterval() {
 			value := pushActivity.events[code]
 			pushActivity.Unlock()
 			pushActivity.refresh.Unlock()
@@ -257,7 +267,7 @@ func notificationSettingsForEvent(event string) (*model.NotificationSetting, err
 		administrativeNotificationActivity.Lock()
 		if administrativeNotificationActivity.db == db &&
 			!administrativeNotificationActivity.checked.IsZero() &&
-			time.Since(administrativeNotificationActivity.checked) < optionalFeatureRefresh {
+			time.Since(administrativeNotificationActivity.checked) < featureCacheRefreshInterval() {
 			enabled := administrativeNotificationActivity.events[event]
 			settings := administrativeNotificationActivity.settings
 			administrativeNotificationActivity.Unlock()
@@ -272,7 +282,7 @@ func notificationSettingsForEvent(event string) (*model.NotificationSetting, err
 		administrativeNotificationActivity.Lock()
 		if administrativeNotificationActivity.db == db &&
 			!administrativeNotificationActivity.checked.IsZero() &&
-			time.Since(administrativeNotificationActivity.checked) < optionalFeatureRefresh {
+			time.Since(administrativeNotificationActivity.checked) < featureCacheRefreshInterval() {
 			enabled := administrativeNotificationActivity.events[event]
 			settings := administrativeNotificationActivity.settings
 			administrativeNotificationActivity.Unlock()
@@ -383,7 +393,7 @@ func resolveHeartbeatPolicy(peer *model.Peer) (*ResolvedPolicy, error) {
 		trimHeartbeatPolicyEntries(time.Now())
 		heartbeatPolicyCache.entries[peer.RowId] = heartbeatPolicyEntry{
 			userID: peer.UserId, groupID: peer.GroupId,
-			expires: time.Now().Add(optionalFeatureRefresh), value: value,
+			expires: time.Now().Add(featureCacheRefreshInterval()), value: value,
 		}
 	}
 	heartbeatPolicyCache.Unlock()

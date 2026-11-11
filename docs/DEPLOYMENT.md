@@ -298,3 +298,7 @@ export RUSTDESK_API_INTERNAL_KEY="与 API 相同的内部通信密钥"
 数据库连接、监听端口和密钥等启动设置保存在 `data/settings-bootstrap.json`。Docker 运行时需要把 `/app/data` 挂载到持久化数据目录；普通服务器应备份 `data/` 及加密密钥。一般应用覆盖设置保存在数据库中，多实例部署后需要逐台重启 API。
 
 详细说明见 [设置中心](SETTINGS_CENTER.md)、[配置参考](CONFIG_REFERENCE.md) 与 [兼容版本](COMPATIBILITY.md)。
+
+## 多台 API 实例共享数据库
+
+需要多个 API 实例共同处理设备心跳时，可在各实例设置 `RUSTDESK_API_MULTI_INSTANCE_CACHE=1`，把策略分配和通知订阅的缓存刷新时间缩短至约 5 秒。如果还需要多个实例共同处理通知事件，再设置 `RUSTDESK_API_SHARED_EVENT_WORKERS=1`。两项功能独立启用；单实例使用默认配置即可。更改配置后逐台重启，并检查 API 与配套 RustDesk Server 的连接许可设置。
