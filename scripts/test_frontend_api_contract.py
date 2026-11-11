@@ -399,7 +399,7 @@ def main():
                 response=json.load(reply)
             check(response.get("code")==0 and "id_server" in response.get("data",{}),
                   "Legacy WebClient server-config-v2 is inconsistent")
-            check(client.success("GET", "/user/current").get("is_admin") is True,
+            check("*" in (client.success("GET", "/user/current").get("route_names") or []),
                   "Administrator authentication failed")
             tested = all_route_requests(client, browser)
             personal_requests = check_real_changes(client)
