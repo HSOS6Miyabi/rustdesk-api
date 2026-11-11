@@ -78,6 +78,7 @@
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
     server: {name:"服务器管理",icon:"terminal",section:"系统管理",admin:true},
+    settings: {name:"设置中心",icon:"settings",section:"系统管理",admin:true},
     myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
     mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
     myalarms: {name:"我的安全告警",icon:"shield",section:"我的审计记录",endpoint:"my/audit_alarm",readonly:true,columns:[["id","编号"],["typ","告警类别"],["peer_id","设备 ID"],["conn_id","连接编号"],["info","告警详情"],["created_at","时间"]]},
@@ -311,7 +312,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -566,6 +567,13 @@
         state.rows=history.list||[];state.total=history.total||0;
       }else if(k==="retention"){
         state.retention=await request("/audit/retention");
+      }else if(k==="settings"){
+        const [settings,overview,history,failed]=await Promise.all([
+          request("/settings/effective"),request("/settings/overview"),
+          request("/settings/history?limit=15"),request("/settings/outbox?category=push")
+        ]);
+        state.settings=settings;state.settingsOverview=overview;
+        state.settingsHistory=history.list||[];state.settingsFailed=failed.list||[];
       }else if(k==="server"){
         const out=await Promise.allSettled([request("/config/server"),request("/rustdesk/cmdList")]);
         state.server=out[0].status==="fulfilled"?out[0].value:{};
@@ -945,11 +953,93 @@
       '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div><div class="tips" style="display:grid;gap:10px"><p>启用后将通过邮件接收登录验证码。已启用 TOTP 的账户优先使用身份验证器。</p>'+
       emailButton+(!email.mail_configured?'<p>管理员尚未启用 SMTP 邮件服务。</p>':'')+'</div></section>';
   }
+  function settingsPage(){
+    const current=state.settings||{items:[]},items=current.items||[];
+    const filtered=items.filter(item=>
+      (state.settingsCategory==="all"||item.category===state.settingsCategory)&&
+      (!state.settingsSearch||[item.key,item.name,item.description,item.environment]
+        .join(" ").toLowerCase().includes(state.settingsSearch.toLowerCase())));
+    const categories=[...new Set(items.map(item=>item.category))].sort();
+    const actions=[
+      ["mail","SMTP 邮件服务"],["notifications","邮件通知"],["retention","日志保留期限"],
+      ["policies","设备策略"],["controlRoles","控制角色"],["relayNodes","中继节点"],
+      ["accessRules","连接访问规则"],["clientBuilder","安装包任务"],["push","个人推送"]
+    ];
+    const summary=state.settingsOverview||{},outbox=summary.outbox||{};
+    const links=actions.map(([id,label])=>'<button class="btn btn-sm" data-view="'+id+'">'+esc(label)+'</button>').join("");
+    const itemView=item=>{
+      const id="setting-value-"+item.key;
+      const saved=item.override_enabled?item.stored_value:item.current_value;
+      let input="";
+      if(item.sensitive){
+        input='<input id="'+esc(id)+'" type="password" autocomplete="new-password" placeholder="'+
+          (item.override_enabled?"留空保持原来的覆盖值":"填写需要覆盖的新值")+'">';
+      }else if(item.value_type==="bool"){
+        const selected=String(saved)==="true"||String(saved)==="1";
+        input='<select id="'+esc(id)+'"><option value="true" '+(selected?"selected":"")+
+          '>启用</option><option value="false" '+(!selected?"selected":"")+
+          '>停用</option></select>';
+      }else{
+        input='<input id="'+esc(id)+'" type="'+(item.value_type==="int"?"number":"text")+
+          '" value="'+esc(saved??"")+'" autocomplete="off">';
+      }
+      const run=item.sensitive?(item.configured?"已配置（隐藏具体内容）":"未配置"):
+        (item.current_value===""?"（空字符串）":esc(item.current_value));
+      const status=item.pending_restart?
+        '<span class="pill warn">待重启生效</span>':
+        '<span class="pill muted">运行中</span>';
+      return '<article class="panel" data-setting-item="'+esc(item.key)+'" style="padding:20px;display:grid;gap:12px">'+
+        '<div class="panel-header"><div><h2 class="panel-title">'+esc(item.name)+'</h2>'+
+        '<p class="panel-sub"><code>'+esc(item.key)+'</code></p></div>'+status+'</div>'+
+        '<p class="subtitle">'+esc(item.description)+'</p>'+
+        '<div class="status-row"><span>当前运行值：<strong>'+run+'</strong></span>'+
+        '<span class="pill">'+esc(item.source)+'</span></div>'+
+        '<p class="subtitle">环境变量：<code>'+esc(item.environment)+'</code> · '+
+        (item.bootstrap?'本机启动设置':'数据库中的应用设置')+' · 修改后重新启动 API</p>'+
+        (item.active?
+          '<div class="field"><label for="'+esc(id)+'">网页覆盖值</label>'+input+'</div>'+
+          '<div class="head-actions"><button type="button" class="btn btn-primary btn-sm" data-action="setting-save" data-id="'+esc(item.key)+'">保存并启用覆盖</button>'+
+          (item.override_enabled?'<button type="button" class="btn btn-sm" data-action="setting-reset" data-id="'+esc(item.key)+'">关闭网页覆盖</button>':"")+
+          '</div>':'<p class="subtitle">此项尚未在当前程序中使用。</p>')+
+        '</article>';
+    };
+    const show=filtered.map(itemView).join("")||'<div class="empty">没有匹配的设置项。</div>';
+    const history=(state.settingsHistory||[]).map(row=>
+      '<div class="status-row"><span><strong>'+esc(row.setting_key)+'</strong>'+
+      '<span class="cell-sub">'+(row.enabled?"启用网页覆盖":"关闭网页覆盖")+
+      ' · '+esc(row.storage==="bootstrap"?"启动设置":"应用设置")+'</span></span>'+
+      '<span class="cell-sub">'+esc(date(row.changed_at))+'</span></div>').join("");
+    const push=outbox.push||{},mail=outbox.notification||{};
+    const failure=(state.settingsFailed||[]).map(row=>
+      '<div class="status-row"><span><strong>事件 #'+esc(row.Id||row.id)+'</strong>'+
+      '<span class="cell-sub">失败次数：'+esc(row.Attempts||row.attempts||0)+' · '+
+      esc(row.LastError||row.last_error||"")+'</span></span>'+
+      '<button class="btn btn-sm" data-action="settings-outbox-retry" data-id="'+esc(row.Id||row.id)+
+      '" data-category="push">重试</button></div>').join("");
+    return pageHeading("设置中心","查看每项设置的实际运行值、来源及用途，保存后按提示重新启动 API。")+
+      '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
+      '<p class="subtitle">邮件、策略和用户推送等设置继续使用原有专用页面，避免重复保存同一项配置。</p>'+
+      '<div class="head-actions" style="margin-top:12px;flex-wrap:wrap">'+links+'</div></section>'+
+      '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">通知任务状态</h2></div>'+
+      '<p class="subtitle">个人推送：'+esc(push.pending||0)+' 条等待处理，'+esc(push.failed||0)+' 条失败；管理员邮件：'+
+      esc(mail.pending||0)+' 条等待处理，'+esc(mail.failed||0)+' 条失败。</p>'+
+      (failure?'<div class="tips">'+failure+'</div>':'')+'</section>'+
+      '<section class="panel" style="margin-bottom:18px"><div class="form-grid">'+
+      '<div class="field"><label for="settings-search">搜索设置</label><input id="settings-search" value="'+esc(state.settingsSearch)+
+      '" placeholder="搜索名称、用途、配置名称或环境变量"></div>'+
+      '<div class="field"><label for="settings-category">设置类别</label><select id="settings-category">'+
+      '<option value="all">全部类别</option>'+categories.map(name=>'<option value="'+esc(name)+'" '+
+      (name===state.settingsCategory?"selected":"")+'>'+esc(name)+'</option>').join("")+
+      '</select></div></div><p class="subtitle">共 '+items.length+' 项配置，当前显示 '+filtered.length+' 项。覆盖设置的值会保存在持久化目录或数据库中。</p></section>'+
+      '<div class="settings-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,390px),1fr));gap:16px">'+show+'</div>'+
+      (history?'<section class="panel" style="margin-top:18px"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div>'+history+'</section>':"");
+  }
   function renderPage(){
     if(state.page==="overview")return overview();
     if(state.page==="contacts")return contacts();
     if(state.page==="shared")return shared();
     if(state.page==="server")return server();
+    if(state.page==="settings")return settingsPage();
     if(state.page==="retention")return retentionPage();
     if(state.page==="mail")return mailPage();
     if(state.page==="notifications")return notificationsPage();
@@ -1313,6 +1403,40 @@
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
     if(a==="refresh"){await load();return;}
+    if(a==="setting-save"||a==="setting-reset"){
+      const item=state.settings?.items?.find(x=>x.key===el.dataset.id);
+      if(!item)return;
+      const reset=a==="setting-reset";
+      const field=document.getElementById("setting-value-"+item.key);
+      const change={key:item.key,enabled:!reset};
+      if(!reset){
+        if(!field)return;
+        if(!item.sensitive||field.value!=="")change.value=field.value;
+        if(item.sensitive&&field.value===""&&!item.override_enabled){
+          toast("请先填写需要保存的敏感设置值",true);return;
+        }
+        if(!window.confirm("保存后需要重新启动 API。确定修改「"+item.name+"」吗？"))return;
+      }
+      const current=state.settings;
+      const payload={bootstrap_version:current.bootstrap_version,
+        database_version:current.database_version,changes:[change]};
+      try{
+        if(!reset)await request("/settings/validate","POST",payload);
+        await request(reset?"/settings/overrides/reset":"/settings/overrides",reset?"POST":"PATCH",payload);
+        toast(reset?"已关闭网页覆盖，重启后恢复原设置":"已保存覆盖设置，重启 API 后生效");
+        await load();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
+    if(a==="settings-outbox-retry"){
+      if(!window.confirm("确定重新处理此通知事件吗？"))return;
+      try{await request("/settings/outbox/retry","POST",
+        {category:el.dataset.category,id:Number(el.dataset.id)});
+        toast("已重新提交事件");await load();
+      }catch(e){toast(e.message,true);}
+      return;
+    }
+
     if(a==="push-new"){state.pushEditing=null;render();return;}
     if(a==="push-edit"){
       const found=state.pushChannels.find(item=>String(item.id)===String(el.dataset.id));
@@ -1927,6 +2051,13 @@
   });
   document.addEventListener("input",event=>{
     const el=event.target;
+    if(el.id==="settings-search"){state.settingsSearch=el.value;
+      document.querySelectorAll("[data-setting-item]").forEach(node=>{
+        const item=state.settings?.items?.find(x=>x.key===node.dataset.settingItem);
+        const text=[item?.key,item?.name,item?.description,item?.environment].join(" ").toLowerCase();
+        node.hidden=!text.includes(el.value.toLowerCase());
+      });
+    }
     if(el.id==="table-search"){
       state.query=el.value;clearTimeout(debounce);
       const p=pages[activeKey()];
@@ -1944,6 +2075,7 @@
   });
   document.addEventListener("change",async event=>{
     const el=event.target;
+    if(el.id==="settings-category"){state.settingsCategory=el.value;render();return;}
     if(el.id==="push-kind"){
       document.querySelectorAll("[data-push-kind]").forEach(item=>{
         item.hidden=item.dataset.pushKind!==el.value;

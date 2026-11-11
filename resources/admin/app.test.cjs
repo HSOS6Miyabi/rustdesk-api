@@ -31,6 +31,21 @@ function createConsole(isAdmin = false, overrides = {}) {
   };
   const fixtures = {
     "/config/admin": { title: "RustDesk" },
+    "/settings/effective": {bootstrap_version:0,database_version:1,items:[
+      {key:"app.register",name:"开放注册",description:"允许新用户注册",category:"常规与登录",
+        environment:"RUSTDESK_API_APP_REGISTER",value_type:"bool",source:"环境变量",
+        current_value:"true",override_enabled:false,bootstrap:false,requires_restart:true,active:true},
+      {key:"jwt.key",name:"JWT 签名密钥",description:"登录令牌签名",category:"令牌",
+        environment:"RUSTDESK_API_JWT_KEY",value_type:"string",source:"环境变量",
+        configured:true,current_value:"",override_enabled:false,bootstrap:true,sensitive:true,requires_restart:true,active:true}
+    ]},
+    "/settings/overview": {summary:{},outbox:{push:{pending:0,failed:0},notification:{pending:0,failed:0}}},
+    "/settings/history": {list:[]},
+    "/settings/outbox": {list:[]},
+    "/settings/validate": {valid:true},
+    "/settings/overrides": {saved:true},
+    "/settings/overrides/reset": {saved:true},
+
     "/user/current": user,
     "/my/group/list": { list: [{ id: 7, name: "个人群组", type: 3, owner_user_id: 12 }], total: 1 },
     "/group/list": { list: [{ id: 1, name: "系统分组", type: 1 }], total: 1 },
@@ -655,4 +670,19 @@ test("device status also appears in shared devices and saved address books",asyn
   await app.open("addressbooks");
   assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span>office/);
   assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span>home-remote/);
+});
+
+test("settings center lists effective sources without revealing secrets", async () => {
+  const user = createConsole(false);
+  await user.settle();await user.settle();
+  assert.doesNotMatch(user.root.innerHTML, /设置中心<\/button>/);
+  const admin = createConsole(true);
+  await admin.settle();await admin.settle();
+  await admin.open("settings");
+  assert.match(admin.root.innerHTML, /设置中心/);
+  assert.match(admin.root.innerHTML, /开放注册/);
+  assert.match(admin.root.innerHTML, /RUSTDESK_API_APP_REGISTER/);
+  assert.match(admin.root.innerHTML, /环境变量/);
+  assert.match(admin.root.innerHTML, /已配置（隐藏具体内容）/);
+  assert.ok(admin.calls.some(call=>call.endpoint==="/settings/effective"));
 });
