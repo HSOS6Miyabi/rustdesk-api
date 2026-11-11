@@ -725,18 +725,21 @@
       return '<td data-column="'+esc(key)+'" class="'+(longText?"cell-multiline ":"")+
         (i===0?"cell-primary":"")+'" title="'+esc(title)+'"><span class="'+
         (i===0?"cell-title":"")+'">'+colValue(row[key],key,row)+'</span></td>';
-    }).join("")+(hasActions?'<td class="cell-actions">'+actions[index]+'</td>':"")+'</tr>').join("");
+    }).join("")+(hasActions?'<td class="cell-actions"><div class="cell-action-list">'+actions[index]+'</div></td>':"")+'</tr>').join("");
     const mobile=rows.map((row,index)=>'<article class="mobile-item"><div class="mobile-title">'+
       colValue(row[cols[0][0]],cols[0][0],row)+'</div><dl>'+cols.slice(1).map(([key,label])=>
       '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
       '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
       '</article>').join("");
+    const mobileSort='<div class="mobile-sort"><label for="mobile-sort-column">按列排序</label><select id="mobile-sort-column" aria-label="排序字段">'+
+      cols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||cols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
+      '</select><button type="button" class="btn btn-sm" data-action="mobile-sort-dir">'+(state.sort[state.page]?.dir===-1?"降序 ▼":"升序 ▲")+'</button></div>';
     const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对当前页记录排序。</p>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
       '表格，可左右滚动查看" tabindex="0"><table class="data-table" style="--table-min-width:'+
       totalWidth+'px">'+colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
       '</tr></thead><tbody>'+trs+'</tbody></table></div>'+hint+
-      '<div class="mobile-list">'+mobile+'</div>';
+      mobileSort+'<div class="mobile-list">'+mobile+'</div>';
   }
   function pagination(){
     const pagesCount=Math.max(1,Math.ceil(state.total/state.pageSize));
@@ -786,7 +789,7 @@
     return pageHeading("联系人","添加联系人即表示向对方开放您名下的所有设备，对方无须确认。",
       '<button class="btn" data-action="contact-batch-add">批量添加联系人</button>'+
       '<button class="btn" data-action="contact-batch-remove">批量撤销共享</button>')+
-      '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">我向谁共享设备</h2><p class="panel-sub">只有您主动添加的人才能通过联系人关系查看您的设备</p></div></div><div class="tips">'+accountRows(v.outgoing||[],true)+'</div><form id="contact-form" class="table-toolbar" style="gap:10px"><div class="field" style="flex:1 1 230px;min-width:0"><label>搜索并选择用户</label>'+pickerField("user_id","",true,{})+'<button type="submit" class="btn btn-primary">'+icon("plus",16)+'添加联系人</button></form></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">向我共享设备的人</h2><p class="panel-sub">这些用户已主动向您开放他们的设备</p></div></div><div class="tips">'+accountRows(v.incoming||[],false)+'</div></section></div>';
+      '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">我向谁共享设备</h2><p class="panel-sub">只有您主动添加的人才能通过联系人关系查看您的设备</p></div></div><div class="tips">'+accountRows(v.outgoing||[],true)+'</div><form id="contact-form" class="table-toolbar" style="gap:10px"><div class="field" style="flex:1 1 230px;min-width:0"><label>搜索并选择用户</label>'+pickerField("user_id","",true,{})+'</div><button type="submit" class="btn btn-primary">'+icon("plus",16)+'添加联系人</button></form></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">向我共享设备的人</h2><p class="panel-sub">这些用户已主动向您开放他们的设备</p></div></div><div class="tips">'+accountRows(v.incoming||[],false)+'</div></section></div>';
   }
   function shared(){
     const groups=(state.groups||[]);
@@ -1399,7 +1402,7 @@
     }
     if(m.kind==="csv"){
       const importing=m.operation==="import";
-      const ownerInput=state.isAdmin?'<div class="field"><label for="csv-owner">所属账户 ID</label>'+
+      const ownerInput=state.isAdmin?'<div class="field"><label>所属账户</label>'+
         pickerField("user_id",state.user?.id||1,true,{},"csv-owner")+
         '<small>管理员可以指定需要管理的用户账户。</small></div>':"";
       const upload=importing?'<div class="field"><label for="csv-file">选择 UTF-8 CSV 文件</label>'+
@@ -1484,7 +1487,7 @@
       const body='<div class="form-grid">'+
         '<div class="field full"><label for="rules-batch-collection">地址簿编号</label>'+
         '<input type="number" id="rules-batch-collection" min="1" step="1" required></div>'+
-        '<div class="field full"><label for="rules-batch-users">目标用户编号（最多 100 位）</label>'+
+        '<div class="field full"><label>搜索并选择目标用户（最多 100 位）</label>'+
         multiPicker("rules-batch-users")+'</div>'+
         (revoke?"":'<div class="field full"><label for="rules-batch-level">共享权限</label>'+
         '<select id="rules-batch-level"><option value="1">只读</option>'+
@@ -1507,7 +1510,7 @@
     }
     if(m.kind==="contact-batch"){
       const remove=m.action==="remove";
-      const body='<div class="field"><label for="contact-batch-ids">联系人账户编号</label>'+
+      const body='<div class="field"><label>搜索并选择联系人</label>'+
         multiPicker("contact-batch-ids")+
         '<small>每次最多处理 100 位用户，编号可通过用户列表或现有联系人查看。所有共享关系均属于当前账户。</small></div>';
       return modal(remove?"批量撤销联系人共享":"批量添加联系人",
@@ -1528,7 +1531,7 @@
     if(m.kind==="transfer-device"){
       const body='<form id="device-transfer-form"><div class="form-grid">'+
         '<div class="field full"><label>设备 ID</label><div class="device-status-inline">'+deviceStatusDot(m.device.id)+'<input readonly value="'+esc(m.device.id)+'"></div></div>'+
-        '<div class="field full"><label for="transfer-user-id">新所有者的用户编号 <span class="required">*</span></label>'+
+        '<div class="field full"><label>新所有者的用户编号 <span class="required">*</span></label>'+
         pickerField("user_id",m.device.user_id||"",true,m.device,"transfer-user-id")+
         '<small>仅允许将设备转移给当前账户有权管理的用户。</small></div></div></form>';
       return modal("转移设备所有者","设备登记记录将同步更新。",body,
@@ -1543,7 +1546,7 @@
       const anchor=m.kind==="anchors";
       const rows=(m.users||[]).map(u=>'<label class="status-row" style="cursor:pointer"><span><strong>'+esc(u.nickname||u.username)+'</strong><span class="cell-sub">@'+esc(u.username)+' · ID '+esc(u.id)+'</span></span><input style="width:18px;height:18px;accent-color:var(--main)" type="checkbox" name="selected" value="'+esc(u.id)+'" '+(m.selected.has(u.id)?"checked":"")+'></label>').join("");
       const personalHint=m.personal?'<div class="field" style="margin-top:18px"><label for="lookup-username">通过用户名添加成员</label><div style="display:flex;gap:9px"><input id="lookup-username" placeholder="输入完整用户名" autocomplete="off"><button class="btn" type="button" data-action="lookup-user">查找并选中</button></div><small>请输入准确的用户名，系统不会公开其他群组的成员列表。</small></div>':"";
-      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的成员，包括管理员。":"当前成员已经勾选。取消勾选可以移除成员，添加新用户后保存即可一次修改多人。")+'</p>'+personalHint+'<div class="field" style="margin-top:20px"><label for="user-filter">筛选已显示的用户</label><input id="user-filter" placeholder="输入用户名或编号"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>补充用户 ID（逗号分隔，可选）</label>'+multiPicker("manual_ids")+'</div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
+      const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的成员，包括管理员。":"当前成员已经勾选。取消勾选可以移除成员，添加新用户后保存即可一次修改多人。")+'</p>'+personalHint+'<div class="field" style="margin-top:20px"><label for="user-filter">筛选已显示的用户</label><input id="user-filter" placeholder="输入用户名或编号"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>搜索并添加用户</label>'+multiPicker("manual_ids")+'</div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
       const footer='<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" data-action="member-replace">'+(anchor?"保存公共成员":"保存群组成员")+'</button>';
       return modal(anchor?"设置公共成员":"批量管理成员",m.group.name,details,footer);
     }
@@ -1797,6 +1800,11 @@
       const section=el.dataset.section;
       state.navCollapsed[section]=!state.navCollapsed[section];
       localStorage.setItem("rustdesk.console.nav-collapsed",JSON.stringify(state.navCollapsed));
+      render();return;
+    }
+    if(a==="mobile-sort-dir"){
+      const order=state.sort[state.page]||{};
+      state.sort[state.page]={key:order.key||pages[activeKey()]?.columns?.[0]?.[0],dir:order.dir===-1?1:-1};
       render();return;
     }
     if(a==="sort-table"){
@@ -2509,6 +2517,10 @@
         picker.querySelector(".picker-results").hidden=true;
         picker.querySelector(".picker-selection").textContent=kind==="all"?"适用于全部对象":"请搜索并选择"+(lookupLabels[kind]||"对象");
       });
+    }
+    if(el.id==="mobile-sort-column"){
+      state.sort[state.page]={key:el.value,dir:1};
+      render();return;
     }
     if(el.id==="settings-category"){state.settingsCategory=el.value;render();return;}
     if(el.id==="push-kind"){
