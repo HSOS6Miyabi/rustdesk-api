@@ -51,6 +51,30 @@ function serve(req, res) {
     ]});
     if(route==="/mfa/disable"||route==="/mfa/recovery/regenerate")return answer(res,{recovery_codes:[]});
     if(route==="/config/admin")return answer(res, {title:"RustDesk 浏览器测试"});
+    if(route==="/settings/effective")return answer(res,{
+      bootstrap_version:0,database_version:1,items:[
+        {key:"app.register",name:"开放注册",description:"允许新用户自行注册",
+          category:"账户与安全",environment:"RUSTDESK_API_APP_REGISTER",
+          value_type:"bool",current_value:"true",source:"环境变量",
+          override_enabled:false,bootstrap:false,active:true,requires_restart:true},
+        {key:"jwt.key",name:"JWT 签名密钥",description:"签名登录令牌",
+          category:"令牌",environment:"RUSTDESK_API_JWT_KEY",
+          value_type:"string",sensitive:true,configured:true,current_value:"",
+          source:"环境变量",override_enabled:false,bootstrap:true,active:true,requires_restart:true},
+        {key:"gorm.max-open-conns",name:"数据库最大连接数",description:"数据库连接池的连接上限",
+          category:"数据库",environment:"RUSTDESK_API_GORM_MAX_OPEN_CONNS",
+          value_type:"int",current_value:"4",source:"配置文件",
+          override_enabled:false,bootstrap:true,active:true,requires_restart:true}
+      ]
+    });
+    if(route==="/settings/overview")return answer(res,{
+      summary:{push_channels:1},outbox:{push:{pending:0,failed:1},notification:{pending:0,failed:0}}
+    });
+    if(route==="/settings/history")return answer(res,{list:[]});
+    if(route==="/settings/outbox")return answer(res,{list:[]});
+    if(route==="/settings/validate")return answer(res,{valid:true});
+    if(route==="/settings/overrides"||route==="/settings/overrides/reset")return answer(res,{saved:true});
+
     if(route==="/password/forgot"||route==="/password/reset")return answer(res,{});
     if(route==="/user/current")return answer(res, {
       username:isAdmin?"admin":"owner",nickname:isAdmin?"Administrator":"Owner",
@@ -965,4 +989,46 @@ test("online and offline dots appear beside devices on desktop and mobile",async
     }));
     assert.ok(size.scroll<=size.width+2,"presence dots must not overflow the phone");
   } finally {await regular.context.close();}
+});
+
+test("settings center: administrator can inspect and save overrides on desktop", async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    page.on("dialog",dialog=>dialog.accept());
+    await page.locator('nav.side-scroll button[data-view="settings"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
+    assert.match(await page.locator(".content").innerText(),/环境变量/);
+    assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
+    assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
+    assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
+    await page.locator('[id="setting-value-app.register"]').selectOption("false");
+    const saved=page.waitForRequest(req=>req.url().endsWith("/api/admin/settings/overrides")&&req.method()==="PATCH");
+    await page.locator('button[data-action="setting-save"][data-id="app.register"]').click();
+    const payload=(await saved).postDataJSON();
+    assert.equal(payload.changes[0].key,"app.register");
+    assert.equal(payload.changes[0].value,"false");
+    assert.equal(payload.database_version,1);
+    await page.getByText(/已保存覆盖设置/).waitFor();
+    fs.mkdirSync(path.join(__dirname,"test-screenshots"),{recursive:true});
+    await page.screenshot({path:path.join(__dirname,"test-screenshots","settings-desktop.png"),fullPage:true});
+  }finally{await context.close();}
+});
+
+test("settings center: mobile and tablet navigation do not overflow",async()=>{
+  for(const [width,height,label] of [[375,812,"mobile"],[768,1024,"tablet"]]){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator("aside.sidebar.open").waitFor();
+      await page.locator('nav.side-scroll button[data-view="settings"]').click();
+      await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
+      const dims=await page.evaluate(()=>({document:document.documentElement.scrollWidth,viewport:innerWidth}));
+      assert.ok(dims.document<=dims.viewport+2, label+" settings overflow: "+JSON.stringify(dims));
+      const card=await page.locator('[data-setting-item="app.register"]').boundingBox();
+      assert.ok(card&&card.width<=width+2,label+" settings card exceeds viewport");
+      fs.mkdirSync(path.join(__dirname,"test-screenshots"),{recursive:true});
+      await page.screenshot({path:path.join(__dirname,"test-screenshots","settings-"+label+".png"),fullPage:true});
+    }finally{await context.close();}
+  }
 });

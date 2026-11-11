@@ -26,3 +26,10 @@
 .device-status-dot.unknown{background:#9ca3af}
 .device-status-inline{display:flex;align-items:center;gap:8px}
 .device-status-inline input{flex:1;min-width:0}
+
+/* Settings are displayed in a responsive card collection. */
+.settings-grid .panel{min-width:0;overflow-wrap:anywhere}
+.settings-grid .panel code{white-space:normal;overflow-wrap:anywhere}
+.settings-grid .panel .status-row{gap:8px;flex-wrap:wrap}
+.settings-grid .panel .head-actions{flex-wrap:wrap}
+.settings-grid .panel input,.settings-grid .panel select{min-width:0;max-width:100%}
