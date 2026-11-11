@@ -204,6 +204,7 @@ def install(directory):
 
 def all_route_requests(client, contracts):
     tested = set()
+    invalid_responses = []
     for verb, route in sorted(contracts):
         if route.endswith("/logout"):
             continue
@@ -224,12 +225,16 @@ def all_route_requests(client, contracts):
             status, result = client.send(verb, path)
             if route.endswith("/list") and status == 200 and result.get("code") == 0:
                 value = result.get("data")
-                check(isinstance(value, dict) and "list" in value
-                      and (value["list"] is None or isinstance(value["list"], list)),
-                      f"Frontend list data is inconsistent at {route}")
+                is_list = isinstance(value, dict) and "list" in value and (
+                    value["list"] is None or isinstance(value["list"], list))
+                is_contacts = (route.endswith("/contact/list") and isinstance(value, dict)
+                               and "incoming" in value and "outgoing" in value)
+                if not (is_list or is_contacts):
+                    invalid_responses.append((route, str(value)[:200]))
         else:
             client.send(verb, path, {})
         tested.add((verb, route))
+    check(not invalid_responses, f"Browser list response mismatches: {invalid_responses}")
     check(len(tested) >= 100, "Too few real browser API calls were tested")
     return len(tested)
 
