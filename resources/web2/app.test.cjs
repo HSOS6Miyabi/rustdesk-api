@@ -122,7 +122,7 @@ test("WebClient v2 loads its own server settings and shared device list",async()
   const dot=shared.children[0].children[0].children[0];
   assert.equal(dot.className,"device-status-dot online");
   assert.equal(dot.attributes["aria-label"],"在线");
-  app.elements.get("shared-items").children[0].listeners.click();
+  app.elements.get("shared-items").children[0].children[1].listeners.click();
   assert.equal(app.elements.get("v2-id").value,"123456789");
 });
 
@@ -196,4 +196,15 @@ test("WebClient v2 supports both page and display fullscreen with exit controls"
   await screen.listeners.click();
   assert.equal(app.document.fullscreenElement,null);
   assert.equal(screen.attributes["aria-pressed"],"false");
+});
+
+test("Shared device names and owner names link to the corresponding control-console details",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const device=app.elements.get("shared-items").children[0];
+  const details=device.children[0].children[0];
+  const owner=device.children[0].children[1].children[1];
+  assert.match(details.href,/entity=device&value=123456789/);
+  assert.match(owner.href,/entity=user&value=alice/);
+  assert.equal(device.children[1].textContent,"选中连接");
 });

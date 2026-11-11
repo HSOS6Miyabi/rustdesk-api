@@ -106,9 +106,12 @@
         }
       }
       for(const item of devices){
-        const btn=document.createElement("button");btn.type="button";btn.className="device";
-        const left=document.createElement("span");
-        const title=document.createElement("strong");
+        const card=document.createElement("div");card.className="device";
+        const left=document.createElement("span");left.className="device-description";
+        const title=document.createElement("a");
+        title.href="/_admin/#/overview?entity=device&value="+encodeURIComponent(item.id||"");
+        title.title="查看设备信息";
+        title.className="device-details-link";
         const dot=document.createElement("span");
         const online=statuses[item.id];
         dot.className="device-status-dot "+(online===true?"online":online===false?"offline":"unknown");
@@ -118,12 +121,21 @@
         title.append(dot,document.createTextNode(item.alias||item.hostname||item.id||"未命名设备"));
         const sub=document.createElement("small");
         const sources=(item.sources||[]).map(x=>(x.type==="contact"?"联系人":"群组")+"："+x.name).join(" · ");
-        sub.textContent=(item.id||"")+" · "+(item.owner_username||"")+" · "+sources;
+        sub.append(document.createTextNode((item.id||"")+" · "));
+        if(item.owner_username){
+          const owner=document.createElement("a");
+          owner.href="/_admin/#/overview?entity=user&value="+encodeURIComponent(item.owner_username);
+          owner.textContent=item.owner_username;
+          owner.title="查看所属用户信息";
+          sub.append(owner);
+        }
+        if(sources)sub.append(document.createTextNode(" · "+sources));
         left.append(title,sub);
-        const arrow=document.createElement("span");arrow.className="arrow";arrow.textContent="›";
-        btn.append(left,arrow);
-        btn.addEventListener("click",()=>useDevice(item.id));
-        list.append(btn);
+        const connect=document.createElement("button");connect.type="button";connect.className="device-connect";
+        connect.textContent="选中连接";connect.setAttribute("aria-label","选择设备 "+String(item.id||""));
+        connect.addEventListener("click",()=>useDevice(item.id));
+        card.append(left,connect);
+        list.append(card);
       }
     }catch(e){state.token="";sessionStorage.removeItem("rustdesk.console.token");login.hidden=false;info.textContent="读取共享设备失败："+e.message;}
   }

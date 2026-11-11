@@ -539,8 +539,11 @@
     if(returnToWebClient())return;
     const hash=location.hash.replace(/^#\/?/,"").split("?")[0];
     state.page=hash==="devices"&&!available(hash)?"mydevices":available(hash)?hash:"overview";
-    state.query=new URLSearchParams((location.hash.split("?")[1]||"")).get("search")||"";
+    const routeParams=new URLSearchParams((location.hash.split("?")[1]||""));
+    state.query=routeParams.get("search")||"";
     render();await load();
+    const entityType=routeParams.get("entity"),entityID=routeParams.get("value");
+    if(["device","user"].includes(entityType)&&entityID)await openEntityDetail(entityType,entityID,entityID);
   }
   async function getOptions(){
     try{state.options=await request("/login-options");}catch{state.options={ops:[]};}
@@ -1373,7 +1376,7 @@
           [item.name,item.nickname||item.username,item.email].filter(Boolean).join(" · ");
         return '<div role="option" class="picker-result-row"><button type="button" class="picker-result" data-action="picker-select" data-id="'+esc(id)+'" data-username="'+esc(item.username||"")+'" data-title="'+esc(name)+'">'+
           '<strong>'+(kind==="device"?deviceStatusDot(id):"")+esc(id)+'</strong><span>'+esc(name||"")+'</span></button>'+
-          '<button type="button" class="picker-result-detail" data-action="entity-detail" data-entity-type="'+(kind==="device"?"device":"user")+'" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(name||id)+'">查看信息</button></div>';
+          (["user","device"].includes(kind)?'<button type="button" class="picker-result-detail" data-action="entity-detail" data-entity-type="'+kind+'" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(name||id)+'">查看信息</button>':"")+'</div>';
       }).join(""):'<p class="picker-empty">没有找到匹配项，请尝试其他关键词。</p>';
     }catch(err){
       if(!picker.isConnected||Number(picker.dataset.sequence)!==sequence)return;
@@ -2675,7 +2678,13 @@
     }
     if(!state.user)return;
     const viewName=hash.replace(/^#\/?/,"").split("?")[0];
-    if(available(viewName)&&state.page!==viewName)view(viewName);
+    if(available(viewName)&&state.page!==viewName){view(viewName);return;}
+    const params=new URLSearchParams(hash.split("?")[1]||"");
+    const type=params.get("entity"),id=params.get("value");
+    if(["device","user"].includes(type)&&id&&
+      !(state.modal?.kind==="entity"&&state.modal.entityType===type&&state.modal.entityId===id)){
+      openEntityDetail(type,id,id);
+    }
   });
   bootstrap().catch(e=>{toast(e.message,true);render();});
 })();

@@ -25,3 +25,12 @@ body.webclient-page-fullscreen{overflow:hidden}
 .webclient-page-fullscreen .engine #player,.stage:fullscreen .engine #player{max-height:calc(100dvh - 145px);max-width:100%;width:auto;height:auto;object-fit:contain}
 .webclient-page-fullscreen .stage-footer,.stage:fullscreen .stage-footer{color:#bed0e0}
 @media(max-width:680px){.stage-header{flex-wrap:wrap}.stage-controls{width:100%;justify-content:flex-end}.stage-controls .secondary{font-size:11px;padding:8px 10px}.webclient-page-fullscreen .stage,.stage:fullscreen{padding:10px}.webclient-page-fullscreen .engine #player,.stage:fullscreen .engine #player{max-height:calc(100dvh - 185px)}}
+
+/* Shared-device identifiers open their details; the separate action selects a connection. */
+.device-description{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.device-details-link{display:inline-flex;align-items:center;gap:4px;max-width:100%;font-size:12px;font-weight:700;color:#1a508e;text-decoration:none;overflow-wrap:anywhere}
+.device-details-link:hover,.device-details-link:focus-visible,.device-description small a:hover{text-decoration:underline;text-underline-offset:3px}
+.device-description small a{color:#2766d5;font-weight:650}
+.device-connect{flex:0 0 auto;align-self:center;border:1px solid #aec8ec;border-radius:9px;background:#e9f2ff;color:#174f94;padding:9px 12px;font-size:11px;font-weight:700;min-height:38px}
+.device-connect:hover{background:#d7e8ff}
+@media(max-width:400px){.device-connect{padding:8px}.device{gap:8px}}
