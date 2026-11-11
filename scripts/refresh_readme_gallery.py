@@ -21,7 +21,7 @@ DESTINATION.mkdir(parents=True,exist_ok=True)
 for original,renamed in IMAGES.items():
     image=SOURCE/original
     data=image.read_bytes()
-    if data[:8]!=b"\\x89PNG\\r\\n\\x1a\\n" or len(data)<10000:
+    if data[:8]!=b"\x89PNG\r\n\x1a\n" or len(data)<10000:
         raise RuntimeError(f"Invalid screenshot: {image}")
     w,h=struct.unpack(">II",data[16:24])
     if w<300 or h<500:

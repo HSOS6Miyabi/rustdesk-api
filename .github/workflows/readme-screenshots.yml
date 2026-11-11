@@ -25,6 +25,8 @@ jobs:
         run: |
           npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
           resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Check screenshot preparation script
+        run: python3 -m py_compile scripts/refresh_readme_gallery.py
       - name: Generate screenshots from actual web console
         run: node --test resources/admin/browser.e2e.cjs
       - name: Copy selected screenshots into the documentation

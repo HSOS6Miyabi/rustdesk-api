@@ -1067,7 +1067,7 @@ test("README gallery captures current administration pages at desktop and mobile
   fs.mkdirSync(folder,{recursive:true});
   try{
     for(const [section,title,filename] of [
-      ["overview","概览","overview-preview-desktop.png"],
+      ["overview","控制台概览","overview-preview-desktop.png"],
       ["devices","设备管理","devices-preview-desktop.png"],
       ["settings","设置中心","settings-preview-desktop.png"],
     ]){
