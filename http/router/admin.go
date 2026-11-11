@@ -26,6 +26,7 @@ func Init(g *gin.Engine) {
 	ConfigBind(adg)
 
 	adg.Use(middleware.BackendUserAuth(),middleware.RecordOperations())
+	adg.POST("/logout", (&admin.Login{}).Logout)
 	//FileBind(adg)
 	UserBind(adg)
 	TOTPBind(adg)
@@ -91,7 +92,6 @@ func LoginBind(rg *gin.RouterGroup) {
 	rg.POST("/password/reset", (&admin.PasswordRecovery{}).Complete)
 	rg.POST("/invite/accept", (&admin.Invitation{}).Accept)
 	rg.GET("/captcha", cont.Captcha)
-	rg.POST("/logout", cont.Logout)
 	rg.GET("/login-options", cont.LoginOptions)
 	rg.POST("/oidc/auth", cont.OidcAuth)
 	rg.GET("/oidc/auth-query", cont.OidcAuthQuery)
