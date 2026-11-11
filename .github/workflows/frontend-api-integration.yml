@@ -10,7 +10,7 @@ on:
       - 'resources/web2/**'
       - 'http/**'
       - 'service/**'
-      - 'scripts/frontend_api_audit.py'
+      - 'scripts/test_frontend_api_contract.py'
       - '.github/workflows/frontend-api-integration.yml'
   workflow_dispatch:
 

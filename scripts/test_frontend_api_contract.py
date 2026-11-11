@@ -262,9 +262,83 @@ def check_real_changes(admin):
     rows = user.success("GET", "/my/peer/list?keyword=" + device_id + "&page=1&page_size=30")["list"]
     check(any(row["alias"] == "Personal update" and row["note"] == "Owner note" for row in rows),
           "Personal device editing did not persist")
+    collection_name = "Contract collection " + secrets.token_hex(3)
+    user.success("POST", "/my/address_book_collection/create", {"name": collection_name})
+    collections = user.success("GET", "/my/address_book_collection/list?page=1&page_size=100")["list"]
+    collection_id = next(row["id"] for row in collections if row["name"] == collection_name)
+    user.success("POST", "/my/address_book_collection/update", {
+        "id": collection_id, "name": "Renamed collection", "user_id": 999999,
+    })
+    collections = user.success("GET", "/my/address_book_collection/list?page=1&page_size=100")["list"]
+    changed = next(row for row in collections if row["id"] == collection_id)
+    check(changed["name"] == "Renamed collection" and changed["user_id"] == user_id,
+          "A personal collection changed its owner or failed to update")
+
+    entry_id = "book-" + secrets.token_hex(4)
+    user.success("POST", "/my/address_book/create", {
+        "id": entry_id, "alias": "Original alias", "hostname": "Original host",
+        "collection_id": collection_id, "hash": "keep-original-hash", "tags": ["keep-tag"],
+    })
+    address_books = user.success("GET", "/my/address_book/list?page=1&page_size=100")["list"]
+    entry = next(row for row in address_books if row["id"] == entry_id)
+    user.success("POST", "/my/address_book/update", {
+        "row_id": entry["row_id"], "id": entry_id, "alias": "Updated alias",
+        "hostname": "Updated host", "collection_id": collection_id,
+    })
+    address_books = user.success("GET", "/my/address_book/list?page=1&page_size=100")["list"]
+    entry = next(row for row in address_books if row["id"] == entry_id)
+    check(entry["alias"] == "Updated alias" and entry["hash"] == "keep-original-hash"
+          and entry["user_id"] == user_id and "keep-tag" in json.dumps(entry.get("tags")),
+          "Personal address book edits erased fields or changed the owner")
+
+    user.success("POST", "/my/address_book_collection_rule/create", {
+        "collection_id": collection_id, "type": 3, "to_id": 0, "rule": 1,
+    })
+    rules = user.success("GET", "/my/address_book_collection_rule/list?page=1&page_size=100")["list"]
+    rule_id = next(row["id"] for row in rules if row["collection_id"] == collection_id)
+    user.success("POST", "/my/address_book_collection_rule/update", {
+        "id": rule_id, "collection_id": collection_id, "type": 3, "to_id": 0,
+        "rule": 2, "user_id": 999999,
+    })
+    rules = user.success("GET", "/my/address_book_collection_rule/list?page=1&page_size=100")["list"]
+    check(any(row["id"] == rule_id and row["rule"] == 2 and row["user_id"] == user_id for row in rules),
+          "Personal address book rule edit failed or reassigned its owner")
+
+    tag_name = "Contract label " + secrets.token_hex(3)
+    user.success("POST", "/my/tag/create", {"name": tag_name, "color": 4282744575,
+                                              "collection_id": collection_id})
+    tags = user.success("GET", "/my/tag/list?page=1&page_size=100")["list"]
+    tag_id = next(row["id"] for row in tags if row["name"] == tag_name)
+    user.success("POST", "/my/tag/update", {
+        "id": tag_id, "name": "Updated label", "color": 4282744575,
+        "collection_id": collection_id,
+    })
+    tags = user.success("GET", "/my/tag/list?page=1&page_size=100")["list"]
+    check(any(row["id"] == tag_id and row["name"] == "Updated label"
+              and row["user_id"] == user_id for row in tags),
+          "Personal tag editing failed or changed its owner")
+
     _, denied = user.send("POST", "/user/create", {"username": "denied", "password": "denied"})
     check(denied.get("code") != 0, "An ordinary user could manage administrator accounts")
-    return user.count
+    other_name = "contract_other_" + secrets.token_hex(3)
+    other_password = "Other-" + secrets.token_hex(8)
+    admin.success("POST", "/user/create", {
+        "username": other_name, "password": other_password, "group_id": 1,
+        "is_admin": False, "status": 1,
+    })
+    stranger = Client(admin.url)
+    stranger.token = stranger.success("POST", "/login", {
+        "username": other_name, "password": other_password, "platform": "web",
+    })["token"]
+    _, denied = stranger.send("POST", "/my/address_book/update", {
+        "row_id": entry["row_id"], "id": entry_id, "alias": "Unauthorized edit",
+    })
+    check(denied.get("code") != 0, "Another account can modify a private address book")
+    _, denied = stranger.send("POST", "/my/address_book_collection/update", {
+        "id": collection_id, "name": "Unauthorized rename",
+    })
+    check(denied.get("code") != 0, "Another account can modify a private collection")
+    return user.count + stranger.count
 
 
 def main():
