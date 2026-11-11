@@ -985,7 +985,7 @@ test("online and offline dots appear beside devices on desktop and mobile",async
   const regular=await pageForViewport(375,812,false);
   try {
     await regular.page.locator('button[data-action="mobile-open"]').click();
-    await regular.page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await regular.page.locator('nav.side-scroll button[data-view="mydevices"]').click();
     await regular.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
     const list=regular.page.locator(".mobile-item");
     await list.first().waitFor();
@@ -1484,3 +1484,74 @@ test("responsive data tables keep columns readable across screen sizes",async()=
   console.log("Verified "+report.length+" responsive table screenshots.");
 });
 }
+
+test("navigation groups remain stable while opening lower items",async()=>{
+  const {context,page}=await pageForViewport(1440,850,true);
+  try{
+    const sidebar=page.locator(".side-scroll");
+    const headings=await page.locator(".side-section-toggle").allTextContents();
+    assert.ok(headings.includes("设备管理"));
+    assert.ok(headings.includes("审计管理"));
+    await page.locator('button[data-section="系统管理"]').click();
+    assert.equal(await page.locator('button[data-section="系统管理"]').getAttribute("aria-expanded"),"false");
+    await page.locator('button[data-section="系统管理"]').click();
+    await sidebar.evaluate(node=>node.scrollTop=node.scrollHeight);
+    const before=await sidebar.evaluate(node=>node.scrollTop);
+    await page.locator('nav button[data-view="settings"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    const after=await sidebar.evaluate(node=>node.scrollTop);
+    assert.ok(after>before-65,"navigation scroll must remain at the selected lower section");
+  }finally{await context.close();}
+});
+
+test("device inventories have separate owner and administration navigation",async()=>{
+  const owner=await pageForViewport(1360,850,false);
+  const administrator=await pageForViewport(1360,850,true);
+  try{
+    assert.equal(await owner.page.locator('nav button[data-view="devices"]').count(),0);
+    assert.equal(await owner.page.locator('nav button[data-view="mydevices"]').count(),1);
+    assert.equal(await administrator.page.locator('nav button[data-view="devices"]').count(),1);
+    assert.equal(await administrator.page.locator('nav button[data-view="mydevices"]').count(),1);
+    await owner.page.locator('nav button[data-view="mydevices"]').click();
+    await owner.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的设备");
+  }finally{await owner.context.close();await administrator.context.close();}
+});
+
+test("administrator group editing sends update endpoint and table headings sort",async()=>{
+  const {context,page}=await pageForViewport(1360,850,true);
+  try{
+    await page.locator('nav button[data-view="groups"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户分组");
+    const heading=page.locator('button[data-action="sort-table"][data-column="name"]');
+    await heading.click();
+    assert.equal(await page.locator('th[data-column="name"]').getAttribute("aria-sort"),"ascending");
+    await heading.click();
+    assert.equal(await page.locator('th[data-column="name"]').getAttribute("aria-sort"),"descending");
+    await page.locator('button[data-action="edit"]').first().click();
+    const form=page.locator("#edit-form");
+    await form.waitFor({state:"visible"});
+    await form.locator('[name="name"]').fill("更新后的分组");
+    let requestPath="";
+    await page.route("**/api/admin/group/update",async route=>{
+      requestPath=new URL(route.request().url()).pathname;
+      await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({code:0,data:{}})});
+    });
+    await page.locator('[type="submit"][form="edit-form"]').click();
+    await page.waitForTimeout(300);
+    assert.equal(requestPath,"/api/admin/group/update");
+  }finally{await context.close();}
+});
+
+test("interactive server management presents form explanations",async()=>{
+  const {context,page}=await pageForViewport(1360,850,true);
+  try{
+    await page.locator('nav button[data-view="server"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
+    await page.locator('button[data-id="id-block-add"]').click();
+    const form=page.locator("#command-form");
+    assert.equal(await form.locator('[name="option"]').count(),1);
+    await form.locator('[name="option"]').fill("invalid-ip");
+    await form.locator('button[type="submit"]').click();
+    assert.match(await page.locator(".toast-wrap").innerText(),/有效的 IPv4 或 IPv6/);
+  }finally{await context.close();}
+});

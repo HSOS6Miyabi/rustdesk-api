@@ -1681,7 +1681,7 @@
 
   function isValidIP(value){
     const ip=String(value||"").trim();
-    if(/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(ip))return ip.split(".").every(part=>Number(part)<=255);
+    if(/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip))return ip.split(".").every(part=>Number(part)<=255);
     return /^[0-9a-fA-F:]+$/.test(ip)&&ip.includes(":")&&ip.length<=45&&!ip.includes(":::")&&ip.split(":").filter(Boolean).every(part=>part.length<=4);
   }
   async function sendCommand(form){
@@ -1705,7 +1705,7 @@
       option=String(num);
     }else if(cmd.mode==="servers"){
       const entries=value.split(",").map(x=>x.trim()).filter(Boolean);
-      if(!entries.length||entries.length>32||entries.some(x=>!/^[a-zA-Z0-9._:\\[\\]-]+$/.test(x))){
+      if(!entries.length||entries.length>32||entries.some(x=>!/^[a-zA-Z0-9._:\[\]-]+$/.test(x))){
         toast("请使用英文逗号分隔有效的服务器地址，最多 32 个",true);return;
       }
       option=entries.join(",");

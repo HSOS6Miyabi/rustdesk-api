@@ -20,7 +20,7 @@ function storage(initial = {}) {
 function createConsole(isAdmin = false, overrides = {}) {
   const calls = [];
   const events = {};
-  const root = { innerHTML: "" };
+  const root = { innerHTML: "",querySelector(){return null;} };
   const assigned = [];
   const browserLocation = { hash: "#/overview", assign(url) {assigned.push(url);} };
   const user = {
@@ -702,4 +702,48 @@ test("settings center shows specialized effective values and key change warnings
   assert.match(app.root.innerHTML,/连接日志 90 天/);
   assert.match(app.root.innerHTML,/更换通信密钥前/);
   assert.match(app.root.innerHTML,/切换数据库前/);
+});
+
+test("separates owned devices and administrator device inventory",async()=>{
+  const ordinary=createConsole(false);
+  await ordinary.settle();await ordinary.settle();
+  assert.match(ordinary.root.innerHTML,/data-view="mydevices"/);
+  assert.doesNotMatch(ordinary.root.innerHTML,/data-view="devices"/);
+  await ordinary.open("mydevices");
+  assert.ok(ordinary.calls.some(x=>x.endpoint==="/my/peer/list"));
+  const admin=createConsole(true);
+  await admin.settle();await admin.settle();
+  assert.match(admin.root.innerHTML,/data-view="mydevices"/);
+  assert.match(admin.root.innerHTML,/data-view="devices"/);
+  await admin.open("devices");
+  assert.ok(admin.calls.some(x=>x.endpoint==="/peer/list"));
+});
+
+test("all data table columns have sorting controls and proper action gaps",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/group/list"]={list:[{id:11,name:"Alpha",type:1},{id:4,name:"Zulu",type:2}],total:2};
+  await app.open("groups");
+  assert.match(app.root.innerHTML,/data-action="sort-table"/);
+  assert.match(app.root.innerHTML,/aria-sort="none"/);
+  assert.match(app.root.innerHTML,/data-action="toggle-section"/);
+  assert.match(app.root.innerHTML,/data-action="edit"/);
+});
+
+test("server administration shows named operations and specific inputs",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/config/server"]={id_server:"desk.example.test:21116",relay_server:"desk.example.test:21117",api_server:"https://api.example.test"};
+  await app.open("server");
+  assert.match(app.root.innerHTML,/设置中继服务器列表/);
+  assert.match(app.root.innerHTML,/查看中继使用情况/);
+  assert.match(app.root.innerHTML,/data-action="server-select"/);
+  assert.doesNotMatch(app.root.innerHTML,/name="command"/);
+  assert.ok(app.calls.some(call=>call.endpoint==="/config/server"));
+  assert.ok(!app.calls.some(call=>call.endpoint==="/rustdesk/cmdList"));
+});
+
+test("ARGB tag color is rendered with a browser color picker",async()=>{
+  const app=createConsole(true);
+  await app.open("tags");
+  assert.match(app.root.innerHTML,/设备标签/);
+  assert.match(app.root.innerHTML,/data-action="create"/);
 });
