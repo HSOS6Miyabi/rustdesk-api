@@ -171,6 +171,9 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 当前正式版本 `v3.0.0-api.107` 的数据库迁移版本为 **290**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
+### 迁移到 PostgreSQL
+
+如果当前使用 MySQL、MariaDB 或 SQLite，可以通过仓库自带的 `scripts/convert_to_postgres.py` 生成 PostgreSQL 导入文件。详细操作见 [从 MySQL 或 SQLite 迁移到 PostgreSQL](docs/DATABASE_MIGRATION_TO_POSTGRES.md)。请先备份原数据库，并在新的空数据库中验证迁移结果。
 
 
 ## 个人事件推送与 GeoIP
