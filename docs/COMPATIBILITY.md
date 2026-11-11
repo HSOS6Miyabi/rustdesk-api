@@ -4,10 +4,11 @@
 
 | 项目 | 正式发布版本 | 说明 |
 | --- | --- | --- |
-| RustDesk API | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | 2026 年 11 月 11 日发行，数据库迁移版本 **290** |
+| RustDesk API | [v3.0.0-api.108](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.108) | 2026 年 11 月 12 日发行，数据库迁移版本 **290** |
 | RustDesk Server | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) | 配套维护的自托管 ID 与中继服务 |
 | RustDesk 官方桌面客户端 | 1.5.1 | 本项目客户端构建器和主要协议测试使用的版本 |
-| 设置中心与性能整改 | [拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) | 已合并至 `master`，包含在 API `v3.0.0-api.107` 中 |
+| 设置中心与性能改进 | [拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) | 包含在 API `v3.0.0-api.107` 中 |
+| 控制台与 WebClient 改进 | [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13) | 包含在 API `v3.0.0-api.108` 中 |
 
 API 可与配套 Server 分开部署。Server 的 `v1.1.17-api.21` 组合镜像使用早期已发布的 API `v3.0.0-api.103`，因此升级 API 时需查看实际容器使用的 API 版本。多个镜像一起使用时，还要确认内部密钥、JWT 设置和运行参数一致。
 
