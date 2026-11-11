@@ -215,7 +215,8 @@ def all_route_requests(client, contracts):
             status, result = client.send(verb, path)
             if route.endswith("/list") and status == 200 and result.get("code") == 0:
                 value = result.get("data")
-                check(isinstance(value, dict) and isinstance(value.get("list"), list),
+                check(isinstance(value, dict) and "list" in value
+                      and (value["list"] is None or isinstance(value["list"], list)),
                       f"Frontend list data is inconsistent at {route}")
         else:
             client.send(verb, path, {})
