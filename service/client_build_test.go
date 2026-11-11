@@ -193,8 +193,10 @@ func TestInterruptedClientInstallerTasksCanBeRetried(t *testing.T){
 		{expired.Id,now-900},{recent.Id,now-60},
 	}{
 		if err:=DB.Model(&model.ClientBuildTask{}).Where("id = ?",entry.ID).
-			Updates(map[string]interface{}{"status":"building","started_at":entry.started}).Error;err!=nil{t.Fatal(err)}
-	}
+            Updates(map[string]interface{}{"status":"building","started_at":entry.started}).Error;err!=nil{t.Fatal(err)}
+        if err:=DB.Model(&model.ClientBuildTask{}).Where("id = ?",entry.ID).
+            UpdateColumn("updated_at",time.Unix(entry.started,0)).Error;err!=nil{t.Fatal(err)}
+    }
 	if err:=RecoverInterruptedClientBuilds(now);err!=nil{t.Fatal(err)}
 	var oldTask,newTask model.ClientBuildTask
 	if err:=DB.First(&oldTask,expired.Id).Error;err!=nil{t.Fatal(err)}
