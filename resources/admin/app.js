@@ -312,7 +312,7 @@
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -570,7 +570,7 @@
       }else if(k==="settings"){
         const [settings,overview,history,failed]=await Promise.all([
           request("/settings/effective"),request("/settings/overview"),
-          request("/settings/history?limit=15"),request("/settings/outbox?category=push")
+          request("/settings/history?limit=15"),request("/settings/outbox?category="+state.settingsFailedCategory)
         ]);
         state.settings=settings;state.settingsOverview=overview;
         state.settingsHistory=history.list||[];state.settingsFailed=failed.list||[];
@@ -1015,7 +1015,7 @@
       '<span class="cell-sub">失败次数：'+esc(row.Attempts||row.attempts||0)+' · '+
       esc(row.LastError||row.last_error||"")+'</span></span>'+
       '<button class="btn btn-sm" data-action="settings-outbox-retry" data-id="'+esc(row.Id||row.id)+
-      '" data-category="push">重试</button></div>').join("");
+      '" data-category="'+esc(state.settingsFailedCategory)+'">重试</button></div>').join("");
     return pageHeading("设置中心","查看每项设置的实际运行值、来源及用途，保存后按提示重新启动 API。")+
       '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
       '<p class="subtitle">邮件、策略和用户推送等设置继续使用原有专用页面，避免重复保存同一项配置。</p>'+
@@ -1023,7 +1023,14 @@
       '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">通知任务状态</h2></div>'+
       '<p class="subtitle">个人推送：'+esc(push.pending||0)+' 条等待处理，'+esc(push.failed||0)+' 条失败；管理员邮件：'+
       esc(mail.pending||0)+' 条等待处理，'+esc(mail.failed||0)+' 条失败。</p>'+
-      (failure?'<div class="tips">'+failure+'</div>':'')+'</section>'+
+      '<p class="subtitle">最早待处理事件：个人推送 '+esc(push.oldest_pending_at?date(push.oldest_pending_at):"暂无")+
+      '；管理员邮件 '+esc(mail.oldest_pending_at?date(mail.oldest_pending_at):"暂无")+'。</p>'+
+      '<div class="head-actions" style="margin:14px 0;flex-wrap:wrap">'+
+      '<button type="button" class="btn btn-sm '+(state.settingsFailedCategory==="push"?"btn-primary":"")+
+      '" data-action="settings-outbox-category" data-category="push">个人推送的失败事件</button>'+
+      '<button type="button" class="btn btn-sm '+(state.settingsFailedCategory==="notification"?"btn-primary":"")+
+      '" data-action="settings-outbox-category" data-category="notification">管理员邮件的失败事件</button></div>'+
+      (failure?'<div class="tips">'+failure+'</div>':'<p class="subtitle">此类别暂无处理失败的事件。</p>')+'</section>'+
       '<section class="panel" style="margin-bottom:18px"><div class="form-grid">'+
       '<div class="field"><label for="settings-search">搜索设置</label><input id="settings-search" value="'+esc(state.settingsSearch)+
       '" placeholder="搜索名称、用途、配置名称或环境变量"></div>'+
@@ -1426,6 +1433,12 @@
         toast(reset?"已关闭网页覆盖，重启后恢复原设置":"已保存覆盖设置，重启 API 后生效");
         await load();
       }catch(e){toast(e.message,true);}
+      return;
+    }
+    if(a==="settings-outbox-category"){
+      if(!["push","notification"].includes(el.dataset.category))return;
+      state.settingsFailedCategory=el.dataset.category;
+      await load();
       return;
     }
     if(a==="settings-outbox-retry"){
