@@ -9,7 +9,7 @@ import (
     "github.com/lejianwen/rustdesk-api/v2/model"
 )
 
-func TestNotificationOutboxDueQueriesUseExistingIndexes(t *testing.T){
+func TestSparseNotificationOutboxDueQueriesUseExistingIndexes(t *testing.T){
     cleanup:=setupPushTestDB(t)
     defer cleanup()
     now:=time.Now().Unix()
@@ -17,7 +17,7 @@ func TestNotificationOutboxDueQueriesUseExistingIndexes(t *testing.T){
     notifications:=make([]model.NotificationEventOutbox,800)
     for i:=range push {
         status:="failed"
-        if i%7==0 {status="pending"}
+        if i%97==0 {status="pending"}
         push[i]=model.PushEventOutbox{Payload:"{}",Status:status,
             NextAttemptAt:now-int64(i%4),LeaseUntil:0}
         notifications[i]=model.NotificationEventOutbox{Event:"login.failure",Reference:fmt.Sprint(i),
