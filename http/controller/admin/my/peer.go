@@ -7,6 +7,9 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/service"
 	"gorm.io/gorm"
 	"time"
+	"strings"
+	"unicode/utf8"
+	"github.com/lejianwen/rustdesk-api/v2/model"
 )
 
 type Peer struct {
@@ -37,6 +40,7 @@ func (ct *Peer) List(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
 	res := service.AllService.PeerService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		tx.Where("user_id = ?", u.Id)
+		service.DirectoryPeerKeyword(tx,query.Keyword)
 		if query.TimeAgo > 0 {
 			lt := time.Now().Unix() - int64(query.TimeAgo)
 			tx.Where("last_online_time < ?", lt)
@@ -56,4 +60,53 @@ func (ct *Peer) List(c *gin.Context) {
 		}
 	})
 	response.Success(c, res)
+}
+
+func (ct *Peer) Update(c *gin.Context) {
+	var input struct {
+		RowId uint `json:"row_id"`
+		Alias string `json:"alias"`
+		Note string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil || input.RowId == 0 {
+		response.Fail(c, 101, "请填写有效的设备记录编号")
+		return
+	}
+	input.Alias = strings.TrimSpace(input.Alias)
+	input.Note = strings.TrimSpace(input.Note)
+	if utf8.RuneCountInString(input.Alias) > 128 || utf8.RuneCountInString(input.Note) > 4096 {
+		response.Fail(c, 101, "设备备注的长度超出限制")
+		return
+	}
+	user := service.AllService.UserService.CurUser(c)
+	result := service.DB.Model(&model.Peer{}).Where("row_id = ? AND user_id = ?",input.RowId,user.Id).
+		Updates(map[string]interface{}{"alias":input.Alias,"note":input.Note})
+	if result.Error != nil {
+		response.Error(c,result.Error.Error())
+		return
+	}
+	if result.RowsAffected == 0 {
+		response.Fail(c,403,"您没有修改该设备的权限")
+		return
+	}
+	response.Success(c,nil)
+}
+
+func (ct *Peer) Delete(c *gin.Context) {
+	var input struct { RowId uint `json:"row_id"` }
+	if err := c.ShouldBindJSON(&input); err != nil || input.RowId == 0 {
+		response.Fail(c,101,"请填写有效的设备记录编号")
+		return
+	}
+	user := service.AllService.UserService.CurUser(c)
+	peer := service.AllService.PeerService.InfoByRowId(input.RowId)
+	if peer.RowId == 0 || peer.UserId != user.Id {
+		response.Fail(c,403,"您没有删除该设备的权限")
+		return
+	}
+	if err := service.AllService.PeerService.Delete(peer); err != nil {
+		response.Error(c,err.Error())
+		return
+	}
+	response.Success(c,nil)
 }

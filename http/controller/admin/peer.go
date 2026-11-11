@@ -110,6 +110,7 @@ func (ct *Peer) List(c *gin.Context) {
 			records.Page=int64(query.Page)
 			records.PageSize=int64(query.PageSize)
 			tx:=service.DB.Model(&model.Peer{}).Where("user_id IN ?",scope.UserIDs)
+			tx=service.DirectoryPeerKeyword(tx,query.Keyword)
 			if query.Id!=""{tx=tx.Where("id LIKE ?","%"+query.Id+"%")}
 			if query.Hostname!=""{tx=tx.Where("hostname LIKE ?","%"+query.Hostname+"%")}
 			if query.Username!=""{tx=tx.Where("username LIKE ?","%"+query.Username+"%")}
@@ -131,6 +132,7 @@ func (ct *Peer) List(c *gin.Context) {
 		}
 	}
 	res := service.AllService.PeerService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		service.DirectoryPeerKeyword(tx,query.Keyword)
 		if query.TimeAgo > 0 {
 			lt := time.Now().Unix() - int64(query.TimeAgo)
 			tx.Where("last_online_time < ?", lt)

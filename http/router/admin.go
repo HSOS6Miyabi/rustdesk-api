@@ -349,6 +349,8 @@ func MyBind(rg *gin.RouterGroup) {
 	{
 		cont := &my.Peer{}
 		rg.GET("/my/peer/list", cont.List)
+		rg.POST("/my/peer/update", cont.Update)
+		rg.POST("/my/peer/delete", cont.Delete)
 
 	}
 
