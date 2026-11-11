@@ -102,6 +102,7 @@ func runtimeEnv(key string) string {
         "runtime.push-encryption-key":"RUSTDESK_API_PUSH_ENCRYPTION_KEY",
         "runtime.mail-encryption-key":"RUSTDESK_API_MAIL_ENCRYPTION_KEY",
         "runtime.push-allow-private-urls":"RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS",
+        "runtime.multi-instance-cache":"RUSTDESK_API_MULTI_INSTANCE_CACHE",
     }
     if env := special[key]; env != "" { return env }
     return "RUSTDESK_API_" + strings.ToUpper(strings.NewReplacer(".","_","-","_").Replace(key))
