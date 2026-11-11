@@ -360,7 +360,7 @@
     return '<div class="page-head"><div><p class="eyebrow">RUSTDESK / CONTROL CENTER</p><h1>'+esc(title)+'</h1><p class="subtitle">'+esc(subtitle)+'</p></div><div class="head-actions">'+actions+'</div></div>';
   }
   function button(label,action,primary=false){return '<button type="button" class="btn '+(primary?"btn-primary":"")+'" data-action="'+esc(action)+'">'+esc(label)+'</button>';}
-  function brand(){return '<span class="brand-symbol"><span></span><span></span></span><span><span class="side-name">RustDesk</span><span class="side-sub">CONTROL CENTER</span></span>';}
+  function brand(){return '<span class="brand-symbol" aria-hidden="true"><span></span><span></span></span><span class="brand-copy"><span class="side-name">RustDesk</span><span class="side-sub">CONTROL CENTER</span></span>';}
   function login(){
     const options=state.options||{};
     const cap=options.need_captcha?'<div class="login-field"><label for="captcha">验证码</label><div style="display:flex;gap:10px"><input name="captcha" id="captcha" required placeholder="输入验证码"><button class="btn" type="button" data-action="captcha">刷新</button></div><input type="hidden" name="captcha_id" value="'+esc(state.captcha&&state.captcha.id||"")+'">'+(state.captcha&&state.captcha.b64?'<img alt="验证码" style="max-height:72px;max-width:220px;margin-top:10px" src="'+esc(state.captcha.b64.startsWith("data:")?state.captcha.b64:"data:image/png;base64,"+state.captcha.b64)+'">':"")+"</div>":"";
@@ -595,7 +595,7 @@
   function overview(){
     const m=state.metrics||{};
     const shortcuts=["devices","shared","contacts",state.isAdmin?"groups":"mygroups"];
-    const quick=shortcuts.map(k=>'<button data-view="'+k+'" class="quick-card">'+icon(pages[k].icon,21)+'<strong>'+esc(pages[k].name)+" "+icon("arrow",14)+'</strong></button>').join("");
+    const quick=shortcuts.map(k=>'<button type="button" data-view="'+k+'" class="quick-card"><span class="quick-icon">'+icon(pages[k].icon,21)+'</span><strong class="quick-label">'+esc(pages[k].name)+'</strong><span class="quick-arrow">'+icon("arrow",17)+'</span></button>').join("");
     const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+deviceStatusDot(x.id)+esc(x.alias||x.hostname||x.id)+'</strong><span class="cell-sub">'+esc(x.id)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
       '<div class="metric-grid">'+metric("设备数量",state.loading?"…":m.devices,"monitor")+metric(state.isAdmin?"用户数量":"地址簿条目",state.loading?"…":m.users,"users")+metric(state.isAdmin?"用户分组":"联系人数量",state.loading?"…":m.groups===undefined?state.contacts.incoming.length:m.groups,"layers")+metric("当前账户",state.user.username,"shield")+'</div>'+
@@ -990,17 +990,24 @@
     const mailInfo=specialized.smtp_settings||{};
     const noticeInfo=specialized.notification_settings||{};
     const retainInfo=specialized.audit_retention||{};
-    const specializedDetails='<div class="tips" style="display:grid;gap:8px">'+
-      '<p>SMTP：'+esc(mailInfo.enabled?"已启用":"未启用")+'；服务地址：'+esc(mailInfo.host||"未配置")+
-      (mailInfo.port?'：'+esc(mailInfo.port):"")+'；发件邮箱：'+esc(mailInfo.sender_email||"未配置")+'</p>'+
-      '<p>管理员邮件通知：'+esc(noticeInfo.enabled?"已启用":"未启用")+
-      '；事件：'+esc(noticeInfo.events||"未配置")+'</p>'+
-      '<p>数据保留：连接日志 '+esc(retainInfo.connection_days??0)+' 天；登录记录 '+
-      esc(retainInfo.login_days??0)+' 天；0 表示不自动清理。</p>'+
-      '<p>已配置策略：'+esc(specialized.device_policies??0)+'；连接规则：'+
-      esc(specialized.access_rules??0)+'；中继节点：'+esc(specialized.relay_nodes??0)+
-      '；个人推送渠道：'+esc(specialized.push_channels??0)+'</p></div>';
-    const links=actions.map(([id,label])=>'<button class="btn btn-sm" data-view="'+id+'">'+esc(label)+'</button>').join("");
+    const specializedDetails='<div class="settings-highlights">'+
+      '<div class="settings-highlight"><h3>SMTP 邮件服务</h3>'+
+      '<p>SMTP：'+esc(mailInfo.enabled?"已启用":"未启用")+'</p>'+
+      '<p>服务地址：'+esc(mailInfo.host||"未配置")+(mailInfo.port?'：'+esc(mailInfo.port):"")+'</p>'+
+      '<p>发件邮箱：'+esc(mailInfo.sender_email||"未配置")+'</p></div>'+
+      '<div class="settings-highlight"><h3>管理员邮件通知</h3>'+
+      '<p>状态：'+esc(noticeInfo.enabled?"已启用":"未启用")+'</p>'+
+      '<p>事件：'+esc(noticeInfo.events||"未配置")+'</p></div>'+
+      '<div class="settings-highlight"><h3>数据保留</h3>'+
+      '<p>连接日志 '+esc(retainInfo.connection_days??0)+' 天；登录记录 '+
+      esc(retainInfo.login_days??0)+' 天</p>'+
+      '<p>0 天表示不自动清理。</p></div>'+
+      '<div class="settings-highlight"><h3>策略与节点</h3>'+
+      '<p>设备策略：'+esc(specialized.device_policies??0)+'；连接规则：'+
+      esc(specialized.access_rules??0)+'</p>'+
+      '<p>中继节点：'+esc(specialized.relay_nodes??0)+'；个人推送渠道：'+
+      esc(specialized.push_channels??0)+'</p></div></div>';
+    const links=actions.map(([id,label])=>'<button type="button" class="btn btn-sm settings-feature-link" data-view="'+id+'"><span>'+esc(label)+'</span>'+icon("arrow",14)+'</button>').join("");
     const itemView=item=>{
       const id="setting-value-"+item.key;
       const saved=item.override_enabled?item.stored_value:item.current_value;
@@ -1023,21 +1030,23 @@
       const status=item.pending_restart?
         '<span class="pill warn">待重启生效</span>':
         '<span class="pill muted">运行中</span>';
-      return '<article class="panel" data-setting-item="'+esc(item.key)+'" style="padding:20px;display:grid;gap:12px">'+
-        '<div class="panel-header"><div><h2 class="panel-title">'+esc(item.name)+'</h2>'+
+      return '<article class="panel settings-item" data-setting-item="'+esc(item.key)+'">'+
+        '<div class="panel-header settings-item-head"><div><h2 class="panel-title">'+esc(item.name)+'</h2>'+
         '<p class="panel-sub"><code>'+esc(item.key)+'</code></p></div>'+status+'</div>'+
-        '<p class="subtitle">'+esc(item.description)+'</p>'+
-        (warning?'<p class="subtitle" role="note">'+esc(warning)+'</p>':"")+
-        '<div class="status-row"><span>当前运行值：<strong>'+run+'</strong></span>'+
+        '<div class="settings-item-body">'+
+        '<p class="settings-item-description">'+esc(item.description)+'</p>'+
+        (warning?'<p class="settings-item-warning" role="note">'+esc(warning)+'</p>':"")+
+        '<div class="settings-current"><div><span class="settings-meta-label">当前运行值</span>'+
+        '<strong class="settings-current-value">'+run+'</strong></div>'+
         '<span class="pill">'+esc(item.source)+'</span></div>'+
-        '<p class="subtitle">环境变量：<code>'+esc(item.environment)+'</code> · '+
+        '<p class="settings-item-meta">环境变量：<code>'+esc(item.environment)+'</code> · '+
         (item.bootstrap?'本机启动设置':'数据库中的应用设置')+' · 修改后重新启动 API</p>'+
         (item.active?
           '<div class="field"><label for="'+esc(id)+'">网页覆盖值</label>'+input+'</div>'+
-          '<div class="head-actions"><button type="button" class="btn btn-primary btn-sm" data-action="setting-save" data-id="'+esc(item.key)+'">保存并启用覆盖</button>'+
+          '<div class="settings-item-actions"><button type="button" class="btn btn-primary btn-sm" data-action="setting-save" data-id="'+esc(item.key)+'">保存并启用覆盖</button>'+
           (item.override_enabled?'<button type="button" class="btn btn-sm" data-action="setting-reset" data-id="'+esc(item.key)+'">关闭网页覆盖</button>':"")+
-          '</div>':'<p class="subtitle">此项尚未在当前程序中使用。</p>')+
-        '</article>';
+          '</div>':'<p class="settings-item-meta">此项尚未在当前程序中使用。</p>')+
+        '</div></article>';
     };
     const show=filtered.map(itemView).join("")||'<div class="empty">没有匹配的设置项。</div>';
     const history=(state.settingsHistory||[]).map(row=>
@@ -1053,30 +1062,38 @@
       '<button class="btn btn-sm" data-action="settings-outbox-retry" data-id="'+esc(row.Id||row.id)+
       '" data-category="'+esc(state.settingsFailedCategory)+'">重试</button></div>').join("");
     return pageHeading("设置中心","查看每项设置的实际运行值、来源及用途，保存后按提示重新启动 API。")+
-      '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
-      '<p class="subtitle">邮件、策略和用户推送等设置继续使用原有专用页面，避免重复保存同一项配置。</p>'+
-      '<div class="head-actions" style="margin-top:12px;flex-wrap:wrap">'+links+'</div>'+
-      '<div style="margin-top:18px">'+specializedDetails+'</div></section>'+
-      '<section class="panel" style="margin-bottom:18px"><div class="panel-header"><h2 class="panel-title">通知任务状态</h2></div>'+
-      '<p class="subtitle">个人推送：'+esc(push.pending||0)+' 条等待处理，'+esc(push.failed||0)+' 条失败；管理员邮件：'+
-      esc(mail.pending||0)+' 条等待处理，'+esc(mail.failed||0)+' 条失败。</p>'+
-      '<p class="subtitle">最早待处理事件：个人推送 '+esc(push.oldest_pending_at?date(push.oldest_pending_at):"暂无")+
-      '；管理员邮件 '+esc(mail.oldest_pending_at?date(mail.oldest_pending_at):"暂无")+'。</p>'+
-      '<div class="head-actions" style="margin:14px 0;flex-wrap:wrap">'+
+      '<section class="panel settings-section"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
+      '<div class="settings-section-body">'+
+      '<p class="settings-section-intro">邮件、策略和用户推送等设置继续使用各自的管理页面。</p>'+
+      '<nav class="settings-feature-links" aria-label="专项功能">'+links+'</nav>'+
+      specializedDetails+'</div></section>'+
+      '<section class="panel settings-section"><div class="panel-header"><h2 class="panel-title">通知任务状态</h2></div>'+
+      '<div class="settings-section-body">'+
+      '<div class="settings-outbox-grid">'+
+      '<div class="settings-outbox-card"><h3>个人推送</h3><p><strong>'+esc(push.pending||0)+'</strong> 条等待处理，<strong>'+esc(push.failed||0)+'</strong> 条失败</p>'+
+      '<p class="settings-outbox-time">最早待处理事件：'+esc(push.oldest_pending_at?date(push.oldest_pending_at):"暂无")+'</p></div>'+
+      '<div class="settings-outbox-card"><h3>管理员邮件</h3><p><strong>'+esc(mail.pending||0)+'</strong> 条等待处理，<strong>'+esc(mail.failed||0)+'</strong> 条失败</p>'+
+      '<p class="settings-outbox-time">最早待处理事件：'+esc(mail.oldest_pending_at?date(mail.oldest_pending_at):"暂无")+'</p></div></div>'+
+      '<div class="settings-outbox-actions" role="group" aria-label="失败事件类别">'+
       '<button type="button" class="btn btn-sm '+(state.settingsFailedCategory==="push"?"btn-primary":"")+
       '" data-action="settings-outbox-category" data-category="push">个人推送的失败事件</button>'+
       '<button type="button" class="btn btn-sm '+(state.settingsFailedCategory==="notification"?"btn-primary":"")+
       '" data-action="settings-outbox-category" data-category="notification">管理员邮件的失败事件</button></div>'+
-      (failure?'<div class="tips">'+failure+'</div>':'<p class="subtitle">此类别暂无处理失败的事件。</p>')+'</section>'+
-      '<section class="panel" style="margin-bottom:18px"><div class="form-grid">'+
+      (failure?'<div class="settings-failed-list">'+failure+'</div>':'<p class="settings-section-intro">此类别暂无处理失败的事件。</p>')+
+      '</div></section>'+
+      '<section class="panel settings-section"><div class="settings-section-body settings-filter-body">'+
+      '<div class="form-grid">'+
       '<div class="field"><label for="settings-search">搜索设置</label><input id="settings-search" value="'+esc(state.settingsSearch)+
       '" placeholder="搜索名称、用途、配置名称或环境变量"></div>'+
       '<div class="field"><label for="settings-category">设置类别</label><select id="settings-category">'+
       '<option value="all">全部类别</option>'+categories.map(name=>'<option value="'+esc(name)+'" '+
       (name===state.settingsCategory?"selected":"")+'>'+esc(name)+'</option>').join("")+
-      '</select></div></div><p class="subtitle">共 '+items.length+' 项配置，当前显示 '+filtered.length+' 项。覆盖设置的值会保存在持久化目录或数据库中。</p></section>'+
-      '<div class="settings-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,390px),1fr));gap:16px">'+show+'</div>'+
-      (history?'<section class="panel" style="margin-top:18px"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div>'+history+'</section>':"");
+      '</select></div></div>'+
+      '<p class="settings-section-intro">共 '+items.length+' 项配置，当前显示 '+filtered.length+' 项。覆盖设置的值会保存在持久化目录或数据库中。</p>'+
+      '</div></section>'+
+      '<div class="settings-grid">'+show+'</div>'+
+      (history?'<section class="panel settings-section settings-history"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div><div class="settings-section-body">'+history+'</div></section>':"");
+
   }
   function renderPage(){
     if(state.page==="overview")return overview();

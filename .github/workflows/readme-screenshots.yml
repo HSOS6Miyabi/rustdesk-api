@@ -6,6 +6,10 @@ on:
       - master
     paths:
       - .github/workflows/readme-screenshots.yml
+      - resources/admin/app.js
+      - resources/admin/style.css
+      - resources/admin/browser.e2e.cjs
+      - scripts/refresh_readme_gallery.py
   workflow_dispatch:
 
 permissions:

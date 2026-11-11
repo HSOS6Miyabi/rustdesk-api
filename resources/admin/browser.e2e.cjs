@@ -1079,6 +1079,15 @@ test("README gallery captures current administration pages at desktop and mobile
 
   const mobile=await pageForViewport(375,812,true);
   try{
+    await mobile.page.screenshot({
+      path:path.join(folder,"overview-preview-mobile.png"),fullPage:false,animations:"disabled"
+    });
+    await mobile.page.locator('button[data-action="mobile-open"]').click();
+    await mobile.page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await mobile.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
+    await mobile.page.screenshot({
+      path:path.join(folder,"devices-preview-mobile.png"),fullPage:false,animations:"disabled"
+    });
     await mobile.page.locator('button[data-action="mobile-open"]').click();
     await mobile.page.locator('nav.side-scroll button[data-view="settings"]').click();
     await mobile.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
@@ -1093,3 +1102,113 @@ test("README gallery captures current administration pages at desktop and mobile
     });
   }finally{await mobile.context.close()}
 });
+
+test("layout: brand, shortcuts and settings are arranged consistently",async()=>{
+  for(const [width,height] of [[1440,900],[820,1000],[375,812],[320,700]]){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+      const brand=await page.evaluate(()=>{
+        const sidebar=document.querySelector(".sidebar");
+        const name=document.querySelector(".side-head .side-name")?.getBoundingClientRect();
+        const caption=document.querySelector(".side-head .side-sub")?.getBoundingClientRect();
+        return {
+          nameBottom:name?.bottom,captionTop:caption?.top,
+          captionRight:caption?.right,sidebarRight:sidebar?.getBoundingClientRect().right
+        };
+      });
+      assert.ok(brand.nameBottom<=brand.captionTop+1,"brand lines must not overlap at "+width+"px");
+      assert.ok(brand.captionRight<=brand.sidebarRight-7,"brand caption must fit its sidebar at "+width+"px");
+      if(width<=800)await page.locator('nav.side-scroll button[data-view="overview"]').click();
+      const shortcuts=await page.locator(".quick-card").evaluateAll(cards=>cards.map(card=>{
+        const boxes=[".quick-icon",".quick-label",".quick-arrow"].map(sel=>card.querySelector(sel)?.getBoundingClientRect());
+        const center=box=>box?.top+box?.height/2;
+        return {
+          verticalDifference:Math.max(...boxes.map(center))-Math.min(...boxes.map(center)),
+          textFits:card.querySelector(".quick-label").scrollWidth<=card.querySelector(".quick-label").clientWidth+1
+        };
+      }));
+      assert.equal(shortcuts.length,4);
+      assert.ok(shortcuts.every(x=>x.verticalDifference<=4&&x.textFits),
+        "shortcut icon, title and arrow must align at "+width+"px");
+      if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="settings"]').click();
+      await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
+      const layout=await page.evaluate(()=>{
+        const section=document.querySelector(".settings-section");
+        const body=section.querySelector(".settings-section-body");
+        const sectionBox=section.getBoundingClientRect();
+        const bodyBox=body.querySelector(".settings-section-intro").getBoundingClientRect();
+        const links=[...section.querySelectorAll(".settings-feature-link")];
+        return {
+          width:document.documentElement.scrollWidth,viewport:innerWidth,
+          leftInset:bodyBox.left-sectionBox.left,
+          rightInset:sectionBox.right-bodyBox.right,
+          links:links.length,
+          outside:links.some(link=>{
+            const rect=link.getBoundingClientRect();
+            return rect.left<sectionBox.left+8||rect.right>sectionBox.right-8;
+          }),
+          summaries:section.querySelectorAll(".settings-highlight").length,
+          notificationCards:document.querySelectorAll(".settings-outbox-card").length
+        };
+      });
+      assert.ok(layout.width<=layout.viewport+2,"page must fit width "+width+"px");
+      assert.ok(layout.leftInset>=14&&layout.rightInset>=14,"settings body needs inner spacing");
+      assert.equal(layout.links,12);
+      assert.equal(layout.outside,false,"settings links must remain inside their panel");
+      assert.equal(layout.summaries,4);
+      assert.equal(layout.notificationCards,2);
+    }finally{await context.close();}
+  }
+});
+
+if(process.env.RUSTDESK_VISUAL_AUDIT==="1"){
+test("visual audit: capture all administration pages", async()=>{
+  const folder=path.join(__dirname,"test-screenshots","audit");
+  fs.mkdirSync(folder,{recursive:true});
+  const results=[];
+  for(const [role,width,height,asAdmin] of [["admin-desktop",1440,900,true],["admin-tablet",820,1000,true],["admin-phone",375,812,true],["user-phone",375,812,false]]){
+    const {context,page}=await pageForViewport(width,height,asAdmin);
+    try{
+      const navigation=await page.locator('nav.side-scroll button[data-view]').evaluateAll(list=>
+        [...new Set(list.map(el=>el.dataset.view).filter(Boolean))]);
+      for(const view of navigation){
+        try{
+          if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+          await page.locator('nav.side-scroll button[data-view="'+view+'"]').first().click();
+          await page.waitForTimeout(100);
+          const info=await page.evaluate(()=>{
+            const main=document.querySelector(".main");
+            const content=document.querySelector(".content");
+            const panelHeaders=[...document.querySelectorAll(".panel-header")];
+            return {
+              title: document.querySelector(".page-head h1")?.textContent??"",
+              documentWidth:document.documentElement.scrollWidth,viewport:window.innerWidth,
+              contentWidth:Math.round(content?.getBoundingClientRect().width??0),
+              viewportOverflow:document.documentElement.scrollWidth>window.innerWidth+2,
+              clipped: [...document.querySelectorAll(".main .panel,.main .quick-card,.main .metric,.main .btn,.main .status-row")]
+                 .filter(el=>{const st=getComputedStyle(el),rect=el.getBoundingClientRect();return st.display!=="none"&&rect.width>0&&rect.right>window.innerWidth+4&&!el.closest(".table-scroll")})
+                 .slice(0,10).map(el=>el.tagName.toLowerCase()+"."+el.className),
+              panelCount:document.querySelectorAll(".panel").length,
+              panelHeaderPadding:panelHeaders.slice(0,4).map(el=>getComputedStyle(el).padding),
+              mainWidth:main?.scrollWidth
+            };
+          });
+          const file=role+"-"+view+".png";
+          await page.screenshot({path:path.join(folder,file),fullPage:false,animations:"disabled"});
+          if(["settings","overview","notifications","mail","push","profile","clientBuilder"].includes(view)&&role==="admin-desktop")
+            await page.screenshot({path:path.join(folder,role+"-"+view+"-full.png"),fullPage:true,animations:"disabled"});
+          results.push({role,view,...info,file});
+        }catch(error){results.push({role,view,error:String(error).slice(0,220)});}
+      }
+    }finally{await context.close();}
+  }
+  fs.writeFileSync(path.join(folder,"layout-report.json"),JSON.stringify(results,null,2));
+  const defects=results.filter(item=>item.error||item.viewportOverflow||item.clipped?.length);
+  assert.equal(defects.length,0,JSON.stringify(defects.slice(0,8)));
+  console.log("Captured "+results.length+" page screenshots across desktop, tablet and phone layouts.");
+});
+
+
+}

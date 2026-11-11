@@ -16,6 +16,8 @@ IMAGES={
     "notifications-desktop.png":"notifications.png",
     "client-builder-desktop.png":"client-builder.png",
     "settings-preview-mobile.png":"settings-mobile.png",
+    "overview-preview-mobile.png":"overview-mobile.png",
+    "devices-preview-mobile.png":"devices-mobile.png",
 }
 DESTINATION.mkdir(parents=True,exist_ok=True)
 for original,renamed in IMAGES.items():
@@ -30,7 +32,7 @@ for original,renamed in IMAGES.items():
 
 gallery="""## 界面截图
 
-以下截图来自管理控制台的 Chromium 浏览器测试，使用示例数据展示实际界面。
+以下截图由 Chromium 浏览器测试生成，使用示例数据展示实际界面。布局测试覆盖管理员与普通用户的桌面、平板和手机页面。
 
 ### 控制台概览
 
@@ -46,7 +48,9 @@ gallery="""## 界面截图
 
 ### 手机界面
 
-<p align="center"><img src="docs/screenshots/settings-mobile.png" alt="手机端设置中心" width="320"></p>
+| 控制台概览 | 设备管理 | 设置中心 |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/overview-mobile.png" alt="手机端控制台概览" width="270"> | <img src="docs/screenshots/devices-mobile.png" alt="手机端设备管理" width="270"> | <img src="docs/screenshots/settings-mobile.png" alt="手机端设置中心" width="270"> |
 
 """
 readme=ROOT/"README.md"

@@ -336,3 +336,24 @@ bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 已通过 Chromium 检查设置中心的桌面、平板与手机操作；Go 测试覆盖管理员权限、数据库覆盖版本冲突、敏感值保护、通知失败重试及多实例任务认领。正式发行流程为 [#42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619)，数据库升级与恢复检查为 [#42975509940](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42975509940)。实际 SMTP 服务商收发、两台设备远程控制和生产数据恢复仍需在部署环境执行。
 
 普通服务器与 Docker 分别通过持久化目录保存启动设置。验证 Docker 时，将数据卷挂载到 `/app/data`，重新创建容器并确认已保存设置能够恢复。
+
+
+## 检查管理控制台的页面布局
+
+管理控制台使用 Playwright 和 Chromium 检查实际页面。测试服务会返回示例数据，无须连接生产数据库。
+
+安装浏览器测试依赖后，运行全部浏览器交互测试：
+
+~~~bash
+npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+resources/admin/node_modules/.bin/playwright install chromium
+node --test resources/admin/browser.e2e.cjs
+~~~
+
+需要逐页核查布局时，可以启用完整的截图检查：
+
+~~~bash
+RUSTDESK_VISUAL_AUDIT=1 node --test --test-name-pattern="visual audit:" resources/admin/browser.e2e.cjs
+~~~
+
+此检查会分别遍历管理员桌面、平板、手机界面及普通用户手机界面的所有导航页面。截图和页面宽度检查结果保存在 resources/admin/test-screenshots/audit/。每次更改管理控制台的页面代码后，GitHub Actions 会重新生成 README 中的界面截图。
