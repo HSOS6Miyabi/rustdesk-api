@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/lejianwen/rustdesk-api/v2/config"
 	"gorm.io/gorm"
 )
 
@@ -73,7 +73,7 @@ func persistNotificationEvent(event, reference, description string) error {
 // Single API instances use the event-driven processing path. Shared workers
 // are optional and claim events before generating delivery records.
 func sharedEventWorkersEnabled() bool {
-	return os.Getenv("RUSTDESK_API_SHARED_EVENT_WORKERS") == "1"
+	return config.RuntimeBool("runtime.shared-event-workers")
 }
 
 func claimOutboxRow(table interface{}, id uint) (bool, error) {

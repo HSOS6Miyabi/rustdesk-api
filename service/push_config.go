@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"net/mail"
 	"net/url"
-	"os"
 	"sort"
 	"strings"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/lejianwen/rustdesk-api/v2/config"
 	"gorm.io/gorm"
 )
 
@@ -79,8 +79,8 @@ type PublicPushChannel struct {
 }
 
 func pushKey() ([]byte, error) {
-	secret := os.Getenv("RUSTDESK_API_PUSH_ENCRYPTION_KEY")
-	if secret == "" { secret = os.Getenv("RUSTDESK_API_MAIL_ENCRYPTION_KEY") }
+	secret := config.RuntimeOption("runtime.push-encryption-key")
+	if secret == "" { secret = config.RuntimeOption("runtime.mail-encryption-key") }
 	if len(secret) < 16 { return nil, errors.New("请设置至少 16 个字符的 RUSTDESK_API_PUSH_ENCRYPTION_KEY") }
 	digest := sha256.Sum256([]byte(secret))
 	return digest[:], nil
@@ -114,7 +114,7 @@ func decryptPushSecret(ciphertext string) (string, error) {
 }
 
 func pushAllowPrivate() bool {
-	return os.Getenv("RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS") == "1"
+	return config.RuntimeBool("runtime.push-allow-private-urls")
 }
 
 // A user-controlled URL is checked both when saved and when a connection is opened.
