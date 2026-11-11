@@ -493,11 +493,11 @@
     const newScroll=root.querySelector(".side-scroll");
     if(newScroll)newScroll.scrollTop=state.navScroll;
   }
-  function view(k){
+  function view(k,query=""){
     if(k==="devices"&&!available("devices"))k="mydevices";
     if(!available(k))return;
-    state.page=k;if(k==="addressbooks")state.bookTab="entries";state.pageNo=1;state.query="";state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
-    location.hash="#/"+k;render();load();
+    state.page=k;if(k==="addressbooks")state.bookTab="entries";state.pageNo=1;state.query=query;state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
+    location.hash="#/"+k+(query?"?search="+encodeURIComponent(query):"");render();load();
   }
   function returnToWebClient(){
     if(sessionStorage.getItem("rustdesk.console.return")!=="/webclient2/")return false;
@@ -538,7 +538,9 @@
     if(!state.token){await getOptions();render();return;}
     if(returnToWebClient())return;
     const hash=location.hash.replace(/^#\/?/,"").split("?")[0];
-    state.page=hash==="devices"&&!available(hash)?"mydevices":available(hash)?hash:"overview";render();await load();
+    state.page=hash==="devices"&&!available(hash)?"mydevices":available(hash)?hash:"overview";
+    state.query=new URLSearchParams((location.hash.split("?")[1]||"")).get("search")||"";
+    render();await load();
   }
   async function getOptions(){
     try{state.options=await request("/login-options");}catch{state.options={ops:[]};}
@@ -1420,11 +1422,81 @@
     }else input='<input name="'+esc(name)+'" type="'+esc(type)+'" value="'+esc(value)+'" '+(required?'required':"")+' autocomplete="off">';
     return '<div class="field '+(type==="textarea"?"full":"")+'"><label>'+esc(label)+(required?' <span class="required">*</span>':"")+'</label>'+input+(name==="auto_group_ids"?'<small>例如：2,3。登录后将自动加入这些组，并保留原有主要分组。</small>':"")+'</div>';
   }
+  function entityDataRow(label,value,html=false){
+    if(value===undefined||value===null||String(value)==="")return "";
+    return '<div class="entity-data-row"><dt>'+esc(label)+'</dt><dd>'+(html?value:esc(value))+'</dd></div>';
+  }
+  function entityPanel(m){
+    const info=m.info||{},device=m.entityType==="device";
+    const id=String(m.entityId);
+    const status=state.devicePresence[id];
+    const sections=device?[
+      ["设备 ID",id],["在线状态",status===true?"在线":status===false?"离线":"状态暂不可用"],
+      ["备注",info.alias],["主机名",info.hostname],["操作系统",info.os],
+      ["操作系统用户",info.username],["最后在线时间",info.last_online_time?date(info.last_online_time):"",true],
+      ["最近上线 IP",info.last_online_ip?showIP(info.last_online_ip):"",true],
+      ["设备备注",info.note],["所有者用户 ID",info.user_id]
+    ]:[
+      ["用户编号",info.id||(/^[0-9]+$/.test(id)?id:"")],
+      ["用户名",info.username||(/^[0-9]+$/.test(id)?"":id)],
+      ["昵称",info.nickname],["邮箱",info.email],
+      ["主要分组 ID",info.group_id],["备注",info.remark]
+    ];
+    const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
+    const editable=device?available("devices")?"devices":info.user_id&&Number(info.user_id)===Number(state.user?.id)?"mydevices":available("shared")?"shared":"mydevices":
+      available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
+    m.destination=editable;
+    const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':'<strong>'+esc(m.label||id)+'</strong>')+
+      (m.loading?'<p class="subtitle">正在读取可查看的详情…</p>':"")+
+      '<dl class="entity-data">'+rows+'</dl>'+
+      (m.loading?"":!m.found?'<p class="subtitle">当前账户可查看的信息已显示。其他详情需要相应管理权限。</p>':"")+'</div>';
+    const buttons=editable?'<button type="button" class="btn btn-primary" data-action="entity-open-list">'+
+      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"在我的设备中查看":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
+    return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
+      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+buttons);
+  }
+  async function openEntityDetail(type,id,label){
+    if(!["device","user"].includes(type)||!String(id||"").trim())return;
+    const m={kind:"entity",entityType:type,entityId:String(id),label:label||String(id),
+      previous:state.modal,loading:true,found:false,info:{}};
+    state.modal=m;render();
+    try{
+      let data=null;
+      if(type==="device"){
+        data=state.rows.find(row=>deviceRowPages.has(state.page)&&String(row.id)===String(id))||
+          state.metrics?.recent?.find(row=>String(row.id)===String(id))||null;
+        if(!data){
+          const route=available("devices")?"/peer/list":"/my/peer/list";
+          const list=await request(route+"?page=1&page_size=80&keyword="+encodeURIComponent(id));
+          data=(list.list||[]).find(row=>String(row.id)===String(id))||null;
+        }
+        if(state.devicePresence[id]===undefined){
+          try{
+            const presence=await request("/geoip/lookup","POST",{device_ids:[String(id)]});
+            state.devicePresence[id]=Object.prototype.hasOwnProperty.call(presence.device_status||{},id)?presence.device_status[id]===true:null;
+          }catch{state.devicePresence[id]=null;}
+        }
+      }else{
+        data=state.page==="users"?state.rows.find(row=>String(row.id)===String(id)||row.username===String(id)):null;
+        if(!data&&(state.isAdmin||hasPrivilege("users.view"))){
+          const list=await request("/user/list?page=1&page_size=80&keyword="+encodeURIComponent(id));
+          data=(list.list||[]).find(row=>String(row.id)===String(id)||row.username===String(id))||null;
+        }
+        if(!data&&(String(state.user?.id)===String(id)||String(state.user?.username)===String(id)))data=state.user;
+      }
+      if(state.modal!==m)return;
+      m.info=data||{};m.found=!!data;
+    }catch{
+      if(state.modal!==m)return;
+    }
+    m.loading=false;render();
+  }
   function modal(title,desc,body,footer){
     return '<div class="overlay" id="modal-overlay"><section class="drawer" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="drawer-head"><div><h2>'+esc(title)+'</h2><p>'+esc(desc||"")+'</p></div><button type="button" class="icon-btn" aria-label="关闭" data-action="close-modal">'+icon("close")+'</button></div><div class="drawer-body">'+body+'</div><div class="drawer-footer">'+footer+'</div></section></div>';
   }
   function renderModal(){
     const m=state.modal;if(!m)return "";
+    if(m.kind==="entity")return entityPanel(m);
     if(m.kind==="edit"){
       const p=pages[activeKey()],fields=(p.fields||[]).filter(f=>{
         if(state.page==="users"&&m.action==="edit"&&f[0]==="password")return false;
@@ -1590,8 +1662,8 @@
     }
     if(m.kind==="members"||m.kind==="anchors"){
       const anchor=m.kind==="anchors";
-      const rows=(m.users||[]).map(u=>'<label class="status-row" style="cursor:pointer"><span><strong>'+esc(u.nickname||u.username)+'</strong><span class="cell-sub">@'+esc(u.username)+' · ID '+esc(u.id)+'</span></span><input style="width:18px;height:18px;accent-color:var(--main)" type="checkbox" name="selected" value="'+esc(u.id)+'" '+(m.selected.has(u.id)?"checked":"")+'></label>').join("");
-      const personalHint=m.personal?'<div class="field" style="margin-top:18px"><label for="lookup-username">通过用户名添加成员</label><div style="display:flex;gap:9px"><input id="lookup-username" placeholder="输入完整用户名" autocomplete="off"><button class="btn" type="button" data-action="lookup-user">查找并选中</button></div><small>请输入准确的用户名，系统不会公开其他群组的成员列表。</small></div>':"";
+      const rows=(m.users||[]).map(u=>'<div class="status-row"><span><strong>'+entityLink("user",u.id,u.nickname||u.username)+'</strong><span class="cell-sub">@'+entityLink("user",u.id,u.username)+' · ID '+esc(u.id)+'</span></span><input style="width:18px;height:18px;accent-color:var(--main)" type="checkbox" name="selected" aria-label="选择用户 '+esc(u.username)+'" value="'+esc(u.id)+'" '+(m.selected.has(u.id)?"checked":"")+'></div>').join("");
+      const personalHint="";
       const details='<p class="subtitle">'+(anchor?"只有选中的公共成员及其设备会显示给该组的成员，包括管理员。":"当前成员已经勾选。取消勾选可以移除成员，添加新用户后保存即可一次修改多人。")+'</p>'+personalHint+'<div class="field" style="margin-top:20px"><label for="user-filter">筛选已显示的用户</label><input id="user-filter" placeholder="输入用户名或编号"></div><form id="member-form"><div class="field" style="margin-top:16px"><label>搜索并添加用户</label>'+multiPicker("manual_ids")+'</div><div id="member-choices" style="margin-top:12px">'+rows+'</div></form>';
       const footer='<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" data-action="member-replace">'+(anchor?"保存公共成员":"保存群组成员")+'</button>';
       return modal(anchor?"设置公共成员":"批量管理成员",m.group.name,details,footer);
@@ -1789,6 +1861,18 @@
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
+    if(a==="entity-detail"){
+      await openEntityDetail(el.dataset.entityType,el.dataset.entityId,el.dataset.entityLabel);
+      return;
+    }
+    if(a==="entity-back"){
+      state.modal=state.modal?.previous||null;render();return;
+    }
+    if(a==="entity-open-list"){
+      const m=state.modal;if(m?.kind!=="entity"||!m.destination)return;
+      view(m.destination,m.destination==="profile"?"":m.entityType==="user"?String(m.info.username||m.entityId):m.entityId);
+      return;
+    }
     if(a==="refresh"){await load();return;}
     if(a==="server-select"){
       const command=serverCommandCatalog.find(item=>item.id===el.dataset.id);
@@ -1933,6 +2017,7 @@
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){
+      if(state.modal?.kind==="entity"&&state.modal.previous){state.modal=state.modal.previous;render();return;}
       if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
     }

@@ -222,3 +222,13 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .picker-result-detail{border:1px solid var(--line);background:var(--panel);border-radius:7px;color:var(--main);font-size:11px;min-height:34px;padding:5px 9px;flex:0 0 auto;margin-right:9px}
 .picker-result-detail:hover,.picker-result-detail:focus-visible{background:var(--main-soft)}
 .picker-result strong>.device-status-dot{margin-right:7px}
+
+.entity-summary{display:grid;gap:15px;min-width:0}
+.entity-presence{display:inline-flex;align-items:center;gap:9px}
+.entity-presence .device-status-dot{flex:none;margin:0}
+.entity-data{display:grid;gap:0;margin:0}
+.entity-data-row{display:grid;grid-template-columns:minmax(90px,130px) minmax(0,1fr);gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.entity-data-row dt{color:var(--muted);font-size:12px}
+.entity-data-row dd{margin:0;min-width:0;font-size:13px;color:var(--text);overflow-wrap:anywhere}
+.entity-summary>.subtitle{margin:0}
+@media(max-width:440px){.entity-data-row{grid-template-columns:minmax(90px,110px) minmax(0,1fr);gap:9px}}
