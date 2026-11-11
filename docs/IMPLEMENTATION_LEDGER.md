@@ -1,14 +1,14 @@
 # RustDesk OSS API 与 Server 完整实施台账
 
-## 接手总览（截至 2026 年 11 月 10 日）
+## 接手总览（更新于 2026 年 11 月 11 日）
 
-### 本次性能改进
+### 先前性能改进
 
 [拉取请求 #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8) 包括设备心跳按需读取策略和会话、消息订阅状态缓存、在线状态更新、地址簿批量同步、安装包任务唤醒、SQLite WAL、审计数据分批清理以及正常停止时等待消息保存。数据库迁移版本为 **285**。测试及部署注意事项见 [性能与数据保存说明](PERFORMANCE.md)。
 
 
 
-本文件是两仓库的**统一实施台账和工作交接入口**。最新交接快照：[HANDOFF_SNAPSHOT_2026-11-09.md](HANDOFF_SNAPSHOT_2026-11-09.md)；逐项状态、验证步骤和待办条件：[TASK_VERIFICATION_RECORD.md](TASK_VERIFICATION_RECORD.md)。本节记录当前结果与后续事项，后面的“历史实施记录”保留每项功能的具体提交、测试、设计和数据库修改过程。接手人员应先读取本节，再查阅历史记录中的相关功能。
+本文件是两仓库的**统一实施台账和工作交接入口**。历史交接快照：[HANDOFF_SNAPSHOT_2026-11-09.md](HANDOFF_SNAPSHOT_2026-11-09.md)；逐项状态、验证步骤和待办条件：[TASK_VERIFICATION_RECORD.md](TASK_VERIFICATION_RECORD.md)。本节记录当前结果与后续事项，后面的“历史实施记录”保留每项功能的具体提交、测试、设计和数据库修改过程。接手人员应先读取本节，再查阅历史记录中的相关功能。
 
 ### 1. 项目定位与开发原则
 
@@ -30,14 +30,14 @@
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
 | 正式版本标签 | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
-| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 正式发行工作流 | [API 编译与发布](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
+| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
+| 正式发行工作流 | [#42978795619：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
 | 正式 Release | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
 正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.107`。
 
-当前 API 数据库迁移版本：**290**。经批准的版本发布包含 GitHub Release、正式容器镜像及多架构镜像清单。
+当前 API 数据库迁移版本：**290**。正式发行提交为 [`a98f539`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a98f539a060698d1dcef7122573d4f3574f47de4)。[发行工作流 #42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) 的九项任务全部通过；Linux AMD64、Linux ARM64、Windows AMD64 安装文件以及 AMD64/ARM64 Docker 镜像均已发布。
 
 CI 已实际通过的内容：
 
@@ -47,7 +47,7 @@ CI 已实际通过的内容：
 
 ### 3. 功能实施状态
 
-状态“已实现且自动测试通过”表示当前开发分支代码和相应 CI 具备该功能；功能的真实客户端兼容性仍按“待办事项”检查。
+状态“已实现且自动测试通过”表示正式版本代码及对应自动化检查已具备该功能；功能的真实客户端兼容性仍按“待办事项”检查。
 
 | 编号 | 功能 | 当前状态 | 主要代码或说明 |
 | --- | --- | --- | --- |
@@ -83,13 +83,13 @@ CI 已实际通过的内容：
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
 | T004 | P0 | 实际 API 与 hbbs 的 JWT、连接规则、设备撤销后拒绝新连接、控制角色、WebRTC SDP/ICE 和中继信令在 AMD64、ARM64 通过；实际远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
-| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上从旧结构迁移至数据库版本 285，备份并恢复历史记录，检查设备策略、审计和客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
+| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上升级至数据库版本 290，备份并恢复历史记录，检查账户、设备、策略、审计、设置记录、通知任务及客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 桌面、平板和手机交互及截图检查通过；手机导航布局已检查；实际环境管理员操作待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
 | T010 | P0 | 官方 1.5.1 多系统启动和 Android 模拟器测试通过，Linux 客户端与实际 API 的部署、分配通过；真实登录及多版本远程连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
-| T011 | P0 | 自动化预演及正式版本构建均已成功 | 检查跨架构可执行文件、GitHub Release、Docker 镜像启动和文件上传 | 本阶段发行文件和镜像已生成并完成自动化检查 |
-| T012 | P0 | 维护者已批准，两个仓库已合并并完成正式发布 | 保存已发布版本和自动化测试记录，继续维护实际环境检查项目 | 当前发行版本与两个仓库的组合关系已经核对 |
+| T011 | P0 | v3.0.0-api.107 正式构建、三个平台安装文件与 AMD64/ARM64 Docker 镜像发布成功 | 检查跨架构可执行文件、GitHub Release、Docker 镜像启动和文件上传 | 本阶段发行文件和镜像已生成并完成自动化检查 |
+| T012 | P0 | API PR #11 已合并，v3.0.0-api.107 已发行；配套 Server v1.1.17-api.21 保持不变 | 保存已发布版本和自动化测试记录，继续维护实际环境检查项目 | 当前发行版本与两个仓库的组合关系已经核对 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
 | T014 | P1 | 严格登记模式的心跳许可、设备所有者一致性、策略撤销与界面自动测试通过；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
@@ -157,7 +157,7 @@ P0 项目的自动化测试已经纳入本阶段发行检查，依赖实际设�
 **API 开发与完整测试**
 
 ```bash
-git clone --branch development/m1-device-management https://github.com/HSOS6Miyabi/rustdesk-api.git
+git clone --branch master https://github.com/HSOS6Miyabi/rustdesk-api.git
 cd rustdesk-api
 go test ./... -count=1
 go build -o /tmp/rustdesk-api ./cmd/apimain.go
@@ -772,7 +772,7 @@ Chromium 检查已保存客户端构建器及邮件通知的桌面、平板、�
 
 数据库检查包含旧结构升级、SQLite 停止连接后的文件恢复、MySQL 的 `mysqldump` 导出与恢复，以及 PostgreSQL 的 `pg_dump`、`pg_restore`。恢复后检查历史策略、审计记录与客户端构建任务。
 
-使用实际部署环境时，还需检查业务数据库备份恢复、真实客户端与公网连接。当前发行版本保持 v3.0.0-api.103 与 v1.1.17-api.21。
+当时发行的版本为 API v3.0.0-api.103 与 Server v1.1.17-api.21。业务数据恢复、真实客户端和公网连接还需要在实际部署环境检查。
 
 
 ## 2026-11-09：官方 Linux 客户端与实际 API、Server 的联合检查
@@ -862,6 +862,20 @@ T002、T004、T009、T022 的相应自动化检查已完成。真实终端登录
 
 使用两台实际设备检查远程控制、权限效果和重新连接；跨地区公网中继、真实 SMTP、业务数据库恢复及目标主机部署继续按照逐项任务记录执行。
 
-## 2026 年 11 月 11 日：设置中心与可靠性改进
+## 2026 年 11 月 11 日：设置中心与可靠性改进正式发行
 
 改进已通过 [API 拉取请求 #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并至 `master`，从 `v3.0.0-api.107` 开始正式发行，数据库迁移版本为 **290**。新增系统设置覆盖与修改记录表，并为共享通知事件增加处理权标识。本次功能、数据库升级、普通服务器与 Docker 设置的使用方法见 [设置中心](SETTINGS_CENTER.md)、[版本兼容性](COMPATIBILITY.md) 和 [升级说明](UPGRADE.md)。
+
+### v3.0.0-api.107 发行检查记录
+
+| 检查项目 | 结果 |
+| --- | --- |
+| GitHub Release | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107)，Linux AMD64、Linux ARM64、Windows AMD64 安装文件已上传 |
+| 自动化发行检查 | [#42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619)，九项任务全部通过 |
+| 三种数据库升级与恢复 | [#42975509940](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42975509940) 通过 SQLite、MySQL 和 PostgreSQL 检查；生产数据仍需独立恢复演练 |
+| Docker | `ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.107` 与 `latest` 已发布，包含 `linux/amd64` 和 `linux/arm64` |
+| Docker 镜像摘要 | `sha256:4c748b1aa7e090e24a13f6772fb25a789a97d65d47f14a12664d1f778e17b459` |
+| 功能范围 | 设置中心、数据库迁移失败处理、配置覆盖、通知失败隔离、后台任务恢复和查询优化 |
+| 配套 Server | `v1.1.17-api.21` 未变更；现有组合 Docker 镜像仍包含较早的 API 版本 |
+
+T001–T022 的编号继续保留。实际 SMTP 服务商收发、两台真实设备的远程控制、跨地区公网中继与生产数据库恢复，仍须在具备相应环境时执行并记录。
