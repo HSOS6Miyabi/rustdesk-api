@@ -226,7 +226,7 @@ func nextClientBuildDelay() (time.Duration, bool, error) {
         Where("status = ?", "building").Order("updated_at ASC").Take(&earliest).Error
     if errors.Is(err,gorm.ErrRecordNotFound){return 0,false,nil}
     if err!=nil{return 0,false,err}
-    delay:=time.Until(earliest.UpdatedAt.Add(601*time.Second))
+    delay:=time.Until(time.Time(earliest.UpdatedAt).Add(601*time.Second))
 	if delay < 0 {
 		delay = 0
 	}
