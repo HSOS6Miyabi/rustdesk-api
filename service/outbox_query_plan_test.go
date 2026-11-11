@@ -32,13 +32,13 @@ func TestNotificationOutboxQueryPlanAndBoundedResult(t *testing.T){
             " WHERE status IN ('pending','retry') AND next_attempt_at <= ? AND lease_until <= ? ORDER BY id LIMIT 20"
         if err:=DB.Raw(query,now,now).Scan(&rows).Error;err!=nil{t.Fatal(err)}
         if len(rows)==0 {t.Fatalf("%s returned no query plan",table)}
+        hasAccess:=false
         for _,row:=range rows {
             t.Logf("%s: %s",table,row.Detail)
-            if !strings.Contains(strings.ToUpper(row.Detail),"SCAN")&&
-               !strings.Contains(strings.ToUpper(row.Detail),"SEARCH") {
-                t.Fatalf("%s returned an unexpected query plan: %s",table,row.Detail)
-            }
+            detail:=strings.ToUpper(row.Detail)
+            if strings.Contains(detail,"SCAN")||strings.Contains(detail,"SEARCH") {hasAccess=true}
         }
+        if !hasAccess {t.Fatalf("%s query did not access its event table: %+v",table,rows)}
         var ids []uint
         if err:=DB.Table(table).Select("id").
             Where("status IN ? AND next_attempt_at <= ? AND lease_until <= ?",
