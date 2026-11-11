@@ -327,6 +327,13 @@ def check_real_changes(admin):
     check(any(row["id"] == tag_id and row["name"] == "Updated label"
               and row["user_id"] == user_id for row in tags),
           "Personal tag editing failed or changed its owner")
+    user.success("POST", "/my/tag/update", {
+        "id": tag_id, "name": "Transparent label", "color": 0,
+        "collection_id": collection_id,
+    })
+    tags = user.success("GET", "/my/tag/list?page=1&page_size=100")["list"]
+    check(any(row["id"] == tag_id and row["color"] == 0 for row in tags),
+          "A transparent black ARGB color must be saved without modification")
 
     _, denied = user.send("POST", "/user/create", {"username": "denied", "password": "denied"})
     check(denied.get("code") != 0, "An ordinary user could manage administrator accounts")

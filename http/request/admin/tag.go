@@ -5,7 +5,7 @@ import "github.com/lejianwen/rustdesk-api/v2/model"
 type TagForm struct {
 	Id           uint   `json:"id"`
 	Name         string `json:"name" validate:"required"`
-	Color        uint   `json:"color" validate:"required"`
+	Color        uint   `json:"color"`
 	UserId       uint   `json:"user_id"`
 	CollectionId uint   `json:"collection_id"`
 }
