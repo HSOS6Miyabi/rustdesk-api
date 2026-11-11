@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.108](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.108)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新改进设备和用户管理、导航、表格、服务器管理及 WebClient 全屏。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新完善个人地址簿、设备标签、WebClient 请求参数检查和前后端接口测试。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 

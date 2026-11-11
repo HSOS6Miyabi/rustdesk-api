@@ -2,7 +2,7 @@
 
 本仓库基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 持续维护，保留原项目账户、地址簿、Web 客户端及 Go API 的主要结构。下表按实际使用的功能整理增加的模块，便于接手开发人员理解用途、启用条件与受影响的位置。
 
-当前正式发布为 [v3.0.0-api.108](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.108)。设备管理、用户搜索、管理导航和 WebClient 的相关说明见 [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)。
+当前正式发布为 [v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109)。设备管理与 WebClient 功能见 [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)，个人数据编辑与接口检查见 [拉取请求 #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)。
 
 | 功能 | 管理页面或使用入口 | 主要代码 | 使用条件 |
 | --- | --- | --- | --- |
@@ -10,6 +10,8 @@
 | 个人设备与管理员设备管理 | 我的设备、设备管理 | `http/controller/admin/my/peer.go`、`resources/admin/app.js` | 个人设备操作检查所有者，管理员设备列表检查授权范围 |
 | 设备与用户详情 | 设备列表、审计记录、搜索结果、共享设备 | `resources/admin/app.js`、`resources/web2/app.js` | 根据当前账户权限显示详情和管理入口 |
 | WebClient 双全屏与设备搜索 | `/webclient2/` | `resources/web2/` | 支持网页全屏和显示器全屏，搜索本人和共享的设备 |
+| 个人地址簿和标签编辑 | 地址簿、地址簿分类、共享规则、设备标签 | `http/controller/admin/my/`、`http/request/admin/tag.go` | 根据登录账户确认所有者，保留未修改字段，支持透明 ARGB 颜色 |
+| 前端接口检查 | GitHub Actions | `scripts/test_frontend_api_contract.py`、`.github/workflows/frontend-api-integration.yml` | 使用独立 SQLite 数据库检查前端请求、返回内容与账户权限 |
 | 个人群组与公共成员 | 我的群组、用户分组 | `service/group_access.go`、`service/group_owned.go` | 用户自行创建群组或由管理员分配 |
 | 联系人与共享设备 | 联系人、共享设备 | `service/shared_devices.go`、`model/contact.go` | 主动添加联系人或设置共享组 |
 | 地址簿权限与导入导出 | 地址簿、地址簿回收站 | `service/addressBook.go`、`service/address_book_csv.go`、`service/address_book_trash.go` | 按用户或群组授予地址簿访问权限 |
@@ -28,7 +30,7 @@
 
 ## 主要数据库变化
 
-相对于上游新增了群组成员、联系人、策略分配、会话管理、管理员角色、个人推送和通知记录等业务表。现有数据库在启动时由 `cmd/apimain.go` 按迁移版本更新。当前正式版本 `v3.0.0-api.108` 使用数据库迁移版本 **290**。
+相对于上游新增了群组成员、联系人、策略分配、会话管理、管理员角色、个人推送和通知记录等业务表。现有数据库在启动时由 `cmd/apimain.go` 按迁移版本更新。当前正式版本 `v3.0.0-api.109` 使用数据库迁移版本 **290**。
 
 设置中心增加 `system_setting_overrides`、`system_setting_revisions` 和 `system_setting_histories`。通知事件表还保存处理状态、失败次数、下一次重试时间和共享处理权的标识。升级前需备份数据库，回退旧版程序之前先核对其对新增字段的兼容性。
 
