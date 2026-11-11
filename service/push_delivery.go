@@ -315,7 +315,7 @@ func StartPushWorker() {
 		startPersonalDeliverySchedulers()
 		startPushEventWorker()
 		launchServiceWorker(func(ctx context.Context) {
-			startEventOutboxWorker(ctx, pushOutboxWake, ProcessPushEventOutbox, "push")
+			startEventOutboxWorker(ctx, pushOutboxWake, &model.PushEventOutbox{}, ProcessPushEventOutbox, "push")
 		})
 	})
 }

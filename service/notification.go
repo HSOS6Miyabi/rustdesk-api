@@ -216,7 +216,7 @@ func ProcessNotificationQueue(limit int) (int, error) {
 func StartNotificationWorker() {
 	notificationWorkerOnce.Do(func() {
 		launchServiceWorker(func(ctx context.Context) {
-			startEventOutboxWorker(ctx, notificationOutboxWake, ProcessNotificationEventOutbox, "administrative")
+			startEventOutboxWorker(ctx, notificationOutboxWake, &model.NotificationEventOutbox{}, ProcessNotificationEventOutbox, "administrative")
 		})
 		startAdministrativeMailScheduler(notificationDeliveryWake)
 	})

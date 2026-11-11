@@ -97,12 +97,13 @@ func ProcessPushEventOutbox(limit int) (int, error) {
 	if DB == nil { return 0, nil }
 	if limit <= 0 || limit > 100 { limit = 20 }
 	shared := sharedEventWorkersEnabled()
-	query := DB.Order("id ASC").Limit(limit)
+	query := DB.Where("status IN ? AND next_attempt_at <= ?", []string{"pending", "retry"}, time.Now().Unix()).Order("id ASC").Limit(limit)
 	if shared { query = query.Where("lease_until <= ?", time.Now().Unix()) }
 	var rows []model.PushEventOutbox
 	if err := query.Find(&rows).Error; err != nil { return 0, err }
 	processed := make([]uint, 0, len(rows))
 	var processErr error
+	var firstErr error
 	for _, row := range rows {
 		if shared {
 			var claimed bool
@@ -112,36 +113,35 @@ func ProcessPushEventOutbox(limit int) (int, error) {
 		}
 		var event PushEvent
 		processErr = json.Unmarshal([]byte(row.Payload), &event)
+		permanent := processErr != nil
 		if processErr == nil {
 			if event.Reference == "" { event.Reference = fmt.Sprintf("outbox:%d", row.Id) }
 			processErr = processPushEvent(event)
 		}
 		if processErr != nil {
-			if shared {
-				if releaseErr := releaseOutboxRow(&model.PushEventOutbox{}, row.Id); releaseErr != nil {
-					processErr = fmt.Errorf("%w; release event: %v", processErr, releaseErr)
-				}
-			}
-			break
+			if firstErr == nil { firstErr = processErr }
+			if err := recordOutboxFailure(&model.PushEventOutbox{}, row.Id, row.Attempts, processErr, permanent); err != nil { return 0, err }
+			continue
 		}
 		processed = append(processed, row.Id)
 	}
 	if err := deleteProcessedOutboxRows(&model.PushEventOutbox{}, processed); err != nil {
 		return 0, err
 	}
-	return len(processed), processErr
+	return len(processed), firstErr
 }
 
 func ProcessNotificationEventOutbox(limit int) (int, error) {
 	if DB == nil { return 0, nil }
 	if limit <= 0 || limit > 100 { limit = 20 }
 	shared := sharedEventWorkersEnabled()
-	query := DB.Order("id ASC").Limit(limit)
+	query := DB.Where("status IN ? AND next_attempt_at <= ?", []string{"pending", "retry"}, time.Now().Unix()).Order("id ASC").Limit(limit)
 	if shared { query = query.Where("lease_until <= ?", time.Now().Unix()) }
 	var rows []model.NotificationEventOutbox
 	if err := query.Find(&rows).Error; err != nil { return 0, err }
 	processed := make([]uint, 0, len(rows))
 	var processErr error
+	var firstErr error
 	for _, row := range rows {
 		if shared {
 			var claimed bool
@@ -149,24 +149,22 @@ func ProcessNotificationEventOutbox(limit int) (int, error) {
 			if processErr != nil { break }
 			if !claimed { continue }
 		}
+		_, supported := notificationEventNames[row.Event]
 		processErr = QueueNotification(row.Event, row.Reference, row.Description)
 		if processErr != nil {
-			if shared {
-				if releaseErr := releaseOutboxRow(&model.NotificationEventOutbox{}, row.Id); releaseErr != nil {
-					processErr = fmt.Errorf("%w; release event: %v", processErr, releaseErr)
-				}
-			}
-			break
+			if firstErr == nil { firstErr = processErr }
+			if err := recordOutboxFailure(&model.NotificationEventOutbox{}, row.Id, row.Attempts, processErr, !supported); err != nil { return 0, err }
+			continue
 		}
 		processed = append(processed, row.Id)
 	}
 	if err := deleteProcessedOutboxRows(&model.NotificationEventOutbox{}, processed); err != nil {
 		return 0, err
 	}
-	return len(processed), processErr
+	return len(processed), firstErr
 }
 
-func startEventOutboxWorker(ctx context.Context, wake <-chan struct{},
+func startEventOutboxWorker(ctx context.Context, wake <-chan struct{}, table interface{},
 	process func(int) (int, error), name string) {
 	for {
 		if ctx.Err() != nil { return }
@@ -177,10 +175,15 @@ func startEventOutboxWorker(ctx context.Context, wake <-chan struct{},
 			continue
 		}
 		if count == 20 { continue }
-		// Shared deployments periodically read events from other instances.
-		// A single instance remains idle until its own event is written.
-		if sharedEventWorkersEnabled() {
-			if !waitForWorkContext(ctx, wake, 5*time.Second, true) { return }
-		} else if !waitForWorkContext(ctx, wake, 0, false) { return }
+		delay, scheduled, err := nextOutboxDelay(table)
+		if err != nil {
+			if Logger != nil { Logger.WithError(err).Warn(name+" outbox scheduling failed") }
+			if !waitForWorkContext(ctx, wake, 10*time.Second, true) { return }
+			continue
+		}
+		if sharedEventWorkersEnabled() && (!scheduled || delay > 5*time.Second) {
+			delay, scheduled = 5*time.Second, true
+		}
+		if !waitForWorkContext(ctx, wake, delay, scheduled) { return }
 	}
 }
