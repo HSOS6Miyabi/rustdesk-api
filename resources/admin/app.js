@@ -319,7 +319,7 @@
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],server:{},commands:[],commandSelected:"id-help",commandOutput:"",modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -597,9 +597,7 @@
         state.settings=settings;state.settingsOverview=overview;
         state.settingsHistory=history.list||[];state.settingsFailed=failed.list||[];
       }else if(k==="server"){
-        const out=await Promise.allSettled([request("/config/server"),request("/rustdesk/cmdList")]);
-        state.server=out[0].status==="fulfilled"?out[0].value:{};
-        state.commands=out[1].status==="fulfilled"?out[1].value.list||[]:[];
+        state.server=await request("/config/server");
       }else if(p.endpoint){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize});
         if(p.search&&state.query)q.set(p.search,state.query);
@@ -798,13 +796,65 @@
     return pageHeading("共享设备","汇总联系人、共享组和公共锚点组公开给您的设备。同一设备只显示一次，并标明所有共享来源。",'<button class="btn btn-primary" data-action="webclient">'+icon("monitor",16)+'打开 WebClient v2</button>')+
       '<section class="panel">'+search+table({...pages.shared},state.rows)+pagination()+'</section>';
   }
+  const serverCommandCatalog=[
+    ["id-help","ID 服务器","查看服务器帮助","查看当前服务器支持的管理功能。","21115","h","none"],
+    ["id-relay-read","ID 服务器","查看中继服务器列表","读取 ID 服务器当前配置的中继地址。","21115","relay-servers","none"],
+    ["id-relay-write","ID 服务器","设置中继服务器列表","填写中继服务器主机名或地址，多个地址用英文逗号分隔。","21115","relay-servers","servers"],
+    ["id-block-read","ID 服务器","查看已封禁的 IP","查询 ID 服务器当前的 IP 封禁记录。","21115","ip-blocker","none"],
+    ["id-block-add","ID 服务器","封禁 IP 地址","填写需要封禁的 IP 地址。","21115","ip-blocker","ip"],
+    ["id-block-remove","ID 服务器","解除 IP 封禁","填写要解除封禁的 IP 地址。","21115","ip-blocker","ip-remove"],
+    ["id-changes-read","ID 服务器","查看 IP 变化记录","查看客户端 IP 地址变化情况。","21115","ip-changes","none"],
+    ["id-changes-item","ID 服务器","查询设备 IP 变化","输入设备 ID，查询其 IP 地址变化情况。","21115","ip-changes","identifier"],
+    ["id-relay-state","ID 服务器","查询强制中继状态","读取是否已要求所有连接使用中继。","21115","always-use-relay","none"],
+    ["id-relay-on","ID 服务器","启用强制中继","要求所有远程连接使用中继服务器。","21115","always-use-relay","fixed-y"],
+    ["id-relay-off","ID 服务器","关闭强制中继","允许服务器按正常条件选择直接连接或中继。","21115","always-use-relay","fixed-n"],
+    ["id-geo","ID 服务器","测试地址所属地区","分别填写两个 IP 地址，查看服务器地区识别结果。","21115","test-geo","ip-pair"],
+    ["relay-help","中继服务器","查看服务器帮助","查看中继服务器支持的管理功能。","21117","h","none"],
+    ["relay-blacklist-check","中继服务器","查询黑名单","填写 IP 地址，检查该地址是否在黑名单中。","21117","blacklist","ip"],
+    ["relay-blacklist-add","中继服务器","添加黑名单","将指定 IP 地址加入中继服务器黑名单。","21117","blacklist-add","ip"],
+    ["relay-blacklist-remove","中继服务器","移除黑名单","将指定 IP 地址移出中继服务器黑名单。","21117","blacklist-remove","ip"],
+    ["relay-blocklist-check","中继服务器","查询阻止列表","填写 IP 地址，检查该地址是否在阻止列表中。","21117","blocklist","ip"],
+    ["relay-blocklist-add","中继服务器","添加阻止列表","把指定 IP 地址加入阻止列表。","21117","blocklist-add","ip"],
+    ["relay-blocklist-remove","中继服务器","移除阻止列表","从阻止列表移除指定 IP 地址。","21117","blocklist-remove","ip"],
+    ["relay-threshold-read","中继服务器","查询降级阈值","查看当前中继降级阈值。","21117","downgrade-threshold","none"],
+    ["relay-threshold-set","中继服务器","设置降级阈值","填写服务器使用的降级阈值，单位与服务端命令保持一致。","21117","downgrade-threshold","number"],
+    ["relay-check-read","中继服务器","查询降级检查间隔","查看启动降级检查的时间间隔。","21117","downgrade-start-check","none"],
+    ["relay-check-set","中继服务器","设置降级检查间隔","填写间隔秒数，须为非负数。","21117","downgrade-start-check","number"],
+    ["relay-speed-read","中继服务器","查询速度限制","查看当前中继传输速度限制。","21117","limit-speed","none"],
+    ["relay-speed-set","中继服务器","设置速度限制","填写传输速度上限，单位 Mb/s。","21117","limit-speed","number"],
+    ["relay-total-read","中继服务器","查询总带宽","查看当前中继服务器的总带宽设置。","21117","total-bandwidth","none"],
+    ["relay-total-set","中继服务器","设置总带宽","填写总带宽上限，单位 Mb/s。","21117","total-bandwidth","number"],
+    ["relay-single-read","中继服务器","查询单连接带宽","查看单条远程连接的带宽上限。","21117","single-bandwidth","none"],
+    ["relay-single-set","中继服务器","设置单连接带宽","填写单条连接的带宽上限，单位 Mb/s。","21117","single-bandwidth","number"],
+    ["relay-usage","中继服务器","查看中继使用情况","查看中继服务器统计的当前使用情况。","21117","usage","none"]
+  ].map(([id,section,title,description,target,cmd,mode])=>({id,section,title,description,target,cmd,mode}));
+  function commandInputs(command){
+    const mode=command.mode;
+    if(mode==="none"||mode.startsWith("fixed-"))return '<p class="server-command-help">此操作无需填写参数。</p>';
+    const ip='例如：192.0.2.10 或 2001:db8::1';
+    if(mode==="ip-pair")return '<div class="form-grid"><div class="field"><label for="command-ip1">第一个 IP 地址</label><input id="command-ip1" name="ip1" type="text" placeholder="'+ip+'" spellcheck="false" required></div><div class="field"><label for="command-ip2">第二个 IP 地址</label><input id="command-ip2" name="ip2" type="text" placeholder="'+ip+'" spellcheck="false" required></div></div>';
+    const title=mode==="servers"?"中继服务器地址（逗号分隔）":mode==="number"?"数值":mode==="identifier"?"设备 ID":"IP 地址";
+    const placeholder=mode==="servers"?"例如：relay.example.com:21117,relay2.example.com:21117":mode==="number"?"填写 0 或正数":mode==="identifier"?"例如：123456789":ip;
+    const attr=mode==="number"?'type="number" min="0" max="1000000000" step="any"':'type="text" spellcheck="false"';
+    return '<div class="field"><label for="command-option">'+title+'</label><input id="command-option" name="option" '+attr+' placeholder="'+placeholder+'" required maxlength="1800"></div>';
+  }
   function server(){
     const d=state.server||{};
     const labels=[["ID 服务器",d.id_server],["中继服务器",d.relay_server],["API 服务",d.api_server]];
     const details=labels.map(x=>'<div class="status-row"><span>'+esc(x[0])+'</span><strong>'+showServerAddress(x[1])+'</strong></div>').join("");
-    const opts=state.commands.map((cmd,i)=>'<option value="'+i+'">'+esc((cmd.target==="21115"?"ID 服务器":"中继服务器")+" / "+(cmd.explain||cmd.cmd))+'</option>').join("");
-    return pageHeading("服务器管理","查看网络配置并向自托管 RustDesk 服务发送管理指令。")+
-      '<div class="two-cols"><section class="panel"><div class="panel-header"><h2 class="panel-title">连接参数</h2></div><div class="tips">'+details+'</div></section><section class="panel"><div class="panel-header"><h2 class="panel-title">管理指令</h2></div><form id="command-form" class="tips"><div class="field"><label for="cmd">选择指令</label><select id="cmd" name="command" required>'+opts+'</select></div><div class="field" style="margin-top:16px"><label for="cmd-arg">参数（可选）</label><input id="cmd-arg" name="option" placeholder="按指令说明填写"></div><button type="submit" class="btn btn-primary" style="margin-top:15px">执行指令</button><pre id="command-output" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></form></section></div>';
+    const selected=serverCommandCatalog.find(cmd=>cmd.id===state.commandSelected)||serverCommandCatalog[0];
+    const cards=["ID 服务器","中继服务器"].map(section=>{
+      const commands=serverCommandCatalog.filter(cmd=>cmd.section===section);
+      return '<section class="panel server-command-section"><div class="panel-header"><h2 class="panel-title">'+esc(section)+' · 管理功能</h2><p class="panel-sub">选择需要执行的操作</p></div><div class="server-action-grid">'+commands.map(cmd=>
+        '<button type="button" class="server-action-card '+(cmd.id===selected.id?"selected":"")+'" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'"><strong>'+esc(cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+'</div></section>';
+    }).join("");
+    return pageHeading("服务器管理","查看服务器连接地址，选择需要执行的管理操作并填写对应参数。")+
+      '<section class="panel server-config-panel"><div class="panel-header"><h2 class="panel-title">连接参数</h2></div><div class="server-info">'+details+'</div></section>'+
+      '<section class="panel server-editor" id="server-command-panel"><div class="panel-header"><div><h2 class="panel-title">'+esc(selected.title)+'</h2><p class="panel-sub">'+esc(selected.section)+'</p></div></div>'+
+      '<form id="command-form" class="server-editor-body"><p class="server-command-help">'+esc(selected.description)+'</p>'+commandInputs(selected)+
+      '<div class="server-submit-row"><button type="submit" class="btn btn-primary">执行'+esc(selected.title)+'</button></div>'+
+      '<div class="field"><label for="command-output">执行结果</label><pre class="server-output" id="command-output" role="status">'+esc(state.commandOutput||"选择操作后执行，服务器的回复将显示在此处。")+'</pre></div></form></section>'+
+      '<div class="server-command-sections">'+cards+'</div>';
   }
   function retentionPage(){
     const data=state.retention||{};
@@ -1629,13 +1679,49 @@
     }catch(err){toast(err.message,true);}
   }
 
+  function isValidIP(value){
+    const ip=String(value||"").trim();
+    if(/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(ip))return ip.split(".").every(part=>Number(part)<=255);
+    return /^[0-9a-fA-F:]+$/.test(ip)&&ip.includes(":")&&ip.length<=45&&!ip.includes(":::")&&ip.split(":").filter(Boolean).every(part=>part.length<=4);
+  }
   async function sendCommand(form){
-    const idx=Number(form.elements.command.value),cmd=state.commands[idx];
+    const cmd=serverCommandCatalog.find(item=>item.id===state.commandSelected);
     if(!cmd)return;
+    let option="",value=String(form.elements.option?.value||"").trim();
+    if(cmd.mode.startsWith("fixed-"))option=cmd.mode.slice(6);
+    else if(cmd.mode==="ip-pair"){
+      const a=form.elements.ip1.value.trim(),b=form.elements.ip2.value.trim();
+      if(!isValidIP(a)||!isValidIP(b)){toast("请填写两个有效的 IP 地址",true);return;}
+      option=a+" "+b;
+    }else if(cmd.mode==="ip"||cmd.mode==="ip-remove"){
+      if(!isValidIP(value)){toast("请输入有效的 IPv4 或 IPv6 地址",true);return;}
+      option=value+(cmd.mode==="ip-remove"?" -":"");
+    }else if(cmd.mode==="identifier"){
+      if(!/^[a-zA-Z0-9_.:-]{1,128}$/.test(value)){toast("请填写有效的设备 ID",true);return;}
+      option=value;
+    }else if(cmd.mode==="number"){
+      const num=Number(value);
+      if(!value||!Number.isFinite(num)||num<0||num>1e9){toast("数值必须介于 0 与 1000000000 之间",true);return;}
+      option=String(num);
+    }else if(cmd.mode==="servers"){
+      const entries=value.split(",").map(x=>x.trim()).filter(Boolean);
+      if(!entries.length||entries.length>32||entries.some(x=>!/^[a-zA-Z0-9._:\\[\\]-]+$/.test(x))){
+        toast("请使用英文逗号分隔有效的服务器地址，最多 32 个",true);return;
+      }
+      option=entries.join(",");
+    }
+    if(cmd.mode!=="none"&&!option){toast("请填写该操作要求的参数",true);return;}
+    if(cmd.mode!=="none"&&!cmd.mode.startsWith("fixed-")&&!window.confirm("确认执行“"+cmd.title+"”吗？"))return;
     try{
-      const response=await request("/rustdesk/sendCmd","POST",{target:cmd.target,cmd:cmd.cmd,option:form.elements.option.value});
-      const output=document.getElementById("command-output");if(output)output.textContent=typeof response==="string"?response:JSON.stringify(response,null,2);
-    }catch(e){toast(e.message,true);}
+      const response=await request("/rustdesk/sendCmd","POST",{target:cmd.target,cmd:cmd.cmd,option});
+      state.commandOutput=typeof response==="string"?response:JSON.stringify(response,null,2);
+      const output=document.getElementById("command-output");if(output)output.textContent=state.commandOutput;
+      toast("服务器已处理该操作");
+    }catch(err){
+      state.commandOutput="执行失败："+err.message;
+      const output=document.getElementById("command-output");if(output)output.textContent=state.commandOutput;
+      toast(err.message,true);
+    }
   }
 
   document.addEventListener("click",async event=>{
@@ -1644,6 +1730,13 @@
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
     if(a==="refresh"){await load();return;}
+    if(a==="server-select"){
+      const command=serverCommandCatalog.find(item=>item.id===el.dataset.id);
+      if(!command)return;
+      state.commandSelected=command.id;state.commandOutput="";
+      render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
+      return;
+    }
     if(a==="picker-search"){await lookupPicker(el.closest(".entity-picker"));return;}
     if(a==="picker-clear"){
       const picker=el.closest(".entity-picker");
