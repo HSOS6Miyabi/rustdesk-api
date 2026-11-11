@@ -3,7 +3,7 @@
   const el = id => document.getElementById(id);
   const store = (key, value) => localStorage.setItem(key, value);
   const read = key => localStorage.getItem(key)||"";
-  const state = { token:sessionStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false };
+  const state = { token:sessionStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,pageFullscreen:false };
   const config = {
     host: el("v2-host"), key: el("v2-key"), id: el("v2-id")
   };
@@ -12,6 +12,45 @@
   config.id.value=read("remote-id")||read("id");
   el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y";
   function message(text){el("v2-message").textContent=text;}
+  const stage=document.querySelector(".stage");
+  const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
+  function syncFullscreen(){
+    const monitorFullscreen=document.fullscreenElement===stage;
+    document.body.classList.toggle("webclient-page-fullscreen",state.pageFullscreen&&!monitorFullscreen);
+    pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen&&!monitorFullscreen));
+    screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
+    pageFullscreenButton.textContent=state.pageFullscreen&&!monitorFullscreen?"退出网页全屏":"网页全屏";
+    screenFullscreenButton.textContent=monitorFullscreen?"退出显示器全屏":"显示器全屏";
+    if(monitorFullscreen)state.pageFullscreen=false;
+  }
+  pageFullscreenButton.addEventListener("click",async()=>{
+    if(document.fullscreenElement){
+      try{await document.exitFullscreen();}catch(error){message("退出显示器全屏失败："+error.message);return;}
+    }
+    state.pageFullscreen=!state.pageFullscreen;
+    syncFullscreen();
+  });
+  screenFullscreenButton.addEventListener("click",async()=>{
+    if(document.fullscreenElement===stage){
+      try{await document.exitFullscreen();}catch(error){message("退出显示器全屏失败："+error.message);}
+      return;
+    }
+    try{
+      if(!stage.requestFullscreen)throw Error("当前浏览器不支持此功能");
+      await stage.requestFullscreen({navigationUI:"hide"});
+      state.pageFullscreen=false;
+      syncFullscreen();
+    }catch(error){
+      message("无法进入显示器全屏："+error.message+"。您仍可使用网页全屏。");
+    }
+  });
+  document.addEventListener("fullscreenchange",syncFullscreen);
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&state.pageFullscreen){
+      state.pageFullscreen=false;syncFullscreen();
+    }
+  });
+  syncFullscreen();
   function sanitize(s){return String(s===undefined||s===null?"":s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
   async function request(path, method="GET", body){
     const headers={"Accept":"application/json"};
