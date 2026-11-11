@@ -392,6 +392,31 @@ def check_real_changes(admin):
         "id": collection_id, "name": "Unauthorized rename",
     })
     check(denied.get("code") != 0, "Another account can modify a private collection")
+    for path, payload in (
+        ("/my/peer/update",{"row_id":row_id,"alias":"Unauthorized"}),
+        ("/my/tag/update",{"id":tag_id,"name":"Unauthorized","color":0}),
+        ("/my/address_book_collection_rule/update",{
+            "id":rule_id,"collection_id":collection_id,"type":3,"to_id":0,"rule":2,
+        }),
+    ):
+        _,denied=stranger.send("POST",path,payload)
+        check(denied.get("code")!=0,f"Cross-account modification accepted at {path}")
+    for path in (
+        "/user/list","/peer/list","/group/list","/admin_role/list",
+        "/settings/effective","/audit_conn/list","/device_deployment/list",
+    ):
+        status,denied=stranger.send("GET",path+"?page=1&page_size=5")
+        check(status!=200 or denied.get("code")!=0,
+              f"An ordinary user could read administrator-only records at {path}")
+    for path,payload in (
+        ("/user/delete",{"id":user_id}),
+        ("/peer/delete",{"row_id":row_id}),
+        ("/group/update",{"id":1,"name":"Unauthorized","type":1}),
+        ("/settings/overrides",{"changes":[]}),
+    ):
+        _,denied=stranger.send("POST",path,payload)
+        check(denied.get("code")!=0,
+              f"An ordinary user could change administrator-only data at {path}")
     return user.count + stranger.count
 
 
