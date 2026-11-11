@@ -59,7 +59,9 @@ func (c *FileCache) saveValue(key string, value string, exp int) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	err := os.WriteFile(f, ([]byte)(value), 0644)
+	err := os.MkdirAll(c.Dir,0700)
+    if err != nil { return err }
+    err = os.WriteFile(f,([]byte)(value),0600)
 	if err != nil {
 		return err
 	}

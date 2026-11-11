@@ -42,7 +42,7 @@ func NotificationEventCatalog() []string {
 
 func CurrentNotificationSettings() (*model.NotificationSetting, error) {
 	record := &model.NotificationSetting{}
-	if DB == nil || !DB.Migrator().HasTable(record) {
+	if DB == nil {
 		return &model.NotificationSetting{IdModel: model.IdModel{Id: 1}}, nil
 	}
 	err := DB.Where("id = ?", 1).First(record).Error
@@ -175,7 +175,7 @@ func RetryNotification(id uint) error {
 // ProcessNotificationQueue sends a bounded batch with an atomic database
 // claim. Sending status expires after 60 seconds if a worker was interrupted.
 func ProcessNotificationQueue(limit int) (int, error) {
-	if DB == nil || !DB.Migrator().HasTable(&model.NotificationDelivery{}) { return 0, nil }
+	if DB == nil { return 0, nil }
 	if limit < 1 || limit > 20 { limit = 10 }
 	now := time.Now().Unix()
 	var rows []model.NotificationDelivery
@@ -216,7 +216,7 @@ func ProcessNotificationQueue(limit int) (int, error) {
 func StartNotificationWorker() {
 	notificationWorkerOnce.Do(func() {
 		launchServiceWorker(func(ctx context.Context) {
-			startEventOutboxWorker(ctx, notificationOutboxWake, ProcessNotificationEventOutbox, "administrative")
+			startEventOutboxWorker(ctx, notificationOutboxWake, &model.NotificationEventOutbox{}, ProcessNotificationEventOutbox, "administrative")
 		})
 		startAdministrativeMailScheduler(notificationDeliveryWake)
 	})

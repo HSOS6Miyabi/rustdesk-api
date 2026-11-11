@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/lejianwen/rustdesk-api/v2/config"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -73,100 +74,104 @@ func persistNotificationEvent(event, reference, description string) error {
 // Single API instances use the event-driven processing path. Shared workers
 // are optional and claim events before generating delivery records.
 func sharedEventWorkersEnabled() bool {
-	return os.Getenv("RUSTDESK_API_SHARED_EVENT_WORKERS") == "1"
+	return config.RuntimeBool("runtime.shared-event-workers")
 }
 
-func claimOutboxRow(table interface{}, id uint) (bool, error) {
-	now := time.Now().Unix()
-	result := DB.Model(table).Where("id = ? AND lease_until <= ?", id, now).
-		UpdateColumn("lease_until", now+60)
-	if result.Error != nil { return false, result.Error }
-	return result.RowsAffected == 1, nil
+func claimOutboxRow(table interface{}, id uint) (string, bool, error) {
+    owner := uuid.NewString()
+    now := time.Now().Unix()
+    result := DB.Model(table).
+        Where("id = ? AND lease_until <= ? AND next_attempt_at <= ? AND status IN ?",
+            id, now, now, []string{"pending", "retry"}).
+        Updates(map[string]interface{}{
+            "lease_until": now+60,
+            "lease_owner": owner,
+        })
+    if result.Error != nil { return "", false, result.Error }
+    return owner, result.RowsAffected == 1, nil
 }
 
-func releaseOutboxRow(table interface{}, id uint) error {
-	return DB.Model(table).Where("id = ?", id).UpdateColumn("lease_until", 0).Error
+func releaseOutboxRow(table interface{}, id uint, owner string) error {
+    return DB.Model(table).Where("id = ? AND lease_owner = ?",id,owner).
+        Updates(map[string]interface{}{"lease_until": int64(0),"lease_owner":""}).Error
 }
 
-func deleteProcessedOutboxRows(table interface{}, ids []uint) error {
-	if len(ids) == 0 { return nil }
-	return DB.Where("id IN ?", ids).Delete(table).Error
+func deleteProcessedOutboxRow(table interface{}, id uint, owner string) error {
+    query := DB.Where("id = ?",id)
+    if owner != "" { query = query.Where("lease_owner = ?",owner) }
+    return query.Delete(table).Error
 }
 
 func ProcessPushEventOutbox(limit int) (int, error) {
 	if DB == nil { return 0, nil }
 	if limit <= 0 || limit > 100 { limit = 20 }
 	shared := sharedEventWorkersEnabled()
-	query := DB.Order("id ASC").Limit(limit)
+	query := DB.Where("status IN ? AND next_attempt_at <= ?", []string{"pending", "retry"}, time.Now().Unix()).Order("id ASC").Limit(limit)
 	if shared { query = query.Where("lease_until <= ?", time.Now().Unix()) }
 	var rows []model.PushEventOutbox
 	if err := query.Find(&rows).Error; err != nil { return 0, err }
-	processed := make([]uint, 0, len(rows))
+	processed := 0
 	var processErr error
+	var firstErr error
 	for _, row := range rows {
+        owner := ""
 		if shared {
 			var claimed bool
-			claimed, processErr = claimOutboxRow(&model.PushEventOutbox{}, row.Id)
-			if processErr != nil { break }
+			owner, claimed, processErr = claimOutboxRow(&model.PushEventOutbox{}, row.Id)
+			if processErr != nil { return processed, processErr }
 			if !claimed { continue }
 		}
 		var event PushEvent
 		processErr = json.Unmarshal([]byte(row.Payload), &event)
+		permanent := processErr != nil
 		if processErr == nil {
 			if event.Reference == "" { event.Reference = fmt.Sprintf("outbox:%d", row.Id) }
 			processErr = processPushEvent(event)
 		}
 		if processErr != nil {
-			if shared {
-				if releaseErr := releaseOutboxRow(&model.PushEventOutbox{}, row.Id); releaseErr != nil {
-					processErr = fmt.Errorf("%w; release event: %v", processErr, releaseErr)
-				}
-			}
-			break
+			if firstErr == nil { firstErr = processErr }
+			if err := recordOutboxFailure(&model.PushEventOutbox{}, row.Id, row.Attempts, processErr, owner, permanent); err != nil { return 0, err }
+			continue
 		}
-		processed = append(processed, row.Id)
+		if err:=deleteProcessedOutboxRow(&model.PushEventOutbox{}, row.Id, owner);err!=nil{return processed,err}
+        processed++
 	}
-	if err := deleteProcessedOutboxRows(&model.PushEventOutbox{}, processed); err != nil {
-		return 0, err
-	}
-	return len(processed), processErr
+	return processed, firstErr
 }
 
 func ProcessNotificationEventOutbox(limit int) (int, error) {
 	if DB == nil { return 0, nil }
 	if limit <= 0 || limit > 100 { limit = 20 }
 	shared := sharedEventWorkersEnabled()
-	query := DB.Order("id ASC").Limit(limit)
+	query := DB.Where("status IN ? AND next_attempt_at <= ?", []string{"pending", "retry"}, time.Now().Unix()).Order("id ASC").Limit(limit)
 	if shared { query = query.Where("lease_until <= ?", time.Now().Unix()) }
 	var rows []model.NotificationEventOutbox
 	if err := query.Find(&rows).Error; err != nil { return 0, err }
-	processed := make([]uint, 0, len(rows))
+	processed := 0
 	var processErr error
+	var firstErr error
 	for _, row := range rows {
+        owner := ""
 		if shared {
 			var claimed bool
-			claimed, processErr = claimOutboxRow(&model.NotificationEventOutbox{}, row.Id)
-			if processErr != nil { break }
+			owner, claimed, processErr = claimOutboxRow(&model.NotificationEventOutbox{}, row.Id)
+			if processErr != nil { return processed, processErr }
 			if !claimed { continue }
 		}
+		_, supported := notificationEventNames[row.Event]
 		processErr = QueueNotification(row.Event, row.Reference, row.Description)
 		if processErr != nil {
-			if shared {
-				if releaseErr := releaseOutboxRow(&model.NotificationEventOutbox{}, row.Id); releaseErr != nil {
-					processErr = fmt.Errorf("%w; release event: %v", processErr, releaseErr)
-				}
-			}
-			break
+			if firstErr == nil { firstErr = processErr }
+			if err := recordOutboxFailure(&model.NotificationEventOutbox{}, row.Id, row.Attempts, processErr, owner, !supported); err != nil { return 0, err }
+			continue
 		}
-		processed = append(processed, row.Id)
+		if err:=deleteProcessedOutboxRow(&model.NotificationEventOutbox{}, row.Id, owner);err!=nil{return processed,err}
+        processed++
 	}
-	if err := deleteProcessedOutboxRows(&model.NotificationEventOutbox{}, processed); err != nil {
-		return 0, err
-	}
-	return len(processed), processErr
+	return processed, firstErr
 }
 
-func startEventOutboxWorker(ctx context.Context, wake <-chan struct{},
+func startEventOutboxWorker(ctx context.Context, wake <-chan struct{}, table interface{},
 	process func(int) (int, error), name string) {
 	for {
 		if ctx.Err() != nil { return }
@@ -177,10 +182,15 @@ func startEventOutboxWorker(ctx context.Context, wake <-chan struct{},
 			continue
 		}
 		if count == 20 { continue }
-		// Shared deployments periodically read events from other instances.
-		// A single instance remains idle until its own event is written.
-		if sharedEventWorkersEnabled() {
-			if !waitForWorkContext(ctx, wake, 5*time.Second, true) { return }
-		} else if !waitForWorkContext(ctx, wake, 0, false) { return }
+		delay, scheduled, err := nextOutboxDelay(table)
+		if err != nil {
+			if Logger != nil { Logger.WithError(err).Warn(name+" outbox scheduling failed") }
+			if !waitForWorkContext(ctx, wake, 10*time.Second, true) { return }
+			continue
+		}
+		if sharedEventWorkersEnabled() && (!scheduled || delay > 5*time.Second) {
+			delay, scheduled = 5*time.Second, true
+		}
+		if !waitForWorkContext(ctx, wake, delay, scheduled) { return }
 	}
 }

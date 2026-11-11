@@ -87,6 +87,9 @@ func buildClientHTTP() *http.Client {
 }
 
 func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,client *http.Client)(string,int64,error){
+    return writeClientPackageContext(context.Background(),task,source,client)
+}
+func writeClientPackageContext(parent context.Context,task *model.ClientBuildTask,source clientBuildSource,client *http.Client)(string,int64,error){
 	if task==nil||task.Id==0||source.Size<=0||source.Size>100<<20 ||
 		len(source.SHA256)!=64 ||
 		(!strings.HasSuffix(task.Filename,".exe") && !strings.HasSuffix(task.Filename,".zip")) ||
@@ -95,7 +98,7 @@ func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,cli
 	}
 	folder:=filepath.Join(clientBuildRoot(),fmt.Sprintf("%d",task.Id))
 	if err:=os.MkdirAll(folder,0700);err!=nil{return "",0,err}
-	ctx,cancel:=context.WithTimeout(context.Background(),4*time.Minute)
+	ctx,cancel:=context.WithTimeout(parent,4*time.Minute)
 	defer cancel()
 	request,err:=http.NewRequestWithContext(ctx,http.MethodGet,source.URL,nil)
 	if err!=nil{return "",0,err}
@@ -126,9 +129,9 @@ func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,cli
 }
 
 func RecoverInterruptedClientBuilds(now int64)error{
-	if DB==nil||!DB.Migrator().HasTable(&model.ClientBuildTask{}){return nil}
+	if DB==nil{return nil}
 	return DB.Model(&model.ClientBuildTask{}).
-		Where("status = ? AND started_at <= ?", "building", now-600).
+		Where("status = ? AND updated_at <= ?", "building", time.Unix(now-600,0)).
 		Updates(map[string]interface{}{
 			"status":"failed", "error":"安装程序处理已中断，可重新提交任务",
 			"finished_at":now,
@@ -136,7 +139,10 @@ func RecoverInterruptedClientBuilds(now int64)error{
 }
 
 func ProcessClientBuildQueue(limit int)(int,error){
-	if DB==nil||!DB.Migrator().HasTable(&model.ClientBuildTask{}){return 0,nil}
+    return processClientBuildQueueContext(context.Background(),limit)
+}
+func processClientBuildQueueContext(ctx context.Context,limit int)(int,error){
+	if DB==nil{return 0,nil}
 	if err:=RecoverInterruptedClientBuilds(time.Now().Unix());err!=nil{return 0,err}
 	if limit<1||limit>2{limit=1}
 	var queued []model.ClientBuildTask
@@ -144,16 +150,39 @@ func ProcessClientBuildQueue(limit int)(int,error){
 		Find(&queued).Error;err!=nil{return 0,err}
 	complete:=0
 	for _,task:=range queued {
-		now:=time.Now().Unix()
+        if err:=ctx.Err();err!=nil{return complete,err}
+        now:=time.Now().Unix()
 		claim:=DB.Model(&model.ClientBuildTask{}).Where("id = ? AND status = ?",task.Id,"pending").
 			Updates(map[string]interface{}{"status":"building","started_at":now})
 		if claim.Error!=nil{return complete,claim.Error}
 		if claim.RowsAffected!=1{continue}
-		source,err:=officialClientBuildSource(task.Platform,task.Version)
-		var digest string
-		var size int64
-		if err==nil{digest,size,err=writeClientPackage(&task,source,buildClientHTTP())}
-		fields:=map[string]interface{}{"finished_at":time.Now().Unix()}
+		workCtx,stopProgress:=context.WithCancel(ctx)
+        progressDone:=make(chan struct{})
+        go func(){
+            defer close(progressDone)
+            ticker:=time.NewTicker(30*time.Second)
+            defer ticker.Stop()
+            for {
+                select {
+                case <-workCtx.Done():return
+                case <-ticker.C:
+                    result:=DB.Model(&model.ClientBuildTask{}).
+                        Where("id = ? AND status = ?",task.Id,"building").
+                        UpdateColumn("updated_at",time.Now())
+                    if result.Error!=nil&&Logger!=nil{
+                        Logger.WithError(result.Error).Warn("client build progress update failed")
+                    }
+                    if result.Error!=nil||result.RowsAffected==0{return}
+                }
+            }
+        }()
+        source,err:=officialClientBuildSource(task.Platform,task.Version)
+        var digest string
+        var size int64
+        if err==nil{digest,size,err=writeClientPackageContext(workCtx,&task,source,buildClientHTTP())}
+        stopProgress()
+        <-progressDone
+        fields:=map[string]interface{}{"finished_at":time.Now().Unix()}
 		if err!=nil {
 			message:=err.Error()
 			if len(message)>500{message=message[:500]}
@@ -192,18 +221,12 @@ func nextClientBuildDelay() (time.Duration, bool, error) {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, false, err
 	}
-	var earliest struct {
-		Due *int64 `gorm:"column:due"`
-	}
-	if err := DB.Model(&model.ClientBuildTask{}).
-		Select("MIN(started_at) AS due").Where("status = ?", "building").
-		Scan(&earliest).Error; err != nil {
-		return 0, false, err
-	}
-	if earliest.Due == nil {
-		return 0, false, nil
-	}
-	delay := time.Until(time.Unix(*earliest.Due+601, 0))
+	var earliest model.ClientBuildTask
+    err = DB.Model(&model.ClientBuildTask{}).Select("id,updated_at").
+        Where("status = ?", "building").Order("updated_at ASC").Take(&earliest).Error
+    if errors.Is(err,gorm.ErrRecordNotFound){return 0,false,nil}
+    if err!=nil{return 0,false,err}
+    delay:=time.Until(time.Time(earliest.UpdatedAt).Add(601*time.Second))
 	if delay < 0 {
 		delay = 0
 	}
@@ -214,7 +237,7 @@ func StartClientBuildWorker(){
 	launchServiceWorker(func(ctx context.Context) {
 		for {
 			if ctx.Err() != nil { return }
-			if _, err := ProcessClientBuildQueue(1); err != nil {
+			if _, err := processClientBuildQueueContext(ctx,1); err != nil {
 				if Logger != nil {
 					Logger.WithError(err).Warn("client installer preparation failed")
 				}
@@ -226,7 +249,7 @@ func StartClientBuildWorker(){
 				if Logger != nil {
 					Logger.WithError(err).Warn("client installer scheduling failed")
 				}
-				waitForWork(clientBuildWake, 10*time.Second, true)
+				if !waitForWorkContext(ctx,clientBuildWake,10*time.Second,true) {return}
 				continue
 			}
 			if !waitForWorkContext(ctx, clientBuildWake, delay, scheduled) { return }

@@ -70,7 +70,7 @@ func NewLoginLimiter(policy SecurityPolicy) *LoginLimiter {
 		bannedIPs:   make(map[string]BanRecord),
 		cleanupStop: make(chan struct{}),
 	}
-	go ll.cleanupRoutine()
+	if !ll.isDisabled() { go ll.cleanupRoutine() }
 	return ll
 }
 

@@ -107,3 +107,13 @@ pg_restore --host=127.0.0.1 --port=5432 --username=rustdesk \
 自动化恢复测试由 `service/database_restore_test.go`、`service/database_multi_driver_test.go`、`scripts/test_database_restore.sh` 和 `.github/workflows/verify-database-upgrades.yml` 组成。GitHub Actions 使用一次性数据库进行测试，不会访问实际部署环境。
 
 **正式升级前应另行完成真实备份恢复演练。** 完成后再安排新版本切换；当前开发分支尚未进入正式发布阶段。
+
+## 设置中心的数据备份
+
+数据库迁移版本 290 的设置中心将应用覆盖保存在 `system_setting_overrides`、`system_setting_revisions` 与 `system_setting_histories`。启动配置另存于 `data/settings-bootstrap.json`。备份 SQLite 时应同时保留数据库文件与启动配置文件；MySQL、PostgreSQL 备份时也要独立保存运行实例使用的启动配置文件和解密密钥。
+
+恢复后重新启动 API，进入“设置中心”检查每项配置的当前值和来源。更换数据库连接参数之前，应在测试环境完成旧数据库的恢复与连接检查。
+
+## 启动设置的上一版文件
+
+设置中心将上一版启动配置保存为 `data/settings-bootstrap.json.previous`，文件包含管理员配置的敏感信息，备份时应与当前启动配置一起保护。如果更改监听地址或数据库连接参数后无法启动 API，可在停止服务后从上一版文件恢复，并将文件权限保持为 `0600`。恢复流程参见 [设置中心使用说明](SETTINGS_CENTER.md)。

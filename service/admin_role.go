@@ -170,14 +170,13 @@ func ListAdminRoleAssignments(page,size uint)([]model.AdminRoleAssignment,int64,
 }
 
 func adminRolesForUser(userID uint)([]model.AdminRole,error){
-	var granted []model.AdminRole
-	if userID==0{return granted,nil}
-	var ids []uint
-	if err:=DB.Model(&model.AdminRoleAssignment{}).
-		Where("user_id = ?",userID).Pluck("role_id",&ids).Error;err!=nil{return nil,err}
-	if len(ids)==0{return granted,nil}
-	err:=DB.Where("enabled = ? AND id IN ?",true,ids).Find(&granted).Error
-	return granted,err
+    var granted []model.AdminRole
+    if userID==0 { return granted,nil }
+    err:=DB.Table("admin_roles AS roles").Select("roles.*").
+        Joins("JOIN admin_role_assignments AS assignments ON assignments.role_id = roles.id").
+        Where("assignments.user_id = ? AND roles.enabled = ?",userID,true).
+        Find(&granted).Error
+    return granted,err
 }
 
 type AdminRoleAccess struct {
@@ -195,27 +194,34 @@ func RoleAccessForUser(user *model.User,permission string)(AdminRoleAccess,error
 	roles,err:=adminRolesForUser(user.Id)
 	if err!=nil{return result,err}
 	visible:=make(map[uint]bool)
-	for _,role:=range roles{
-		allowed:=false
-		for _,p:=range strings.Split(role.Permissions,","){
-			if p==permission{allowed=true;break}
-		}
-		if !allowed||!roleSupportsScope(permission,role.ScopeType){continue}
-		switch role.ScopeType{
-		case AdminScopeGlobal:
-			result.Global=true
-			return result,nil
-		case AdminScopeIndividual:
-			if role.ScopeId>0{visible[role.ScopeId]=true}
-		case AdminScopeGroup:
-			var primary,secondary []uint
-			if err:=DB.Model(&model.User{}).Where("group_id = ?",role.ScopeId).
-				Pluck("id",&primary).Error;err!=nil{return result,err}
-			if err:=DB.Model(&model.GroupMembership{}).Where("group_id = ?",role.ScopeId).
-				Pluck("user_id",&secondary).Error;err!=nil{return result,err}
-			for _,id:=range append(primary,secondary...){visible[id]=true}
-		}
-	}
+    groups:=make(map[uint]struct{})
+    for _,role:=range roles{
+        allowed:=false
+        for _,p:=range strings.Split(role.Permissions,","){
+            if p==permission{allowed=true;break}
+        }
+        if !allowed||!roleSupportsScope(permission,role.ScopeType){continue}
+        switch role.ScopeType{
+        case AdminScopeGlobal:
+            result.Global=true
+            return result,nil
+        case AdminScopeIndividual:
+            if role.ScopeId>0{visible[role.ScopeId]=true}
+        case AdminScopeGroup:
+            groups[role.ScopeId]=struct{}{}
+        }
+    }
+    if len(groups)>0{
+        groupIDs:=make([]uint,0,len(groups))
+        for id:=range groups{groupIDs=append(groupIDs,id)}
+        var primary,secondary []uint
+        if err:=DB.Model(&model.User{}).Where("group_id IN ?",groupIDs).
+            Pluck("id",&primary).Error;err!=nil{return result,err}
+        if err:=DB.Model(&model.GroupMembership{}).Where("group_id IN ?",groupIDs).
+            Pluck("user_id",&secondary).Error;err!=nil{return result,err}
+        for _,id:=range primary{visible[id]=true}
+        for _,id:=range secondary{visible[id]=true}
+    }
 	for id:=range visible{result.UserIDs=append(result.UserIDs,id)}
 	sort.Slice(result.UserIDs,func(i,j int)bool{return result.UserIDs[i]<result.UserIDs[j]})
 	return result,nil

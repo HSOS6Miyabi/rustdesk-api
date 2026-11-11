@@ -1,0 +1,18 @@
+services:
+  rustdesk-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rustdesk-api:local
+    container_name: rustdesk-api-local
+    environment:
+      TZ: Asia/Shanghai
+      RUSTDESK_API_RUSTDESK_ID_SERVER: id.example.com:21116
+      RUSTDESK_API_RUSTDESK_RELAY_SERVER: relay.example.com:21117
+      RUSTDESK_API_RUSTDESK_API_SERVER: https://api.example.com
+    ports:
+      - "21114:21114"
+    volumes:
+      - ./data/rustdesk/api:/app/data
+    stop_grace_period: 75s
+    restart: unless-stopped

@@ -70,6 +70,14 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.SetEnvPrefix("RUSTDESK_API")
+	// Bind every declared application field. AutomaticEnv alone does not
+	// enumerate environment-only keys during Viper.Unmarshal.
+	for _, setting := range SettingDefinitions() {
+		if strings.HasPrefix(setting.Key,"runtime.") {continue}
+		if err:=v.BindEnv(setting.Key,setting.Environment);err!=nil {
+			panic(fmt.Errorf("bind environment variable %s: %w",setting.Environment,err))
+		}
+	}
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
 	err := v.ReadInConfig()
@@ -108,6 +116,8 @@ func Init(rowVal *Config, path string) *viper.Viper {
 			panic(fmt.Errorf("invalid REQUIRE_DEVICE_DEPLOYMENT value: %s", value))
 		}
 	}
+	markSettingsBase(*rowVal,v)
+	if err := loadBootstrapOverrides(rowVal); err != nil { panic(fmt.Errorf("invalid bootstrap settings: %w",err)) }
 	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()
 	return v

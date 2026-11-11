@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **版本与维护资料：** [版本说明](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[实施台账](docs/IMPLEMENTATION_LEDGER.md)、[T001–T022 检查记录](docs/TASK_VERIFICATION_RECORD.md)。正式版本：[RustDesk API v3.0.0-api.105](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.105)、[RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。API 与 Server 的主分支代码已经合并，两个版本的 Linux AMD64、ARM64 Docker 镜像已经发布。Server 组合镜像使用 API v3.0.0-api.103。
+> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)，数据库迁移版本为 288。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。当前设置中心整改分支采用数据库迁移版本 290；完整版本关系参见 [兼容版本](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -56,12 +56,20 @@ Docker 构建与运行：
 docker build -t rustdesk-api .
 docker run -d --name rustdesk-api -p 21114:21114 \
   -v "$PWD/data:/app/data" \
-  --restart unless-stopped rustdesk-api
+  --stop-timeout 75 --restart unless-stopped rustdesk-api
 ```
 
 Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/rustdesk-api`。
 
 详细配置见 [部署与配置](docs/DEPLOYMENT.md)，接口说明见 [API 使用说明](docs/API.md)。
+
+系统管理员可以从“系统管理 → 设置中心”查看全局配置的用途、当前运行值和来源，启用网页覆盖，并在重启后应用修改。网页覆盖值优先于环境变量。
+
+维护与接手资料：
+
+- [设置中心](docs/SETTINGS_CENTER.md)和[完整配置参考](docs/CONFIG_REFERENCE.md)
+- [分支功能差异](docs/FORK_CHANGELOG.md)和[上游合并步骤](docs/UPSTREAM_SYNC.md)
+- [版本兼容性](docs/COMPATIBILITY.md)、[性能测试方法](docs/PERFORMANCE_TESTING.md)和[开发交接](docs/HANDOFF.md)
 
 ## 与 RustDesk Server 配合使用
 
@@ -75,7 +83,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 构建、测试及发布
 
-GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译及 Docker 镜像构建测试。日常提交与拉取请求不会自动发布版本。需要发布 `v3.0.0-api.105` 时，在 GitHub Actions 打开 [Publish approved RustDesk API milestone](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-milestone.yml)，选择 `master` 分支，勾选 `milestone_release` 后运行。工作流会创建版本标签，并启动 `Verify and release RustDesk API`；测试与编译成功后，会发布 Linux AMD64、Linux ARM64、Windows AMD64 安装包和 GHCR 多架构 Docker 镜像。
+GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译及 Docker 镜像构建测试。日常提交与拉取请求不会自动发布版本。需要发布经过明确批准的新版本时，在 GitHub Actions 打开 [Publish approved RustDesk API milestone](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-milestone.yml)，选择 `master` 分支，勾选 `milestone_release` 后运行。工作流会创建版本标签，并启动 `Verify and release RustDesk API`；测试与编译成功后，会发布 Linux AMD64、Linux ARM64、Windows AMD64 安装包和 GHCR 多架构 Docker 镜像。
 
 查看 [维护说明](docs/MAINTENANCE.md) 了解测试和升级过程。
 
@@ -83,9 +91,9 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 沿用上游仓库的许可证及第三方组件各自的许可证。WebClient v2 复用本仓库已有的开源网页连接代码。
 
-## 开发分支中的扩展功能
+## 扩展功能
 
-当前开发分支增加了附加群组与所有用户共享地址簿、官方客户端 `--assign`、`--deploy` 接口、可选设备登记管理、设备与用户及设备组三级策略、活动连接管理和独立 API 管理令牌。这些功能仍处于里程碑开发阶段，正式版本保持原来的发布方式和版本编号。
+当前代码包含附加群组与所有用户共享地址簿、官方客户端 `--assign`、`--deploy` 接口、可选设备登记管理、设备与用户及设备组三级策略、活动连接管理和独立 API 管理令牌。后续修改通过独立拉取请求进行审核，正式发行仍按批准后的版本流程操作。
 
 - [功能完成情况](docs/FEATURE_MATRIX.md)
 - [API 使用说明](docs/API.md)
@@ -138,7 +146,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 
-当前数据库迁移版本是 288，正式版本为 [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。发布流程由版本授权文件控制，具体操作见 [性能与数据保存说明](docs/PERFORMANCE.md)。
+当前整改分支的数据库迁移版本为 290；已发行 v3.0.0-api.106 对应迁移版本 288。最新正式版本为 [v3.0.0-api.106](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.106)。Linux、macOS 在真实设备上的安装、远程连接及正式 SMTP 服务的检查，继续以 [实施台账](docs/IMPLEMENTATION_LEDGER.md) 为准。发布流程由版本授权文件控制，具体操作见 [性能与数据保存说明](docs/PERFORMANCE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
 
@@ -146,3 +154,5 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 ## 个人事件推送与 GeoIP
 
 用户可在控制台的“消息推送”页面添加 MessagePusher、SMTP 邮件和 Server酱渠道，并分别选择订阅事件。设备、连接和审计事件由后台异步发送。管理页面显示的 IP 地址将附注本地 GeoIP 查询结果。部署设置、事件说明及接口参见 [消息推送与 IP 地理位置](docs/PUSH_NOTIFICATIONS.md)。
+
+历史开发与发行检查记录：[2026 年 11 月交接快照](docs/HANDOFF_SNAPSHOT_2026-11-09.md)、[T001–T022 逐项检查记录](docs/TASK_VERIFICATION_RECORD.md) 与 [实施台账](docs/IMPLEMENTATION_LEDGER.md)。

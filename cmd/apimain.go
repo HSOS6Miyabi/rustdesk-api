@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 288
+const DatabaseVersion = 290
 
 // @title 管理系统API
 // @version 1.0
@@ -40,12 +40,12 @@ const DatabaseVersion = 288
 var rootCmd = &cobra.Command{
 	Use:   "apimain",
 	Short: "RUSTDESK API SERVER",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		InitGlobal()
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return InitGlobal()
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		global.Logger.Info("API SERVER START")
-		http.ApiInit()
+		return http.ApiInit()
 	},
 }
 
@@ -117,6 +117,7 @@ func main() {
 			}
 		}
 	}
+	if closer,ok:=global.Cache.(interface{Close() error});ok {_=closer.Close()}
 	if global.Redis!=nil {_=global.Redis.Close()}
 	if err!=nil {
 		if global.Logger!=nil {global.Logger.Error(err)}
@@ -124,7 +125,7 @@ func main() {
 	}
 }
 
-func InitGlobal() {
+func InitGlobal() error {
 	//配置解析
 	global.Viper = config.Init(&global.Config, global.ConfigPath)
 
@@ -137,25 +138,6 @@ func InitGlobal() {
 
 	global.InitI18n()
 
-	//redis
-	global.Redis = redis.NewClient(&redis.Options{
-		Addr:     global.Config.Redis.Addr,
-		Password: global.Config.Redis.Password,
-		DB:       global.Config.Redis.Db,
-	})
-
-	//cache
-	if global.Config.Cache.Type == cache.TypeFile {
-		fc := cache.NewFileCache()
-		fc.SetDir(global.Config.Cache.FileDir)
-		global.Cache = fc
-	} else if global.Config.Cache.Type == cache.TypeRedis {
-		global.Cache = cache.NewRedis(&redis.Options{
-			Addr:     global.Config.Cache.RedisAddr,
-			Password: global.Config.Cache.RedisPwd,
-			DB:       global.Config.Cache.RedisDb,
-		})
-	}
 	//gorm
 	if global.Config.Gorm.Type == config.TypeMysql {
 
@@ -195,6 +177,36 @@ func InitGlobal() {
 		}, global.Logger)
 	}
 
+	if err := DatabaseAutoUpdate(); err != nil { return fmt.Errorf("database startup migration: %w", err) }
+	service.DB = global.DB
+	if err := service.LoadConfiguredSettings(&global.Config); err != nil { return fmt.Errorf("load application settings: %w", err) }
+	//redis
+	global.Redis = redis.NewClient(&redis.Options{
+		Addr:     global.Config.Redis.Addr,
+		Password: global.Config.Redis.Password,
+		DB:       global.Config.Redis.Db,
+	})
+
+	//cache
+	if global.Config.Cache.Type == cache.TypeFile {
+		fc := cache.NewFileCache()
+		if global.Config.Cache.FileDir == "" {
+            global.Config.Cache.FileDir = "./data/cache"
+        }
+        if err:=os.MkdirAll(global.Config.Cache.FileDir,0700);err!=nil{
+            return fmt.Errorf("prepare file cache directory: %w",err)
+        }
+        fc.SetDir(global.Config.Cache.FileDir)
+        global.Cache=fc
+	} else if global.Config.Cache.Type == cache.TypeMem {
+		global.Cache = cache.NewMemoryCache(32 * 1024 * 1024)
+	} else if global.Config.Cache.Type == cache.TypeRedis {
+		global.Cache = cache.NewRedis(&redis.Options{
+			Addr:     global.Config.Cache.RedisAddr,
+			Password: global.Config.Cache.RedisPwd,
+			DB:       global.Config.Cache.RedisDb,
+		})
+	}
 	//validator
 	global.ApiInitValidator()
 
@@ -224,7 +236,6 @@ func InitGlobal() {
 		BanDuration:      30 * time.Minute,
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
-	DatabaseAutoUpdate()
 	service.StartAuditMaintenance()
 	service.StartSessionMaintenance()
 	service.StartNotificationWorker()
@@ -233,9 +244,10 @@ func InitGlobal() {
 	if fileCache, ok := global.Cache.(*cache.FileCache); ok {
 		service.StartFileCacheMaintenance(fileCache)
 	}
+	return nil
 }
 
-func DatabaseAutoUpdate() {
+func DatabaseAutoUpdate() error {
 	version := DatabaseVersion
 
 	db := global.DB
@@ -260,8 +272,7 @@ func DatabaseAutoUpdate() {
 			// 获取底层的 *sql.DB 对象，并确保在程序退出时关闭连接
 			sqlDBWithoutDB, err := dbWithoutDB.DB()
 			if err != nil {
-				global.Logger.Errorf("获取底层 *sql.DB 对象失败: %v", err)
-				return
+				return fmt.Errorf("open MySQL administration connection: %w", err)
 			}
 			defer func() {
 				if err := sqlDBWithoutDB.Close(); err != nil {
@@ -271,44 +282,43 @@ func DatabaseAutoUpdate() {
 
 			err = dbWithoutDB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + " DEFAULT CHARSET utf8mb4").Error
 			if err != nil {
-				global.Logger.Error(err)
-				return
+				return fmt.Errorf("create MySQL database: %w", err)
 			}
 		}
 	}
 
 	if !db.Migrator().HasTable(&model.Version{}) {
-		Migrate(uint(version))
+		if err := Migrate(uint(version)); err != nil { return err }
 	} else {
 		//查找最后一个version
 		var v model.Version
-		db.Last(&v)
+		if err := db.Last(&v).Error; err != nil { return fmt.Errorf("read database migration version: %w", err) }
 		if v.Version < uint(version) {
-			Migrate(uint(version))
+			if err := Migrate(uint(version)); err != nil { return err }
 		}
 
 		// 245迁移
 		if v.Version < 245 {
 			//oauths 表的 oauth_type 字段设置为 op同样的值
-			db.Exec("update oauths set oauth_type = op")
-			db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google'")
-			db.Exec("update user_thirds set oauth_type = third_type, op = third_type")
+			for _, statement := range []string{"update oauths set oauth_type = op", "update oauths set issuer = 'https://accounts.google.com' where op = 'google'", "update user_thirds set oauth_type = third_type, op = third_type"} {
+				if err := db.Exec(statement).Error; err != nil { return fmt.Errorf("legacy OAuth migration: %w", err) }
+			}
 			//通过email迁移旧的google授权
 			uts := make([]model.UserThird, 0)
-			db.Where("oauth_type = ?", "google").Find(&uts)
+			if err := db.Where("oauth_type = ?", "google").Find(&uts).Error; err != nil { return err }
 			for _, ut := range uts {
 				if ut.UserId > 0 {
-					db.Model(&model.User{}).Where("id = ?", ut.UserId).Update("email", ut.OpenId)
+					if err := db.Model(&model.User{}).Where("id = ?", ut.UserId).Update("email", ut.OpenId).Error; err != nil { return err }
 				}
 			}
 		}
 		if v.Version < 246 {
-			db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google' and issuer is null")
+			if err := db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google' and issuer is null").Error; err != nil { return err }
 		}
 	}
-
+	return nil
 }
-func Migrate(version uint) {
+func Migrate(version uint) error {
 	global.Logger.Info("Migrating....", version)
 	err := global.DB.AutoMigrate(
 		&model.Version{},
@@ -366,20 +376,21 @@ func Migrate(version uint) {
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
 		&model.DeviceGroup{},
+		&model.SystemSettingOverride{},
+		&model.SystemSettingRevision{},
+		&model.SystemSettingHistory{},
 	)
 	if err != nil {
-		global.Logger.Error("migrate err :=>", err)
-		return
+		return fmt.Errorf("auto-migrate database tables: %w", err)
 	}
 	if err:=ensureAuditCleanupIndexes(global.DB);err!=nil {
-		global.Logger.WithError(err).Error("audit index migration failed")
-		return
+		return fmt.Errorf("create audit cleanup indexes: %w", err)
 	}
-	global.DB.Create(&model.Version{Version: version})
-	//如果是初次则创建一个默认用户
-	var vc int64
-	global.DB.Model(&model.Version{}).Count(&vc)
-	if vc == 1 {
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&model.Version{Version: version}).Error; err != nil { return fmt.Errorf("write database migration version: %w", err) }
+		var vc int64
+		if err := tx.Model(&model.Version{}).Count(&vc).Error; err != nil { return err }
+		if vc == 1 {
 		localizer := global.Localizer("")
 		defaultGroup, _ := localizer.LocalizeMessage(&i18n.Message{
 			ID: "DefaultGroup",
@@ -388,7 +399,7 @@ func Migrate(version uint) {
 			Name: defaultGroup,
 			Type: model.GroupTypeDefault,
 		}
-		service.AllService.GroupService.Create(group)
+		if err := tx.Create(group).Error; err != nil { return err }
 
 		shareGroup, _ := localizer.LocalizeMessage(&i18n.Message{
 			ID: "ShareGroup",
@@ -397,7 +408,7 @@ func Migrate(version uint) {
 			Name: shareGroup,
 			Type: model.GroupTypeShare,
 		}
-		service.AllService.GroupService.Create(groupShare)
+		if err := tx.Create(groupShare).Error; err != nil { return err }
 		//是true
 		is_admin := true
 		admin := &model.User{
@@ -416,9 +427,10 @@ func Migrate(version uint) {
 		if err != nil {
 			global.Logger.Fatalf("failed to generate admin password: %v", err)
 		}
-		global.DB.Create(admin)
-	}
-
+		if err := tx.Create(admin).Error; err != nil { return err }
+		}
+		return nil
+	})
 }
 
 func ensureAuditCleanupIndexes(db *gorm.DB) error {

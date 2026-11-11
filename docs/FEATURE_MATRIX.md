@@ -1,8 +1,8 @@
 # RustDesk 功能清单
 
-接手开发与完整待办任务请查看 [实施台账](IMPLEMENTATION_LEDGER.md)。当前开发分支尚未批准发布，以下“已实现”均指开发代码及相应自动化测试，不包含待执行的真实客户端检查。
+以下清单记录当前分支中已经实现的功能，实际发布范围应与 GitHub Release 对应提交核对。详细模块位置见 [分支功能说明](FORK_CHANGELOG.md)，历史实施记录见 [实施台账](IMPLEMENTATION_LEDGER.md)。
 
-本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前开发分支和自动化测试结果为依据；实际设备、正式数据库及邮件服务商的检查另行列明。数据库迁移版本为 282。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
+本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前开发分支和自动化测试结果为依据；实际设备、正式数据库及邮件服务商的检查另行列明。当前整改分支数据库迁移版本为 290，正式发行版 v3.0.0-api.106 对应 288。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
 
 | 功能 | 当前情况 | 对应模块 | 后续工作 |
 | --- | --- | --- | --- |
@@ -34,7 +34,7 @@
 | 批量联系人、共享、部署和回收站管理 | 开发分支已实现，支持事务检查与管理界面操作，Go 和浏览器测试通过 | `service/address_book_batch.go`、`http/controller/admin/contact_batch.go` | 在真实团队数据上检查操作 |
 | 自定义客户端构建器 | 已实现 Windows、Linux、macOS 的 x64/ARM64 任务、校验下载和配置脚本打包，自动测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
 
-相关代码与测试：API 草稿 PR [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)，Server 草稿 PR [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。
+既有功能的合并记录包括 API [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 与 Server [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。当前设置中心与可靠性整改见 API [#11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)。
 
 ## 发布说明
 
@@ -53,7 +53,7 @@
 - SMTP 邮件服务：保存邮件设置并发送测试邮件。
 - 成员邮件邀请与账户密码恢复：通过一次性邮件链接完成操作。
 
-以上功能均在 GitHub 草稿 PR 中开发。当前公开 Release 仍应按照其对应版本的功能说明使用。
+具体发布状态见 [兼容版本](COMPATIBILITY.md)，启用方法见 [部署说明](DEPLOYMENT.md)。
 
 - 普通用户个人设置：可启用 TOTP、查看剩余恢复码数量、重新生成恢复码或解除双重认证。
 
@@ -64,3 +64,7 @@
 - 管理员分级角色：可授予普通成员具体管理权限，支持多个角色，以及指定账户或用户组范围内的查看、修改、删除和设备转移。系统管理员保留全部管理功能。
 
 - 可选的连接访问规则：指定哪些用户或用户组可访问单台设备、指定成员拥有的设备或某个设备组；显式禁止规则优先。默认保持原有连接方式。
+
+## 设置中心与运行可靠性
+
+整改分支增加设置中心、网页配置覆盖、数据库迁移失败处理、通知失败隔离与共享处理保护。管理员可在设置中心查看当前运行值和来源，保存覆盖设置后按提示重新启动。详见 [设置中心](SETTINGS_CENTER.md) 和 [性能测试](PERFORMANCE_TESTING.md)。

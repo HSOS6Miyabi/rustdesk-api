@@ -1,17 +1,15 @@
 services:
   rustdesk-api:
-    image: ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.105
+    image: ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.106
     container_name: rustdesk-api
     environment:
-      - TZ=Asia/Shanghai
-      - RUSTDESK_API_RUSTDESK_ID_SERVER=192.168.1.66:21116
-      - RUSTDESK_API_RUSTDESK_RELAY_SERVER=192.168.1.66:21117
-      - RUSTDESK_API_RUSTDESK_API_SERVER=http://127.0.0.1:21114
-      - RUSTDESK_API_RUSTDESK_KEY=123456789
+      TZ: Asia/Shanghai
+      RUSTDESK_API_RUSTDESK_ID_SERVER: id.example.com:21116
+      RUSTDESK_API_RUSTDESK_RELAY_SERVER: relay.example.com:21117
+      RUSTDESK_API_RUSTDESK_API_SERVER: https://api.example.com
     ports:
-      - 21114:21114
+      - "21114:21114"
     volumes:
-      - ./data/rustdesk/api:/app/data # database
-      # - ./conf:/app/conf # config
-      # - ./resources:/app/resources # 静态资源
+      - ./data/rustdesk/api:/app/data
+    stop_grace_period: 75s
     restart: unless-stopped

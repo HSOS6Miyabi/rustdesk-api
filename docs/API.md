@@ -865,3 +865,23 @@ Content-Type: application/json
 - `GET /tasks/:id/download`：下载已经准备好的安装程序。
 
 服务器会保留官方 EXE、DEB 或 DMG 文件内容；Windows 通过文件名传递服务器配置，Linux 和 macOS 通过单独的脚本保存服务器配置。下载前再次验证最终文件的 SHA-256。配置需要系统管理员权限。详细的填写方法、状态说明和普通服务器及 Docker 数据保存方式见 [客户端构建器说明](CLIENT_BUILDER.md)。
+
+## 系统设置中心
+
+系统管理员通过 `/api/admin/settings` 管理应用全局设置。每个配置项目拥有独立的网页覆盖开关，启用后其值优先于环境变量。当前版本的全局设置修改后，需要重新启动 API。
+
+| 请求 | 用途 |
+| --- | --- |
+| `GET /schema` | 查看配置名称、用途、类型、环境变量和生效方式 |
+| `GET /effective` | 查看当前运行值、来源、覆盖开关和待重启状态；敏感值只显示是否已配置 |
+| `POST /validate` | 检查修改内容，不保存 |
+| `PATCH /overrides` | 保存一组覆盖值 |
+| `POST /overrides/reset` | 关闭指定项目的网页覆盖 |
+| `GET /history` | 查看设置修改记录 |
+| `GET /overview` | 查看专项设置与通知处理数量 |
+| `GET /outbox` | 查看失败通知事件 |
+| `POST /outbox/retry` | 重新提交指定失败事件 |
+
+保存接口需要提交 `bootstrap_version`、`database_version` 和 `changes`。每个 `changes` 项包含 `key`、`enabled`，启用新覆盖时填写字符串形式的 `value`。每次最多修改 50 项；同一请求仅能修改一种保存位置的设置。旧配置版本会收到冲突提示，需要重新读取后保存。
+
+完整请求示例、设置来源和权限说明见 [设置中心使用说明](SETTINGS_CENTER.md)。

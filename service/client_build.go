@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+    "github.com/lejianwen/rustdesk-api/v2/config"
 	"gorm.io/gorm"
 )
 
@@ -178,7 +179,7 @@ func RetryClientBuild(id uint)error{
 }
 
 func clientBuildRoot()string {
-	if dir:=strings.TrimSpace(os.Getenv("RUSTDESK_CLIENT_BUILD_DIR"));dir!=""{
+	if dir:=strings.TrimSpace(config.RuntimeOption("runtime.client-build-dir"));dir!=""{
 		return filepath.Clean(dir)
 	}
 	return filepath.Join("data","client-builds")

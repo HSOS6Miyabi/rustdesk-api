@@ -15,12 +15,12 @@ import (
 	"net/mail"
 	"net/smtp"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/lejianwen/rustdesk-api/v2/config"
 	"gorm.io/gorm"
 )
 
@@ -50,7 +50,7 @@ type PublicMailSettings struct {
 }
 
 func mailEncryptionKey() ([]byte,error) {
-	secret:=os.Getenv("RUSTDESK_API_MAIL_ENCRYPTION_KEY")
+	secret:=config.RuntimeOption("runtime.mail-encryption-key")
 	if len(secret)<16{return nil,errors.New("set RUSTDESK_API_MAIL_ENCRYPTION_KEY to at least 16 characters to store an SMTP password")}
 	derived:=sha256.Sum256([]byte(secret))
 	return derived[:],nil

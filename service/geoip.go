@@ -2,11 +2,11 @@ package service
 
 import (
 	"net"
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/lejianwen/rustdesk-api/v2/config"
 )
 
 var (
@@ -23,8 +23,7 @@ func GeoIPReady() bool {
 
 func initGeoIP() {
 	geoIPOnce.Do(func() {
-		path := strings.TrimSpace(os.Getenv("RUSTDESK_API_GEOIP_DB"))
-		if path == "" { path = strings.TrimSpace(os.Getenv("RUSTDESK_API_PUSH_GEOIP_DB")) }
+		path := strings.TrimSpace(config.RuntimeOption("runtime.geoip-db"))
 		if path == "" { return }
 		db, err := maxminddb.Open(path)
 		if err != nil {

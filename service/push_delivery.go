@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/lejianwen/rustdesk-api/v2/model"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -263,8 +262,29 @@ func ProcessPushQueue(limit int) (int, error) {
 	if err := DB.Where("(status IN ? AND attempts < ? AND next_attempt_at <= ?) OR (status = ? AND locked_at < ?)",
 		[]string{"pending", "retry"}, pushMaxAttempts, now, "sending", now-45).
 		Order("id ASC").Limit(limit).Find(&rows).Error; err != nil { return 0, err }
-	sent := 0
-	for _, row := range rows {
+	// One channel lookup per distinct destination in this batch.
+    ids:=make([]uint,0,len(rows))
+    unique:=make(map[uint]bool,len(rows))
+    for _,row:=range rows{
+        if !unique[row.ChannelId]{unique[row.ChannelId]=true;ids=append(ids,row.ChannelId)}
+    }
+    channels:=make(map[uint]model.PushChannel,len(ids))
+    refreshed:=time.Now()
+    loadChannels:=func()error{
+        if len(ids)==0{return nil}
+        var list []model.PushChannel
+        if err:=DB.Where("id IN ?",ids).Find(&list).Error;err!=nil{return err}
+        channels=make(map[uint]model.PushChannel,len(list))
+        for _,channel:=range list{channels[channel.Id]=channel}
+        refreshed=time.Now()
+        return nil
+    }
+    if err:=loadChannels();err!=nil{return 0,err}
+    sent := 0
+    for _, row := range rows {
+        if time.Since(refreshed)>=5*time.Second {
+            if err:=loadChannels();err!=nil{return sent,err}
+        }
 		// Each claim starts its own lease after the preceding network request.
 		now = time.Now().Unix()
 		claim := DB.Model(&model.PushDelivery{}).
@@ -272,18 +292,16 @@ func ProcessPushQueue(limit int) (int, error) {
 			Updates(map[string]interface{}{"status": "sending", "locked_at": now})
 		if claim.Error != nil { return sent, claim.Error }
 		if claim.RowsAffected != 1 { continue }
-		var channel model.PushChannel
-		err := DB.Where("id = ?", row.ChannelId).Take(&channel).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			_ = DB.Where("id = ?", row.Id).Delete(&model.PushDelivery{}).Error
-			continue
-		}
-		if err != nil { return sent, err }
-		if !channel.Enabled {
+		channel, found := channels[row.ChannelId]
+        if !found {
+            if err:=DB.Where("id = ?",row.Id).Delete(&model.PushDelivery{}).Error;err!=nil{return sent,err}
+            continue
+        }
+        if !channel.Enabled {
 			_ = DB.Model(&model.PushDelivery{}).Where("id = ?", row.Id).Updates(map[string]interface{}{"status":"paused","locked_at":0}).Error
 			continue
 		}
-		err = sendPushDelivery(&channel, &row)
+		err := sendPushDelivery(&channel, &row)
 		values := map[string]interface{}{"attempts": row.Attempts + 1, "locked_at": int64(0)}
 		if err == nil {
 			values["status"] = "sent"
@@ -315,7 +333,7 @@ func StartPushWorker() {
 		startPersonalDeliverySchedulers()
 		startPushEventWorker()
 		launchServiceWorker(func(ctx context.Context) {
-			startEventOutboxWorker(ctx, pushOutboxWake, ProcessPushEventOutbox, "push")
+			startEventOutboxWorker(ctx, pushOutboxWake, &model.PushEventOutbox{}, ProcessPushEventOutbox, "push")
 		})
 	})
 }
