@@ -1,6 +1,12 @@
 # RustDesk OSS API 与 Server 完整实施台账
 
-## 接手总览（更新于 2026 年 11 月 11 日）
+## 接手总览（更新于 2026 年 11 月 12 日）
+
+### 控制台及 WebClient
+
+[拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13) 将个人设备和管理员设备分别放在“我的设备”和“设备管理”中，增加按权限查看的设备、用户详情，以及用户、设备和相关分组的搜索功能。导航分类可以折叠，切换页面时保留侧边栏的滚动位置。管理表格支持点击列标题排序，手机页面使用独立排序控件。服务器管理按照具体操作及参数说明组织，浏览器和 API 均检查输入。WebClient 增加网页全屏、显示器全屏及设备搜索。
+
+主要修改位于 `resources/admin/`、`resources/web2/`、`http/controller/admin/my/peer.go` 和 `http/controller/admin/server_command_validation.go`。测试命令：`node --test resources/admin/app.test.cjs resources/web2/app.test.cjs`、`node --test resources/admin/browser.e2e.cjs`、`go test ./...`。界面截图检查使用 `RUSTDESK_VISUAL_AUDIT=1`。详情见 [v3.0.0-api.108 版本说明](releases/v3.0.0-api.108.md) 与 [版本兼容性](COMPATIBILITY.md)。
 
 ### 先前性能改进
 
@@ -29,7 +35,7 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 正式版本标签 | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.108](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.108) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 正式发行工作流 | [#42978795619：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
 | 正式 Release | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
