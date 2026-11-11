@@ -82,7 +82,7 @@ func sensitiveSetting(key string) bool {
     if strings.Contains(key, "password") || strings.Contains(key, "secret") ||
         strings.Contains(key, "encryption-key") { return true }
     switch key {
-    case "app.internal-key", "jwt.key", "cache.redis-pwd", "redis.password": return true
+    case "app.internal-key", "jwt.key", "cache.redis-pwd", "redis.password", "proxy.host": return true
     }
     return false
 }
