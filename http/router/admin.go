@@ -45,6 +45,7 @@ func Init(g *gin.Engine) {
 	NotificationsBind(adg)
 	PushChannelsBind(adg)
 	adg.POST("/geoip/lookup", (&admin.PushChannels{}).GeoIPLookup)
+	SettingsBind(adg)
 	ClientBuilderBind(adg)
 	InvitationBind(adg)
 	OauthBind(adg)
@@ -571,4 +572,18 @@ func PushChannelsBind(rg *gin.RouterGroup) {
 	r.POST("/channels/test", h.Test)
 	r.GET("/history", h.History)
 	r.POST("/history/retry", h.Retry)
+}
+
+func SettingsBind(group *gin.RouterGroup) {
+    handler := admin.Settings{}
+    settings := group.Group("/settings")
+    settings.GET("/schema",handler.Schema)
+    settings.GET("/effective",handler.Effective)
+    settings.POST("/validate",handler.Validate)
+    settings.PATCH("/overrides",handler.Save)
+    settings.POST("/overrides/reset",handler.Reset)
+    settings.GET("/history",handler.History)
+    settings.GET("/overview",handler.Overview)
+    settings.GET("/outbox",handler.FailedOutbox)
+    settings.POST("/outbox/retry",handler.RetryOutbox)
 }
