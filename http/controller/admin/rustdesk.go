@@ -1,6 +1,7 @@
 package admin
 
 import (
+    "errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
@@ -101,41 +102,50 @@ func (r *Rustdesk) CmdUpdate(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+func executeRustdeskCommand(command *RustdeskCmd) (string, error) {
+    if command.Cmd == "" || command.Target == "" {
+        return "", errors.New("请选择服务器和管理操作")
+    }
+    if err := validateRustdeskCommand(command.Target, command.Cmd, command.Option); err != nil {
+        return "", err
+    }
+    port := 0
+    switch command.Target {
+    case model.ServerCmdTargetIdServer:
+        port = global.Config.Admin.IdServerPort - 1
+    case model.ServerCmdTargetRelayServer:
+        port = global.Config.Admin.RelayServerPort
+    default:
+        return "", errors.New("服务器类型无效")
+    }
+    return service.AllService.ServerCmdService.SendCmd(port, command.Cmd, command.Option)
+}
+
 func (r *Rustdesk) SendCmd(c *gin.Context) {
-	rc := &RustdeskCmd{}
-	if err := c.ShouldBindJSON(rc); err != nil {
-		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
-		return
-	}
-	if rc.Cmd == "" {
-		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
-		return
-	}
-	if rc.Target == "" {
-		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
-		return
-	}
-	if rc.Target != model.ServerCmdTargetIdServer && rc.Target != model.ServerCmdTargetRelayServer {
-		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
-		return
-	}
-	if err := validateRustdeskCommand(rc.Target, rc.Cmd, rc.Option); err != nil {
-		response.Fail(c, 101, err.Error())
-		return
-	}
+    command := &RustdeskCmd{}
+    if err := c.ShouldBindJSON(command); err != nil {
+        response.Fail(c, 101, "请求参数格式无效")
+        return
+    }
+    output, err := executeRustdeskCommand(command)
+    if err != nil {
+        response.Fail(c, 101, err.Error())
+        return
+    }
+    response.Success(c, output)
+}
 
-	port := 0
-	switch rc.Target {
-	case model.ServerCmdTargetIdServer:
-		port = global.Config.Admin.IdServerPort - 1
-	case model.ServerCmdTargetRelayServer:
-		port = global.Config.Admin.RelayServerPort
-	}
-
-	res, err := service.AllService.ServerCmdService.SendCmd(port, rc.Cmd, rc.Option)
-	if err != nil {
-		response.Fail(c, 101, err.Error())
-		return
-	}
-	response.Success(c, res)
+// ExecuteCmd returns parsed data for the graphical console.
+func (r *Rustdesk) ExecuteCmd(c *gin.Context) {
+    command := &RustdeskCmd{}
+    if err := c.ShouldBindJSON(command); err != nil {
+        response.Fail(c, 101, "请求参数格式无效")
+        return
+    }
+    output, err := executeRustdeskCommand(command)
+    if err != nil {
+        response.Fail(c, 101, err.Error())
+        return
+    }
+    response.Success(c, parseRustdeskReply(command.Target, command.Cmd, command.Option, output))
 }

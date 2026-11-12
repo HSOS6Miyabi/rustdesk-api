@@ -93,6 +93,7 @@ func validateRustdeskCommand(target, command, option string) error {
 		for _, item := range parts { if err := requireIP(item); err != nil { return err } }
 	case "blacklist", "blacklist-add", "blacklist-remove",
 		"blocklist", "blocklist-add", "blocklist-remove":
+		if (command == "blacklist" || command == "blocklist") && option == "" { return nil }
 		if len(parts) != 1 { return errors.New("此操作需要一个 IP 地址") }
 		return requireIP(parts[0])
 	case "downgrade-threshold", "downgrade-start-check", "limit-speed",
