@@ -117,7 +117,7 @@ func (ct *User) List(c *gin.Context) {
 				tx=tx.Where("username LIKE ?","%"+query.Username+"%")
 			}
 			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
-			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize)).
+			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize), service.SortScope(query.SortBy,query.SortDir)).
 				Find(&records.Users).Error;err!=nil{response.Error(c,err.Error());return}
 			response.Success(c,records)
 			return
@@ -128,7 +128,7 @@ func (ct *User) List(c *gin.Context) {
 		if query.Username != "" {
 			tx.Where("username like ?", "%"+query.Username+"%")
 		}
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 

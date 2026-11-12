@@ -125,7 +125,7 @@ func (ct *Peer) List(c *gin.Context) {
 				tx=tx.Where("uuid IN ?",strings.Split(query.Uuids,","))
 			}
 			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
-			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize)).
+			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize), service.SortScope(query.SortBy,query.SortDir)).
 				Find(&records.Peers).Error;err!=nil{response.Error(c,err.Error());return}
 			response.Success(c,records)
 			return
@@ -159,7 +159,7 @@ func (ct *Peer) List(c *gin.Context) {
 		if query.Alias != "" {
 			tx.Where("alias like ?", "%"+query.Alias+"%")
 		}
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 
