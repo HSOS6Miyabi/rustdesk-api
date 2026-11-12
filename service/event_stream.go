@@ -120,6 +120,7 @@ func SubscribePushEvents(userID uint, events []string) (*StreamSubscription, err
     activeStreams.byUser[userID][subscription] = struct{}{}
     for code := range subscription.events { activeStreams.interested[code]++ }
     activeStreams.count++
+    signalStreamInterest()
     return subscription, nil
 }
 
@@ -137,6 +138,7 @@ func UnsubscribePushEvents(subscription *StreamSubscription) {
         if activeStreams.interested[code] == 0 { delete(activeStreams.interested, code) }
     }
     activeStreams.count--
+    signalStreamInterest()
 }
 
 func HasLivePushSubscribers(code string) bool {
