@@ -142,8 +142,8 @@ function serve(req, res) {
     ],total:1});
     if(route==="/audit_conn/note")return answer(res,{});
     if(route==="/my/audit_conn/list")return answer(res, {
-      list:[{id:1,from_peer:"123456",from_account:"owner",
-        peer_id:"654321",to_account:"alice",direction:"outgoing",created_at:1710000000}],total:1
+      list:[{id:1,from_peer:"123456",from_device_name:"办公电脑",from_account:"owner",
+        peer_id:"654321",to_device_name:"家庭电脑",to_account:"alice",direction:"outgoing",created_at:1710000000}],total:1
     });
     if(route==="/my/audit_file/list")return answer(res, {
       list:[{id:2,from_peer:"123456",from_account:"owner",
@@ -2288,7 +2288,7 @@ test("object picker stays on one line and nested server tabs stay usable on desk
   const {context,page}=await pageForViewport(1440,900,true);
   try{
     await page.locator('nav.side-scroll button[data-view="controlAssignments"]').click();
-    await page.locator('[data-action="add"]').first().click();
+    await page.locator('[data-action="create"]').first().click();
     const picker=page.locator('.drawer .picker-trigger-label').first();
     await picker.waitFor();
     const measurements=await picker.evaluate(node=>({
