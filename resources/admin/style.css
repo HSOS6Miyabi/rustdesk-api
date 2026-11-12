@@ -456,3 +456,56 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .data-table td[data-column="direction"]>span{display:flex;justify-content:center;overflow:visible;line-height:28px}
 .data-table th[data-column="direction"]{text-align:center}
 .mobile-item .connection-direction{justify-content:flex-start}
+
+/* Device identifiers share a desktop table column with their readable names. */
+@media(min-width:901px){
+ .data-table td.cell-device-stack{white-space:normal;overflow:hidden;text-overflow:clip}
+ .data-table .cell-device-stack .entity-link{display:inline-flex;width:100%;align-items:flex-start;gap:7px;vertical-align:top;line-height:1.4}
+ .data-table .cell-device-stack .entity-link>.device-status-dot{margin:4px 0 0;flex:0 0 9px}
+ .data-table .cell-device-stack .entity-link-text{display:grid;gap:4px;min-width:0;max-width:100%;text-align:left}
+ .data-table .cell-device-stack .entity-link-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .data-table .cell-device-stack .entity-link-id{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+ .data-table .cell-device-stack .entity-link:focus-visible{outline-offset:2px}
+}
+
+/* Distinct, restrained colors for incoming, outgoing and internal connections. */
+.connection-direction[data-direction="outgoing"]{color:#286bb5}
+.connection-direction[data-direction="incoming"]{color:#168277}
+.connection-direction[data-direction="both"]{color:#7962a5}
+.connection-direction:not([data-direction="outgoing"]):not([data-direction="incoming"]):not([data-direction="both"]){color:var(--muted)}
+[data-theme="dark"] .connection-direction[data-direction="outgoing"]{color:#7bb2ef}
+[data-theme="dark"] .connection-direction[data-direction="incoming"]{color:#6bc9b7}
+[data-theme="dark"] .connection-direction[data-direction="both"]{color:#bb9be7}
+
+/* Keep object pickers and their action buttons on a single readable line. */
+.form-grid>.field:has(.entity-picker){grid-column:1/-1}
+.picker-trigger{flex:1 1 auto;min-width:0;align-items:center}
+.picker-trigger-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
+.picker-trigger svg{flex:none}
+.picker-control>.btn{flex:none;white-space:nowrap}
+.entity-related-section{display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.entity-related-section h3{display:flex;align-items:center;gap:9px;margin:0;color:var(--text);font-size:14px}
+.entity-related-section h3 span{color:var(--muted);font-size:12px;font-weight:500}
+.entity-related-list{display:grid;gap:6px;max-height:325px;overflow-y:auto;min-width:0}
+.entity-related-item{display:flex;align-items:center;gap:10px;justify-content:space-between;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.entity-related-item .entity-link{min-width:0;flex:1 1 auto;align-items:flex-start}
+.entity-related-item .entity-link-text{display:grid;gap:4px;min-width:0}
+.entity-related-item .entity-link-name{font-weight:650;overflow-wrap:anywhere;white-space:normal}
+.entity-related-item .entity-link-id{color:var(--muted);font-size:11px;white-space:normal;overflow-wrap:anywhere}
+.entity-related-item .entity-link>.device-status-dot{margin-top:4px}
+.entity-related-item small{flex:none;font-size:11px;color:var(--muted)}
+.entity-related-item .pill{flex:none}
+.entity-related-empty{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+
+/* Secondary navigation separates individual settings and server operations. */
+.settings-tabs{gap:7px;margin-bottom:10px}
+.settings-tab{white-space:nowrap}
+.settings-subtabs,.server-categories{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;margin:0 0 18px;padding:4px 0 9px;border-bottom:1px solid var(--line)}
+.settings-subtab,.server-category{border:1px solid transparent;background:transparent;color:var(--muted);font-size:12px;font-weight:650;padding:9px 13px;border-radius:9px;min-height:36px;white-space:nowrap}
+.settings-subtab:hover,.server-category:hover{color:var(--text);background:var(--panel2)}
+.settings-subtab.active,.server-category.active{color:var(--main);background:var(--main-soft);border-color:var(--line);font-weight:750}
+.server-command-menu-body{max-height:min(65vh,660px)}
+@media(max-width:600px){
+ .settings-subtabs,.server-categories{gap:4px}
+ .settings-subtab,.server-category{flex:1 1 120px;text-align:center;padding:9px 6px}
+}
