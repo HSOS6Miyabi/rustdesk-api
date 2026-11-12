@@ -64,6 +64,33 @@ jobs:
           source = source.replace(start, start_deferred).replace(finish, finish_deferred)
           path.write_text(source, encoding="utf-8")
           PY
+      - name: Initialize the browser home screen without waiting for native address-book services
+        working-directory: rustdesk-1.5.3/flutter
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("lib/main.dart")
+          source = path.read_text(encoding="utf-8")
+          before = ("  draggablePositions.load();\n"
+                    "  await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);\n"
+                    "  gFFI.userModel.refreshCurrentUser();\n"
+                    "  runApp(App());\n"
+                    "  await initUniLinks();")
+          after = ("  draggablePositions.load();\n"
+                   "  if (isWeb) {\n"
+                   "    runApp(App());\n"
+                   "    await initUniLinks();\n"
+                   "    return;\n"
+                   "  }\n"
+                   "  await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);\n"
+                   "  gFFI.userModel.refreshCurrentUser();\n"
+                   "  runApp(App());\n"
+                   "  await initUniLinks();")
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected upstream runMobileApp implementation")
+          path.write_text(source.replace(before, after), encoding="utf-8")
+          PY
       - name: Build the official browser client
         working-directory: rustdesk-1.5.3/flutter
         shell: bash
