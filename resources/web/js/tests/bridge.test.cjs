@@ -59,3 +59,23 @@ test("RustDesk mouse, keyboard and display commands use the native connection AP
   assert.deepEqual(calls[1],["key","VK_RETURN",true,false,false,true,false,false]);
   assert.deepEqual(calls[2],["display","2"]);
 });
+
+
+test("RustDesk Flutter starts exactly once after the JavaScript decoder is ready",async()=>{
+  const begin=source.indexOf("window.init = async () => {");
+  const finish=source.indexOf("export function getPeers()",begin);
+  assert.ok(begin>=0&&finish>begin);
+  const calls=[];
+  const window={onInitFinished(){calls.push("ready");}};
+  const context={
+    window,yuvWorker:null,opusWorker:{},pcmPlayer:{feed(){}},
+    loadVp9(){calls.push("video");},
+    async initZstd(){calls.push("zstd");},
+    console:{log(){}}
+  };
+  vm.runInNewContext(source.slice(begin,finish),context);
+  await context.window.init();
+  assert.deepEqual(calls,["video","zstd","ready"]);
+  await context.window.init();
+  assert.deepEqual(calls,["video","zstd","ready","video","zstd"]);
+});
