@@ -377,7 +377,7 @@ function serve(req, res) {
     res.writeHead(404);res.end("Not found");return;
   }
   const filename=name.slice("/_admin/".length);
-  if(!["index.html","style.css","app.js","client-local.js","favicon.svg"].includes(filename)){
+  if(!["index.html","style.css","app.js","client-local.js","passkey.js","favicon.svg"].includes(filename)){
     res.writeHead(404);res.end("Not found");return;
   }
   const file=path.join(assetRoot,filename);
