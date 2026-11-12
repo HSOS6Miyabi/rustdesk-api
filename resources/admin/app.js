@@ -1128,7 +1128,7 @@
       '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??defaultDays)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
     ).join("");
     return pageHeading("日志保留设置","审计记录默认永久保留；成功发送的通知默认保留 30 天，失败通知默认保留 90 天。")+
-      '<section class="panel" style="max-width:860px"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="form-grid">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
+      '<section class="panel retention-panel"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="retention-fields">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
   }
   async function exportAudit(kind, filters={}){
     try{
@@ -1259,13 +1259,13 @@
       textField("sender_name","发件人名称",m.sender_name)+
       textField("base_url","用户访问控制台的公开地址",m.base_url,"url");
     return pageHeading("SMTP 邮件服务","配置邮件发送后，可以向团队成员发送测试邮件并用于账户恢复。")+
-      '<section class="panel" style="max-width:960px"><div class="panel-header"><div><h2 class="panel-title">发送邮件设置</h2>'+
+      '<div class="mail-page-grid"><section class="panel mail-settings-card"><div class="panel-header"><div><h2 class="panel-title">发送邮件设置</h2>'+
       '<p class="panel-sub">SMTP 配置保存在数据库中。密码经过加密保存，不会再次显示原文。</p></div></div>'+
       '<form id="mail-settings-form" class="tips"><div class="form-grid">'+inputs+'</div>'+
       '<button class="btn btn-primary" type="submit" style="margin-top:16px">保存邮件设置</button></form></section>'+
-      '<section class="panel" style="max-width:960px;margin-top:16px"><div class="panel-header"><h2 class="panel-title">发送测试邮件</h2></div>'+
+      '<section class="panel mail-test-card"><div class="panel-header"><div><h2 class="panel-title">发送测试邮件</h2><p class="panel-sub">先保存 SMTP 配置，再向指定邮箱发送测试邮件。</p></div></div>'+
       '<form id="mail-test-form" class="tips"><div class="form-grid">'+textField("to","收件邮箱","","email")+
-      '</div><button type="submit" class="btn btn-primary" style="margin-top:16px">发送测试邮件</button></form></section>';
+      '</div><button type="submit" class="btn btn-primary" style="margin-top:16px">发送测试邮件</button></form></section></div>';
   }
 
 
