@@ -619,12 +619,14 @@
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
       }else if(k==="clientBuilder"){
-        const [profiles,tasks]=await Promise.all([
+        const [profiles,tasks,versions]=await Promise.all([
           request("/client_builder/profiles?page=1&page_size=100"),
-          request("/client_builder/tasks?page=1&page_size=50")
+          request("/client_builder/tasks?page=1&page_size=50"),
+          request("/client_builder/versions").catch(()=>({list:[]}))
         ]);
         state.clientProfiles=profiles.list||[];
         state.clientTasks=tasks.list||[];
+        state.clientVersions=Array.isArray(versions.list)?versions.list:[];
       }else if(k==="notifications"){
         const [config,history]=await Promise.all([
           request("/notification/settings"),
@@ -936,6 +938,17 @@
   }
   function clientBuilderPage(){
     const current=state.clientEditing||{},profiles=state.clientProfiles||[],tasks=state.clientTasks||[];
+    const knownVersions=Array.isArray(state.clientVersions)?state.clientVersions:[];
+    const platform=current.platform||"windows-x64";
+    const suggested=knownVersions.find(item=>Array.isArray(item.platforms)&&item.platforms.includes(platform));
+    const selectedVersion=current.version||(suggested?.version||"");
+    const versionField='<div class="field"><label for="client-version">RustDesk 官方版本</label>'+
+      '<input type="text" id="client-version" name="version" required maxlength="30" '+
+      'pattern="[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,4}" '+
+      'list="client-version-options" placeholder="例如 1.5.3" value="'+esc(selectedVersion)+'">'+
+      '<datalist id="client-version-options">'+knownVersions.map(item=>
+        '<option value="'+esc(item.version)+'">'+esc(item.version)+'</option>').join("")+
+      '</datalist><small>可以选择最近发布的官方版本，也可以手动填写较早版本。系统会检查所选版本是否提供对应平台的安装文件。</small></div>';
     const textField=(name,title,required=false)=>
       '<div class="field"><label for="client-'+name+'">'+title+'</label>'+
       '<input id="client-'+name+'" name="'+name+'" value="'+esc(current[name]||"")+'" '+
@@ -948,7 +961,7 @@
        ["linux-x64","Linux x64（Debian/Ubuntu）"],["linux-arm64","Linux ARM64（Debian/Ubuntu）"],
        ["macos-x64","macOS x64"],["macos-arm64","macOS ARM64"]].map(([id,label])=>
         '<option value="'+id+'" '+((current.platform||"windows-x64")===id?"selected":"")+'>'+label+'</option>').join("")+
-      '</select></div>'+
+      '</select></div>'+versionField+
       textField("host","RustDesk ID 服务器地址（可带端口）",true)+
       textField("public_key","服务器公钥（Base64，32 字节）",true)+
       textField("api_server","API 地址（可留空）")+
@@ -956,7 +969,7 @@
       '</div><div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
       '<button class="btn" type="button" data-action="client-new">新建配置</button></div></form>';
     const profileList=profiles.map(profile=>'<div class="status-row client-profile-row"><span><strong>'+esc(profile.name)+'</strong>'+
-      '<span class="cell-sub">'+esc(profile.platform)+' · '+esc(profile.host)+'</span></span>'+
+      '<span class="cell-sub">'+esc(profile.platform)+' · RustDesk '+esc(profile.version)+' · '+esc(profile.host)+'</span></span>'+
       '<span class="head-actions">'+
       '<button class="btn btn-sm" data-action="client-edit" data-id="'+esc(profile.id)+'">编辑</button>'+
       '<button class="btn btn-sm btn-primary" data-action="client-build" data-id="'+esc(profile.id)+'">创建安装包任务</button>'+
@@ -971,14 +984,14 @@
        '<span class="pill muted">'+esc(status[task.status]||"处理中")+'</span>')+
       '</div>').join("")||'<p class="tips">尚未创建安装包任务。</p>';
     return pageHeading("客户端安装包构建",
-      "选择 RustDesk 1.5.1 官方客户端。Windows 使用包含服务器配置的安装文件名，Linux 和 macOS 提供原始安装程序与配置脚本。",
+      "可选择 RustDesk 已发布的官方版本。Windows 使用包含服务器配置的安装文件名，Linux 和 macOS 提供原始安装程序与配置脚本。",
       '<button type="button" class="btn" data-action="refresh">刷新任务状态</button>')+
       '<section class="panel"><div class="panel-header"><h2 class="panel-title">客户端预设配置</h2></div>'+fields+'</section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">已保存的配置</h2></div>'+
       '<div class="tips">'+profileList+'</div></section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">历史构建任务及安装包</h2></div>'+
       '<div class="tips">'+history+'</div></section>'+
-      '<p class="subtitle" style="margin-top:12px">安装文件来自官方发布版本，下载时验证 SHA-256。Linux 和 macOS 压缩包内包含原始安装文件、操作说明及配置脚本，请按系统要求安装并检查实际连接。</p>';
+      '<p class="subtitle" style="margin-top:12px">安装文件来自 RustDesk 官方发行版。对官方公布 SHA-256 的版本核对摘要；未公布摘要的旧版本会在下载时计算并保存 SHA-256。Linux 和 macOS 压缩包内包含原始安装文件与配置脚本，请在目标系统检查安装和连接。</p>';
   }
   function notificationsPage(){
     const p=pages.notifications, settings=state.notifications?.settings||{};
@@ -2401,12 +2414,11 @@
   async function saveClientProfile(f){
     if(!f||!f.reportValidity())return;
     const values=new FormData(f),form={};
-    for(const name of ["name","platform","host","public_key","api_server","relay_server"]){
+    for(const name of ["name","platform","version","host","public_key","api_server","relay_server"]){
       form[name]=String(values.get(name)||"").trim();
     }
     const id=Number(values.get("id"));
     if(Number.isSafeInteger(id)&&id>0)form.id=id;
-    form.version="1.5.1";
     try{
       await request("/client_builder/profiles","POST",form);
       state.clientEditing=null;

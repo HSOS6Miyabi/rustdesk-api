@@ -1,6 +1,6 @@
 # RustDesk 客户端安装文件制作与管理
 
-管理员可以在网页中保存 RustDesk 服务器配置，制作带有配置说明的官方客户端安装文件，查看处理记录并下载文件。当前固定使用 **RustDesk 1.5.1**，支持 Windows、Linux、macOS 的 x64 与 ARM64 架构。系统对所有官方安装文件核对大小与 SHA-256，并对生成的文件再次检查完整性。
+管理员可以在网页中保存 RustDesk 服务器配置，制作带有配置说明的官方客户端安装文件，查看处理记录并下载文件。构建器会从 RustDesk 官方 GitHub Release 中查找安装文件。管理员可以选择最近发布的正式版本，也可以输入其他已发布的版本号。支持 Windows、Linux、macOS 的 x64 与 ARM64 架构；具体能否生成取决于该版本是否提供对应的官方安装文件。系统核对官方文件大小；有官方 SHA-256 的版本还会核对摘要，并对最终下载文件再次检查完整性。
 
 本功能已通过安装文件下载、配置编码、ZIP 文件内容、脚本语法、Linux 模拟安装命令及浏览器操作测试。实际客户端安装、系统权限及远程桌面连接仍需要相应系统上的真实设备验证。
 
@@ -30,10 +30,11 @@ Linux 的自动安装脚本适用于 Debian 和 Ubuntu；其他 Linux 发行版�
 ## 网页使用方法
 
 1. 登录管理控制台，打开“客户端安装包构建”。
-2. 输入配置名称，选择目标操作系统及架构，填写服务器地址、公钥、API 地址和可选的中继地址，点击“保存配置”。
-3. 在“已保存的配置”中选择“创建安装包任务”，然后查看下方的任务状态。
-4. 任务状态为“安装包已准备好”时，点击“下载安装程序”。若任务失败，查看显示的原因后使用“重新处理”。
-5. 在目标计算机上按以下方法安装和配置，最后检查服务器地址、登录和远程连接。
+2. 输入配置名称，选择目标操作系统及架构，再选择或输入 RustDesk 官方正式版本号。最近发布的版本会自动显示在输入提示中；较早的版本可以手动输入，例如 `1.4.5`。
+3. 填写服务器地址、公钥、API 地址和可选的中继地址，点击“保存配置”。
+4. 在“已保存的配置”中选择“创建安装包任务”，然后查看下方的任务状态。
+5. 任务状态为“安装包已准备好”时，点击“下载安装程序”。若任务失败，查看显示的原因后使用“重新处理”。
+6. 在目标计算机上按以下方法安装和配置，最后检查服务器地址、登录和远程连接。
 
 **Windows**：直接使用下载的 EXE 安装，检查文件数字签名。安装后的服务器配置由 RustDesk 官方客户端识别安装程序文件名中的内容。
 
@@ -64,7 +65,9 @@ sh ./configure-rustdesk.command
 - 同时备份数据库中的 `client_build_profiles`、`client_build_tasks` 和安装文件目录。数据库保存处理状态、最终文件大小与 SHA-256。
 - 文件只允许从经过管理员身份验证的接口下载。服务器下载官方文件与向管理员提供文件时均验证 SHA-256，并直接发送已通过核对的文件内容。
 
-构建任务只允许使用固定的官方版本和下载地址，不接受任意第三方安装文件链接。当前版本更新时应同步修改官方文件校验值和自动测试。
+构建任务仅从 `rustdesk/rustdesk` 的正式 GitHub Release 获取安装文件，使用对应版本和架构的官方地址，不接受第三方下载链接。官方 Release 中包含 SHA-256 时，会在下载时核对摘要；部分较早的版本未在 GitHub Release 元数据中公布摘要，程序会通过 HTTPS 下载官方文件、核对公布的文件大小并计算 SHA-256，供后续下载和备份检查。若官方未提供对应平台的安装文件，任务会显示具体原因。
+
+网页版本列表显示最近的正式版本。即使某个旧版本没有出现在列表中，仍可以手动填写其版本号。旧版本是否支持使用安装文件名或命令行配置服务器，需要在目标操作系统上实际检查。较早的客户端可能缺少新功能或采用不同的配置方式。
 
 ## 管理 API
 
@@ -72,6 +75,7 @@ sh ./configure-rustdesk.command
 
 | 请求方法 | 地址 | 用途 |
 | --- | --- | --- |
+| GET | `/api/admin/client_builder/versions` | 查看最近发布的官方版本及相应平台 |
 | GET | `/api/admin/client_builder/profiles?page=1&page_size=20` | 查看配置 |
 | POST | `/api/admin/client_builder/profiles` | 新建或修改配置 |
 | POST | `/api/admin/client_builder/profiles/delete` | 删除配置 |
@@ -86,7 +90,7 @@ sh ./configure-rustdesk.command
 {
   "name": "技术支持团队",
   "platform": "linux-x64",
-  "version": "1.5.1",
+  "version": "1.5.3",
   "host": "desk.example.com:21116",
   "public_key": "替换为自己的服务器公钥",
   "api_server": "https://desk.example.com",
@@ -98,6 +102,6 @@ sh ./configure-rustdesk.command
 
 ## 检查方式及发布条件
 
-相关代码位于 `service/client_build.go`、`service/client_build_worker.go`、`service/client_packages.go`。单元和模拟安装检查位于 `service/client_build_test.go` 与 `service/client_packages_test.go`；网页测试位于 `resources/admin/app.test.cjs` 和 `resources/admin/browser.e2e.cjs`。GitHub Actions 的 `.github/workflows/verify-client-build.yml` 会实际下载六个平台的官方文件并核对 SHA-256。
+相关代码位于 `service/client_build.go`、`service/client_build_worker.go`、`service/client_packages.go`。单元和模拟安装检查位于 `service/client_build_test.go` 与 `service/client_packages_test.go`；网页测试位于 `resources/admin/app.test.cjs` 和 `resources/admin/browser.e2e.cjs`。GitHub Actions 的 `.github/workflows/verify-client-build.yml` 会检查官方安装文件与校验逻辑。版本解析和平台选择还会使用不同版本的 GitHub Release 模拟数据进行测试。
 
 在真实系统交付前，仍需分别检查 Windows 安装程序的数字签名、Linux 发行版依赖、macOS 应用程序权限、登录流程和远程桌面连接。只有全部发布前检查完成并获得明确批准，才可以创建本项目的正式 Release。

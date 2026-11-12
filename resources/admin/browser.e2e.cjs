@@ -186,6 +186,10 @@ function serve(req, res) {
     if(route==="/push/channels/test"||route==="/push/history/retry")return answer(res,{status:"queued"});
     if(route==="/push/channels/delete")return answer(res,{});
 
+    if(route==="/client_builder/versions")return answer(res,{list:[
+      {version:"1.5.3",platforms:["windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64"]},
+      {version:"1.4.5",platforms:["windows-x64","linux-x64","linux-arm64","macos-x64","macos-arm64"]}
+    ]});
     if(route==="/client_builder/profiles"){
       if(req.method==="POST")return answer(res,{id:3});
       return answer(res,{list:[

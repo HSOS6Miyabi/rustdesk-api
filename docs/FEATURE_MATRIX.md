@@ -39,7 +39,7 @@
 | 多中继节点与 GeoLite2 国家识别 | 已实现 IP 网络、国家代码选择、自动同步、节点故障替换与 MMDB/CSV 读取 | `service/relay_node.go`、Server `src/relay_policy.rs`、`src/geoip_country.rs` | 真实跨地区连接测试 |
 | 独立 API 令牌与自动化管理 | 已实现细分操作权限、有效期、撤销及管理员身份复核，Go 和浏览器测试通过 | `http/router/automation.go`、`http/middleware/automation_auth.go` | 对接实际自动化脚本 |
 | 批量联系人、共享、部署和回收站管理 | 已实现，支持事务检查与管理界面操作，Go 和浏览器测试通过 | `service/address_book_batch.go`、`http/controller/admin/contact_batch.go` | 在真实团队数据上检查操作 |
-| 自定义客户端构建器 | 已实现 Windows、Linux、macOS 的 x64/ARM64 任务、校验下载和配置脚本打包，自动测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
+| 自定义客户端构建器 | 已实现 按官方发布版本生成 Windows、Linux、macOS 的 x64/ARM64 安装任务，核对下载文件并打包配置脚本，自动测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
 
 既有功能的合并记录包括 API [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 与 Server [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。设置中心与可靠性改进已通过 API [#11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并至 `master`，并纳入正式发行版 `v3.0.0-api.107`。
 
