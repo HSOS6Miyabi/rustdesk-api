@@ -1543,11 +1543,13 @@ test("navigation groups remain stable while opening lower items",async()=>{
     assert.equal(await page.locator('button[data-section="系统管理"]').getAttribute("aria-expanded"),"false");
     await page.locator('button[data-section="系统管理"]').click();
     await sidebar.evaluate(node=>node.scrollTop=node.scrollHeight);
+    const target=page.locator('nav button[data-view="settings"]');
+    await target.scrollIntoViewIfNeeded();
     const before=await sidebar.evaluate(node=>node.scrollTop);
-    await page.locator('nav button[data-view="settings"]').click();
+    await target.click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
     const after=await sidebar.evaluate(node=>node.scrollTop);
-    assert.ok(after>before-65,"navigation scroll must remain at the selected lower section");
+    assert.ok(Math.abs(after-before)<65,"navigation scroll position should remain near the clicked item");
   }finally{await context.close();}
 });
 
@@ -1713,6 +1715,8 @@ test("ordinary user can search users by nickname and inspect shared device detai
   const {context,page}=await pageForViewport(1360,900,false);
   try{
     await page.locator('nav button[data-view="contacts"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="联系人" &&
+      !document.querySelector(".content .loading-table"));
     const picker=page.locator('#contact-form .entity-picker');
     await picker.locator(".picker-query").fill("Ali");
     await picker.locator('[data-action="picker-search"]').click();

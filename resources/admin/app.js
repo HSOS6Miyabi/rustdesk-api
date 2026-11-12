@@ -1929,10 +1929,18 @@
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       return;
     }
-    if(a==="picker-search"){await lookupPicker(el.closest(".entity-picker"));return;}
+    if(a==="picker-search"){
+      const picker=el.closest(".entity-picker");
+      if(!picker)return;
+      clearTimeout(picker.searchTimer);
+      await lookupPicker(picker);
+      return;
+    }
     if(a==="picker-clear"){
       const picker=el.closest(".entity-picker");
       if(!picker)return;
+      clearTimeout(picker.searchTimer);
+      picker.dataset.sequence=String(Number(picker.dataset.sequence||0)+1);
       if(picker.dataset.target){
         const target=document.getElementById(picker.dataset.target);
         if(target)target.value="";
