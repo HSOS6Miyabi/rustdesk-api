@@ -1,11 +1,11 @@
 {
-    "name": "rustdesk",
-    "short_name": "rustdesk",
+    "name": "flutter_hbb",
+    "short_name": "flutter_hbb",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Remote Desktop.",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
