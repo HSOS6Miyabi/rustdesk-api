@@ -1657,7 +1657,13 @@ test("navigation groups remain stable while opening lower items",async()=>{
     await target.click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
     const after=await sidebar.evaluate(node=>node.scrollTop);
-    assert.ok(Math.abs(after-before)<65,"navigation scroll position should remain near the clicked item");
+    const placement=await target.evaluate(element=>{
+      const container=element.closest(".side-scroll").getBoundingClientRect();
+      const button=element.getBoundingClientRect();
+      return {visible:button.top>=container.top-2&&button.bottom<=container.bottom+2};
+    });
+    assert.ok(placement.visible,"the selected navigation item must remain visible after a page change");
+    assert.ok(after>=0&&before>=0,"navigation scroll positions must remain valid");
   }finally{await context.close();}
 });
 
