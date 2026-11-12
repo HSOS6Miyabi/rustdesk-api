@@ -276,6 +276,79 @@ def verify_browser_response_shapes(client):
           "Device presence response is incompatible with the browser")
 
 
+
+def verify_management_crud(admin, account_id, device_id):
+    """Run the management forms with valid request bodies and stored records."""
+    suffix=secrets.token_hex(4)
+    def rows(endpoint):
+        return admin.success("GET",endpoint+"/list?page=1&page_size=100")["list"] or []
+    def create(endpoint,body,match="name"):
+        result=admin.success("POST",endpoint+"/create",body)
+        selected=next((item for item in rows(endpoint) if item.get(match)==body[match]),None)
+        if selected is None and isinstance(result,dict):
+            selected=next((item for item in rows(endpoint) if item.get("id")==result.get("id")),None)
+        check(selected is not None,f"Created record missing from {endpoint}")
+        return selected["id"]
+    def update(endpoint,record_id,body):
+        admin.success("POST",endpoint+"/update",{"id":record_id,**body})
+        return rows(endpoint)
+    def delete(endpoint,record_id):
+        admin.success("POST",endpoint+"/delete",{"id":record_id})
+
+    group=create("/device_group",{"name":"DeviceGroup "+suffix})
+    changed=update("/device_group",group,{"name":"RenamedDeviceGroup "+suffix})
+    check(any(x["id"]==group and x["name"]=="RenamedDeviceGroup "+suffix for x in changed),
+          "Device group edits did not persist")
+    policy=create("/device_policy",{"name":"Policy "+suffix,"status":1,
+                                    "id_whitelist":device_id})
+    changed=update("/device_policy",policy,{"name":"UpdatedPolicy "+suffix,"status":1,
+                                             "id_whitelist":device_id})
+    check(any(x["id"]==policy and x["name"]=="UpdatedPolicy "+suffix for x in changed),
+          "Device policy edits did not persist")
+    for endpoint,identity in (
+        ("/device_policy/assignment",{"device_id":device_id,"policy_id":policy}),
+        ("/device_policy/user_assignment",{"user_id":account_id,"policy_id":policy}),
+        ("/device_policy/group_assignment",{"group_id":group,"policy_id":policy}),
+    ):
+        identifier=create(endpoint,identity,list(identity)[0])
+        update(endpoint,identifier,identity)
+        delete(endpoint,identifier)
+    role=create("/admin_role",{"name":"AdminRole "+suffix,"permissions":"users.view",
+                               "scope_type":"global","enabled":True})
+    update("/admin_role",role,{"name":"UpdatedAdminRole "+suffix,"permissions":"users.view",
+                              "scope_type":"global","enabled":True})
+    assignment=create("/admin_role_assignment",{"user_id":account_id,"role_id":role},"role_id")
+    delete("/admin_role_assignment",assignment)
+    control=create("/control_role",{"name":"ControlRole "+suffix,
+                                   "keyboard":2,"clipboard":1})
+    changed=update("/control_role",control,{"name":"UpdatedControlRole "+suffix,
+                                           "keyboard":1,"clipboard":2})
+    check(any(x["id"]==control and x["keyboard"]==1 for x in changed),
+          "Control-role edits did not persist")
+    assignment=create("/control_assignment",{"target_type":"device","target_id":device_id,
+                                             "role_id":control},"target_id")
+    delete("/control_assignment",assignment)
+    access=create("/access_rule",{"name":"AccessRule "+suffix,"source_type":"all",
+                                  "source_id":0,"target_type":"device","target_id":device_id,
+                                  "effect":"allow","enabled":True})
+    update("/access_rule",access,{"name":"UpdatedAccessRule "+suffix,"source_type":"all",
+                                 "source_id":0,"target_type":"device","target_id":device_id,
+                                 "effect":"allow","enabled":True})
+    relay=create("/relay",{"name":"Relay "+suffix,
+                           "address":"relay-"+suffix+".example.test:21117",
+                           "priority":10,"enabled":True})
+    changed=update("/relay",relay,{"name":"UpdatedRelay "+suffix,
+                                   "address":"relay-"+suffix+".example.test:21117",
+                                   "priority":5,"enabled":True})
+    check(any(x["id"]==relay and x["priority"]==5 for x in changed),
+          "Relay changes did not persist")
+    for endpoint,record in (
+        ("/relay",relay),("/access_rule",access),("/control_role",control),
+        ("/admin_role",role),("/device_policy",policy),("/device_group",group),
+    ):
+        delete(endpoint,record)
+
+
 def check_real_changes(admin):
     username = "contract_" + secrets.token_hex(4)
     password = "Contract-" + secrets.token_hex(8)
@@ -455,6 +528,8 @@ def check_real_changes(admin):
     user.success("POST","/contact/delete",{"username":other_name})
     _,unshared=stranger.send("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
     check(unshared.get("code")!=0,"Revoked device sharing retained access")
+
+    verify_management_crud(admin,user_id,device_id)
 
     # Sort two or more pages in the database before applying pagination.
     prefix="zsort_"+secrets.token_hex(3)
