@@ -1,8 +1,8 @@
 # RustDesk API 与 Server 全部工作事项及测试记录
 
-更新日期：2026 年 11 月 11 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 的 `master` 分支及 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `forapi` 分支。详细实施记录见[统一实施台账](IMPLEMENTATION_LEDGER.md)。本文逐项记录 T001–T022 的检查范围、已完成工作、实际环境条件与结果。
+更新日期：2026 年 11 月 12 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 的 `master` 分支及 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `forapi` 分支。详细实施记录见[统一实施台账](IMPLEMENTATION_LEDGER.md)。本文逐项记录 T001–T022 的检查范围、已完成工作、实际环境条件与结果。
 
-当前 API 数据库迁移版本为 **290**。已合并 [API PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 并发布 [API v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107)；Server 继续使用 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。两个仓库的正式版本应分别核对。
+当前 API 数据库迁移版本为 **290**。已合并 [API PR #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14) 并发布 [API v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109)；Server 继续使用 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。两个仓库的正式版本应分别核对。
 
 ## 状态说明与测试记录
 
@@ -119,7 +119,7 @@ Server 脚本：`scripts/test_native_stack.py`、`scripts/test_container_image.p
 
 ### T011：里程碑发布前构建预演
 
-**当前状态：API v3.0.0-api.107 已完成正式发行，Linux AMD64、Linux ARM64、Windows AMD64 安装文件及双架构 Docker 镜像均已发布。**
+**当前状态：API v3.0.0-api.109 已完成正式发行，Linux AMD64、Linux ARM64、Windows AMD64 安装文件及双架构 Docker 镜像均已发布。**
 
 Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构建配套 API 和 Server，运行普通进程及 Docker 服务检查，不创建 Release，也不推送正式镜像。
 
@@ -127,7 +127,7 @@ Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构�
 
 ### T012：正式里程碑核查与批准
 
-**当前状态：API PR #11 已合并并发布 v3.0.0-api.107，Server 维持 v1.1.17-api.21；发行文件、Docker 镜像和自动化检查均已核对。实际设备和外部服务检查继续保留。**
+**当前状态：API PR #14 已合并并发布 v3.0.0-api.109，Server 维持 v1.1.17-api.21；发行文件、Docker 镜像和自动化检查均已核对。实际设备和外部服务检查继续保留。**
 
 本次发行已经核查两个版本的源代码提交、GitHub Actions、数据库版本与发行文件。后续具备实际设备、外部邮箱和业务数据库的测试条件时，继续完成 T001–T010 中相应的实际环境检查。
 

@@ -29,7 +29,7 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 
 ## 发布
 
-普通提交与标签推送仅运行验证工作流。常规里程碑发布在 `v*` 标签上手动启动 GitHub Actions，并启用 `milestone_release`。本次批准的正式版本为 `v3.0.0-api.107`；以后普通提交仍只运行检查，新的发行版本需要再次批准。
+普通提交与标签推送仅运行验证工作流。常规里程碑发布在 `v*` 标签上手动启动 GitHub Actions，并启用 `milestone_release`。当前批准的正式版本为 `v3.0.0-api.109`；以后普通提交仍只运行检查，新的发行版本需要再次批准。
 
 发布前检查配置文件中的端口及 JWT 密钥设置，并备份正式环境数据库。
 
@@ -68,7 +68,7 @@ WebClient 同时支持 WebSocket 中继和 WebRTC。WebSocket 收到消息后直
 
 ## 2026 年 11 月里程碑发行
 
-API 正式版本已更新至 `v3.0.0-api.107`。安装文件和多架构 Docker 镜像可从对应 GitHub Release 与容器仓库获取。
+API 正式版本已更新至 `v3.0.0-api.109`。安装文件和多架构 Docker 镜像可从对应 GitHub Release 与容器仓库获取。
 
 Server `v1.1.17-api.21` 的组合 Docker 镜像使用 API `v3.0.0-api.103`，升级时应检查容器内实际使用的 API 版本。Server 的对应版本也已发布，两个仓库的发行工作流和镜像构建检查均已完成。
 

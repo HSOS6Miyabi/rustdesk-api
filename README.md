@@ -171,7 +171,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 
-当前正式版本 `v3.0.0-api.107` 的数据库迁移版本为 **290**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
+当前正式版本 `v3.0.0-api.109` 的数据库迁移版本为 **290**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
 

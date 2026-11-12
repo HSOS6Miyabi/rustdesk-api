@@ -42,15 +42,15 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 正式版本标签 | [v3.0.0-api.108](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.108) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
-| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 正式发行工作流 | [#42978795619：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
-| 正式 Release | [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.107) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)、[PR #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)、[PR #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
+| 正式发行工作流 | [#43102145809：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43102145809) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
+| 正式 Release | [v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
-正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.107`。
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.109`。
 
-当前 API 数据库迁移版本：**290**。正式发行提交为 [`a98f539`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/a98f539a060698d1dcef7122573d4f3574f47de4)。[发行工作流 #42978795619](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/42978795619) 的九项任务全部通过；Linux AMD64、Linux ARM64、Windows AMD64 安装文件以及 AMD64/ARM64 Docker 镜像均已发布。
+当前 API 数据库迁移版本：**290**。正式发行提交为 [`c082feb`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/c082feb1db9810f6bcb2cee63698b006fbb15b80)。[发行工作流 #43102145809](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43102145809) 的九项任务全部通过；Linux AMD64、Linux ARM64、Windows AMD64 安装文件以及 AMD64/ARM64 Docker 镜像均已发布。
 
 CI 已实际通过的内容：
 
@@ -101,8 +101,8 @@ CI 已实际通过的内容：
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 桌面、平板和手机交互及截图检查通过；手机导航布局已检查；实际环境管理员操作待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |
 | T010 | P0 | 官方 1.5.1 多系统启动和 Android 模拟器测试通过，Linux 客户端与实际 API 的部署、分配通过；真实登录及多版本远程连接待检查 | 检查新旧客户端的 API 与 Protobuf 版本兼容情况；核对官方版本更新是否改变了设备命令和双重认证字段 | 已支持的客户端版本清单明确，自动化测试能覆盖主要字段 |
-| T011 | P0 | v3.0.0-api.107 正式构建、三个平台安装文件与 AMD64/ARM64 Docker 镜像发布成功 | 检查跨架构可执行文件、GitHub Release、Docker 镜像启动和文件上传 | 本阶段发行文件和镜像已生成并完成自动化检查 |
-| T012 | P0 | API PR #11 已合并，v3.0.0-api.107 已发行；配套 Server v1.1.17-api.21 保持不变 | 保存已发布版本和自动化测试记录，继续维护实际环境检查项目 | 当前发行版本与两个仓库的组合关系已经核对 |
+| T011 | P0 | v3.0.0-api.109 正式构建、三个平台安装文件与 AMD64/ARM64 Docker 镜像发布成功 | 检查跨架构可执行文件、GitHub Release、Docker 镜像启动和文件上传 | 本阶段发行文件和镜像已生成并完成自动化检查 |
+| T012 | P0 | API PR #14 已合并，v3.0.0-api.109 已发行；配套 Server v1.1.17-api.21 保持不变 | 保存已发布版本和自动化测试记录，继续维护实际环境检查项目 | 当前发行版本与两个仓库的组合关系已经核对 |
 | T013 | P1 | 六个平台的安装文件准备与配置脚本已实现并通过自动测试；真实系统安装待检查 | 自定义客户端构建器：管理客户端服务器地址、公钥、预设值、构建任务、历史版本和安装包 | Web 页面能够创建构建任务、显示任务状态，并提供测试过的安装包 |
 | T014 | P1 | 严格登记模式的心跳许可、设备所有者一致性、策略撤销与界面自动测试通过；实际远程设备待检查 | 扩充设备策略项目，研究官方客户端支持的更多连接和安全设置 | 管理页面能配置新增项目，客户端心跳后能够应用并撤销 |
 | T015 | P1 | 已实现，CI 通过 | 扩展独立 API 令牌权限至适用的只读、设备和自动化管理接口 | 权限可分别选择，超出授权范围的请求被拒绝 |
