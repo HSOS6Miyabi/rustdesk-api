@@ -2077,6 +2077,11 @@
             m.relations=await request("/user/relations/"+encodeURIComponent(data.id));
           }catch{}
         }
+        if(data?.id&&!Array.isArray(m.relations.groups)){
+          try{
+            m.relations=await request("/my/directory/user/relations?id="+encodeURIComponent(data.id));
+          }catch{}
+        }
       }
       if(state.modal!==m)return;
       m.info=data||{};m.found=!!data;
