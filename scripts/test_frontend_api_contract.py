@@ -701,6 +701,16 @@ def check_real_changes(admin):
           "Administrator user relations must include groups and device counts")
     check(any(record["id"]==device_id for record in relations["devices"]),
           "The assigned device is absent from its owner's details")
+    personal_relations=user.success("GET","/my/directory/user/relations?id="+str(user_id))
+    check(any(record["id"]==device_id for record in personal_relations["devices"]),
+          "Personal user details did not include owned devices")
+    check(isinstance(personal_relations.get("groups"),list),
+          "Personal user groups are missing")
+    another_person=stranger.success("GET","/my/directory/user/relations?id="+str(user_id))
+    check(not any(record["id"]==device_id for record in another_person["devices"]),
+          "Another account could view a private device in user details")
+    check(not another_person["groups"],
+          "Another account could read a user's private group memberships")
     _,private_relations=stranger.send("GET","/user/relations/"+str(user_id))
     check(private_relations.get("code")!=0,
           "An unrelated account could see another user's group and device inventory")
