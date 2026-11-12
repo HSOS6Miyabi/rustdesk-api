@@ -1171,7 +1171,7 @@ test("settings center: administrator can inspect and save overrides on desktop",
     assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
     assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
     assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
-    await page.locator('[data-action="settings-category"][data-category="常规与登录"]').click();
+    await page.locator('[data-action="settings-category"][data-category="账户与安全"]').click();
     await page.locator('[id="setting-value-app.register"]').selectOption("false");
     const saved=page.waitForRequest(req=>req.url().endsWith("/api/admin/settings/overrides")&&req.method()==="PATCH");
     await page.locator('button[data-action="setting-save"][data-id="app.register"]').click();
@@ -1782,6 +1782,7 @@ test("server management renders categorized API replies as metrics and tables",a
     await page.locator(".server-result-table tbody tr").waitFor();
     assert.match(await page.locator(".server-result").innerText(),/192.0.2.5/);
     const metric=page.waitForResponse(res=>res.url().endsWith("/api/admin/rustdesk/execute")&&res.request().method()==="POST");
+    await page.locator('[data-action="server-category"][data-category="性能与带宽"]').click();
     await page.locator('button[data-action="server-select"][data-id="relay-speed-read"]').click();
     await metric;
     await page.getByText("12.5",{exact:false}).first().waitFor();
@@ -1795,6 +1796,7 @@ test("interactive server management presents form explanations",async()=>{
     await page.locator('nav button[data-view="server"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
     await page.locator('.server-tabs .server-tab[data-tab="id"]').click();
+    await page.locator('[data-action="server-category"][data-category="访问与网络记录"]').click();
     await page.locator('button[data-action="server-select"][data-id="id-block-read"]').click();
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);
@@ -1904,6 +1906,7 @@ test("device and user names open detail panels with management links",async()=>{
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
     await page.locator('.table-scroll [data-action="entity-detail"][data-entity-type="user"]').first().click();
     await page.locator('.drawer[aria-label="用户信息"]').waitFor();
+    await page.locator('.drawer .entity-data-row').getByText('用户名',{exact:true}).waitFor();
     assert.match(await page.locator(".drawer").innerText(),/用户名/);
     assert.equal(await page.locator('[data-action="entity-open-list"]').count(),0);
     assert.equal(await page.locator('[data-action="entity-admin-edit"]').count(),1);
