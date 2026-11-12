@@ -2,7 +2,7 @@
 
 更新日期：2026 年 11 月 12 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 的 `master` 分支及 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `forapi` 分支。详细实施记录见[统一实施台账](IMPLEMENTATION_LEDGER.md)。本文逐项记录 T001–T022 的检查范围、已完成工作、实际环境条件与结果。
 
-当前 API 数据库迁移版本为 **290**。已合并 [API PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 并发布 [API v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110)；Server 继续使用 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。两个仓库的正式版本应分别核对。
+当前 API 数据库迁移版本为 **290**。已合并 [API PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 和 [API PR #15](https://github.com/HSOS6Miyabi/rustdesk-api/pull/15)，正式版本为 [API v3.0.0-api.111](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.111)；Server 继续使用 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。两个仓库的正式版本应分别核对。
 
 ## 状态说明与测试记录
 
