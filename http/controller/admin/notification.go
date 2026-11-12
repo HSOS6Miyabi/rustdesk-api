@@ -25,7 +25,7 @@ func (n *Notifications) Save(c *gin.Context) {
 func (n *Notifications) List(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	rows,total,err:=service.ListNotificationDeliveries(page,size)
+	rows,total,err:=service.ListNotificationDeliveries(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }

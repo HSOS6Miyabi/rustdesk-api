@@ -16,7 +16,7 @@ type ClientBuilder struct{}
 func (h *ClientBuilder) Profiles(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	items,total,err:=service.ListClientBuildProfiles(page,size)
+	items,total,err:=service.ListClientBuildProfiles(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":items,"total":total,"page":page,"page_size":size})
 }
@@ -38,7 +38,7 @@ func (h *ClientBuilder) DeleteProfile(c *gin.Context) {
 func (h *ClientBuilder) Tasks(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	items,total,err:=service.ListClientBuildTasks(page,size)
+	items,total,err:=service.ListClientBuildTasks(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":items,"total":total,"page":page,"page_size":size})
 }

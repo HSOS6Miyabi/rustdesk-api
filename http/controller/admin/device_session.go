@@ -11,7 +11,7 @@ type DeviceSessions struct{}
 func (h *DeviceSessions) List(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Fail(c,101,"无效的页码");return}
-	rows,total,err:=service.ListActiveDeviceSessions(page,size)
+	rows,total,err:=service.ListActiveDeviceSessions(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }
@@ -35,7 +35,7 @@ func (h *DeviceSessions) Disconnect(c *gin.Context) {
 func (h *DeviceSessions) Requests(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Fail(c,101,"无效的页码");return}
-	rows,total,err:=service.ListDisconnectRequests(page,size)
+	rows,total,err:=service.ListDisconnectRequests(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }

@@ -16,7 +16,7 @@ func (h *AdminRoles) Catalog(c *gin.Context){
 func (h *AdminRoles) List(c *gin.Context){
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	rows,total,err:=service.ListAdminRoles(page,size)
+	rows,total,err:=service.ListAdminRoles(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }
@@ -50,7 +50,7 @@ type AdminRoleAssignments struct{}
 func (h *AdminRoleAssignments) List(c *gin.Context){
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	rows,total,err:=service.ListAdminRoleAssignments(page,size)
+	rows,total,err:=service.ListAdminRoleAssignments(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }
