@@ -366,7 +366,16 @@ function serve(req, res) {
   }
   if(pathname==="/webclient-config/index.js"){
     res.writeHead(200,{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store"});
-    res.end('localStorage.setItem("api-server",location.origin);window.ws_host="127.0.0.1";window.webclient_magic_queryonline=false;');
+    res.end([
+      'localStorage.setItem("api-server",location.origin);window.ws_host="127.0.0.1";window.webclient_magic_queryonline=false;',
+      'window.__rdBridgeCalls=[];',
+      'for(const name of ["setByName","getByName","init","reloadShortcuts"]){let fn;',
+      'Object.defineProperty(window,name,{configurable:true,get(){return fn},set(next){',
+      'fn=typeof next==="function"?(...args)=>{const command=String(args[0]||"");',
+      'if(window.__rdBridgeCalls.length<250)window.__rdBridgeCalls.push([name,command,',
+      '/login|password|token|key/i.test(command)?"[hidden]":String(args[1]||"").slice(0,100)]);',
+      'return next(...args)}:next;}});}'
+    ].join("\n"));
     return;
   }
   if(pathname==="/webclient/"||pathname.startsWith("/webclient/")){
@@ -2021,7 +2030,7 @@ test("device connection opens the original RustDesk remote controls and supports
     await page.locator('.table-scroll [data-action="device-connect"]').first().click();
     const popup=await opening;
     popup.on("pageerror",err=>nativeErrors.push("pageerror: "+(err.stack||err.message).slice(0,1600)));
-    popup.on("console",entry=>{const value=entry.text();if(entry.type()==="error"||entry.type()==="warning"||/setByName|initialLink|Exception|FlutterError|\bconnect\b/.test(value))nativeErrors.push(entry.type()+": "+value.slice(0,600));});
+    popup.on("console",entry=>{const value=entry.text();if(nativeErrors.length<120)nativeErrors.push(entry.type()+": "+value.slice(0,600));});
     await popup.waitForLoadState("load");
     const location=new URL(popup.url());
     assert.equal(location.pathname,"/webclient2/");
@@ -2049,6 +2058,8 @@ test("device connection opens the original RustDesk remote controls and supports
           paneStyle:paneStyle?{display:paneStyle.display,visibility:paneStyle.visibility,width:paneStyle.width,height:paneStyle.height}:null,
           dartScriptLoaded:!!child?.document?.querySelector('script[src*="main.dart.js"]'),
           flutter:!!pane, initHook:typeof child?.init, refreshHook:typeof child?.reloadShortcuts,
+          bridgeHistory:child?.__rdBridgeCalls?.slice(-75),
+          flutterViewSize:(()=>{const node=child?.document?.querySelector("flutter-view");const rect=node?.getBoundingClientRect();return rect?{width:rect.width,height:rect.height}:null})(),
           nativeSession:child?.__rustdeskNativeSessionSeen, nativeAuto:child?.__rustdeskAutoOpened,
           rendererReady:child?.rustdeskRendererReady, status:document.querySelector("#engine-state")?.textContent};
       });
