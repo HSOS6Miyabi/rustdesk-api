@@ -1758,6 +1758,32 @@ test("batch management forms resolve records through searchable dialogs",async()
   }finally{await context.close();}
 });
 
+
+test("OIDC group selector saves multiple selected group identifiers",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll [data-view="oauth"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="OIDC / SSO");
+    await page.locator('[data-action="create"]').click();
+    await page.locator('#edit-form input[name="client_id"]').fill("test-client");
+    await page.locator('#edit-form input[name="client_secret"]').fill("test-secret");
+    await page.locator('.drawer [data-target="auto_group_ids"] [data-action="picker-open"]').click();
+    const dialog=page.locator(".picker-dialog");
+    await dialog.locator(".picker-query").fill("帮助台");
+    await dialog.locator('[data-action="picker-search"]').click();
+    await dialog.locator('[data-action="picker-select"][data-id="2"]').click();
+    await dialog.locator(".picker-query").fill("研究人员");
+    await dialog.locator('[data-action="picker-search"]').click();
+    await dialog.locator('[data-action="picker-select"][data-id="3"]').click();
+    await dialog.locator('[data-action="picker-close"]').first().click();
+    assert.equal(await page.locator('#edit-form input[name="auto_group_ids"]').inputValue(),"2,3");
+    const saved=page.waitForRequest(req=>req.url().endsWith("/api/admin/oauth/create")&&req.method()==="POST");
+    await page.locator('[type="submit"][form="edit-form"]').click();
+    const data=(await saved).postDataJSON();
+    assert.equal(data.auto_group_ids,"2,3");
+  }finally{await context.close();}
+});
+
 test("device and user names open detail panels with management links",async()=>{
   const {context,page}=await pageForViewport(1440,900,true);
   try{
