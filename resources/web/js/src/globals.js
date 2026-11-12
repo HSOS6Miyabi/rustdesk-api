@@ -215,6 +215,9 @@ window.setByName = (name, value) => {
         case 'session_close':
             close();
             return '';
+        case 'forget_password':
+            getConn()?.setRemember(false);
+            return '';
         case 'envvar': {
             const setting=JSON.parse(value||'{}');
             if(setting.name==='IS_TERMINAL_ADMIN')window.__rustdeskTerminalAdmin=setting.value==='Y';
