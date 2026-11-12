@@ -1500,7 +1500,7 @@
     if(name==="role_id")return state.page==="adminRoleAssignments"?"admin_role":"control_role";
     return "";
   }
-  const lookupLabels={user:"用户",device:"设备",user_group:"用户分组",device_group:"设备组",collection:"地址簿",policy:"安全策略",control_role:"控制角色",admin_role:"管理角色"};
+  const lookupLabels={user:"用户",device:"设备",user_group:"用户分组",device_group:"设备组",collection:"地址簿",policy:"安全策略",control_role:"控制角色",admin_role:"管理角色",deployment_record:"设备部署记录",trash_record:"回收站记录"};
   function pickerField(name,value,required,row,inputID=""){
     const kind=lookupKind(name,row),selected=String(value??"");
     const all=kind==="all",display=selected&&selected!=="0"?referenceText(kind,selected):"";
@@ -1519,7 +1519,7 @@
   }
   function multiPicker(id,kind="user",initial=""){
     const ids=[...new Set(String(initial||"").split(/[,;，\s]+/).map(x=>x.trim()).filter(Boolean))];
-    const object=kind==="device"?"设备":kind==="user_group"?"用户分组":"用户";
+    const object=lookupLabels[kind]||"用户";
     return '<div class="entity-picker entity-picker-multi" data-picker="'+esc(kind)+'" data-target="'+esc(id)+'">'+
       '<div class="picker-control"><button type="button" class="picker-trigger" data-action="picker-open" aria-label="选择'+object+'">'+
       '<span class="picker-trigger-label">点击搜索并选择'+object+'</span>'+icon("search",17)+'</button>'+
@@ -1530,7 +1530,7 @@
       '<button type="button" class="btn btn-sm" data-action="picker-manual-add">添加设备 ID</button></div>':"")+
       '<div class="picker-selected" aria-live="polite">'+
       ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+
-        (kind==="device"?deviceStatusDot(value):"")+esc(kind==="user_group"?referenceText(kind,value):object+" "+value)+' ×</button>').join("")+'</div>'+
+        (kind==="device"?deviceStatusDot(value):"")+esc(["user_group","deployment_record","trash_record"].includes(kind)?referenceText(kind,value):object+" "+value)+' ×</button>').join("")+'</div>'+
       '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:
         kind==="device"?"选择设备或填写外部设备 ID，留空表示适用于所有设备":"请选择"+object)+'</small></div>';
   }
@@ -1564,7 +1564,9 @@
     if(!results)return;
     const sequence=(Number(picker.dataset.sequence)||0)+1;
     picker.dataset.sequence=String(sequence);
-    results.hidden=false;results.textContent="正在搜索…";
+    results.hidden=false;
+    if(!q&&kind==="user"&&!state.isAdmin&&!hasPrivilege("users.view")){results.textContent="请输入用户名、昵称或邮箱开始搜索";return;}
+    results.textContent="正在搜索…";
     try{
       let rows=[];
       if(kind==="user"&&!state.isAdmin&&!hasPrivilege("users.view")){
@@ -1574,8 +1576,8 @@
         const paths={
           user:"/user/list",device:state.isAdmin||hasPrivilege("devices.view")?"/peer/list":"/my/directory/devices",
           user_group:state.isAdmin?"/group/list":"/my/group/list",
-          device_group:"/device_group/list",collection:state.isAdmin?"/address_book_collection/list":"/my/address_book_collection/list",
-          policy:"/device_policy/list",control_role:"/control_role/list",admin_role:"/admin_role/list"
+          device_group:"/device_group/list",collection:state.modal?.kind==="rules-batch"||!state.isAdmin?"/my/address_book_collection/list":"/address_book_collection/list",
+          policy:"/device_policy/list",control_role:"/control_role/list",admin_role:"/admin_role/list",deployment_record:"/device_deployment/list",trash_record:"/my/address_book/trash/list"
         };
         const path=paths[kind];
         if(!path){results.textContent="无法查询此类对象";return;}
@@ -1591,14 +1593,18 @@
         }
         if(!filter){
           const normalized=q.toLowerCase();
-          rows=rows.filter(item=>[item.id,item.name,item.alias,item.username,item.nickname].some(value=>String(value??"").toLowerCase().includes(normalized)));
+          rows=rows.filter(item=>[item.id,item.row_id,item.device_id,item.hostname,item.name,item.alias,item.username,item.nickname,item.email,item.status].some(value=>String(value??"").toLowerCase().includes(normalized)));
         }
       }
       if(!picker.isConnected||Number(picker.dataset.sequence)!==sequence)return;
-      results.innerHTML=rows.length?rows.slice(0,30).map(item=>{
-        const id=item.id;
+      results.innerHTML=rows.length?rows.slice(0,50).map(item=>{
+        const id=kind==="trash_record"?item.row_id:item.id;
         const name=kind==="device"?[item.alias,item.hostname,item.username,item.os].filter(Boolean).join(" · "):
+          kind==="deployment_record"?[item.device_id,item.status==="approved"?"已批准":item.status==="revoked"?"已撤销":item.status].filter(Boolean).join(" · "):
+          kind==="trash_record"?[item.alias||item.id,item.hostname||item.id].filter(Boolean).join(" · "):
           [item.name,item.nickname||item.username,item.email].filter(Boolean).join(" · ");
+        if(!state.referenceNames[kind])state.referenceNames[kind]={};
+        state.referenceNames[kind][String(id)]=name||String(id);
         return '<div role="option" class="picker-result-row"><button type="button" class="picker-result" data-action="picker-select" data-id="'+esc(id)+'" data-username="'+esc(item.username||"")+'" data-title="'+esc(name)+'">'+
           '<strong>'+(kind==="device"?deviceStatusDot(id):"")+esc(name||id)+'</strong><span>编号：'+esc(id)+(name?" · "+esc(item.email||item.hostname||item.os||""):"")+'</span></button>'+
           (["user","device"].includes(kind)?'<button type="button" class="picker-result-detail" data-action="entity-detail" data-entity-type="'+kind+'" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(name||id)+'">查看信息</button>':"")+'</div>';
@@ -1844,8 +1850,8 @@
     if(m.kind==="rules-batch"){
       const revoke=m.action==="revoke";
       const body='<div class="form-grid">'+
-        '<div class="field full"><label for="rules-batch-collection">地址簿编号</label>'+
-        '<input type="number" id="rules-batch-collection" min="1" step="1" required></div>'+
+        '<div class="field full"><label>选择需要共享的地址簿</label>'+
+        pickerField("collection_id","",true,{},"rules-batch-collection")+'</div>'+
         '<div class="field full"><label>搜索并选择目标用户（最多 100 位）</label>'+
         multiPicker("rules-batch-users")+'</div>'+
         (revoke?"":'<div class="field full"><label for="rules-batch-level">共享权限</label>'+
@@ -1859,9 +1865,9 @@
     }
     if(m.kind==="deployment-batch"){
       const revoke=m.action==="revoked";
-      const body='<div class="field"><label for="deployment-batch-ids">设备部署记录编号（最多 200 条）</label>'+
-        '<textarea id="deployment-batch-ids" rows="5" placeholder="例如：8,13,19" required></textarea>'+
-        '<small>在设备部署列表中查看编号，按逗号、空格或换行分隔。</small></div>';
+      const body='<div class="field"><label>选择需要修改的设备部署记录（最多 200 条）</label>'+
+        multiPicker("deployment-batch-ids","deployment_record")+
+        '<small>搜索设备名称或设备 ID，可在弹窗中同时选择多条记录。</small></div>';
       return modal(revoke?"批量撤销设备部署":"批量批准设备部署",
         revoke?"撤销后设备将无法在严格登记模式下重新登记。":"选中设备将被批准登记。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+
@@ -1878,9 +1884,9 @@
         '<button class="btn btn-primary" data-action="contact-batch-submit">'+(remove?"确认撤销":"批量添加")+'</button>');
     }
     if(m.kind==="trash-batch"){
-      const body='<div class="field"><label for="trash-batch-ids">地址簿记录编号（最多 200 条）</label>'+
-        '<textarea id="trash-batch-ids" rows="5" placeholder="例如：12,15,19" required></textarea>'+
-        '<small>填写回收站的记录编号，可用逗号、空格或换行分隔。所有记录必须属于当前账户。</small></div>';
+      const body='<div class="field"><label>选择回收站记录（最多 200 条）</label>'+
+        multiPicker("trash-batch-ids","trash_record")+
+        '<small>按设备 ID、备注或主机名搜索需要恢复或永久删除的记录。</small></div>';
       const purging=m.action==="purge";
       return modal(purging?"批量永久删除地址簿条目":"批量恢复地址簿条目",
         purging?"删除后无法恢复，请确认编号。":"整批检查完成后才会恢复记录。",body,
@@ -1941,6 +1947,7 @@
         if(!Number.isInteger(alpha)||alpha<0||alpha>255){toast("请选择有效的透明度",true);return;}
         data[name]=((alpha*16777216)+parseInt(el.value.slice(1),16))>>>0;
       }
+      else if(name==="auto_group_ids")data[name]=el.value.trim();
       else if(lookupKind(name,oldData)){
         const raw=el.value.trim(),kind=lookupKind(name,oldData);
         if(required&&kind!=="all"&&!raw){toast("请先搜索并选择："+f[1],true);return;}
@@ -2122,9 +2129,9 @@
     const values=target.value.split(/[,，\s]+/).filter(Boolean);
     if(!values.includes(id))values.push(id);
     target.value=values.join(",");
-    const kind=picker.dataset.picker,label=kind==="device"?"设备":kind==="user_group"?"用户分组":"用户";
+    const kind=picker.dataset.picker,label=lookupLabels[kind]||"用户";
     const selected=picker.querySelector(".picker-selected");
-    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+(kind==="user_group"?esc(referenceText(kind,value)):esc(label+" "+value))+' ×</button>').join("");
+    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+( ["user_group","deployment_record","trash_record"].includes(kind)?esc(referenceText(kind,value)):esc(label+" "+value))+' ×</button>').join("");
     picker.querySelector(".picker-results").hidden=true;
     picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
   }
@@ -2231,7 +2238,7 @@
       const values=target.value.split(",").filter(v=>v&&v!==el.dataset.id);
       target.value=values.join(",");
       el.remove();
-      picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+(picker.dataset.picker==="device"?"设备":"用户");
+      picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+(lookupLabels[picker.dataset.picker]||"用户");
       return;
     }
     if(a==="toggle-section"){
