@@ -21,9 +21,8 @@ export function isDesktop() {
 
 export function msgbox(type, title, text) {
     if (!type || (type == 'error' && !text)) return;
-    const text2 = text.toLowerCase();
     var hasRetry = checkIfRetry(type, title, text) ? 'true' : '';
-    onGlobalEvent(JSON.stringify({name: 'msgbox', type, title, text, hasRetry}));
+    if (typeof window.onGlobalEvent === "function") window.onGlobalEvent(JSON.stringify({name: 'msgbox', type, title, text, hasRetry}));
 }
 
 function jsonfyForDart(payload) {
@@ -38,7 +37,7 @@ function jsonfyForDart(payload) {
 export function pushEvent(name, payload) {
     payload = jsonfyForDart(payload);
     payload.name = name;
-    onGlobalEvent(JSON.stringify(payload));
+    if (typeof window.onGlobalEvent === "function") window.onGlobalEvent(JSON.stringify(payload));
 }
 
 let yuvWorker;
@@ -57,6 +56,7 @@ if (YUVCanvas.WebGLFrameSink.isAvailable()) {
 let testSpeed = [0, 0];
 
 export function draw(frame) {
+    if (typeof window.onRgba !== "function") return;
     if (yuvWorker) {
         // frame's (y/u/v).bytes already detached, can not transferrable any more.
         yuvWorker.postMessage(frame);
@@ -77,7 +77,7 @@ export function draw(frame) {
         for (let i = 0; i < size; i += row) {
             flipPixels.set(pixels.subarray(i, i + row), end - i);
         }
-        onRgba(flipPixels);
+        window.onRgba(flipPixels);
         testSpeed[1] += new Date().getTime() - tm0;
         testSpeed[0] += 1;
         if (testSpeed[0] > 30) {
@@ -343,7 +343,7 @@ export function playAudio(packet) {
 window.init = async () => {
     if (yuvWorker) {
         yuvWorker.onmessage = (e) => {
-            onRgba(e.data);
+            if (typeof window.onRgba === "function") window.onRgba(e.data);
         }
     }
     opusWorker.onmessage = (e) => {

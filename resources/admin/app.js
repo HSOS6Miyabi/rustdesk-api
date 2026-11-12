@@ -694,7 +694,7 @@
     if(state.page==="deployed")return '<button type="button" class="btn btn-sm" data-action="deployment-toggle" data-id="'+esc(row.id)+'">'+(row.status==="approved"?"撤销部署":"恢复部署")+"</button>";
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
-    let out="";
+    let out=state.page==="mydevices"?'<button type="button" class="btn btn-sm btn-primary" data-action="device-connect" data-device-id="'+esc(row.id)+'" data-device-name="'+esc(row.alias||row.hostname||"")+'">连接设备</button>':"";
     const editable=pages[state.page]?.admin?canPageAction(state.page,"edit"):true;
     if(editable)out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
     if(state.page==="devices"&&(state.isAdmin||hasPrivilege("devices.transfer"))){
@@ -1479,10 +1479,11 @@
       (m.loading?'<p class="subtitle">正在读取可查看的详情…</p>':"")+
       '<dl class="entity-data">'+rows+'</dl>'+
       (m.loading?"":!m.found?'<p class="subtitle">当前账户可查看的信息已显示。其他详情需要相应管理权限。</p>':"")+'</div>';
-    const buttons=editable?'<button type="button" class="btn btn-primary" data-action="entity-open-list">'+
-      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"在我的设备中查看":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
+    const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
+    const buttons=editable?'<button type="button" class="btn" data-action="entity-open-list">'+
+      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
     return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
-      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+buttons);
+      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+buttons);
   }
   async function openEntityDetail(type,id,label){
     if(!["device","user"].includes(type)||!String(id||"").trim())return;
@@ -1904,11 +1905,24 @@
     picker.querySelector(".picker-results").hidden=true;
     picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
   }
+  function openWebClientDevice(id,name){
+    const deviceId=String(id||"").trim();
+    if(!deviceId)return;
+    const params=new URLSearchParams({id:deviceId});
+    if(name)params.set("name",String(name).slice(0,160));
+    const tab=window.open("/webclient2/?"+params.toString(),"_blank");
+    if(tab)tab.opener=null;
+    else toast("浏览器阻止了打开新标签页，请在浏览器中允许该操作。",true);
+  }
   document.addEventListener("click",async event=>{
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
+    if(a==="device-connect"){
+      openWebClientDevice(el.dataset.deviceId,el.dataset.deviceName);
+      return;
+    }
     if(a==="entity-detail"){
       await openEntityDetail(el.dataset.entityType,el.dataset.entityId,el.dataset.entityLabel);
       return;

@@ -22,6 +22,7 @@ function createConsole(isAdmin = false, overrides = {}) {
   const events = {};
   const root = { innerHTML: "",querySelector(){return null;} };
   const assigned = [];
+  const opened = [];
   const browserLocation = { hash: "#/overview", assign(url) {assigned.push(url);} };
   const user = {
     username: "demo-user",
@@ -121,6 +122,7 @@ function createConsole(isAdmin = false, overrides = {}) {
     querySelector() { return null; }
   };
   const mockWindow = {
+    open(url,target){const tab={opener:{}};opened.push({url,target,tab});return tab;},
     addEventListener() {},
     confirm() { return true; },
     location: browserLocation
@@ -137,7 +139,7 @@ function createConsole(isAdmin = false, overrides = {}) {
   vm.runInNewContext(source, context, { filename: "resources/admin/app.js" });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return {
-    root, calls, events, fixtures, settle, assigned,
+    root, calls, events, fixtures, settle, assigned, opened,
     async open(view) {
       const control = { dataset: { view } };
       await events.click({ target: { closest: () => control } });
@@ -770,4 +772,26 @@ test("device presence keeps unknown status distinct from offline status",async()
   await app.settle();await app.settle();
   await app.open("devices");
   assert.match(app.root.innerHTML,/device-status-dot unknown/);
+});
+
+test("owned-device actions and detail panel open WebClient v2 with the selected identity",async()=>{
+  const app=createConsole(false);
+  app.fixtures["/my/peer/list"]={list:[{id:"office-01",hostname:"Workstation",alias:"Office desk",user_id:2}],total:1};
+  await app.settle();await app.settle();await app.open("mydevices");
+  assert.match(app.root.innerHTML,/data-action="device-connect" data-device-id="office-01" data-device-name="Office desk"/);
+  const fire=async dataset=>app.events.click({target:{closest:()=>({dataset})}});
+  await fire({action:"device-connect",deviceId:"office-01",deviceName:"Office desk"});
+  assert.equal(app.opened.length,1);
+  assert.equal(app.opened[0].target,"_blank");
+  assert.equal(app.opened[0].tab.opener,null);
+  const first=new URL(app.opened[0].url,"https://example.test");
+  assert.equal(first.pathname,"/webclient2/");
+  assert.equal(first.searchParams.get("id"),"office-01");
+  assert.equal(first.searchParams.get("name"),"Office desk");
+  await fire({action:"entity-detail",entityType:"device",entityId:"office-01",entityLabel:"Office desk"});
+  await app.settle();
+  assert.match(app.root.innerHTML,/data-action="entity-open-list">查看设备<\/button>/);
+  assert.match(app.root.innerHTML,/data-action="device-connect" data-device-id="office-01"/);
+  await fire({action:"device-connect",deviceId:"office-01",deviceName:"Office desk"});
+  assert.equal(app.opened.length,2);
 });

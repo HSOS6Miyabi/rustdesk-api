@@ -31,7 +31,7 @@ if (app) {
   let player;
   window.init();
 
-  document.body.onload = () => {
+  window.addEventListener("load", () => {
     const host = document.querySelector('#host');
     host.value = localStorage.getItem('custom-rendezvous-server');
     const id = document.querySelector('#id');
@@ -39,8 +39,9 @@ if (app) {
     const key = document.querySelector('#key');
     key.value = localStorage.getItem('key');
     player = YUVCanvas.attach(document.getElementById('player'));
-    // globals.sendOffCanvas(document.getElementById('player'));
-  };
+    window.rustdeskRendererReady = true;
+    window.dispatchEvent(new Event("rustdesk:renderer-ready"));
+  }, {once:true});
 
   window.connect = () => {
     const host = document.querySelector('#host');
