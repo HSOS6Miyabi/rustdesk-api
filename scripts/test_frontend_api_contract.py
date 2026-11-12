@@ -422,6 +422,76 @@ def check_real_changes(admin):
         _,denied=stranger.send(method,path,payload)
         check(denied.get("code")!=0,
               f"An ordinary user could change administrator-only data at {path}")
+    # Verify searches, details and actual shared-device permissions from normal sessions.
+    user_matches=user.success("GET","/my/directory/users?keyword="+urllib.parse.quote(username[:10]))["list"]
+    check(any(record["id"]==user_id for record in user_matches),
+          "Ordinary account directory cannot find a username")
+    nickname_matches=user.success("GET","/my/directory/users?keyword=Updated")["list"]
+    check(any(record["id"]==user_id for record in nickname_matches),
+          "Ordinary account directory cannot search nicknames")
+    detail=user.success("GET","/my/directory/user?id="+urllib.parse.quote(username))
+    check(detail["id"]==user_id and "password" not in detail,
+          "Public user details must be accessible without disclosing passwords")
+    own=user.success("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(own["id"]==device_id and own["owned"] is True,
+          "Owned device details do not match the logged-in owner")
+    own_results=user.success("GET","/my/directory/devices?keyword=Personal")["list"]
+    check(any(item["id"]==device_id for item in own_results),
+          "Device search does not search aliases")
+    _,unshared=stranger.send("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(unshared.get("code")!=0,"An unrelated user could read another user's device")
+    _,unshared_search=stranger.send("GET","/my/directory/devices?keyword="+urllib.parse.quote(device_id))
+    check(unshared_search.get("code")==0 and not unshared_search["data"]["list"],
+          "An unrelated user could find another user's private devices")
+    user.success("POST","/contact/add",{"username":other_name})
+    shared=stranger.success("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(shared["id"]==device_id and shared["owned"] is False
+          and shared["owner_username"]==username,
+          "Shared device details were missing or had the wrong owner")
+    shared_search=stranger.success("GET","/my/directory/devices?keyword="+urllib.parse.quote(device_id))["list"]
+    check(any(row["id"]==device_id for row in shared_search),
+          "Shared device search does not return permitted devices")
+    stranger.success("GET","/my/directory/user?id="+urllib.parse.quote(username))
+    user.success("POST","/contact/delete",{"username":other_name})
+    _,unshared=stranger.send("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(unshared.get("code")!=0,"Revoked device sharing retained access")
+
+    # Sort two or more pages in the database before applying pagination.
+    prefix="zsort_"+secrets.token_hex(3)
+    names=[prefix+"_zulu",prefix+"_alpha",prefix+"_echo",prefix+"_bravo",
+           prefix+"_delta",prefix+"_charlie",prefix+"_foxtrot",prefix+"_golf"]
+    for name in names: admin.success("POST","/group/create",{"name":name,"type":1})
+    def sorted_page(path,column,direction,per_page=3):
+        first=admin.success("GET",path+"?page=1&page_size="+str(per_page)+
+                            "&sort_by="+column+"&sort_dir="+direction)
+        all_rows=list(first["list"])
+        for page_index in range(2,(first["total"]+per_page-1)//per_page+1):
+            nxt=admin.success("GET",path+"?page="+str(page_index)+
+                              "&page_size="+str(per_page)+"&sort_by="+column+
+                              "&sort_dir="+direction)
+            all_rows.extend(nxt["list"])
+        check(len(all_rows)==first["total"],"Sorting skipped or duplicated records")
+        return all_rows
+    ascending=sorted_page("/group/list","name","asc")
+    check([row["name"] for row in ascending]==sorted(
+          [row["name"] for row in ascending],key=str.casefold),
+          "Group ordering must be consistent across pages")
+    descending=sorted_page("/group/list","name","desc")
+    check([row["name"] for row in descending]==sorted(
+          [row["name"] for row in descending],key=str.casefold,reverse=True),
+          "Descending sorting must operate over all pages")
+    users_asc=sorted_page("/user/list","username","asc",1)
+    check([x["username"] for x in users_asc]==sorted(
+          [x["username"] for x in users_asc],key=str.casefold),
+          "User sorting did not apply before pagination")
+    peers_asc=sorted_page("/peer/list","id","asc",1)
+    check([x["id"] for x in peers_asc]==sorted(
+          [x["id"] for x in peers_asc],key=str.casefold),
+          "Device sorting did not apply before pagination")
+    admin.success("GET","/user/list?page=1&page_size=5&sort_by="+
+                  urllib.parse.quote("username;DROP TABLE users")+"&sort_dir=desc")
+    check(admin.success("GET","/user/list?page=1&page_size=3")["total"]>=3,
+          "An unsupported sort column affected stored accounts")
     return user.count + stranger.count
 
 
