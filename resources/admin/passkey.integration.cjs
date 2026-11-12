@@ -101,7 +101,7 @@ test("Passkey enrollment, authenticated login, replay denial and revocation",asy
   assert.ok(admin.token);
   const {context,page}=await pageFor(admin.token);
   try{
-    await page.goto(api+"/_admin/#/profile",{waitUntil:"networkidle"});
+    await page.goto("http://localhost:"+port+"/_admin/#/profile",{waitUntil:"networkidle"});
     await page.getByRole("heading",{name:"个人设置"}).waitFor();
     await page.getByRole("heading",{name:"Passkey 通行密钥"}).waitFor();
     const dimensions=await page.evaluate(()=>{
@@ -183,7 +183,7 @@ test("administrators update a user's profile and securely reset credentials",asy
 
   const {context,page}=await pageFor(admin.token);
   try{
-    await page.goto(api+"/_admin/#/users",{waitUntil:"networkidle"});
+    await page.goto("http://localhost:"+port+"/_admin/#/users",{waitUntil:"networkidle"});
     await page.locator("#table-search").fill(username);
     await page.locator('#table-search').press("Enter");
     await page.getByRole("heading",{name:"用户账户"}).waitFor();
