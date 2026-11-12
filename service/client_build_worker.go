@@ -23,52 +23,6 @@ type clientBuildSource struct {
 	Size int64
 }
 
-// Pin the official release artifacts so a changed upstream download cannot
-// silently replace an installer. Installer bytes are never modified.
-func officialClientBuildSource(platform,version string)(clientBuildSource,error){
-	if version!=currentClientVersion{return clientBuildSource{},errors.New("unsupported client version")}
-	switch platform {
-	case "windows-x64":
-		return clientBuildSource{
-			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.exe",
-			SHA256:"319206042390ebfcba934cf0baa2f612f34de463c78c843b7cb8c22097c4bf7b",
-			Size:26211184,
-		},nil
-	case "windows-arm64":
-		return clientBuildSource{
-			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.exe",
-			SHA256:"54de7328a4a2bff0b9e60d1268f7b239c45d11ab4dff4fed0c88a8a3b0fbe516",
-			Size:24252784,
-		},nil
-	case "linux-x64":
-		return clientBuildSource{
-			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.deb",
-			SHA256:"b5d682ad90cb7571ecbdbf26eef58d3c4514e726a74ef6d08ce3f0b114ef0bd9",
-			Size:25337156,
-		},nil
-	case "linux-arm64":
-		return clientBuildSource{
-			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.deb",
-			SHA256:"d1471ed916dc21e3ae3965f936c51944e1f2635a6d521fcc4663486696018465",
-			Size:23594612,
-		},nil
-	case "macos-x64":
-		return clientBuildSource{
-			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.dmg",
-			SHA256:"457e45a26d3f0919221e6db3dfb8c6a12ca65190307b53a907c3c51b762eb008",
-			Size:37691902,
-		},nil
-	case "macos-arm64":
-		return clientBuildSource{
-			URL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-aarch64.dmg",
-			SHA256:"1b94182cba2375ea29a196f2c8183f7feaa00588474ecd76c92c2303ffd70d7b",
-			Size:30548457,
-		},nil
-	default:
-		return clientBuildSource{},errors.New("unsupported client platform")
-	}
-}
-
 func buildClientHTTP() *http.Client {
 	return &http.Client{
 		Timeout:4*time.Minute,
@@ -77,6 +31,7 @@ func buildClientHTTP() *http.Client {
 			hostname:=strings.ToLower(req.URL.Hostname())
 			if req.URL.Scheme!="https" || (
 				hostname!="github.com" &&
+                hostname!="api.github.com" &&
 				hostname!="release-assets.githubusercontent.com" &&
 				hostname!="objects.githubusercontent.com") {
 				return errors.New("client download redirected to an untrusted server")
@@ -90,8 +45,8 @@ func writeClientPackage(task *model.ClientBuildTask,source clientBuildSource,cli
     return writeClientPackageContext(context.Background(),task,source,client)
 }
 func writeClientPackageContext(parent context.Context,task *model.ClientBuildTask,source clientBuildSource,client *http.Client)(string,int64,error){
-	if task==nil||task.Id==0||source.Size<=0||source.Size>100<<20 ||
-		len(source.SHA256)!=64 ||
+	if task==nil||task.Id==0||source.Size<=0||source.Size>maxClientInstallerSize ||
+        (source.SHA256!="" && len(source.SHA256)!=64) ||
 		(!strings.HasSuffix(task.Filename,".exe") && !strings.HasSuffix(task.Filename,".zip")) ||
 		len(task.Filename)>240 || strings.ContainsAny(task.Filename,"/\\") {
 		return "",0,errors.New("invalid client download information")
@@ -118,7 +73,10 @@ func writeClientPackageContext(parent context.Context,task *model.ClientBuildTas
 	if copyErr!=nil{return "",0,copyErr}
 	if count!=source.Size{return "",0,fmt.Errorf("official client size mismatch: expected %d, got %d",source.Size,count)}
 	digest:=hex.EncodeToString(hash.Sum(nil))
-	if !strings.EqualFold(digest,source.SHA256){return "",0,errors.New("official client checksum does not match")}
+	if source.SHA256!="" && !strings.EqualFold(digest,source.SHA256){
+        return "",0,errors.New("official client checksum does not match")
+    }
+    source.SHA256=digest
 	if task.Platform=="windows-x64" || task.Platform=="windows-arm64" {
 		output:=filepath.Join(folder,task.Filename)
 		if err:=os.Rename(tmpPath,output);err!=nil{return "",0,err}

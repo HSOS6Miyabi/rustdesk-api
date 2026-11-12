@@ -21,8 +21,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const currentClientVersion = "1.5.1"
-
 type clientServerSettings struct {
 	Key string `json:"key,omitempty"`
 	Host string `json:"host,omitempty"`
@@ -75,8 +73,10 @@ func ValidateClientBuildProfile(profile *model.ClientBuildProfile) error {
 	case "windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64":
 	default: return errors.New("unsupported client platform")
 	}
-	if profile.Version=="" { profile.Version=currentClientVersion }
-	if profile.Version!=currentClientVersion { return errors.New("unsupported official client version") }
+	profile.Version = strings.TrimSpace(profile.Version)
+	if !validOfficialClientVersion(profile.Version) {
+		return errors.New("client version must use a published numeric version such as 1.5.3")
+	}
 	if !validateClientHost(profile.Host) || !validateClientAPI(profile.APIServer) ||
 		(profile.RelayServer!="" && !validateClientHost(profile.RelayServer)) {
 		return errors.New("invalid server, API or relay address")
