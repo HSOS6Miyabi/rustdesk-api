@@ -452,7 +452,7 @@
       Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -1943,46 +1943,86 @@
     return '<div class="entity-data-row"><dt>'+esc(label)+'</dt><dd>'+(html?value:esc(value))+'</dd></div>';
   }
   function entityPanel(m){
-    const info=m.info||{},device=m.entityType==="device";
-    const id=String(m.entityId);
-    const status=state.devicePresence[id];
-    const sections=device?[
+    const info=m.info||{},id=String(m.entityId),device=m.entityType==="device",group=m.entityType==="group";
+    const status=state.devicePresence[id],relations=m.relations||{};
+    const groupName=group?String(info.name||m.label||id):"";
+    const groupType={1:"普通组",2:"共享组",3:"公共锚点组"};
+    const sections=group?[
+      ["分组编号",info.id||id],["分组名称",groupName],["分组类型",groupType[Number(info.type)]||"—"],
+      ["创建者",info.owner_user_id?entityLink("user",info.owner_user_id,referenceText("user",info.owner_user_id)): "",true],
+      ["创建时间",info.created_at?date(info.created_at):""],["修改时间",info.updated_at?date(info.updated_at):""]
+    ]:device?[
       ["设备 ID",id],["在线状态",status===true?"在线":status===false?"离线":"状态暂不可用"],
       ["备注",info.alias],["主机名",info.hostname],["操作系统",info.os],
-      ["操作系统用户",info.username],["最后在线时间",info.last_online_time?date(info.last_online_time):"",true],
+      ["操作系统用户",info.username],["设备版本",info.version],["处理器",info.cpu],
+      ["内存",info.memory],
+      ["最后在线时间",info.last_online_time?date(info.last_online_time):""],
       ["最近上线 IP",info.last_online_ip?showIP(info.last_online_ip):"",true],
+      ["设备分组",info.group_id?entityLink("group",info.group_id,referenceText("device_group",info.group_id)):"",true],
       ["设备备注",info.note],
-      ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):"",true],
-      ["所有者用户 ID",info.user_id]
+      ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):info.user_id?entityLink("user",info.user_id,referenceText("user",info.user_id)):"",true],
+      ["创建时间",info.created_at?date(info.created_at):""],
+      ["修改时间",info.updated_at?date(info.updated_at):""]
     ]:[
       ["用户编号",info.id||(/^[0-9]+$/.test(id)?id:"")],
       ["用户名",info.username||(/^[0-9]+$/.test(id)?"":id)],
       ["昵称",info.nickname],["邮箱",info.email],
-      ["主要分组",referenceText("user_group",info.group_id)],["备注",info.remark]
+      ["账户类型",info.is_admin===undefined?"":info.is_admin?"管理员":"普通用户"],
+      ["账户状态",info.status===undefined?"":Number(info.status)===1?"已启用":"已停用"],
+      ["主要分组",info.group_id?entityLink("group",info.group_id,referenceText("user_group",info.group_id)):"",true],
+      ["备注",info.remark],["创建时间",info.created_at?date(info.created_at):""],
+      ["修改时间",info.updated_at?date(info.updated_at):""]
     ];
     const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
+    const groupCards=!device&&!group&&Array.isArray(relations.groups)?
+      '<section class="entity-related-section"><h3>所属用户组 <span>'+relations.groups.length+' 个</span></h3>'+
+      (relations.groups.length?'<div class="entity-related-list">'+relations.groups.map(item=>
+        '<div class="entity-related-item">'+entityLink("group",item.id,item.name||"用户组 "+item.id)+
+        (Number(item.id)===Number(info.group_id)?'<span class="pill">主要分组</span>':"")+
+        '<small>'+esc(groupType[Number(item.type)]||"用户组")+'</small></div>').join("")+'</div>':
+        '<p class="entity-related-empty">没有关联用户组。</p>')+'</section>':"";
+    const devices=Array.isArray(relations.devices)?relations.devices:[];
+    const deviceCards=!device&&!group&&Array.isArray(relations.devices)?
+      '<section class="entity-related-section"><h3>名下设备 <span>'+esc(relations.device_total??devices.length)+' 台</span></h3>'+
+      (devices.length?'<div class="entity-related-list">'+devices.map(item=>
+        '<div class="entity-related-item">'+entityLink("device",item.id,item.alias||item.hostname||item.id,true,
+        (item.alias||item.hostname)&&item.id!==item.alias&&item.id!==item.hostname?item.id:"")+
+        '<small>'+esc(item.os||"")+'</small></div>').join("")+'</div>':
+        '<p class="entity-related-empty">当前没有设备。</p>')+
+      (Number(relations.device_total)>devices.length?'<p class="entity-related-empty">此处展示最近 '+devices.length+' 台设备，其余设备可在设备管理页面查看。</p>':"")+
+      '</section>':"";
+    const memberCards=group&&Array.isArray(m.members)?
+      '<section class="entity-related-section"><h3>分组成员 <span>'+m.members.length+' 人</span></h3>'+
+      (m.members.length?'<div class="entity-related-list">'+m.members.map(item=>
+        '<div class="entity-related-item">'+entityLink("user",item.id,item.nickname||item.username||item.id)+
+        '<small>'+esc(item.username||"")+'</small></div>').join("")+'</div>':
+        '<p class="entity-related-empty">没有关联成员。</p>')+'</section>':"";
     const owned=Boolean(info.owned||state.page==="mydevices"&&state.rows.some(row=>String(row.id)===id)||info.user_id&&Number(info.user_id)===Number(state.user?.id));
     const editable=device?
       !m.found?"":owned?"mydevices":available("devices")?"devices":available("shared")?"shared":"":
+      group?available("groups")?"groups":"":
       available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
     m.destination=editable;
-    const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':'<strong>'+esc(m.label||id)+'</strong>')+
+    const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':
+      '<strong>'+esc(group?groupName:m.label||id)+'</strong>')+
       (m.loading?'<p class="subtitle">正在读取可查看的详情…</p>':"")+
-      '<dl class="entity-data">'+rows+'</dl>'+
+      '<dl class="entity-data">'+rows+'</dl>'+groupCards+deviceCards+memberCards+
       (m.loading?"":!m.found?'<p class="subtitle">当前账户可查看的信息已显示。其他详情需要相应管理权限。</p>':"")+'</div>';
     const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
     const buttons=editable&&editable!=="users"?'<button type="button" class="btn" data-action="entity-open-list">'+
-      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
-    const adminUser=!device&&Number(info.id)>0&&available("users");
+      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":
+      editable==="groups"?"在用户分组中查看":"打开个人设置")+'</button>':"";
+    const adminUser=!device&&!group&&Number(info.id)>0&&available("users");
     const userActions=adminUser&&canPageAction("users","edit")?
       '<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户信息</button>':"";
-    return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
+    return modal(device?"设备信息":group?"用户组信息":"用户信息",
+      device?"设备 ID："+id:group?"用户组："+groupName:"用户："+(m.label||id),summary,
       '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
   async function openEntityDetail(type,id,label){
-    if(!["device","user"].includes(type)||!String(id||"").trim())return;
+    if(!["device","user","group"].includes(type)||!String(id||"").trim())return;
     const m={kind:"entity",entityType:type,entityId:String(id),label:label||String(id),
-      previous:state.modal,loading:true,found:false,info:{}};
+      previous:state.modal,loading:true,found:false,info:{},relations:{}};
     state.modal=m;render();
     try{
       let data=null;
@@ -2004,6 +2044,13 @@
             state.devicePresence[id]=Object.prototype.hasOwnProperty.call(presence.device_status||{},id)?presence.device_status[id]===true:null;
           }catch{state.devicePresence[id]=null;}
         }
+      }else if(type==="group"){
+        if(!available("groups"))return;
+        data=await request("/group/detail/"+encodeURIComponent(id));
+        try{
+          const members=await request("/group/members?group_id="+encodeURIComponent(id));
+          m.members=Array.isArray(members?.users)?members.users:[];
+        }catch{m.members=[];}
       }else{
         data=state.page==="users"?state.rows.find(row=>String(row.id)===String(id)||row.username===String(id)):null;
         if(!data&&(state.isAdmin||hasPrivilege("users.view"))){
@@ -2014,6 +2061,15 @@
           try{data=await request("/my/directory/user?id="+encodeURIComponent(id));}catch{}
         }
         if(!data&&(String(state.user?.id)===String(id)||String(state.user?.username)===String(id)))data=state.user;
+        if(data?.id&&(state.isAdmin||hasPrivilege("users.view"))){
+          try{
+            const detail=await request("/user/detail/"+encodeURIComponent(data.id));
+            if(detail?.id)data=detail;
+          }catch{}
+          try{
+            m.relations=await request("/user/relations/"+encodeURIComponent(data.id));
+          }catch{}
+        }
       }
       if(state.modal!==m)return;
       m.info=data||{};m.found=!!data;
