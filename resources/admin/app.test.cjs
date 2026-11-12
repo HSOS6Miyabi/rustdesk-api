@@ -720,9 +720,12 @@ test("settings center lists effective sources without revealing secrets", async 
   await admin.settle();await admin.settle();
   await admin.open("settings");
   assert.match(admin.root.innerHTML, /设置中心/);
+  assert.match(admin.root.innerHTML, /data-action="settings-category"/);
+  await admin.events.click({target:{closest:()=>({dataset:{action:"settings-category",category:"常规与登录"}})}});
   assert.match(admin.root.innerHTML, /开放注册/);
   assert.match(admin.root.innerHTML, /RUSTDESK_API_APP_REGISTER/);
   assert.match(admin.root.innerHTML, /环境变量/);
+  await admin.events.click({target:{closest:()=>({dataset:{action:"settings-category",category:"令牌"}})}});
   assert.match(admin.root.innerHTML, /已配置（隐藏具体内容）/);
   assert.ok(admin.calls.some(call=>call.endpoint==="/settings/effective"));
 });
@@ -731,12 +734,15 @@ test("settings center uses categories for system, account and overview settings"
   const app=createConsole(true);
   await app.settle();await app.settle();await app.open("settings");
   assert.match(app.root.innerHTML,/data-action="settings-tab"/);
+  assert.match(app.root.innerHTML,/data-action="settings-category"/);
+  await app.events.click({target:{closest:()=>({dataset:{action:"settings-category",category:"令牌"}})}});
   assert.match(app.root.innerHTML,/更换通信密钥前/);
   assert.doesNotMatch(app.root.innerHTML,/切换数据库前/);
   const switchTab=async tab=>{
     await app.events.click({target:{closest:()=>({dataset:{action:"settings-tab",tab}})}});
   };
   await switchTab("storage");
+  await app.events.click({target:{closest:()=>({dataset:{action:"settings-category",category:"数据库"}})}});
   assert.match(app.root.innerHTML,/切换数据库前/);
   await switchTab("overview");
   assert.match(app.root.innerHTML,/mail.example.test/);
@@ -976,4 +982,60 @@ test("admin user details do not duplicate editing and security actions",async()=
   assert.doesNotMatch(app.root.innerHTML,/data-action="entity-open-list"/);
   assert.doesNotMatch(app.root.innerHTML,/data-action="reset-password"/);
   assert.doesNotMatch(app.root.innerHTML,/data-action="reset-user-mfa"/);
+});
+
+
+test("desktop connection tables stack names and identifiers without changing the mobile list",async()=>{
+  const app=createConsole(false);
+  app.fixtures["/my/audit_conn/list"]={list:[{
+    id:21,direction:"incoming",from_peer:"123456789",from_device_name:"工作站 A",
+    peer_id:"987654321",to_device_name:"家庭电脑",from_account:"operator",
+    to_account:"owner",created_at:1794530000
+  }],total:1};
+  await app.settle();await app.settle();await app.open("myconnections");
+  assert.match(app.root.innerHTML,/data-column="from_peer"[^>]*class="[^"]*cell-device-stack/);
+  assert.match(app.root.innerHTML,/class="entity-link-text"/);
+  assert.match(app.root.innerHTML,/class="entity-link-id">123456789<\/span>/);
+  assert.match(app.root.innerHTML,/class="entity-link-id">987654321<\/span>/);
+  assert.doesNotMatch(app.root.innerHTML,/data-column="from_device_name"/);
+  assert.match(app.root.innerHTML,/class="mobile-list"/);
+  assert.match(app.root.innerHTML,/工作站 A/);
+  assert.match(app.root.innerHTML,/data-direction="incoming"/);
+});
+
+test("user dialog includes linked group and device details with permission-scoped data",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user/list"]={list:[{id:17,username:"helper",nickname:"支持人员",status:1,group_id:1}],total:1};
+  app.fixtures["/user/detail/17"]={id:17,username:"helper",nickname:"支持人员",email:"helper@example.test",group_id:1,is_admin:false,status:1};
+  app.fixtures["/user/relations/17"]={
+    groups:[{id:1,name:"默认组",type:1},{id:3,name:"技术支持",type:2}],
+    devices:[{id:"desk101",alias:"工作电脑",hostname:"desk-a",os:"Windows"}],device_total:1
+  };
+  app.fixtures["/group/detail/3"]={id:3,name:"技术支持",type:2,owner_user_id:17};
+  app.fixtures["/group/members"]={user_ids:[17],users:[{id:17,username:"helper",nickname:"支持人员"}]};
+  await app.settle();await app.settle();await app.open("users");
+  await app.events.click({target:{closest:()=>({dataset:{action:"entity-detail",entityType:"user",entityId:"17",entityLabel:"helper"}})}});
+  await app.settle();
+  assert.match(app.root.innerHTML,/所属用户组/);
+  assert.match(app.root.innerHTML,/名下设备/);
+  assert.match(app.root.innerHTML,/技术支持/);
+  assert.match(app.root.innerHTML,/工作电脑/);
+  assert.match(app.root.innerHTML,/data-entity-type="group" data-entity-id="3"/);
+  assert.match(app.root.innerHTML,/data-entity-type="device" data-entity-id="desk101"/);
+  await app.events.click({target:{closest:()=>({dataset:{action:"entity-detail",entityType:"group",entityId:"3",entityLabel:"技术支持"}})}});
+  assert.match(app.root.innerHTML,/分组成员/);
+  assert.match(app.root.innerHTML,/data-action="entity-back">返回/);
+  await app.events.click({target:{closest:()=>({dataset:{action:"entity-back"}})}});
+  assert.match(app.root.innerHTML,/名下设备/);
+});
+
+test("secondary server categories switch the command menu and preserve server selection",async()=>{
+  const app=createConsole(true);
+  await app.settle();await app.settle();await app.open("server");
+  await app.events.click({target:{closest:()=>({dataset:{action:"server-tab",tab:"id"}})}});
+  assert.match(app.root.innerHTML,/server-categories/);
+  assert.match(app.root.innerHTML,/data-action="server-category"/);
+  await app.events.click({target:{closest:()=>({dataset:{action:"server-category",category:"访问与网络记录"}})}});
+  assert.match(app.root.innerHTML,/aria-selected="true"/);
+  assert.match(app.root.innerHTML,/data-action="server-select"/);
 });

@@ -67,11 +67,20 @@ jobs:
           test -f resources/admin/test-screenshots/audit/layout-report.json
           cp -R resources/admin/test-screenshots/audit "$WORK/screenshots"
           cp -R resources/admin/test-screenshots/contact-sheets "$WORK/gallery"
+          mkdir -p "$WORK/samples"
+          for name in desktop-connections-stacked.png desktop-user-related-devices.png \
+            desktop-user-group-detail.png desktop-control-role-picker.png \
+            desktop-server-secondary-tabs.png desktop-settings-tokens.png; do
+            if [[ -f "resources/admin/test-screenshots/$name" ]]; then
+              cp "resources/admin/test-screenshots/$name" "$WORK/samples/"
+            fi
+          done
+          printf '%s\n' "$GITHUB_SHA" > "$WORK/source-commit.txt"
           cd "$WORK"
           git init -b visual-review
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add screenshots gallery
+          git add screenshots gallery samples source-commit.txt
           git commit -m "管理和个人页面视觉审核图集"
           AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \

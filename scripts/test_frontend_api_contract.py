@@ -114,6 +114,11 @@ def browser_routes():
     for verb, paths in extra.items():
         routes.update((verb, PREFIX + path) for path in paths)
     routes = {x for x in routes if not x[1].endswith("/client_builder/tasks/")}
+    dynamic_routes = {
+        PREFIX + "/user/detail/": PREFIX + "/user/detail/:id",
+        PREFIX + "/user/relations/": PREFIX + "/user/relations/:id",
+    }
+    routes = {(method, dynamic_routes.get(uri, uri)) for method, uri in routes}
     return routes, pages
 
 
@@ -689,6 +694,26 @@ def check_real_changes(admin):
     own=user.success("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
     check(own["id"]==device_id and own["owned"] is True,
           "Owned device details do not match the logged-in owner")
+    relations=admin.success("GET","/user/relations/"+str(user_id))
+    check(isinstance(relations.get("groups"),list) and
+          isinstance(relations.get("devices"),list) and
+          isinstance(relations.get("device_total"),int),
+          "Administrator user relations must include groups and device counts")
+    check(any(record["id"]==device_id for record in relations["devices"]),
+          "The assigned device is absent from its owner's details")
+    personal_relations=user.success("GET","/my/directory/user/relations?id="+str(user_id))
+    check(any(record["id"]==device_id for record in personal_relations["devices"]),
+          "Personal user details did not include owned devices")
+    check(isinstance(personal_relations.get("groups"),list),
+          "Personal user groups are missing")
+    another_person=stranger.success("GET","/my/directory/user/relations?id="+str(user_id))
+    check(not any(record["id"]==device_id for record in another_person["devices"]),
+          "Another account could view a private device in user details")
+    check(not another_person["groups"],
+          "Another account could read a user's private group memberships")
+    _,private_relations=stranger.send("GET","/user/relations/"+str(user_id))
+    check(private_relations.get("code")!=0,
+          "An unrelated account could see another user's group and device inventory")
     own_results=user.success("GET","/my/directory/devices?keyword=Personal")["list"]
     check(any(item["id"]==device_id for item in own_results),
           "Device search does not search aliases")

@@ -142,8 +142,8 @@ function serve(req, res) {
     ],total:1});
     if(route==="/audit_conn/note")return answer(res,{});
     if(route==="/my/audit_conn/list")return answer(res, {
-      list:[{id:1,from_peer:"123456",from_account:"owner",
-        peer_id:"654321",to_account:"alice",direction:"outgoing",created_at:1710000000}],total:1
+      list:[{id:1,from_peer:"123456",from_device_name:"办公电脑",from_account:"owner",
+        peer_id:"654321",to_device_name:"家庭电脑",to_account:"alice",direction:"outgoing",created_at:1710000000}],total:1
     });
     if(route==="/my/audit_file/list")return answer(res, {
       list:[{id:2,from_peer:"123456",from_account:"owner",
@@ -316,6 +316,15 @@ function serve(req, res) {
       total:2
     });
     if(route==="/user/mfa/reset")return answer(res,{});
+    if(route==="/user/detail/3")return answer(res,{id:3,username:"owner",nickname:"Owner",email:"owner@example.test",status:1,group_id:1,is_admin:false});
+    if(route==="/user/relations/3")return answer(res,{
+      groups:[{id:1,name:"默认组",type:1},{id:2,name:"技术支持组",type:2}],
+      devices:[{id:"office",alias:"办公电脑",hostname:"workstation",os:"Windows"},
+        {id:"home-remote",alias:"家庭电脑",os:"Linux"}],device_total:2
+    });
+    if(route==="/group/detail/1")return answer(res,{id:1,name:"默认组",type:1});
+    if(route==="/group/detail/2")return answer(res,{id:2,name:"技术支持组",type:2});
+    if(route==="/group/members")return answer(res,{user_ids:[3],users:[{id:3,username:"owner",nickname:"Owner"}]});
     if(route==="/user/list"){
       const keyword=String(requestUrl.searchParams.get("keyword")||"").toLowerCase();
       return answer(res,{
@@ -1174,9 +1183,12 @@ test("settings center: administrator can inspect and save overrides on desktop",
     await captureManagementScreenshot(page,"desktop-settings-storage.png");
     await page.locator('[data-action="settings-tab"][data-tab="general"]').click();
     await captureManagementScreenshot(page,"desktop-settings-account.png");
+    await page.locator('[data-action="settings-category"][data-category="令牌"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-tokens.png");
     assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
     assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
     assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
+    await page.locator('[data-action="settings-category"][data-category="账户与安全"]').click();
     await page.locator('[id="setting-value-app.register"]').selectOption("false");
     const saved=page.waitForRequest(req=>req.url().endsWith("/api/admin/settings/overrides")&&req.method()==="PATCH");
     await page.locator('button[data-action="setting-save"][data-id="app.register"]').click();
@@ -1787,6 +1799,7 @@ test("server management renders categorized API replies as metrics and tables",a
     await page.locator(".server-result-table tbody tr").waitFor();
     assert.match(await page.locator(".server-result").innerText(),/192.0.2.5/);
     const metric=page.waitForResponse(res=>res.url().endsWith("/api/admin/rustdesk/execute")&&res.request().method()==="POST");
+    await page.locator('[data-action="server-category"][data-category="性能与带宽"]').click();
     await page.locator('button[data-action="server-select"][data-id="relay-speed-read"]').click();
     await metric;
     await page.getByText("12.5",{exact:false}).first().waitFor();
@@ -1800,6 +1813,7 @@ test("interactive server management presents form explanations",async()=>{
     await page.locator('nav button[data-view="server"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
     await page.locator('.server-tabs .server-tab[data-tab="id"]').click();
+    await page.locator('[data-action="server-category"][data-category="访问与网络记录"]').click();
     await page.locator('button[data-action="server-select"][data-id="id-block-read"]').click();
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);
@@ -1909,6 +1923,7 @@ test("device and user names open detail panels with management links",async()=>{
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
     await page.locator('.table-scroll [data-action="entity-detail"][data-entity-type="user"]').first().click();
     await page.locator('.drawer[aria-label="用户信息"]').waitFor();
+    await page.locator('.drawer .entity-data-row').getByText('用户名',{exact:true}).waitFor();
     assert.match(await page.locator(".drawer").innerText(),/用户名/);
     assert.equal(await page.locator('[data-action="entity-open-list"]').count(),0);
     assert.equal(await page.locator('[data-action="entity-admin-edit"]').count(),1);
@@ -2271,7 +2286,7 @@ test("user detail shows only relevant actions and an outside click dismisses the
     await page.locator('nav.side-scroll button[data-view="users"]').click();
     await page.locator('[data-action="entity-detail"][data-entity-type="user"]').first().click();
     const dialog=page.locator('.drawer');
-    await dialog.waitFor();
+    await dialog.locator('[data-action="entity-admin-edit"]').waitFor();
     assert.equal(await dialog.locator('[data-action="reset-password"]').count(),0);
     assert.equal(await dialog.locator('[data-action="reset-user-mfa"]').count(),0);
     assert.equal(await dialog.locator('[data-action="entity-open-list"]').count(),0);
@@ -2284,5 +2299,72 @@ test("user detail shows only relevant actions and an outside click dismisses the
     await captureManagementScreenshot(page,"corrected-user-editor.png");
     await page.locator('#modal-overlay').click({position:{x:24,y:130}});
     await page.locator('#modal-overlay').waitFor({state:"detached"});
+  }finally{await context.close();}
+});
+
+
+test("desktop connection list stacks device names above IDs without clipping",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="myconnections"]').click();
+    await page.locator('.data-table td.cell-device-stack .entity-link-text').first().waitFor();
+    const check=await page.evaluate(()=>{
+      const cells=[...document.querySelectorAll('.data-table td.cell-device-stack')];
+      return cells.map(cell=>{
+        const name=cell.querySelector('.entity-link-name'),id=cell.querySelector('.entity-link-id');
+        const nameBox=name?.getBoundingClientRect(),idBox=id?.getBoundingClientRect();
+        return {name:name?.textContent,id:id?.textContent,
+          stacked:!!(nameBox&&idBox&&idBox.top-nameBox.top>=8&&
+            idBox.top>=nameBox.bottom-1),
+          clipped:cell.scrollWidth>cell.clientWidth+2};
+      });
+    });
+    assert.ok(check.length>=2&&check.every(item=>item.stacked),"device name and ID must appear on separate visible lines");
+    assert.ok(check.every(item=>!item.clipped),"device ID column must not overflow");
+    const bounds=await page.evaluate(()=>({width:document.documentElement.scrollWidth,screen:innerWidth}));
+    assert.ok(bounds.width<=bounds.screen+2,"desktop content must fit the viewport");
+    await captureManagementScreenshot(page,"desktop-connections-stacked.png");
+  }finally{await context.close();}
+});
+
+test("user details show related groups and devices with navigable entries",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.locator('[data-action="entity-detail"][data-entity-type="user"]').first().click();
+    await page.locator(".entity-related-section").first().waitFor();
+    assert.match(await page.locator(".drawer").innerText(),/所属用户组/);
+    assert.match(await page.locator(".drawer").innerText(),/名下设备/);
+    await captureManagementScreenshot(page,"desktop-user-related-devices.png");
+    await page.locator('.drawer [data-action="entity-detail"][data-entity-type="group"][data-entity-id="2"]').click();
+    await page.locator(".drawer").getByText("分组成员").waitFor();
+    await captureManagementScreenshot(page,"desktop-user-group-detail.png");
+    await page.locator('.drawer [data-action="entity-back"]').click();
+    await page.locator(".drawer").getByText("名下设备").waitFor();
+  }finally{await context.close();}
+});
+
+test("object picker stays on one line and nested server tabs stay usable on desktop",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="controlAssignments"]').click();
+    await page.locator('[data-action="create"]').first().click();
+    const picker=page.locator('.drawer .picker-trigger-label').first();
+    await picker.waitFor();
+    const measurements=await picker.evaluate(node=>({
+      height:node.getBoundingClientRect().height,
+      lineHeight:parseFloat(getComputedStyle(node).lineHeight)||20,
+      whiteSpace:getComputedStyle(node).whiteSpace
+    }));
+    assert.equal(measurements.whiteSpace,"nowrap");
+    assert.ok(measurements.height<=measurements.lineHeight+3,"picker text unexpectedly wrapped");
+    await captureManagementScreenshot(page,"desktop-control-role-picker.png");
+    await page.locator('#modal-overlay').click({position:{x:22,y:130}});
+    await page.locator('nav.side-scroll button[data-view="server"]').click();
+    await page.locator('[data-action="server-tab"][data-tab="id"]').first().click();
+    await page.locator('.server-categories .server-category').first().waitFor();
+    await page.locator('[data-action="server-category"][data-category="访问与网络记录"]').click();
+    assert.equal(await page.locator('[data-action="server-category"][data-category="访问与网络记录"]').getAttribute("aria-selected"),"true");
+    await captureManagementScreenshot(page,"desktop-server-secondary-tabs.png");
   }finally{await context.close();}
 });

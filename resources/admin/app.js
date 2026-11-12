@@ -284,12 +284,14 @@
   }
   const userReferenceFields=new Set(["user_id","owner_user_id","from_user_id","to_user_id","requested_by"]);
   const accountReferenceFields=new Set(["owner_username","from_account","to_account","account"]);
-  function entityLink(kind,id,text,showStatus=false){
+  function entityLink(kind,id,text,showStatus=false,secondary=""){
     if(id===undefined||id===null||String(id).trim()==="")return esc(txt(text));
     const label=String(text??id);
     return '<button type="button" class="entity-link" data-action="entity-detail" data-entity-type="'+esc(kind)+
-      '" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(label)+'" title="查看'+(kind==="device"?"设备":"用户")+'信息">'+
-      (showStatus?deviceStatusDot(id):"")+'<span>'+esc(label)+'</span></button>';
+      '" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(label)+'" title="查看'+({device:"设备",user:"用户",group:"用户分组",device_group:"设备分组"}[kind]||"对象")+'信息">'+
+      (showStatus?deviceStatusDot(id):"")+(secondary?
+        '<span class="entity-link-text"><span class="entity-link-name">'+esc(label)+'</span><span class="entity-link-id">'+esc(secondary)+'</span></span>':
+        '<span>'+esc(label)+'</span>')+'</button>';
   }
   function linkedDeviceID(row,k,v){
     if(deviceReferenceFields.has(k))return String(v??"");
@@ -397,7 +399,7 @@
     if(k==="direction") {
       const name=directionLabel(v);
       const symbol=v==="outgoing"?"directionOut":v==="incoming"?"directionIn":v==="both"?"directionBoth":"info";
-      return '<span class="connection-direction" title="'+esc(name)+'" role="img" aria-label="'+esc(name)+'">'+icon(symbol,19)+'</span>';
+      return '<span class="connection-direction" data-direction="'+esc(v)+'" title="'+esc(name)+'" role="img" aria-label="'+esc(name)+'">'+icon(symbol,19)+'</span>';
     }
     if(k==="primary_auth")return (["未报告","点击授权","临时密码","永久密码","切换控制方向"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
     if(k==="two_factor")return (["未报告","TOTP 动态验证码","可信设备"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
@@ -450,7 +452,7 @@
       Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",settingsTab:"general",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -865,19 +867,33 @@
       sum+(char.charCodeAt(0)>255?13:7),0)+36;
     return Math.max(widths[key]||144,Math.min(300,labelWidth));
   }
+  function deviceTableStack(row,key,nameKey){
+    const id=String(row[key]??"").trim();
+    const name=String(row[nameKey]||row.alias||row.hostname||"").trim();
+    if(!id)return esc(name||"—");
+    return name&&name!==id?
+      entityLink("device",id,name,true,id):
+      entityLink("device",id,id,true);
+  }
   function table(p,rows){
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
     const allCols=p.columns||[];
+    const pairCandidates={from_peer:"from_device_name",peer_id:"to_device_name",device_id:"to_device_name"};
+    if(["devices","mydevices","shared","addressbooks","trash"].includes(state.page))pairCandidates.id="alias";
+    const stackColumn=new Map(Object.entries(pairCandidates).filter(([idKey,nameKey])=>
+      allCols.some(([key])=>key===idKey)&&allCols.some(([key])=>key===nameKey)));
+    const pairedNames=new Set(stackColumn.values());
+    const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
     const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
-    const widths=allCols.map(([key,label])=>{
+    const widths=desktopCols.map(([key,label])=>{
       const width=tableColumnWidth(key,label,state.page);
-      return key==="direction"?68:Math.max(104,Math.round(width*.76));
+      return key==="direction"?62:stackColumn.has(key)?156:Math.max(100,Math.round(width*.76));
     });
-    const priorities=allCols.map(([key],index)=>{
+    const priorities=desktopCols.map(([key],index)=>{
       const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","to_account","from_account","from_peer","to_device_name","from_device_name",
         "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
@@ -887,11 +903,11 @@
       const participantRank=participantPages.has(state.page)?participantColumns.indexOf(key):-1;
       return (index===0?1000:participantRank>=0?300-participantRank*12:important.has(key)?120:40)-(index*.1);
     });
-    const ordered=allCols.map((_,i)=>i).sort((a,b)=>priorities[b]-priorities[a]);
+    const ordered=desktopCols.map((_,i)=>i).sort((a,b)=>priorities[b]-priorities[a]);
     const selected=new Set(),actionWidth=158;
     let needed=actionWidth;
     if(state.showAllColumns[state.page]){
-      allCols.forEach((_,i)=>selected.add(i));
+      desktopCols.forEach((_,i)=>selected.add(i));
     }else{
       for(const i of ordered){
         if(selected.size>0&&needed+widths[i]>availableWidth)continue;
@@ -899,27 +915,29 @@
       }
       if(!selected.size)selected.add(0);
     }
-    const visible=allCols.filter((_,i)=>selected.has(i));
-    const hidden=allCols.filter((_,i)=>!selected.has(i));
+    const visible=desktopCols.filter((_,i)=>selected.has(i));
+    const hidden=desktopCols.filter((_,i)=>!selected.has(i));
     const hasActions=actions.some(Boolean)||hidden.length>0;
     const actionSize=hasActions?actionWidth:0;
-    const tableMinWidth=visible.reduce((sum,col)=>sum+widths[allCols.indexOf(col)],actionSize);
+    const tableMinWidth=visible.reduce((sum,col)=>sum+widths[desktopCols.indexOf(col)],actionSize);
     const order=state.sort[state.page]||{};
-    const colgroup='<colgroup>'+visible.map(col=>'<col style="width:'+widths[allCols.indexOf(col)]+'px">').join("")+
+    const colgroup='<colgroup>'+visible.map(col=>'<col style="width:'+widths[desktopCols.indexOf(col)]+'px">').join("")+
       (hasActions?'<col style="width:'+actionSize+'px">':"")+'</colgroup>';
     const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
       (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
       '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+
-      esc(label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button></th>').join("");
+      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"||key==="device_id"?"被连接设备":"设备"):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button></th>').join("");
     const multiline=new Set(["os","platform","note","remark","info","description","sources","permissions",
       "id_whitelist","ip_whitelist","last_error","last_online_ip","ip","source_ip","client_ip","login_ip",
       "email","hostname","issuer","path","device_uuid","from_account","to_account"]);
     const trs=rows.map((row,index)=>{
       const cells=visible.map(([key])=>{
-        const first=key===allCols[0][0];
+        const first=key===desktopCols[0][0];
         return '<td data-column="'+esc(key)+'" class="'+(multiline.has(key)?"cell-multiline ":"")+
-          (first?"cell-primary":"")+'" title="'+esc(columnTitle(key,row[key]))+'"><span class="'+(first?"cell-title":"")+
-          '">'+colValue(row[key],key,row)+'</span></td>';
+          (first?"cell-primary ":"")+(stackColumn.has(key)?"cell-device-stack":"")+'" title="'+
+          esc(stackColumn.has(key)?[row[stackColumn.get(key)],row[key]].filter(Boolean).join(" · "):columnTitle(key,row[key]))+
+          '"><span class="'+(first?"cell-title":"")+
+          '">'+(stackColumn.has(key)?deviceTableStack(row,key,stackColumn.get(key)):colValue(row[key],key,row))+'</span></td>';
       }).join("");
       const detail=hidden.length?'<button type="button" class="btn btn-sm" data-action="table-details" data-row="'+index+'" aria-expanded="false">查看详情</button>':"";
       const main='<tr>'+cells+(hasActions?'<td class="cell-actions"><div class="cell-action-list">'+actions[index]+detail+'</div></td>':"")+'</tr>';
@@ -1187,13 +1205,16 @@
     const section=tab==="id"?"ID 服务器":"中继服务器";
     const commands=serverCommandCatalog.filter(cmd=>cmd.section===section&&!serverHiddenCommands.has(cmd.id));
     const selected=commands.find(cmd=>cmd.id===state.commandSelected)||commands[0];
-    const groups=[...new Set(commands.map(serverCommandCategory))].map(category=>
-      '<section class="server-command-group"><h3>'+esc(category)+'</h3><div class="server-command-list">'+
-      commands.filter(cmd=>serverCommandCategory(cmd)===category).map(cmd=>
-        '<button type="button" class="server-command-item '+(cmd.id===selected.id?"selected":"")+
-        '" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'">'+
-        '<strong>'+esc(serverCombinedFeatures[cmd.id]?.title||cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+
-      '</div></section>').join("");
+    const categories=[...new Set(commands.map(serverCommandCategory))];
+    const activeCategory=categories.includes(state.serverCategory)?state.serverCategory:serverCommandCategory(selected);
+    const categoryNav='<div class="server-categories" role="tablist" aria-label="'+esc(section)+'管理功能分类">'+
+      categories.map(category=>'<button type="button" class="server-category '+(category===activeCategory?"active":"")+
+      '" data-action="server-category" data-category="'+esc(category)+'" role="tab" aria-selected="'+(category===activeCategory)+'">'+
+      esc(category)+'</button>').join("")+'</div>';
+    const groups='<div class="server-command-list">'+commands.filter(cmd=>serverCommandCategory(cmd)===activeCategory).map(cmd=>
+      '<button type="button" class="server-command-item '+(cmd.id===selected.id?"selected":"")+
+      '" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'">'+
+      '<strong>'+esc(serverCombinedFeatures[cmd.id]?.title||cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+'</div>';
     const result=state.serverResults[selected.id]||null;
     const combined=serverCombinedFeatures[selected.id];
     let editor="";
@@ -1222,7 +1243,7 @@
     }else{
       editor=commandInputs(selected)+'<div class="server-submit-row"><button type="submit" class="btn btn-primary">查询</button></div>';
     }
-    return heading+nav+'<div class="server-management-layout">'+
+    return heading+nav+categoryNav+'<div class="server-management-layout">'+
       '<aside class="panel server-command-menu"><div class="panel-header"><div><h2 class="panel-title">管理功能</h2>'+
       '<p class="panel-sub">'+esc(section)+' · 选择需要查看或修改的项目</p></div></div>'+
       '<div class="server-command-menu-body">'+groups+'</div></aside>'+
@@ -1595,11 +1616,20 @@
       {key:"all",label:"全部配置",categories:[]}
     ];
     const selected=groups.find(group=>group.key===state.settingsTab)||groups[0];
+    const defaultCategory=selected.key==="general"?"账户与安全":selected.categories[0];
+    const selectedCategory=selected.categories.includes(state.settingsCategory)?
+      state.settingsCategory:(defaultCategory||"all");
     const filtered=items.filter(item=>
       (selected.key==="all"||selected.categories.includes(item.category))&&
+      (selected.key==="all"||item.category===selectedCategory)&&
       (!state.settingsSearch||[item.key,item.name,item.description,item.environment]
         .join(" ").toLowerCase().includes(state.settingsSearch.toLowerCase())));
     const categories=[...new Set(filtered.map(item=>item.category))].sort();
+    const subTabs=selected.categories.length>1?
+      '<div class="settings-subtabs" role="tablist" aria-label="具体设置类别">'+
+      selected.categories.map(category=>'<button type="button" class="settings-subtab '+(category===selectedCategory?"active":"")+
+      '" data-action="settings-category" data-category="'+esc(category)+'" role="tab" aria-selected="'+(category===selectedCategory)+'">'+
+      esc(category)+'</button>').join("")+'</div>':"";
     const tabs='<div class="settings-tabs" role="tablist" aria-label="设置分类">'+
       groups.map(group=>'<button type="button" class="settings-tab '+(group.key===selected.key?"active":"")+
         '" role="tab" aria-selected="'+(group.key===selected.key)+'" data-action="settings-tab" data-tab="'+group.key+'">'+
@@ -1715,7 +1745,7 @@
       '" data-action="settings-outbox-category" data-category="notification">管理员邮件的失败事件</button></div>'+
       (failure?'<div class="settings-failed-list">'+failure+'</div>':'<p class="settings-section-intro">此类别暂无处理失败的事件。</p>')+
       '</div></section>'
-    return pageHeading("设置中心","按类别管理各项配置，查看当前运行值、来源与修改记录。")+tabs+
+    return pageHeading("设置中心","按类别管理各项配置，查看当前运行值、来源与修改记录。")+tabs+subTabs+
       (selected.key==="overview"?overview+
         (history?'<section class="panel settings-section settings-history"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div><div class="settings-section-body">'+history+'</div></section>':""):
       catalog);
@@ -1914,46 +1944,86 @@
     return '<div class="entity-data-row"><dt>'+esc(label)+'</dt><dd>'+(html?value:esc(value))+'</dd></div>';
   }
   function entityPanel(m){
-    const info=m.info||{},device=m.entityType==="device";
-    const id=String(m.entityId);
-    const status=state.devicePresence[id];
-    const sections=device?[
+    const info=m.info||{},id=String(m.entityId),device=m.entityType==="device",group=["group","device_group"].includes(m.entityType);
+    const status=state.devicePresence[id],relations=m.relations||{};
+    const groupName=group?String(info.name||m.label||id):"";
+    const groupType={1:"普通组",2:"共享组",3:"公共锚点组"};
+    const sections=group?[
+      ["分组编号",info.id||id],["分组名称",groupName],["分组类型",m.entityType==="device_group"?"设备分组":groupType[Number(info.type)]||"—"],
+      ["创建者",info.owner_user_id?entityLink("user",info.owner_user_id,referenceText("user",info.owner_user_id)): "",true],
+      ["创建时间",info.created_at?date(info.created_at):""],["修改时间",info.updated_at?date(info.updated_at):""]
+    ]:device?[
       ["设备 ID",id],["在线状态",status===true?"在线":status===false?"离线":"状态暂不可用"],
       ["备注",info.alias],["主机名",info.hostname],["操作系统",info.os],
-      ["操作系统用户",info.username],["最后在线时间",info.last_online_time?date(info.last_online_time):"",true],
+      ["操作系统用户",info.username],["设备版本",info.version],["处理器",info.cpu],
+      ["内存",info.memory],
+      ["最后在线时间",info.last_online_time?date(info.last_online_time):""],
       ["最近上线 IP",info.last_online_ip?showIP(info.last_online_ip):"",true],
+      ["设备分组",info.group_id?entityLink("device_group",info.group_id,referenceText("device_group",info.group_id)):"",true],
       ["设备备注",info.note],
-      ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):"",true],
-      ["所有者用户 ID",info.user_id]
+      ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):info.user_id?entityLink("user",info.user_id,referenceText("user",info.user_id)):"",true],
+      ["创建时间",info.created_at?date(info.created_at):""],
+      ["修改时间",info.updated_at?date(info.updated_at):""]
     ]:[
       ["用户编号",info.id||(/^[0-9]+$/.test(id)?id:"")],
       ["用户名",info.username||(/^[0-9]+$/.test(id)?"":id)],
       ["昵称",info.nickname],["邮箱",info.email],
-      ["主要分组",referenceText("user_group",info.group_id)],["备注",info.remark]
+      ["账户类型",info.is_admin===undefined?"":info.is_admin?"管理员":"普通用户"],
+      ["账户状态",info.status===undefined?"":Number(info.status)===1?"已启用":"已停用"],
+      ["主要分组",info.group_id?entityLink("group",info.group_id,relations.groups?.find(item=>Number(item.id)===Number(info.group_id))?.name||referenceText("user_group",info.group_id)):"",true],
+      ["备注",info.remark],["创建时间",info.created_at?date(info.created_at):""],
+      ["修改时间",info.updated_at?date(info.updated_at):""]
     ];
     const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
+    const groupCards=!device&&!group&&Array.isArray(relations.groups)?
+      '<section class="entity-related-section"><h3>所属用户组 <span>'+relations.groups.length+' 个</span></h3>'+
+      (relations.groups.length?'<div class="entity-related-list">'+relations.groups.map(item=>
+        '<div class="entity-related-item">'+entityLink("group",item.id,item.name||"用户组 "+item.id)+
+        (Number(item.id)===Number(info.group_id)?'<span class="pill">主要分组</span>':"")+
+        '<small>'+esc(groupType[Number(item.type)]||"用户组")+'</small></div>').join("")+'</div>':
+        '<p class="entity-related-empty">没有关联用户组。</p>')+'</section>':"";
+    const devices=Array.isArray(relations.devices)?relations.devices:[];
+    const deviceCards=!device&&!group&&Array.isArray(relations.devices)?
+      '<section class="entity-related-section"><h3>名下设备 <span>'+esc(relations.device_total??devices.length)+' 台</span></h3>'+
+      (devices.length?'<div class="entity-related-list">'+devices.map(item=>
+        '<div class="entity-related-item">'+entityLink("device",item.id,item.alias||item.hostname||item.id,true,
+        (item.alias||item.hostname)&&item.id!==item.alias&&item.id!==item.hostname?item.id:"")+
+        '<small>'+esc(item.os||"")+'</small></div>').join("")+'</div>':
+        '<p class="entity-related-empty">当前没有设备。</p>')+
+      (Number(relations.device_total)>devices.length?'<p class="entity-related-empty">此处展示最近 '+devices.length+' 台设备，其余设备可在设备管理页面查看。</p>':"")+
+      '</section>':"";
+    const memberCards=m.entityType==="group"&&Array.isArray(m.members)?
+      '<section class="entity-related-section"><h3>分组成员 <span>'+m.members.length+' 人</span></h3>'+
+      (m.members.length?'<div class="entity-related-list">'+m.members.map(item=>
+        '<div class="entity-related-item">'+entityLink("user",item.id,item.nickname||item.username||item.id)+
+        '<small>'+esc(item.username||"")+'</small></div>').join("")+'</div>':
+        '<p class="entity-related-empty">没有关联成员。</p>')+'</section>':"";
     const owned=Boolean(info.owned||state.page==="mydevices"&&state.rows.some(row=>String(row.id)===id)||info.user_id&&Number(info.user_id)===Number(state.user?.id));
     const editable=device?
       !m.found?"":owned?"mydevices":available("devices")?"devices":available("shared")?"shared":"":
+      group?m.entityType==="device_group"&&available("devicegroups")?"devicegroups":available("groups")?"groups":"":
       available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
     m.destination=editable;
-    const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':'<strong>'+esc(m.label||id)+'</strong>')+
+    const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':
+      '<strong>'+esc(group?groupName:m.label||id)+'</strong>')+
       (m.loading?'<p class="subtitle">正在读取可查看的详情…</p>':"")+
-      '<dl class="entity-data">'+rows+'</dl>'+
+      '<dl class="entity-data">'+rows+'</dl>'+groupCards+deviceCards+memberCards+
       (m.loading?"":!m.found?'<p class="subtitle">当前账户可查看的信息已显示。其他详情需要相应管理权限。</p>':"")+'</div>';
     const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
     const buttons=editable&&editable!=="users"?'<button type="button" class="btn" data-action="entity-open-list">'+
-      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
-    const adminUser=!device&&Number(info.id)>0&&available("users");
+      esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":
+      editable==="groups"?"在用户分组中查看":editable==="devicegroups"?"在设备分组中查看":"打开个人设置")+'</button>':"";
+    const adminUser=!device&&!group&&Number(info.id)>0&&available("users");
     const userActions=adminUser&&canPageAction("users","edit")?
       '<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户信息</button>':"";
-    return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
+    return modal(device?"设备信息":group?m.entityType==="device_group"?"设备组信息":"用户组信息":"用户信息",
+      device?"设备 ID："+id:group?(m.entityType==="device_group"?"设备组：":"用户组：")+groupName:"用户："+(m.label||id),summary,
       '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
   async function openEntityDetail(type,id,label){
-    if(!["device","user"].includes(type)||!String(id||"").trim())return;
+    if(!["device","user","group","device_group"].includes(type)||!String(id||"").trim())return;
     const m={kind:"entity",entityType:type,entityId:String(id),label:label||String(id),
-      previous:state.modal,loading:true,found:false,info:{}};
+      previous:state.modal,loading:true,found:false,info:{},relations:{}};
     state.modal=m;render();
     try{
       let data=null;
@@ -1975,6 +2045,19 @@
             state.devicePresence[id]=Object.prototype.hasOwnProperty.call(presence.device_status||{},id)?presence.device_status[id]===true:null;
           }catch{state.devicePresence[id]=null;}
         }
+      }else if(type==="group"||type==="device_group"){
+        const canView=type==="group"?available("groups"):available("devicegroups");
+        if(canView){
+          data=await request((type==="group"?"/group/detail/":"/device_group/detail/")+encodeURIComponent(id));
+          if(type==="group"){
+            try{
+              const members=await request("/group/members?group_id="+encodeURIComponent(id));
+              m.members=Array.isArray(members?.users)?members.users:[];
+            }catch{m.members=[];}
+          }
+        }else{
+          data={id,name:m.label};
+        }
       }else{
         data=state.page==="users"?state.rows.find(row=>String(row.id)===String(id)||row.username===String(id)):null;
         if(!data&&(state.isAdmin||hasPrivilege("users.view"))){
@@ -1985,6 +2068,20 @@
           try{data=await request("/my/directory/user?id="+encodeURIComponent(id));}catch{}
         }
         if(!data&&(String(state.user?.id)===String(id)||String(state.user?.username)===String(id)))data=state.user;
+        if(data?.id&&(state.isAdmin||hasPrivilege("users.view"))){
+          try{
+            const detail=await request("/user/detail/"+encodeURIComponent(data.id));
+            if(detail?.id)data=detail;
+          }catch{}
+          try{
+            m.relations=await request("/user/relations/"+encodeURIComponent(data.id));
+          }catch{}
+        }
+        if(data?.id&&!Array.isArray(m.relations.groups)){
+          try{
+            m.relations=await request("/my/directory/user/relations?id="+encodeURIComponent(data.id));
+          }catch{}
+        }
       }
       if(state.modal!==m)return;
       m.info=data||{};m.found=!!data;
@@ -2450,15 +2547,25 @@
       const tab=el.dataset.tab;
       if(!["overview","id","relay"].includes(tab))return;
       state.serverTab=tab;
+      state.serverCategory="";
       state.commandSelected=tab==="relay"?"relay-usage":"id-relay-read";
       state.serverError="";state.serverBusy=false;render();
       if(tab!=="overview")await querySelectedServerCommand(serverSelectedCommand());
       return;
     }
+    if(a==="server-category"){
+      const section=state.serverTab==="relay"?"中继服务器":"ID 服务器";
+      const command=serverCommandCatalog.find(cmd=>cmd.section===section&&!serverHiddenCommands.has(cmd.id)&&
+        serverCommandCategory(cmd)===el.dataset.category);
+      if(!command)return;
+      state.serverCategory=el.dataset.category;
+      state.commandSelected=command.id;state.serverResultPage=1;state.serverError="";
+      render();await querySelectedServerCommand(command);return;
+    }
     if(a==="server-select"){
       const command=serverCommandCatalog.find(item=>item.id===el.dataset.id);
       if(!command)return;
-      state.commandSelected=command.id;state.serverResultPage=1;state.serverError="";
+      state.commandSelected=command.id;state.serverCategory=serverCommandCategory(command);state.serverResultPage=1;state.serverError="";
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       await querySelectedServerCommand(command);
       return;
@@ -2466,7 +2573,10 @@
     if(a==="settings-tab"){
       const key=el.dataset.tab;
       if(!["general","server","storage","runtime","overview","all"].includes(key))return;
-      state.settingsTab=key;state.settingsSearch="";render();return;
+      state.settingsTab=key;state.settingsCategory="";state.settingsSearch="";render();return;
+    }
+    if(a==="settings-category"){
+      state.settingsCategory=el.dataset.category||"";state.settingsSearch="";render();return;
     }
     if(a==="server-query"){await querySelectedServerCommand(serverSelectedCommand());return;}
     if(a==="server-modify"){
