@@ -842,7 +842,7 @@
       id:deviceIDPages.has(page)?164:80,
       device_id:200,peer_id:176,from_peer:176,
       device_uuid:176,conn_id:145,conn_audit_ref:190,
-      direction:68,type:128,rule:136,status:130,enabled:126,
+      direction:80,type:128,rule:136,status:130,enabled:126,
       name:180,alias:162,hostname:168,nickname:164,
       username:170,owner_username:178,from_account:178,to_account:178,
       account:160,email:236,sender_email:226,
