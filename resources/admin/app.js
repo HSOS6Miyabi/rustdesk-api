@@ -2715,9 +2715,24 @@
     }
     if(!state.user)return;
     const viewName=hash.replace(/^#\/?/,"").split("?")[0];
-    if(available(viewName)&&state.page!==viewName){view(viewName);return;}
     const params=new URLSearchParams(hash.split("?")[1]||"");
     const type=params.get("entity"),id=params.get("value");
+    if(available(viewName)&&state.page!==viewName){
+      state.page=viewName;
+      state.pageNo=1;
+      state.query=params.get("search")||"";
+      state.sourceType="all";
+      state.sourceId="0";
+      state.mobile=false;
+      state.modal=null;
+      state.error="";
+      if(viewName==="addressbooks")state.bookTab="entries";
+      render();
+      load().then(()=>{
+        if(["device","user"].includes(type)&&id)openEntityDetail(type,id,id);
+      });
+      return;
+    }
     if(["device","user"].includes(type)&&id&&
       !(state.modal?.kind==="entity"&&state.modal.entityType===type&&state.modal.entityId===id)){
       openEntityDetail(type,id,id);
