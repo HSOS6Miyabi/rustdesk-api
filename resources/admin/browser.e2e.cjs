@@ -290,6 +290,14 @@ function serve(req, res) {
       res.end("id,alias\nbackup-001,测试设备\n");
       return;
     }
+    if(route==="/device_deployment/list")return answer(res,{list:[
+      {id:8,device_id:"office",status:"approved",owner_user_id:3},
+      {id:9,device_id:"home-remote",status:"revoked",owner_user_id:3}
+    ],total:2});
+    if(route==="/device_deployment/batchStatus")return answer(res,{updated:1});
+    if(route==="/my/address_book_collection/list")return answer(res,{list:[{id:4,name:"个人地址簿",user_id:3}],total:1});
+    if(route==="/my/address_book_collection_rule/batch")return answer(res,{updated:1});
+    if(route==="/my/address_book/trash/batchRestore"||route==="/my/address_book/trash/batchPurge")return answer(res,{updated:1});
     if(route==="/my/address_book/trash/list")return answer(res,{list:[
       {row_id:13,id:"deleted-desk-001",alias:"Former desk",collection_id:0,deleted_at:1710000000}
     ],total:1});
@@ -1686,6 +1694,61 @@ test("interactive server management presents form explanations",async()=>{
     await form.locator('[name="option"]').fill("invalid-ip");
     await form.locator('button[type="submit"]').click();
     assert.match(await page.locator(".toast-wrap").innerText(),/有效的 IPv4 或 IPv6/);
+  }finally{await context.close();}
+});
+
+
+test("batch management forms resolve records through searchable dialogs",async()=>{
+  const {context,page}=await pageForViewport(1360,860,true);
+  try{
+    await page.locator('nav.side-scroll [data-view="deployed"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备部署记录"&&!document.querySelector(".content .loading-table"));
+    await page.locator('[data-action="deployment-batch-approve"]').click();
+    await page.locator('.drawer [data-target="deployment-batch-ids"] [data-action="picker-open"]').click();
+    const deploymentDialog=page.locator('.picker-dialog');
+    await deploymentDialog.locator('.picker-query').fill("office");
+    await deploymentDialog.locator('[data-action="picker-search"]').click();
+    await deploymentDialog.locator('[data-action="picker-select"][data-id="8"]').click();
+    await deploymentDialog.locator('[data-action="picker-close"]').first().click();
+    assert.equal(await page.locator('#deployment-batch-ids').inputValue(),"8");
+    const deploymentReq=page.waitForRequest(req=>req.url().endsWith("/api/admin/device_deployment/batchStatus")&&req.method()==="POST");
+    await page.locator('[data-action="deployment-batch-submit"]').click();
+    assert.deepEqual((await deploymentReq).postDataJSON().ids,[8]);
+    await page.locator('.drawer').waitFor({state:"detached"});
+
+    await page.locator('nav.side-scroll [data-view="trash"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="地址簿回收站"&&!document.querySelector(".content .loading-table"));
+    await page.locator('[data-action="trash-batch-restore"]').click();
+    await page.locator('.drawer [data-target="trash-batch-ids"] [data-action="picker-open"]').click();
+    const trashDialog=page.locator('.picker-dialog');
+    await trashDialog.locator('.picker-query').fill("deleted-desk");
+    await trashDialog.locator('[data-action="picker-search"]').click();
+    await trashDialog.locator('[data-action="picker-select"][data-id="13"]').click();
+    await trashDialog.locator('[data-action="picker-close"]').first().click();
+    assert.equal(await page.locator('#trash-batch-ids').inputValue(),"13");
+    const restoreReq=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/address_book/trash/batchRestore")&&req.method()==="POST");
+    await page.locator('[data-action="trash-batch-submit"]').click();
+    assert.deepEqual((await restoreReq).postDataJSON().row_ids,[13]);
+    await page.locator('.drawer').waitFor({state:"detached"});
+
+    await page.locator('nav.side-scroll [data-view="myRules"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的地址簿共享规则");
+    await page.locator('[data-action="rules-batch-share"]').click();
+    await page.locator('.drawer [data-picker-field="collection_id"] [data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("个人地址簿");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="4"]').click();
+    assert.equal(await page.locator('#rules-batch-collection').inputValue(),"4");
+    await page.locator('.drawer [data-target="rules-batch-users"] [data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("alice");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="11"]').click();
+    await page.locator('.picker-dialog [data-action="picker-close"]').first().click();
+    const ruleReq=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/address_book_collection_rule/batch")&&req.method()==="POST");
+    await page.locator('[data-action="rules-batch-submit"]').click();
+    const ruleBody=(await ruleReq).postDataJSON();
+    assert.equal(ruleBody.collection_id,4);
+    assert.deepEqual(ruleBody.target_user_ids,[11]);
   }finally{await context.close();}
 });
 

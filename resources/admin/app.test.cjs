@@ -489,7 +489,7 @@ test("personal address book recycle bin supports batch restoration and deletion"
   assert.match(app.root.innerHTML, /批量恢复/);
   assert.match(app.root.innerHTML, /批量永久删除/);
   await app.action("trash-batch-restore");
-  assert.match(app.root.innerHTML, /地址簿记录编号/);
+  assert.match(app.root.innerHTML, /选择回收站记录/);
   assert.match(app.root.innerHTML, /整批检查完成后才会恢复记录/);
   await app.action("close-modal");
   await app.action("trash-batch-purge");
@@ -520,7 +520,7 @@ test("deployment manager exposes batch approval and revocation", async () => {
   assert.match(app.root.innerHTML, /批量批准部署/);
   assert.match(app.root.innerHTML, /批量撤销部署/);
   await app.action("deployment-batch-approve");
-  assert.match(app.root.innerHTML, /设备部署记录编号/);
+  assert.match(app.root.innerHTML, /选择需要修改的设备部署记录/);
   await app.action("close-modal");
   await app.action("deployment-batch-revoke");
   assert.match(app.root.innerHTML, /撤销后设备将无法在严格登记模式下重新登记/);
@@ -534,7 +534,7 @@ test("personal address book sharing supports multiple account operations", async
   assert.match(app.root.innerHTML, /批量共享地址簿/);
   assert.match(app.root.innerHTML, /批量撤销共享/);
   await app.action("rules-batch-share");
-  for (const label of ["地址簿编号", "搜索并选择目标用户", "只读", "可读写", "完全控制"]) {
+  for (const label of ["选择需要共享的地址簿", "搜索并选择目标用户", "只读", "可读写", "完全控制"]) {
     assert.match(app.root.innerHTML, new RegExp(label));
   }
   await app.action("close-modal");
