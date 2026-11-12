@@ -167,7 +167,7 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 ## 多平台客户端安装文件与自动化管理
 
-当前管理控制台提供“客户端安装包构建”，可保存服务器地址、公钥和 API 地址，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务，并下载经过 SHA-256 检查的所选版本的官方 RustDesk 安装程序。Windows 文件名包含服务器配置；Linux 和 macOS 提供带有配置脚本的 ZIP，保留原始 DEB 或 DMG 内容。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
+当前管理控制台提供“客户端安装包构建”，可以选择 RustDesk 的正式发行版本，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务。还可以直接使用本地 EXE、DEB 或 DMG 文件，由浏览器生成配置后的下载文件，全程不上传安装文件，也不计算 SHA-256。Windows 文件名包含服务器配置，Linux 和 macOS 提供附带配置脚本的 ZIP。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 

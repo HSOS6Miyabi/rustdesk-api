@@ -11,6 +11,8 @@ on:
       - 'http/router/api.go'
       - 'scripts/verify_upstream_client_commands.py'
       - 'resources/admin/app.js'
+      - 'resources/admin/client-local.js'
+      - 'resources/admin/client-local.test.cjs'
       - 'docs/CLIENT_BUILDER.md'
       - '.github/workflows/verify-client-build.yml'
   workflow_dispatch:
@@ -33,7 +35,9 @@ jobs:
           go-version: '1.23.10'
           cache: true
       - name: Check installer profiles and artifact checksum logic
-        run: go test ./service -run 'TestClientBuild|TestOfficialLinuxAndMac|TestClientSetupScript' -count=1 -v
+        run: |
+          go test ./service -run 'TestClientBuild|TestOfficialClient|TestOfficialLinuxAndMac|TestClientSetupScript' -count=1 -v
+          node --test resources/admin/client-local.test.cjs
       - name: Check native client CLI request fields across supported versions
         run: python3 scripts/verify_upstream_client_commands.py
       - name: Verify official Windows, Linux and macOS installers
