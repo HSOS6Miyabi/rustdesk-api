@@ -2286,7 +2286,7 @@ test("user detail shows only relevant actions and an outside click dismisses the
     await page.locator('nav.side-scroll button[data-view="users"]').click();
     await page.locator('[data-action="entity-detail"][data-entity-type="user"]').first().click();
     const dialog=page.locator('.drawer');
-    await dialog.waitFor();
+    await dialog.locator('[data-action="entity-admin-edit"]').waitFor();
     assert.equal(await dialog.locator('[data-action="reset-password"]').count(),0);
     assert.equal(await dialog.locator('[data-action="reset-user-mfa"]').count(),0);
     assert.equal(await dialog.locator('[data-action="entity-open-list"]').count(),0);
