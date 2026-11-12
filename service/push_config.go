@@ -242,9 +242,18 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 		if input.ClearAPIKey { record.KeyCiphertext = "" } else { record.KeyCiphertext = existing.KeyCiphertext }
 		if input.APIKey != "" {
 			key := strings.TrimSpace(input.APIKey)
-			if key == "" || strings.ContainsAny(key, "/?# \t") {
-				return PublicPushChannel{}, errors.New("发送密钥不能包含空格或 URL 特殊字符")
-			}
+			if key == "" {
+                return PublicPushChannel{}, errors.New("发送密钥不能为空")
+            }
+            if input.Kind == "webhook" {
+                for _, character := range key {
+                    if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~+/=", character) {
+                        return PublicPushChannel{}, errors.New("HTTP 推送密钥包含无效字符")
+                    }
+                }
+            } else if strings.ContainsAny(key, "/?# \t") {
+                return PublicPushChannel{}, errors.New("发送密钥不能包含空格或 URL 特殊字符")
+            }
 			record.KeyCiphertext, err = encryptPushSecret(key)
 			if err != nil { return PublicPushChannel{}, err }
 		}
