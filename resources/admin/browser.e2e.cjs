@@ -2039,10 +2039,16 @@ test("device connection opens the original RustDesk remote controls and supports
       const debug=await popup.evaluate(()=>{
         const frame=document.querySelector("#v2-native-client");
         const child=frame?.contentWindow;
+        const pane=child?.document?.querySelector("flt-glass-pane");
+        const paneStyle=pane?child.getComputedStyle(pane):null;
+        const frameStyle=frame?getComputedStyle(frame):null;
         return {parentUrl:location.href, iframeSrc:frame?.src, iframeReady:child?.document?.readyState,
+          frameClasses:frame?.className, frameStyle:frameStyle?{display:frameStyle.display,visibility:frameStyle.visibility,opacity:frameStyle.opacity}:null,
           childUrl:child?.location?.href,childHTML:child?.document?.body?.innerText?.slice(0,1500),
+          childDom:child?.document?.body?.innerHTML?.slice(0,2400),
+          paneStyle:paneStyle?{display:paneStyle.display,visibility:paneStyle.visibility,width:paneStyle.width,height:paneStyle.height}:null,
           dartScriptLoaded:!!child?.document?.querySelector('script[src*="main.dart.js"]'),
-          flutter:!!child?.document?.querySelector("flt-glass-pane"),
+          flutter:!!pane, initHook:typeof child?.init, refreshHook:typeof child?.reloadShortcuts,
           nativeSession:child?.__rustdeskNativeSessionSeen, nativeAuto:child?.__rustdeskAutoOpened,
           rendererReady:child?.rustdeskRendererReady, status:document.querySelector("#engine-state")?.textContent};
       });
