@@ -3,6 +3,7 @@ package service
 import (
     "context"
     "encoding/json"
+    "sort"
     "strings"
     "sync"
     "sync/atomic"
@@ -76,7 +77,8 @@ func runPushStreamRedisBridge(ctx context.Context) error {
         _ = global.Redis.Del(cleanup, streamRedisKeyPrefix+streamRedisNode).Err()
         _ = global.Redis.Publish(cleanup, streamRedisChanges, streamRedisNode).Err()
     }()
-    if err := writeLocalStreamInterests(ctx); err != nil { return err }
+    lastAdvertised := "\x00"
+    if err := writeLocalStreamInterests(ctx, &lastAdvertised); err != nil { return err }
     if err := loadRemoteStreamInterests(ctx); err != nil { return err }
     incoming := subscription.Channel()
     renew := time.NewTicker(30 * time.Second)
@@ -85,7 +87,7 @@ func runPushStreamRedisBridge(ctx context.Context) error {
         select {
         case <-ctx.Done(): return nil
         case <-streamInterestWake:
-            if err := writeLocalStreamInterests(ctx); err != nil { return err }
+            if err := writeLocalStreamInterests(ctx, &lastAdvertised); err != nil { return err }
             if err := loadRemoteStreamInterests(ctx); err != nil { return err }
         case <-renew.C:
             if err := writeLocalStreamInterests(ctx); err != nil { return err }
@@ -107,21 +109,30 @@ func runPushStreamRedisBridge(ctx context.Context) error {
     }
 }
 
-func writeLocalStreamInterests(ctx context.Context) error {
+func writeLocalStreamInterests(ctx context.Context, lastAdvertised *string) error {
     activeStreams.RLock()
     names := make([]string, 0, len(activeStreams.interested))
     for name, count := range activeStreams.interested {
         if count > 0 { names = append(names, name) }
     }
     activeStreams.RUnlock()
+    sort.Strings(names)
+    signature := strings.Join(names, ",")
+    changed := *lastAdvertised != signature
     key := streamRedisKeyPrefix + streamRedisNode
     if len(names) == 0 {
-        if err := global.Redis.Del(ctx, key).Err(); err != nil { return err }
+        if changed {
+            if err := global.Redis.Del(ctx, key).Err(); err != nil { return err }
+        }
     } else {
         payload, _ := json.Marshal(names)
         if err := global.Redis.Set(ctx, key, payload, streamRedisLease).Err(); err != nil { return err }
     }
-    return global.Redis.Publish(ctx, streamRedisChanges, streamRedisNode).Err()
+    if changed {
+        if err := global.Redis.Publish(ctx, streamRedisChanges, streamRedisNode).Err(); err != nil { return err }
+    }
+    *lastAdvertised = signature
+    return nil
 }
 
 func loadRemoteStreamInterests(ctx context.Context) error {
