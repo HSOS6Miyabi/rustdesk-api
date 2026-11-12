@@ -196,7 +196,8 @@ function serve(req, res) {
     });
     if(route==="/notification/retry")return answer(res,{});
     if(route==="/geoip/lookup")return answer(res,{
-      locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址"},
+      locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址",
+        "221.11.67.245":"中国 · Shaanxi · Xi’an · 雁塔区 · 详细地理位置名称"},
       device_status:{"office":true,"home-remote":false,"654321":true,"123456":false,
         "managed-desk":false,"helpdesk":true,"desk-001":true,"support-123456":true},
       database_ready:false
@@ -251,7 +252,7 @@ function serve(req, res) {
     if(route==="/session/list")return answer(res, {list:[
       {id:4,device_id:"support-123456",to_device_name:"Remote support PC",to_account:"support-owner",to_user_id:3,
         from_peer:"support-654321",from_device_name:"Technician PC",from_account:"technician",from_user_id:11,
-        from_name:"operator",ip:"203.0.113.5",participant_recorded:true,conn_id:41,last_seen_at:1710000000}
+        from_name:"operator",ip:"221.11.67.245",participant_recorded:true,conn_id:41,last_seen_at:1710000000}
     ],total:1});
     if(route==="/session/disconnect")return answer(res, {status:"pending"});
     if(route==="/session/disconnect/list")return answer(res, {list:[
@@ -2151,5 +2152,69 @@ test("active connection rows display both device owners and the connecting accou
     await page.locator('[data-action="table-details"]').first().click();
     assert.match(await page.locator(".content").innerText(),/operator/);
     await captureManagementScreenshot(page,"desktop-active-connection.png");
+  }finally{await context.close();}
+});
+
+test("full GeoIP names remain readable and connection directions use a compact accessible icon",async()=>{
+  const cases=[[1440,900,"desktop"],[375,812,"phone"]];
+  for(const [width,height,label] of cases){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
+      await page.waitForFunction(()=>document.querySelector('.ip-location')?.textContent.includes("Shaanxi"));
+      const checks=await page.evaluate(()=>{
+        const region=document.querySelector('.data-table td[data-column="ip"]');
+        const field=region?.querySelector(':scope > span');
+        const location=region?.querySelector('.ip-location');
+        const card=document.querySelector('.mobile-list .ip-location');
+        const loc=location||card;
+        const css=field?getComputedStyle(field):null;
+        return {width:document.documentElement.scrollWidth,screen:innerWidth,
+          location:loc?.textContent,clamp:css?.webkitLineClamp,
+          height:field?.getBoundingClientRect().height,scrollHeight:field?.scrollHeight};
+      });
+      assert.ok(checks.width<=checks.screen+2,"IP table overflows "+label+": "+JSON.stringify(checks));
+      assert.match(checks.location||"",/详细地理位置名称/);
+      if(width>900){
+        assert.equal(checks.clamp,"none","IP location must not use two-line clamping");
+        assert.ok(checks.scrollHeight<=checks.height+3,"IP location is clipped: "+JSON.stringify(checks));
+      }
+      await captureManagementScreenshot(page,"corrected-active-ip-"+label+".png");
+      if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="connections"]').click();
+      const direction=page.locator('[data-column="direction"] .connection-direction').first();
+      if(width>900){
+        await direction.waitFor();
+        assert.equal(await direction.getAttribute("aria-label"),"我发起的连接");
+        assert.equal((await direction.innerText()).trim(),"");
+        await captureManagementScreenshot(page,"corrected-direction-icon.png");
+      }else{
+        await page.locator('.mobile-item .connection-direction').first().waitFor();
+        await captureManagementScreenshot(page,"corrected-direction-mobile.png");
+      }
+    }finally{await context.close();}
+  }
+});
+
+test("user detail shows only relevant actions and an outside click dismisses the drawer",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.locator('[data-action="entity-detail"][data-entity-type="user"]').first().click();
+    const dialog=page.locator('.drawer');
+    await dialog.waitFor();
+    assert.equal(await dialog.locator('[data-action="reset-password"]').count(),0);
+    assert.equal(await dialog.locator('[data-action="reset-user-mfa"]').count(),0);
+    assert.equal(await dialog.locator('[data-action="entity-open-list"]').count(),0);
+    assert.equal(await dialog.locator('[data-action="entity-admin-edit"]').count(),1);
+    await captureManagementScreenshot(page,"corrected-user-detail.png");
+    await page.locator('#modal-overlay').click({position:{x:24,y:130}});
+    await page.locator('#modal-overlay').waitFor({state:"detached"});
+    await page.locator('[data-action="edit"]').first().click();
+    await page.locator('.drawer [data-action="reset-password"]').waitFor();
+    await captureManagementScreenshot(page,"corrected-user-editor.png");
+    await page.locator('#modal-overlay').click({position:{x:24,y:130}});
+    await page.locator('#modal-overlay').waitFor({state:"detached"});
   }finally{await context.close();}
 });
