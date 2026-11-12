@@ -47,6 +47,8 @@ func (uf *UserForm) ToUser() *model.User {
 type PageQuery struct {
 	Page     uint `form:"page"`
 	PageSize uint `form:"page_size"`
+	SortBy string `form:"sort_by"`
+	SortDir string `form:"sort_dir"`
 }
 
 type UserQuery struct {
