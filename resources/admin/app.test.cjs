@@ -43,6 +43,9 @@ function createConsole(isAdmin = false, overrides = {}) {
         environment:"RUSTDESK_API_JWT_KEY",value_type:"string",source:"环境变量",
         configured:true,current_value:"",override_enabled:false,bootstrap:true,sensitive:true,requires_restart:true,active:true}
     ]},
+    "/audit/retention": {connection_days:90,file_days:30,login_days:90},
+    "/audit/cleanup/preview": {items:[{kind:"connection",name:"远程连接记录",eligible:2,retention_days:90}],total:2},
+    "/audit/cleanup": {items:[{kind:"connection",name:"远程连接记录",deleted:2}],deleted:2},
     "/settings/overview": {summary:{
       smtp_settings:{enabled:true,host:"mail.example.test",port:587,sender_email:"team@example.test"},
       notification_settings:{enabled:false,events:""},
@@ -150,7 +153,7 @@ function createConsole(isAdmin = false, overrides = {}) {
   vm.runInNewContext(source, context, { filename: "resources/admin/app.js" });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return {
-    root, calls, events, fixtures, settle, assigned, opened,
+    root, calls, events, fixtures, settle, assigned, opened, document:mockDocument,
     async open(view) {
       const control = { dataset: { view } };
       await events.click({ target: { closest: () => control } });
@@ -850,4 +853,31 @@ test("owned-device actions and detail panel open WebClient v2 with the selected 
   assert.match(app.root.innerHTML,/data-action="device-connect" data-device-id="office-01"/);
   await fire({action:"device-connect",deviceId:"office-01",deviceName:"Office desk"});
   assert.equal(app.opened.length,2);
+});
+
+test("log retention page exposes terminal-history categories and a confirmed cleanup flow",async()=>{
+  const app=createConsole(true);
+  await app.settle();await app.settle();await app.open("retention");
+  assert.match(app.root.innerHTML,/结束连接记录/);
+  assert.match(app.root.innerHTML,/设置修改历史/);
+  assert.match(app.root.innerHTML,/事件处理失败/);
+  assert.match(app.root.innerHTML,/服务器运行日志归档文件/);
+  assert.match(app.root.innerHTML,/data-action="log-cleanup-preview"/);
+  assert.match(app.root.innerHTML,/data-action="log-cleanup-run" disabled/);
+  const original=app.document.getElementById.bind(app.document);
+  app.document.getElementById=id=>({
+    "cleanup-kind":{value:"connection"},
+    "cleanup-mode":{value:"retention"},
+    "cleanup-days":{value:"30"}
+  }[id]||original(id));
+  await app.action("log-cleanup-preview");
+  assert.ok(app.calls.some(x=>x.endpoint==="/audit/cleanup/preview"&&x.method==="GET"));
+  assert.match(app.root.innerHTML,/预计清理 2 项历史数据/);
+  await app.action("log-cleanup-run");
+  assert.ok(app.calls.some(x=>x.endpoint==="/audit/cleanup"&&x.method==="POST"));
+});
+test("ordinary users cannot open the log cleanup administration page",async()=>{
+  const app=createConsole(false);
+  await app.settle();await app.settle();
+  assert.doesNotMatch(app.root.innerHTML,/data-view="retention"/);
 });
