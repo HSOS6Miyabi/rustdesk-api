@@ -950,18 +950,26 @@
     ["id-relay-read","ID 服务器","查看中继服务器列表","读取 ID 服务器当前配置的中继地址。","21115","relay-servers","none"],
     ["id-relay-write","ID 服务器","设置中继服务器列表","填写中继服务器主机名或地址，多个地址用英文逗号分隔。","21115","relay-servers","servers"],
     ["id-block-read","ID 服务器","查看已封禁的 IP","查询 ID 服务器当前的 IP 封禁记录。","21115","ip-blocker","none"],
-    ["id-block-add","ID 服务器","封禁 IP 地址","填写需要封禁的 IP 地址。","21115","ip-blocker","ip"],
-    ["id-block-remove","ID 服务器","解除 IP 封禁","填写要解除封禁的 IP 地址。","21115","ip-blocker","ip-remove"],
+    ["id-block-add","ID 服务器","查询指定 IP 的封禁记录","查看指定 IP 的封禁次数及封禁时长。","21115","ip-blocker","ip"],
+    ["id-block-remove","ID 服务器","清除指定 IP 的封禁记录","填写需要清除封禁记录的 IP 地址。","21115","ip-blocker","ip-remove"],
     ["id-changes-read","ID 服务器","查看 IP 变化记录","查看客户端 IP 地址变化情况。","21115","ip-changes","none"],
-    ["id-changes-item","ID 服务器","查询设备 IP 变化","输入设备 ID，查询其 IP 地址变化情况。","21115","ip-changes","identifier"],
+    ["id-changes-item","ID 服务器","查询设备 IP 变化","搜索设备并查看其 IP 地址变化记录。","21115","ip-changes","identifier"],
+    ["id-changes-remove","ID 服务器","清除设备 IP 变化记录","搜索设备并清除该设备已记录的 IP 变化信息。","21115","ip-changes","identifier-remove"],
+    ["id-must-login-read","ID 服务器","查询客户端登录要求","查看客户端是否需要登录账户才能连接。","21115","must-login","none"],
+    ["id-must-login-on","ID 服务器","启用客户端登录要求","要求客户端登录账户。","21115","must-login","fixed-y"],
+    ["id-must-login-off","ID 服务器","关闭客户端登录要求","允许按照当前服务端策略连接。","21115","must-login","fixed-n"],
+    ["id-reload-geo","ID 服务器","更新地区数据库","重新读取服务端已配置的地区数据库。","21115","reload-geo","none"],
+    ["id-punch","ID 服务器","查看最近穿透请求","查看服务器记录的最近连接尝试。","21115","punch-requests","none"],
     ["id-relay-state","ID 服务器","查询强制中继状态","读取是否已要求所有连接使用中继。","21115","always-use-relay","none"],
     ["id-relay-on","ID 服务器","启用强制中继","要求所有远程连接使用中继服务器。","21115","always-use-relay","fixed-y"],
     ["id-relay-off","ID 服务器","关闭强制中继","允许服务器按正常条件选择直接连接或中继。","21115","always-use-relay","fixed-n"],
     ["id-geo","ID 服务器","测试地址所属地区","分别填写两个 IP 地址，查看服务器地区识别结果。","21115","test-geo","ip-pair"],
     ["relay-help","中继服务器","查看服务器帮助","查看中继服务器支持的管理功能。","21117","h","none"],
+    ["relay-blacklist-read","中继服务器","查看全部黑名单 IP","查看中继服务器当前黑名单中的全部 IP 地址。","21117","blacklist","none"],
     ["relay-blacklist-check","中继服务器","查询黑名单","填写 IP 地址，检查该地址是否在黑名单中。","21117","blacklist","ip"],
     ["relay-blacklist-add","中继服务器","添加黑名单","将指定 IP 地址加入中继服务器黑名单。","21117","blacklist-add","ip"],
     ["relay-blacklist-remove","中继服务器","移除黑名单","将指定 IP 地址移出中继服务器黑名单。","21117","blacklist-remove","ip"],
+    ["relay-blocklist-read","中继服务器","查看全部阻止列表 IP","查看中继服务器当前阻止列表中的全部 IP 地址。","21117","blocklist","none"],
     ["relay-blocklist-check","中继服务器","查询阻止列表","填写 IP 地址，检查该地址是否在阻止列表中。","21117","blocklist","ip"],
     ["relay-blocklist-add","中继服务器","添加阻止列表","把指定 IP 地址加入阻止列表。","21117","blocklist-add","ip"],
     ["relay-blocklist-remove","中继服务器","移除阻止列表","从阻止列表移除指定 IP 地址。","21117","blocklist-remove","ip"],
@@ -984,27 +992,86 @@
     if(mode==="ip-pair")return '<div class="form-grid"><div class="field"><label for="command-ip1">第一个 IP 地址</label><input id="command-ip1" name="ip1" type="text" placeholder="'+ip+'" spellcheck="false" required></div><div class="field"><label for="command-ip2">第二个 IP 地址</label><input id="command-ip2" name="ip2" type="text" placeholder="'+ip+'" spellcheck="false" required></div></div>';
     const title=mode==="servers"?"中继服务器地址（逗号分隔）":mode==="number"?"数值":mode==="identifier"?"设备 ID":"IP 地址";
     const placeholder=mode==="servers"?"例如：relay.example.com:21117,relay2.example.com:21117":mode==="number"?"填写 0 或正数":mode==="identifier"?"例如：123456789":ip;
-    if(mode==="identifier")return '<div class="field"><label>选择需要查询的设备</label>'+pickerField("device_id","",true,{},"command-option")+'</div>';
+    if(mode==="identifier"||mode==="identifier-remove")return '<div class="field"><label>选择设备</label>'+pickerField("device_id","",true,{},"command-option")+'</div>';
     const attr=mode==="number"?'type="number" min="0" max="1000000000" step="any"':'type="text" spellcheck="false"';
     return '<div class="field"><label for="command-option">'+title+'</label><input id="command-option" name="option" '+attr+' placeholder="'+placeholder+'" required maxlength="1800"></div>';
   }
+  function serverCommandCategory(command){
+    const id=command.id;
+    if(id.includes("help")||id.includes("usage")||id.includes("punch")||id.includes("geo"))return "查看信息";
+    if(id.includes("block")||id.includes("blacklist")||id.includes("changes"))return "访问与网络记录";
+    if(id.includes("relay")||id.includes("login"))return "连接策略";
+    return "性能与带宽";
+  }
+  function renderServerResult(result,command){
+    if(!result)return '<div class="server-result-empty">'+icon("info",24)+
+      '<strong>尚未查询</strong><p>选择左侧功能并执行，查询结果将在这里展示。</p></div>';
+    const summary='<p class="server-result-summary">'+esc(result.summary||"服务器已处理该请求")+'</p>';
+    if(result.kind==="boolean")return summary+'<div class="server-bool-state"><span class="pill '+(result.active?"good":"muted")+'">'+
+      (result.active?"已启用或已匹配":"已停用或未匹配")+'</span></div>';
+    if(result.kind==="metric")return summary+'<div class="server-metric">'+esc(String(result.value??"—"))+
+      '<small>'+esc(result.unit||"")+'</small></div>';
+    if(result.kind==="value")return summary+'<div class="server-value">'+esc(result.value||"—")+'</div>';
+    if(["list","table","usage"].includes(result.kind)){
+      const rows=Array.isArray(result.rows)?result.rows:[];
+      if(!rows.length)return summary+'<p class="server-result-empty">没有符合条件的记录。</p>';
+      const candidates=result.kind==="usage"?[["address","连接 IP"],["seconds","连接时长（秒）"],["megabytes","流量（MB）"],
+        ["peak_kbps","最高速率（kb/s）"],["average_kbps","平均速率（kb/s）"],["current_kbps","当前速率（kb/s）"],["detail","其他信息"]]:
+        result.kind==="table"?[["name","设备或 IP"],["detail","记录详情"]]:
+        [["name","功能名称"],["address","服务器或 IP 地址"],["command","对应命令"],["detail","内容"]];
+      const columns=candidates.filter(([key])=>rows.some(item=>item[key]!==undefined&&item[key]!==""));
+      return summary+'<div class="server-result-table-scroll"><table class="server-result-table"><thead><tr>'+
+        columns.map(([,label])=>'<th>'+esc(label)+'</th>').join("")+'</tr></thead><tbody>'+
+        rows.map(row=>'<tr>'+columns.map(([key])=>'<td>'+esc(row[key]||"—")+'</td>').join("")+'</tr>').join("")+
+        '</tbody></table></div>';
+    }
+    return summary;
+  }
   function server(){
-    const d=state.server||{};
-    const labels=[["ID 服务器",d.id_server],["中继服务器",d.relay_server],["API 服务",d.api_server]];
-    const details=labels.map(x=>'<div class="status-row"><span>'+esc(x[0])+'</span><strong>'+showServerAddress(x[1])+'</strong></div>').join("");
-    const selected=serverCommandCatalog.find(cmd=>cmd.id===state.commandSelected)||serverCommandCatalog[0];
-    const cards=["ID 服务器","中继服务器"].map(section=>{
-      const commands=serverCommandCatalog.filter(cmd=>cmd.section===section);
-      return '<section class="panel server-command-section"><div class="panel-header"><h2 class="panel-title">'+esc(section)+' · 管理功能</h2><p class="panel-sub">选择需要执行的操作</p></div><div class="server-action-grid">'+commands.map(cmd=>
-        '<button type="button" class="server-action-card '+(cmd.id===selected.id?"selected":"")+'" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'"><strong>'+esc(cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+'</div></section>';
-    }).join("");
-    return pageHeading("服务器管理","查看服务器连接地址，选择需要执行的管理操作并填写对应参数。")+
-      '<section class="panel server-config-panel"><div class="panel-header"><h2 class="panel-title">连接参数</h2></div><div class="server-info">'+details+'</div></section>'+
-      '<section class="panel server-editor" id="server-command-panel"><div class="panel-header"><div><h2 class="panel-title">'+esc(selected.title)+'</h2><p class="panel-sub">'+esc(selected.section)+'</p></div></div>'+
-      '<form id="command-form" class="server-editor-body"><p class="server-command-help">'+esc(selected.description)+'</p>'+commandInputs(selected)+
-      '<div class="server-submit-row"><button type="submit" class="btn btn-primary">执行'+esc(selected.title)+'</button></div>'+
-      '<div class="field"><label for="command-output">执行结果</label><pre class="server-output" id="command-output" role="status">'+esc(state.commandOutput||"选择操作后执行，服务器的回复将显示在此处。")+'</pre></div></form></section>'+
-      '<div class="server-command-sections">'+cards+'</div>';
+    const d=state.server||{},tab=state.serverTab;
+    const labels=[["ID 服务器",d.id_server,"客户端登记、连接协商"],["中继服务器",d.relay_server,"无法直连时转发数据"],["API 服务",d.api_server,"用户登录与设备管理"]];
+    const cards=labels.map(([title,address,desc])=>
+      '<div class="server-overview-card"><span>'+esc(title)+'</span><strong>'+showServerAddress(address)+'</strong><small>'+esc(desc)+'</small></div>').join("");
+    const tabs=[["overview","服务器概况"],["id","ID 服务器"],["relay","中继服务器"]].map(([key,label])=>
+      '<button type="button" class="server-tab '+(tab===key?"active":"")+'" role="tab" aria-selected="'+(tab===key)+
+      '" data-action="server-tab" data-tab="'+key+'">'+esc(label)+'</button>').join("");
+    const heading=pageHeading("服务器管理","查看服务器配置、连接策略及运行统计，并通过表单执行管理操作。");
+    const nav='<div class="server-tabs" role="tablist" aria-label="服务器管理分类">'+tabs+'</div>';
+    if(tab==="overview"){
+      return heading+nav+'<section class="panel"><div class="panel-header"><div><h2 class="panel-title">服务器概况</h2>'+
+        '<p class="panel-sub">服务器地址来自当前配置。</p></div></div><div class="server-overview-grid">'+cards+'</div></section>'+
+        '<div class="server-overview-quick"><button class="server-quick-action" type="button" data-action="server-tab" data-tab="id">'+
+        icon("network",24)+'<strong>ID 服务器管理</strong><span>中继列表、连接策略、地址记录与网络诊断</span>'+icon("arrow",17)+'</button>'+
+        '<button class="server-quick-action" type="button" data-action="server-tab" data-tab="relay">'+
+        icon("shield",24)+'<strong>中继服务器管理</strong><span>IP 列表、带宽限制和连接使用统计</span>'+icon("arrow",17)+'</button></div>';
+    }
+    const section=tab==="id"?"ID 服务器":"中继服务器";
+    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section);
+    const selected=commands.find(cmd=>cmd.id===state.commandSelected)||commands[0];
+    const groups=[...new Set(commands.map(serverCommandCategory))].map(category=>
+      '<section class="server-command-group"><h3>'+esc(category)+'</h3><div class="server-command-list">'+
+      commands.filter(cmd=>serverCommandCategory(cmd)===category).map(cmd=>
+        '<button type="button" class="server-command-item '+(cmd.id===selected.id?"selected":"")+
+        '" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'">'+
+        '<strong>'+esc(cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+
+      '</div></section>').join("");
+    const result=state.serverResults[selected.id]||null;
+    return heading+nav+'<div class="server-management-layout">'+
+      '<aside class="panel server-command-menu"><div class="panel-header"><div><h2 class="panel-title">管理功能</h2>'+
+      '<p class="panel-sub">'+esc(section)+' · 选择需要查看或修改的项目</p></div></div>'+
+      '<div class="server-command-menu-body">'+groups+'</div></aside>'+
+      '<div class="server-management-workspace"><section class="panel server-editor" id="server-command-panel">'+
+      '<div class="panel-header"><div><h2 class="panel-title">'+esc(selected.title)+'</h2>'+
+      '<p class="panel-sub">'+esc(selected.description)+'</p></div></div>'+
+      '<form id="command-form" class="server-editor-body">'+commandInputs(selected)+
+      '<div class="server-submit-row"><button class="btn btn-primary" type="submit">'+
+      (selected.mode==="none"||selected.mode==="identifier"||selected.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(selected.cmd)?"查询":"执行操作")+
+      '</button></div></form></section>'+
+      '<section class="panel server-result-panel"><div class="panel-header"><div><h2 class="panel-title">查询与操作结果</h2>'+
+      '<p class="panel-sub">'+esc(selected.title)+'</p></div></div>'+
+      '<div class="server-result" id="server-result" role="status">'+
+      (state.serverError?'<div class="warning">'+esc(state.serverError)+'</div>':renderServerResult(result,selected))+
+      '</div></section></div></div>';
   }
   function retentionPage(){
     const data=state.retention||{};
@@ -2000,9 +2067,9 @@
     }else if(cmd.mode==="ip"||cmd.mode==="ip-remove"){
       if(!isValidIP(value)){toast("请输入有效的 IPv4 或 IPv6 地址",true);return;}
       option=value+(cmd.mode==="ip-remove"?" -":"");
-    }else if(cmd.mode==="identifier"){
-      if(!/^[a-zA-Z0-9_.:-]{1,128}$/.test(value)){toast("请填写有效的设备 ID",true);return;}
-      option=value;
+    }else if(cmd.mode==="identifier"||cmd.mode==="identifier-remove"){
+      if(!/^[a-zA-Z0-9_.:-]{1,128}$/.test(value)){toast("请先选择有效的设备 ID",true);return;}
+      option=value+(cmd.mode==="identifier-remove"?" -":"");
     }else if(cmd.mode==="number"){
       const num=Number(value);
       if(!value||!Number.isFinite(num)||num<0||num>1e9){toast("数值必须介于 0 与 1000000000 之间",true);return;}
@@ -2015,15 +2082,33 @@
       option=entries.join(",");
     }
     if(cmd.mode!=="none"&&!option){toast("请填写该操作要求的参数",true);return;}
-    if(cmd.mode!=="none"&&!cmd.mode.startsWith("fixed-")&&!window.confirm("确认执行“"+cmd.title+"”吗？"))return;
+    const isRead=cmd.mode==="none"||cmd.mode==="identifier"||
+      cmd.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(cmd.cmd);
+    if(!isRead&&!window.confirm("确认执行“"+cmd.title+"”吗？"))return;
     try{
-      const response=await request("/rustdesk/sendCmd","POST",{target:cmd.target,cmd:cmd.cmd,option});
-      state.commandOutput=typeof response==="string"?response:JSON.stringify(response,null,2);
-      const output=document.getElementById("command-output");if(output)output.textContent=state.commandOutput;
-      toast("服务器已处理该操作");
+      const response=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:cmd.cmd,option});
+      if(!response||typeof response!=="object"||!response.kind)throw Error("服务器返回的数据格式无效");
+      let displayed=response;
+      const refreshMap={
+        "blacklist-add":"blacklist","blacklist-remove":"blacklist",
+        "blocklist-add":"blocklist","blocklist-remove":"blocklist"
+      };
+      const refresh=refreshMap[cmd.cmd]||(
+        !isRead&&["relay-servers","always-use-relay","must-login","downgrade-threshold",
+          "downgrade-start-check","limit-speed","total-bandwidth","single-bandwidth",
+          "ip-blocker","ip-changes"].includes(cmd.cmd)?cmd.cmd:"");
+      if(refresh){
+        try{
+          displayed=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:refresh,option:""});
+        }catch{displayed=response;}
+      }
+      state.serverResults[cmd.id]=displayed;
+      state.serverError="";
+      render();
+      toast(isRead?"查询完成":"操作请求已发送至服务器");
     }catch(err){
-      state.commandOutput="执行失败："+err.message;
-      const output=document.getElementById("command-output");if(output)output.textContent=state.commandOutput;
+      state.serverError=err.message;
+      render();
       toast(err.message,true);
     }
   }
@@ -2058,10 +2143,18 @@
       return;
     }
     if(a==="refresh"){await load();return;}
+    if(a==="server-tab"){
+      const tab=el.dataset.tab;
+      if(!["overview","id","relay"].includes(tab))return;
+      state.serverTab=tab;
+      state.commandSelected=tab==="relay"?"relay-usage":"id-relay-read";
+      state.serverError="";render();
+      return;
+    }
     if(a==="server-select"){
       const command=serverCommandCatalog.find(item=>item.id===el.dataset.id);
       if(!command)return;
-      state.commandSelected=command.id;state.commandOutput="";
+      state.commandSelected=command.id;state.serverError="";
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       return;
     }
