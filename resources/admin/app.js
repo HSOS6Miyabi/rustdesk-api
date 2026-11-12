@@ -1530,7 +1530,7 @@
         const name=kind==="device"?[item.alias,item.hostname,item.username,item.os].filter(Boolean).join(" · "):
           [item.name,item.nickname||item.username,item.email].filter(Boolean).join(" · ");
         return '<div role="option" class="picker-result-row"><button type="button" class="picker-result" data-action="picker-select" data-id="'+esc(id)+'" data-username="'+esc(item.username||"")+'" data-title="'+esc(name)+'">'+
-          '<strong>'+(kind==="device"?deviceStatusDot(id):"")+esc(id)+'</strong><span>'+esc(name||"")+'</span></button>'+
+          '<strong>'+(kind==="device"?deviceStatusDot(id):"")+esc(name||id)+'</strong><span>编号：'+esc(id)+(name?" · "+esc(item.email||item.hostname||item.os||""):"")+'</span></button>'+
           (["user","device"].includes(kind)?'<button type="button" class="picker-result-detail" data-action="entity-detail" data-entity-type="'+kind+'" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(name||id)+'">查看信息</button>':"")+'</div>';
       }).join(""):'<p class="picker-empty">没有找到匹配项，请尝试其他关键词。</p>';
     }catch(err){
