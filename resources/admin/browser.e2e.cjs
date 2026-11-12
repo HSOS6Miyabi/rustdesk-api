@@ -38,6 +38,9 @@ function serve(req, res) {
       return;
     }
     if(route==="/mfa/status")return answer(res,{enabled:false,pending:false,remaining_recovery_codes:0});
+    if(route==="/passkey/list")return answer(res,{list:[{id:12,name:"工作电脑",created_at:"2026-11-12 09:00:00",last_used_at:0}],total:1});
+    if(route==="/passkey/revoke")return answer(res,{});
+
     if(route==="/mfa/email/status")return answer(res,{enabled:false,email:"owner@example.test",mail_configured:true});
     if(route==="/mfa/email/setup")return answer(res,{secret:"mail-enrollment-challenge",expires_in_seconds:600});
     if(route==="/mfa/email/enable"||route==="/mfa/email/disable")return answer(res,{});
@@ -910,7 +913,7 @@ test("administrator can reset a team member's lost second-factor credentials",as
     await reset.click();
     const body=(await saved).postDataJSON();
     assert.equal(body.id,3);
-    await page.getByText("用户双重认证已重置").waitFor();
+    await page.getByText("用户双重认证已清除，现有登录会话已结束").waitFor();
   }finally{await context.close();}
 });
 
