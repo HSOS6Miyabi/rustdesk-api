@@ -1093,13 +1093,35 @@
   }
   async function querySelectedServerCommand(cmd){
     if(!cmd||cmd.mode!=="none"||cmd.cmd==="reload-geo")return;
+    const sequence=(state.serverQuerySequence||0)+1;
+    state.serverQuerySequence=sequence;
     state.serverBusy=true;state.serverError="";render();
     try{
       const response=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:cmd.cmd,option:""});
       if(!response||typeof response!=="object"||!response.kind)throw Error("服务器返回的数据格式无效");
-      if(cmd.id===state.commandSelected)state.serverResults[cmd.id]=response;
-    }catch(error){if(cmd.id===state.commandSelected)state.serverError=error.message;}
-    finally{state.serverBusy=false;render();}
+      if(sequence===state.serverQuerySequence&&cmd.id===state.commandSelected){
+        state.serverResults[cmd.id]=response;
+      }
+    }catch(error){
+      if(sequence===state.serverQuerySequence&&cmd.id===state.commandSelected){
+        state.serverError=error.message;
+      }
+    }finally{
+      if(sequence!==state.serverQuerySequence||cmd.id!==state.commandSelected)return;
+      state.serverBusy=false;
+      const resultNode=document.getElementById("server-result");
+      if(!resultNode){render();return;}
+      resultNode.innerHTML=state.serverError?
+        '<div class="warning">'+esc(state.serverError)+'</div>':
+        renderServerResult(state.serverResults[cmd.id],cmd);
+      const policy=document.getElementById("server-policy-value");
+      const current=state.serverResults[cmd.id];
+      if(policy&&policy.value===""&&current?.kind==="boolean"){
+        policy.value=current.active?"yes":"no";
+      }
+      const save=document.querySelector('[data-action="server-policy-save"]');
+      if(save)save.disabled=false;
+    }
   }
   function commandInputs(command){
     const mode=command.mode;
