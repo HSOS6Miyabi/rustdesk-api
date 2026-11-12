@@ -1707,8 +1707,13 @@
     const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
     const buttons=editable?'<button type="button" class="btn" data-action="entity-open-list">'+
       esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
+    const adminUser=!device&&Number(info.id)>0&&available("users");
+    const userActions=adminUser?
+      (canPageAction("users","edit")?'<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户资料</button>':"")+
+      (hasPrivilege("users.edit_password")?'<button type="button" class="btn" data-action="reset-password" data-id="'+esc(info.id)+'">重设密码</button>':"")+
+      (hasPrivilege("users.manage_2fa")?'<button type="button" class="btn btn-danger" data-action="reset-user-mfa" data-id="'+esc(info.id)+'">清除双重认证</button>':""):"";
     return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
-      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+buttons);
+      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
   async function openEntityDetail(type,id,label){
     if(!["device","user"].includes(type)||!String(id||"").trim())return;
@@ -2174,6 +2179,16 @@
     }
     if(a==="entity-back"){
       state.modal=state.modal?.previous||null;render();return;
+    }
+    if(a==="entity-admin-edit"){
+      const m=state.modal,record=m?.kind==="entity"&&m.entityType==="user"?m.info:null;
+      if(!record?.id||!canPageAction("users","edit"))return;
+      state.page="users";state.query=record.username||"";state.pageNo=1;
+      location.hash="#/users?search="+encodeURIComponent(state.query);
+      state.modal=null;render();await load();
+      const row=state.rows.find(item=>String(item.id)===String(record.id));
+      if(row)await openEditor(String(row.id),"edit");
+      return;
     }
     if(a==="entity-open-list"){
       const m=state.modal;if(m?.kind!=="entity"||!m.destination)return;
@@ -2737,17 +2752,17 @@
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
     if(a==="delete"){await deleteEntry(el.dataset.id);return;}
     if(a==="reset-user-mfa"){
-      const member=state.rows.find(r=>String(r.id)===String(el.dataset.id));
-      if(!member||!window.confirm("确认重置用户 "+member.username+" 的 TOTP 和邮箱登录验证吗？"))return;
+      const member=state.rows.find(r=>String(r.id)===String(el.dataset.id))||(state.modal?.kind==="entity"&&state.modal.entityType==="user"&&String(state.modal.info?.id)===String(el.dataset.id)?state.modal.info:null);
+      if(!member||!window.confirm("确认清除用户 "+member.username+" 的 TOTP 和邮箱登录验证吗？此操作将结束该用户现有的登录会话。"))return;
       try{
         await request("/user/mfa/reset","POST",{id:Number(member.id)});
-        toast("用户双重认证已重置");
+        state.modal=null;toast("用户双重认证已清除，现有登录会话已结束");
         await load();
       }catch(err){toast(err.message,true);}
       return;
     }
     if(a==="reset-password"){
-      const user=state.rows.find(r=>String(r.id)===String(el.dataset.id));
+      const user=state.rows.find(r=>String(r.id)===String(el.dataset.id))||(state.modal?.kind==="entity"&&state.modal.entityType==="user"&&String(state.modal.info?.id)===String(el.dataset.id)?state.modal.info:null);
       if(user){state.modal={kind:"reset-password",user};render();}
       return;
     }
