@@ -453,6 +453,6 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
   width:32px;color:var(--main);vertical-align:middle;
 }
 .data-table td[data-column="direction"]{text-align:center}
-.data-table td[data-column="direction"]>span{display:flex;justify-content:center;overflow:visible}
+.data-table td[data-column="direction"]>span{display:flex;justify-content:center;overflow:visible;line-height:28px}
 .data-table th[data-column="direction"]{text-align:center}
 .mobile-item .connection-direction{justify-content:flex-start}
