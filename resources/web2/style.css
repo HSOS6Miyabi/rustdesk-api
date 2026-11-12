@@ -67,3 +67,6 @@ body.webclient-page-fullscreen{overflow:hidden}
 .webclient-page-fullscreen .workspace-switcher,.stage:fullscreen .workspace-switcher{display:flex;align-items:center;padding:8px 10px;background:#13283d}
 @media(max-width:1080px){.workspace-switcher{flex-wrap:wrap}.mode-tabs{width:100%;justify-content:center}.workspace-switcher .session-tabs{width:100%;flex-basis:100%}}
 @media(max-width:680px){.mode-tabs button{flex:1;padding:5px 8px}.mode-tabs{width:100%}}
+
+.credential-preferences{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px 12px;margin-top:10px;color:#6a7f93;font-size:11px;line-height:1.55}
+.credential-preferences .text-button{font-size:11px;padding:3px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px}
