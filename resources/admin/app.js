@@ -130,11 +130,11 @@
     clientBuilder: {name:"客户端安装包构建",icon:"package",section:"系统管理",admin:true},
     notifications: {name:"邮件事件通知",icon:"bell",section:"系统管理",endpoint:"notification",admin:true,readonly:true,columns:[["id","编号"],["event_type","事件类型"],["recipient","收件邮箱"],["status","发送状态"],["attempts","尝试次数"],["sent_at","发送时间"],["last_error","最近一次错误"]]},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔，例如 devices.read）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
-    activeSessions: {name:"活动远程连接",icon:"link",section:"设备管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
+    activeSessions: {name:"活动远程连接",icon:"link",section:"设备管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","被连接设备 ID"],["to_device_name","被连接设备名称"],["to_account","被连接设备所有者"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备名称"],["from_account","连接方设备所有者"],["from_name","连接方系统用户"],["ip","连接 IP"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"设备管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     sessions: {name:"全部登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,noCreate:true,columns:[["id","会话编号"],["username","登录账户"],["device_id","设备 ID"],["device_uuid","终端标识"],["login_ip","登录 IP"],["client","客户端"],["platform","系统"],["created_at","登录时间"],["expired_at","有效期截止"],["active","状态"],["current","当前会话"]]},
     mysessions: {name:"我的登录会话",icon:"lock",section:"个人管理",endpoint:"my/user_token",readonly:true,columns:[["id","会话编号"],["device_id","设备 ID"],["device_uuid","终端标识"],["login_ip","登录 IP"],["client","客户端"],["platform","系统"],["created_at","登录时间"],["expired_at","有效期截止"],["active","状态"],["current","当前会话"]]},
-    myactiveSessions: {name:"我的活动远程连接",icon:"link",section:"我的审计记录",endpoint:"my/session",readonly:true,columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最近活动时间"]]},
+    myactiveSessions: {name:"我的活动远程连接",icon:"link",section:"我的审计记录",endpoint:"my/session",readonly:true,columns:[["device_id","被连接设备 ID"],["to_device_name","被连接设备名称"],["to_account","被连接设备所有者"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备名称"],["from_account","连接方设备所有者"],["from_name","连接方系统用户"],["ip","连接 IP"],["conn_id","连接编号"],["last_seen_at","最近活动时间"]]},
     myDisconnectHistory: {name:"我的结束连接记录",icon:"clock",section:"我的审计记录",endpoint:"my/session/disconnect",readonly:true,columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     push: {name:"消息推送",icon:"bell",section:"账户"},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
@@ -426,10 +426,12 @@
   }
   const state={
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
-    page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
+    page:"overview",bookTab:"entries",pageNo:1,
+    pageSize:[20,50,100].includes(Number(localStorage.getItem("rustdesk.console.page-size")))?
+      Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",settingsTab:"general",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -543,7 +545,7 @@
     const items=Object.entries(pages).filter(([key])=>key!=="collections"&&available(key));
     let nav="";
     for(const section of sections){
-      const links=items.filter(([,p])=>p.section===section);
+      const links=items.filter(([,p])=>p.section===section).sort(([a],[b])=>section==="系统管理"?(a==="settings"?-1:b==="settings"?1:0):0);
       if(section==="客户端")links.push(["webclient",{name:"WebClient v2",icon:"monitor"}]);
       if(!links.length)continue;
       const collapsed=!!state.navCollapsed[section];
@@ -709,12 +711,12 @@
       }else if(k==="push"){
         const [destinations,catalog,history]=await Promise.all([
           request("/push/channels"), request("/push/events"),
-          request("/push/history?page=1&page_size=20")
+          request("/push/history?"+new URLSearchParams({page:state.pageNo,page_size:state.pageSize}).toString())
         ]);
         state.pushChannels=destinations.list||[];
         state.pushEvents=catalog||[];
         state.pushHistory=history.list||[];
-        state.pushTotal=history.total||0;
+        state.pushTotal=history.total||0;state.total=state.pushTotal;
       }else if(k==="profile"){
         const results=await Promise.all([request("/mfa/status"),request("/mfa/email/status")]);
         state.mfa=results[0];
@@ -727,12 +729,12 @@
         state.mail=await request("/mail/settings");
       }else if(k==="clientBuilder"){
         const [profiles,tasks,versions]=await Promise.all([
-          request("/client_builder/profiles?page=1&page_size=100"),
-          request("/client_builder/tasks?page=1&page_size=50"),
+          request("/client_builder/profiles?"+new URLSearchParams({page:state.clientProfilePageNo,page_size:state.pageSize})),
+          request("/client_builder/tasks?"+new URLSearchParams({page:state.clientTaskPageNo,page_size:state.pageSize})),
           request("/client_builder/versions").catch(()=>({list:[]}))
         ]);
-        state.clientProfiles=profiles.list||[];
-        state.clientTasks=tasks.list||[];
+        state.clientProfiles=profiles.list||[];state.clientProfilesTotal=profiles.total||0;
+        state.clientTasks=tasks.list||[];state.clientTasksTotal=tasks.total||0;
         state.clientVersions=Array.isArray(versions.list)?versions.list:[];
       }else if(k==="notifications"){
         const [config,history]=await Promise.all([
@@ -862,7 +864,7 @@
       return Math.max(104,Math.round(width*.76));
     });
     const priorities=allCols.map(([key],index)=>{
-      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name",
+      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","to_account","from_account","from_peer","to_device_name","from_device_name",
         "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
         "active","current","expired_at","login_ip"]);
@@ -932,9 +934,31 @@
       '</tr></thead><tbody>'+trs+'</tbody></table></div>'+hint+
       mobileSort+'<div class="mobile-list">'+mobile+'</div>';
   }
-  function pagination(){
-    const pagesCount=Math.max(1,Math.ceil(state.total/state.pageSize));
-    return '<div class="pager"><span>第 '+state.pageNo+' / '+pagesCount+' 页 · 共 '+state.total+' 项</span><div class="pager-buttons"><button data-action="prev" '+(state.pageNo===1?"disabled":"")+' aria-label="上一页">‹</button><button data-action="next" '+(state.pageNo>=pagesCount?"disabled":"")+' aria-label="下一页">›</button></div></div>';
+  function pagination(options={}) {
+    const scope=options.scope||"";
+    const current=options.current||state.pageNo;
+    const total=options.total===undefined?state.total:options.total;
+    const pagesCount=Math.max(1,Math.ceil(total/state.pageSize));
+    const selected=Math.min(current,pagesCount);
+    const numbers=new Set([1,pagesCount]);
+    for(let n=Math.max(1,selected-2);n<=Math.min(pagesCount,selected+2);n++)numbers.add(n);
+    let previous=0;
+    const navigation=[...numbers].sort((a,b)=>a-b).map(n=>{
+      const ellipsis=n-previous>1?'<span class="pager-ellipsis" aria-hidden="true">…</span>':"";
+      previous=n;
+      return ellipsis+'<button type="button" data-action="page-index" data-page="'+n+
+        '" data-scope="'+esc(scope)+'" aria-label="第 '+n+' 页"'+
+        (n===selected?' class="current" aria-current="page"':'')+'>'+n+'</button>';
+    }).join("");
+    const choices=[20,50,100].map(n=>'<option value="'+n+'"'+(state.pageSize===n?" selected":"")+'>'+n+' 项</option>').join("");
+    return '<div class="pager"><span>共 '+total+' 项 · 第 '+selected+' / '+pagesCount+' 页</span>'+
+      '<div class="pager-controls"><label class="pager-size-label">每页 <select class="pager-size" data-scope="'+esc(scope)+
+      '" aria-label="每页显示条数">'+choices+'</select></label>'+
+      '<nav class="pager-buttons" aria-label="分页导航">'+
+      '<button type="button" data-action="page-index" data-page="'+Math.max(1,selected-1)+'" data-scope="'+esc(scope)+'" aria-label="上一页" '+(selected===1?"disabled":"")+'>&lsaquo;</button>'+
+      navigation+'<button type="button" data-action="page-index" data-page="'+Math.min(pagesCount,selected+1)+
+      '" data-scope="'+esc(scope)+'" aria-label="下一页" '+(selected>=pagesCount?"disabled":"")+'>&rsaquo;</button>'+
+      '</nav></div></div>';
   }
   function genericList(){
     const p=pages[activeKey()];
@@ -2930,8 +2954,17 @@
       try{await request("/contact/delete","POST",{user_id:Number(el.dataset.id)});toast("已撤销共享");await load();}catch(e){toast(e.message,true);}return;
     }
     if(a==="contact-devices"){state.page="shared";state.sourceType="contact";state.sourceId=el.dataset.id;location.hash="#/shared";render();await load();return;}
-    if(a==="prev"&&state.pageNo>1){state.pageNo--;await load();return;}
-    if(a==="next"&&state.pageNo*state.pageSize<state.total){state.pageNo++;await load();return;}
+    if(a==="page-index") {
+      const next=Number(el.dataset.page),scope=el.dataset.scope;
+      const total=scope==="profiles"?state.clientProfilesTotal:scope==="tasks"?state.clientTasksTotal:state.total;
+      const current=scope==="profiles"?state.clientProfilePageNo:scope==="tasks"?state.clientTaskPageNo:state.pageNo;
+      const max=Math.max(1,Math.ceil(total/state.pageSize));
+      if(!Number.isSafeInteger(next)||next<1||next>max||next===current)return;
+      if(scope==="profiles")state.clientProfilePageNo=next;
+      else if(scope==="tasks")state.clientTaskPageNo=next;
+      else state.pageNo=next;
+      await load();return;
+    }
   });
   async function saveClientProfile(f){
     if(!f||!f.reportValidity())return;
@@ -3182,6 +3215,13 @@
         picker.querySelector(".picker-results").hidden=true;
         picker.querySelector(".picker-selection").textContent=kind==="all"?"适用于全部对象":"请搜索并选择"+(lookupLabels[kind]||"对象");
       });
+    }
+    if(el.classList.contains("pager-size")){
+      const size=Number(el.value);
+      if(![20,50,100].includes(size)||size===state.pageSize)return;
+      state.pageSize=size;localStorage.setItem("rustdesk.console.page-size",String(size));
+      state.pageNo=1;state.clientProfilePageNo=1;state.clientTaskPageNo=1;
+      await load();return;
     }
     if(el.id==="table-sort-column"){state.sort[state.page]={key:el.value,dir:1};state.pageNo=1;await load();return;}
     if(el.id==="mobile-sort-column"){
