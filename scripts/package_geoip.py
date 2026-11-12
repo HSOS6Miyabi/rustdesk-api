@@ -16,6 +16,7 @@ DB_FILENAME = "dbip-city-lite.mmdb"
 MIN_SIZE = 50 * 1024 * 1024
 MAX_SIZE = 300 * 1024 * 1024
 MMDB_MARKER = b"\xab\xcd\xefMaxMind.com"
+EXPECTED_SHA256 = "5f64491f77c2c78b56cd83a88db4ea6c4666874322da38805498bbb754ccc735"
 
 
 def verify_database(path: Path) -> tuple[int, str]:
@@ -30,7 +31,10 @@ def verify_database(path: Path) -> tuple[int, str]:
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
-    return size, digest.hexdigest()
+    checksum = digest.hexdigest()
+    if checksum != EXPECTED_SHA256:
+        raise ValueError("GeoIP database checksum does not match the approved monthly release")
+    return size, checksum
 
 
 def install_database(destination: Path) -> None:
