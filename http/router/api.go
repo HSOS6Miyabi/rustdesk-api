@@ -24,6 +24,7 @@ func ApiInit(g *gin.Engine) {
 
 	// Dedicated routes for scoped, administrator-owned automation tokens.
 	AutomationRoutes(g)
+    g.GET("/api/events/v1/stream", (&api.EventStream{}).Stream)
 
 	g.POST("/internal/v1/device/authorize", (&api.DeviceCommands{}).AuthorizeRegistration)
 	g.GET("/internal/v1/relay/nodes", (&api.InternalRelay{}).Nodes)
