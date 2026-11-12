@@ -51,8 +51,9 @@ func (h *Directory) Users(c *gin.Context) {
  user:=service.AllService.UserService.CurUser(c)
  if user==nil||user.Id==0 {response.Fail(c,403,"请先登录");return}
  like:=likeKeyword(keyword)
+ id,_:=strconv.ParseUint(keyword,10,64)
  query:=service.DB.Model(&model.User{}).Where("status = ?",model.COMMON_STATUS_ENABLE)
- query=query.Where("(LOWER(username) LIKE ? ESCAPE '!' OR LOWER(nickname) LIKE ? ESCAPE '!' OR LOWER(email) LIKE ? ESCAPE '!' OR CAST(id AS TEXT) = ?)",like,like,like,keyword)
+ query=query.Where("(LOWER(username) LIKE ? ESCAPE '!' OR LOWER(nickname) LIKE ? ESCAPE '!' OR LOWER(email) LIKE ? ESCAPE '!' OR id = ?)",like,like,like,id)
  var users []publicUser
  // The results expose public names only, including when the search matched an email.
  if err:=query.Select("id, username, nickname").Order("username ASC, id ASC").Limit(30).Scan(&users).Error;err!=nil{
