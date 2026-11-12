@@ -24,6 +24,24 @@ permissions:
   contents: write
 
 jobs:
+  geoip-database:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify the complete DB-IP City Lite database
+        run: |
+          python3 scripts/package_geoip.py
+          python3 scripts/package_geoip.py --verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundled-geoip-city-mmdb
+          path: resources/geoip/dbip-city-lite.mmdb
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
   test:
     runs-on: ubuntu-24.04
     services:
@@ -144,7 +162,7 @@ jobs:
           node --test resources/admin/passkey.integration.cjs
 
   build:
-    needs: [test, browser-e2e]
+    needs: [test, browser-e2e, geoip-database]
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -172,6 +190,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundled-geoip-city-mmdb
+          path: resources/geoip
+      - name: Verify bundled GeoIP database
+        run: python3 scripts/package_geoip.py --verify
       - name: Compute release version
         id: version
         shell: bash
@@ -274,6 +298,12 @@ jobs:
         with:
           name: webclient-js-bundle
           path: resources/web/js/dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundled-geoip-city-mmdb
+          path: resources/geoip
+      - name: Verify bundled GeoIP database
+        run: python3 scripts/package_geoip.py --verify
       - name: Prepare executable
         shell: bash
         run: |
