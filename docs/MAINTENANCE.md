@@ -101,3 +101,14 @@ bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 ## 2026 年 11 月 12 日：客户端安装文件生成
 
 [PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 为安装包构建器增加官方多版本选择与浏览器本地文件生成。浏览器选择本地 EXE、DEB、DMG 时，原始文件不会上传 API，也不计算 SHA-256。ZIP 使用 CRC-32。核查时运行 `service/client_release_test.go`、`resources/admin/client-local.test.cjs` 以及管理控制台 Chromium 测试。正式 API 版本 `v3.0.0-api.110` 继续使用数据库迁移版本 **290**。
+
+## 2026 年 11 月 12 日：v3.0.0-api.110 正式发行
+
+[发行工作流 #43157085657](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) 的九项任务全部通过，已发布 Linux AMD64、Linux ARM64、Windows AMD64 安装文件及 AMD64/ARM64 Docker 镜像。
+
+- [GitHub Release v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110)
+- Docker 镜像：`ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.110`
+- 多架构镜像摘要：`sha256:85ab5519c8e41b3969dc8231e9fc693626d50ea3f94bb1d10fafddf150cc9f42`
+- 数据库迁移版本：**290**
+
+本地文件方式由浏览器直接生成，文件不上传 API，也不计算 SHA-256。具体操作和适用平台见 [客户端安装文件制作说明](CLIENT_BUILDER.md)。

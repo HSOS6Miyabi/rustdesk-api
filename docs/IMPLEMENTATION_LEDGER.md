@@ -61,13 +61,13 @@
 | 默认分支 | `master` | `forapi` |
 | 正式版本标签 | [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)、[PR #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)、[PR #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)、[PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
-| 正式发行工作流 | [#43102145809：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43102145809) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
+| 正式发行工作流 | [#43157085657：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
 | 正式 Release | [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
 正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.110`。
 
-当前 API 数据库迁移版本：**290**。正式发行提交为 [`c082feb`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/c082feb1db9810f6bcb2cee63698b006fbb15b80)。[发行工作流 #43102145809](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43102145809) 的九项任务全部通过；Linux AMD64、Linux ARM64、Windows AMD64 安装文件以及 AMD64/ARM64 Docker 镜像均已发布。
+当前 API 数据库迁移版本：**290**。正式发行提交为 [`d2a82e9`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/d2a82e923dde17971e5b48a980ba73b718222780)。[发行工作流 #43157085657](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) 的九项任务全部通过；Linux AMD64、Linux ARM64、Windows AMD64 安装文件以及 AMD64/ARM64 Docker 镜像均已发布。
 
 CI 已实际通过的内容：
 
@@ -909,3 +909,16 @@ T002、T004、T009、T022 的相应自动化检查已完成。真实终端登录
 | 配套 Server | `v1.1.17-api.21` 未变更；现有组合 Docker 镜像仍包含较早的 API 版本 |
 
 T001–T022 的编号继续保留。实际 SMTP 服务商收发、两台真实设备的远程控制、跨地区公网中继与生产数据库恢复，仍须在具备相应环境时执行并记录。
+
+### v3.0.0-api.110 发行检查
+
+| 检查项目 | 结果 |
+| --- | --- |
+| GitHub Release | [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) 已发布，包含 Linux AMD64、Linux ARM64 和 Windows AMD64 可执行文件压缩包 |
+| 自动化发行 | [#43157085657](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) 九项任务全部通过 |
+| Docker | `ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.110` 及 `latest`，支持 `linux/amd64` 和 `linux/arm64` |
+| Docker 镜像摘要 | `sha256:85ab5519c8e41b3969dc8231e9fc693626d50ea3f94bb1d10fafddf150cc9f42` |
+| 数据库版本 | **290**，本次无新增数据库迁移表 |
+| 配套 Server | `v1.1.17-api.21` 保持不变 |
+
+浏览器本地文件生成和官方多版本构建功能的测试记录见 [PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16)。实际安装及不同旧版客户端的服务器配置仍须在目标操作系统检查。
