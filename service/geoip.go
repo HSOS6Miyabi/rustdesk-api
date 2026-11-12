@@ -2,6 +2,8 @@ package service
 
 import (
 	"net"
+    "os"
+    "path/filepath"
 	"strings"
 	"sync"
 
@@ -23,15 +25,26 @@ func GeoIPReady() bool {
 
 func initGeoIP() {
 	geoIPOnce.Do(func() {
-		path := strings.TrimSpace(config.RuntimeOption("runtime.geoip-db"))
-		if path == "" { return }
-		db, err := maxminddb.Open(path)
-		if err != nil {
-			geoIPLoadError = err
-			if Logger != nil { Logger.WithError(err).Warn("cannot read GeoIP city database") }
-			return
-		}
-		geoIPDB = db
+		configured := strings.TrimSpace(config.RuntimeOption("runtime.geoip-db"))
+        paths := []string{}
+        if configured != "" {
+            paths = append(paths, configured)
+        } else {
+            paths = append(paths, filepath.Join("resources", "geoip", "dbip-city-lite.mmdb"))
+            if executable, err := os.Executable(); err == nil {
+                paths = append(paths, filepath.Join(filepath.Dir(executable), "resources", "geoip", "dbip-city-lite.mmdb"))
+            }
+        }
+        for _, path := range paths {
+            db, err := maxminddb.Open(path)
+            if err == nil { geoIPDB = db; return }
+            if !os.IsNotExist(err) {
+                geoIPLoadError = err
+                if Logger != nil { Logger.WithError(err).Warn("cannot read GeoIP city database") }
+                return
+            }
+        }
+        if configured != "" { geoIPLoadError = os.ErrNotExist }
 	})
 }
 

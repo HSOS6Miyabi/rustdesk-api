@@ -13,7 +13,9 @@ func (h *DeviceSessions) List(c *gin.Context) {
 	if err!=nil{response.Fail(c,101,"无效的页码");return}
 	rows,total,err:=service.ListActiveDeviceSessions(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Fail(c,101,err.Error());return}
-	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
+	details,err:=service.EnrichActiveConnections(rows)
+    if err!=nil{response.Fail(c,101,err.Error());return}
+    response.Success(c,gin.H{"list":details,"total":total,"page":page,"page_size":size})
 }
 
 func (h *DeviceSessions) Disconnect(c *gin.Context) {

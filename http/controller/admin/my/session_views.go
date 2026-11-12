@@ -24,7 +24,9 @@ func (h *SessionViews) Active(c *gin.Context) {
     page,size:=sessionPage(c)
     rows,total,err:=service.ListOwnedActiveDeviceSessions(user.Id,page,size,c.Query("sort_by"),c.Query("sort_dir"))
     if err!=nil {response.Fail(c,101,err.Error());return}
-    response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
+    details,err:=service.EnrichActiveConnections(rows)
+    if err!=nil{response.Fail(c,101,err.Error());return}
+    response.Success(c,gin.H{"list":details,"total":total,"page":page,"page_size":size})
 }
 
 func (h *SessionViews) Disconnections(c *gin.Context) {

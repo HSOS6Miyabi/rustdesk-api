@@ -4,3 +4,5 @@ runtime/*
 !runtime/cache/.gitkeep
 release
 data/rustdeskapi.db
+# The complete GeoIP database is included in release packages and Docker builds.
+resources/geoip/*.mmdb

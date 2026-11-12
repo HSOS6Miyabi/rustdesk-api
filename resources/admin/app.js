@@ -130,11 +130,11 @@
     clientBuilder: {name:"客户端安装包构建",icon:"package",section:"系统管理",admin:true},
     notifications: {name:"邮件事件通知",icon:"bell",section:"系统管理",endpoint:"notification",admin:true,readonly:true,columns:[["id","编号"],["event_type","事件类型"],["recipient","收件邮箱"],["status","发送状态"],["attempts","尝试次数"],["sent_at","发送时间"],["last_error","最近一次错误"]]},
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔，例如 devices.read）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
-    activeSessions: {name:"活动远程连接",icon:"link",section:"设备管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
+    activeSessions: {name:"活动远程连接",icon:"link",section:"设备管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","被连接设备 ID"],["to_device_name","被连接设备名称"],["to_account","被连接设备所有者"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备名称"],["from_account","连接方设备所有者"],["from_name","连接方系统用户"],["ip","连接 IP"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"设备管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     sessions: {name:"全部登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,noCreate:true,columns:[["id","会话编号"],["username","登录账户"],["device_id","设备 ID"],["device_uuid","终端标识"],["login_ip","登录 IP"],["client","客户端"],["platform","系统"],["created_at","登录时间"],["expired_at","有效期截止"],["active","状态"],["current","当前会话"]]},
     mysessions: {name:"我的登录会话",icon:"lock",section:"个人管理",endpoint:"my/user_token",readonly:true,columns:[["id","会话编号"],["device_id","设备 ID"],["device_uuid","终端标识"],["login_ip","登录 IP"],["client","客户端"],["platform","系统"],["created_at","登录时间"],["expired_at","有效期截止"],["active","状态"],["current","当前会话"]]},
-    myactiveSessions: {name:"我的活动远程连接",icon:"link",section:"我的审计记录",endpoint:"my/session",readonly:true,columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最近活动时间"]]},
+    myactiveSessions: {name:"我的活动远程连接",icon:"link",section:"我的审计记录",endpoint:"my/session",readonly:true,columns:[["device_id","被连接设备 ID"],["to_device_name","被连接设备名称"],["to_account","被连接设备所有者"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备名称"],["from_account","连接方设备所有者"],["from_name","连接方系统用户"],["ip","连接 IP"],["conn_id","连接编号"],["last_seen_at","最近活动时间"]]},
     myDisconnectHistory: {name:"我的结束连接记录",icon:"clock",section:"我的审计记录",endpoint:"my/session/disconnect",readonly:true,columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
     push: {name:"消息推送",icon:"bell",section:"账户"},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
@@ -426,10 +426,12 @@
   }
   const state={
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
-    page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
+    page:"overview",bookTab:"entries",pageNo:1,
+    pageSize:[20,50,100].includes(Number(localStorage.getItem("rustdesk.console.page-size")))?
+      Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",settingsTab:"general",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -543,7 +545,7 @@
     const items=Object.entries(pages).filter(([key])=>key!=="collections"&&available(key));
     let nav="";
     for(const section of sections){
-      const links=items.filter(([,p])=>p.section===section);
+      const links=items.filter(([,p])=>p.section===section).sort(([a],[b])=>section==="系统管理"?(a==="settings"?-1:b==="settings"?1:0):0);
       if(section==="客户端")links.push(["webclient",{name:"WebClient v2",icon:"monitor"}]);
       if(!links.length)continue;
       const collapsed=!!state.navCollapsed[section];
@@ -556,7 +558,7 @@
       }
       nav+="</div>";
     }
-    return '<div class="workspace"><div class="sidebar-backdrop '+(state.mobile?"show":"")+'" data-action="mobile-close"></div><aside class="sidebar '+(state.mobile?"open":"")+'"><div class="side-head">'+brand()+'</div><nav class="side-scroll" aria-label="导航">'+nav+'</nav><div class="side-bottom"><div class="side-avatar"><span class="avatar">'+esc(username[0]||"R").toUpperCase()+'</span><div class="side-account"><strong>'+esc(username)+'</strong><small>'+(state.isAdmin?"系统管理员":"普通用户")+'</small></div></div></div></aside><div class="main"><header class="topbar"><div class="breadcrumbs"><button class="icon-btn mobile-only" data-action="mobile-open" aria-label="打开导航">'+icon("menu")+'</button><span>'+esc(pages[state.page].section)+'</span><span>/</span><span class="crumb-current">'+esc(pages[state.page].name)+'</span></div><div class="top-actions"><button class="icon-btn" data-action="refresh" title="刷新">'+icon("refresh")+'</button><button class="icon-btn" data-action="theme" title="切换主题">'+icon(state.theme==="dark"?"sun":"moon")+'</button><button class="top-user" data-view="profile"><span class="mini-avatar">'+esc(username[0]||"R").toUpperCase()+'</span>'+esc(username)+'</button><button class="icon-btn" data-action="logout" title="退出登录">'+icon("logout")+'</button></div></header><main class="content">'+renderPage()+'</main></div></div>'+renderModal();
+    return '<div class="workspace"><div class="sidebar-backdrop '+(state.mobile?"show":"")+'" data-action="mobile-close"></div><aside class="sidebar '+(state.mobile?"open":"")+'"><div class="side-head">'+brand()+'</div><nav class="side-scroll" aria-label="导航">'+nav+'</nav><div class="side-bottom"><div class="side-avatar"><span class="avatar">'+esc(username[0]||"R").toUpperCase()+'</span><div class="side-account"><strong>'+esc(username)+'</strong><small>'+(state.isAdmin?"系统管理员":"普通用户")+'</small></div></div></div></aside><div class="main"><header class="topbar"><div class="breadcrumbs"><button class="icon-btn mobile-only" data-action="mobile-open" aria-label="打开导航">'+icon("menu")+'</button><span>'+esc(pages[state.page].section)+'</span><span>/</span><span class="crumb-current">'+esc(pages[state.page].name)+'</span></div><div class="top-actions"><button class="icon-btn" data-action="refresh" title="刷新">'+icon("refresh")+'</button><button class="icon-btn" data-action="theme" title="切换主题">'+icon(state.theme==="dark"?"sun":"moon")+'</button><button class="top-user" data-view="profile"><span class="mini-avatar">'+esc(username[0]||"R").toUpperCase()+'</span>'+esc(username)+'</button><button class="icon-btn" data-action="logout" title="退出登录">'+icon("logout")+'</button></div></header><main class="content">'+renderPage()+'<footer class="data-attribution">IP 地理位置数据：<a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">DB-IP</a></footer></main></div></div>'+renderModal();
   }
   function render(){
     if(!state.token||!state.user){login();return;}
@@ -709,12 +711,12 @@
       }else if(k==="push"){
         const [destinations,catalog,history]=await Promise.all([
           request("/push/channels"), request("/push/events"),
-          request("/push/history?page=1&page_size=20")
+          request("/push/history?"+new URLSearchParams({page:state.pageNo,page_size:state.pageSize}).toString())
         ]);
         state.pushChannels=destinations.list||[];
         state.pushEvents=catalog||[];
         state.pushHistory=history.list||[];
-        state.pushTotal=history.total||0;
+        state.pushTotal=history.total||0;state.total=state.pushTotal;
       }else if(k==="profile"){
         const results=await Promise.all([request("/mfa/status"),request("/mfa/email/status")]);
         state.mfa=results[0];
@@ -727,12 +729,12 @@
         state.mail=await request("/mail/settings");
       }else if(k==="clientBuilder"){
         const [profiles,tasks,versions]=await Promise.all([
-          request("/client_builder/profiles?page=1&page_size=100"),
-          request("/client_builder/tasks?page=1&page_size=50"),
+          request("/client_builder/profiles?"+new URLSearchParams({page:state.clientProfilePageNo,page_size:state.pageSize})),
+          request("/client_builder/tasks?"+new URLSearchParams({page:state.clientTaskPageNo,page_size:state.pageSize})),
           request("/client_builder/versions").catch(()=>({list:[]}))
         ]);
-        state.clientProfiles=profiles.list||[];
-        state.clientTasks=tasks.list||[];
+        state.clientProfiles=profiles.list||[];state.clientProfilesTotal=profiles.total||0;
+        state.clientTasks=tasks.list||[];state.clientTasksTotal=tasks.total||0;
         state.clientVersions=Array.isArray(versions.list)?versions.list:[];
       }else if(k==="notifications"){
         const [config,history]=await Promise.all([
@@ -809,12 +811,7 @@
     if(state.page==="devices"&&(state.isAdmin||hasPrivilege("devices.transfer"))){
       out+='<button class="btn btn-sm" data-action="transfer-device" data-id="'+id+'">转移设备</button>';
     }
-    if(state.page==="users"&&hasPrivilege("users.edit_password")){
-      out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
-    }
-    if(state.page==="users"&&hasPrivilege("users.manage_2fa")){
-      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">清除双重认证</button>';
-    }
+
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
     if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
@@ -862,7 +859,7 @@
       return Math.max(104,Math.round(width*.76));
     });
     const priorities=allCols.map(([key],index)=>{
-      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name",
+      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","to_account","from_account","from_peer","to_device_name","from_device_name",
         "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
         "active","current","expired_at","login_ip"]);
@@ -932,9 +929,31 @@
       '</tr></thead><tbody>'+trs+'</tbody></table></div>'+hint+
       mobileSort+'<div class="mobile-list">'+mobile+'</div>';
   }
-  function pagination(){
-    const pagesCount=Math.max(1,Math.ceil(state.total/state.pageSize));
-    return '<div class="pager"><span>第 '+state.pageNo+' / '+pagesCount+' 页 · 共 '+state.total+' 项</span><div class="pager-buttons"><button data-action="prev" '+(state.pageNo===1?"disabled":"")+' aria-label="上一页">‹</button><button data-action="next" '+(state.pageNo>=pagesCount?"disabled":"")+' aria-label="下一页">›</button></div></div>';
+  function pagination(options={}) {
+    const scope=options.scope||"";
+    const current=options.current||state.pageNo;
+    const total=options.total===undefined?state.total:options.total;
+    const pagesCount=Math.max(1,Math.ceil(total/state.pageSize));
+    const selected=Math.min(current,pagesCount);
+    const numbers=new Set([1,pagesCount]);
+    for(let n=Math.max(1,selected-2);n<=Math.min(pagesCount,selected+2);n++)numbers.add(n);
+    let previous=0;
+    const navigation=[...numbers].sort((a,b)=>a-b).map(n=>{
+      const ellipsis=n-previous>1?'<span class="pager-ellipsis" aria-hidden="true">…</span>':"";
+      previous=n;
+      return ellipsis+'<button type="button" data-action="page-index" data-page="'+n+
+        '" data-scope="'+esc(scope)+'" aria-label="第 '+n+' 页"'+
+        (n===selected?' class="current" aria-current="page"':'')+'>'+n+'</button>';
+    }).join("");
+    const choices=[20,50,100].map(n=>'<option value="'+n+'"'+(state.pageSize===n?" selected":"")+'>'+n+' 项</option>').join("");
+    return '<div class="pager"><span>共 '+total+' 项 · 第 '+selected+' / '+pagesCount+' 页</span>'+
+      '<div class="pager-controls"><label class="pager-size-label">每页 <select class="pager-size" data-scope="'+esc(scope)+
+      '" aria-label="每页显示条数">'+choices+'</select></label>'+
+      '<nav class="pager-buttons" aria-label="分页导航">'+
+      '<button type="button" data-action="page-index" data-page="'+Math.max(1,selected-1)+'" data-scope="'+esc(scope)+'" aria-label="上一页" '+(selected===1?"disabled":"")+'>&lsaquo;</button>'+
+      navigation+'<button type="button" data-action="page-index" data-page="'+Math.min(pagesCount,selected+1)+
+      '" data-scope="'+esc(scope)+'" aria-label="下一页" '+(selected>=pagesCount?"disabled":"")+'>&rsaquo;</button>'+
+      '</nav></div></div>';
   }
   function genericList(){
     const p=pages[activeKey()];
@@ -1030,6 +1049,39 @@
     ["relay-single-set","中继服务器","设置单连接带宽","填写单条连接的带宽上限，单位 Mb/s。","21117","single-bandwidth","number"],
     ["relay-usage","中继服务器","查看中继使用情况","查看中继服务器统计的当前使用情况。","21117","usage","none"]
   ].map(([id,section,title,description,target,cmd,mode])=>({id,section,title,description,target,cmd,mode}));
+
+  const serverCombinedFeatures={
+    "id-relay-read":{title:"中继服务器列表设置",write:"id-relay-write"},
+    "id-must-login-read":{title:"客户端登录要求设置",enable:"id-must-login-on",disable:"id-must-login-off"},
+    "id-relay-state":{title:"强制中继设置",enable:"id-relay-on",disable:"id-relay-off"},
+    "relay-threshold-read":{title:"降级阈值设置",write:"relay-threshold-set"},
+    "relay-check-read":{title:"降级检查间隔设置",write:"relay-check-set"},
+    "relay-speed-read":{title:"中继速度限制设置",write:"relay-speed-set"},
+    "relay-total-read":{title:"中继总带宽设置",write:"relay-total-set"},
+    "relay-single-read":{title:"单连接带宽设置",write:"relay-single-set"},
+    "id-block-read":{title:"IP 封禁记录",actions:["id-block-add","id-block-remove"]},
+    "id-changes-read":{title:"设备 IP 变化记录",actions:["id-changes-item","id-changes-remove"]},
+    "relay-blacklist-read":{title:"中继限速名单管理",actions:["relay-blacklist-check","relay-blacklist-add","relay-blacklist-remove"]},
+    "relay-blocklist-read":{title:"中继阻止名单管理",actions:["relay-blocklist-check","relay-blocklist-add","relay-blocklist-remove"]}
+  };
+  const serverHiddenCommands=new Set(Object.values(serverCombinedFeatures).flatMap(feature=>
+    [feature.write,feature.enable,feature.disable,...(feature.actions||[])].filter(Boolean)));
+  function serverCommandByID(id){return serverCommandCatalog.find(cmd=>cmd.id===id);}
+  function serverSelectedCommand(){
+    const section=state.serverTab==="relay"?"中继服务器":"ID 服务器";
+    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section&&!serverHiddenCommands.has(cmd.id));
+    return commands.find(cmd=>cmd.id===state.commandSelected)||commands[0];
+  }
+  async function querySelectedServerCommand(cmd){
+    if(!cmd||cmd.mode!=="none"||cmd.cmd==="reload-geo")return;
+    state.serverBusy=true;state.serverError="";render();
+    try{
+      const response=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:cmd.cmd,option:""});
+      if(!response||typeof response!=="object"||!response.kind)throw Error("服务器返回的数据格式无效");
+      if(cmd.id===state.commandSelected)state.serverResults[cmd.id]=response;
+    }catch(error){if(cmd.id===state.commandSelected)state.serverError=error.message;}
+    finally{state.serverBusy=false;render();}
+  }
   function commandInputs(command){
     const mode=command.mode;
     if(mode==="none"||mode.startsWith("fixed-"))return '<p class="server-command-help">此操作无需填写参数。</p>';
@@ -1059,6 +1111,7 @@
     if(result.kind==="value")return summary+'<div class="server-value">'+esc(result.value||"—")+'</div>';
     if(["list","table","usage"].includes(result.kind)){
       const rows=Array.isArray(result.rows)?result.rows:[];
+      const visibleRows=rows.slice((state.serverResultPage-1)*state.pageSize,state.serverResultPage*state.pageSize);
       if(!rows.length)return summary+'<p class="server-result-empty">没有符合条件的记录。</p>';
       const candidates=result.kind==="usage"?[["address","连接 IP"],["seconds","连接时长（秒）"],["megabytes","流量（MB）"],
         ["peak_kbps","最高速率（kb/s）"],["average_kbps","平均速率（kb/s）"],["current_kbps","当前速率（kb/s）"],["detail","其他信息"]]:
@@ -1067,8 +1120,8 @@
       const columns=candidates.filter(([key])=>rows.some(item=>item[key]!==undefined&&item[key]!==""));
       return summary+'<div class="server-result-table-scroll"><table class="server-result-table"><thead><tr>'+
         columns.map(([,label])=>'<th>'+esc(label)+'</th>').join("")+'</tr></thead><tbody>'+
-        rows.map(row=>'<tr>'+columns.map(([key])=>'<td>'+esc(row[key]||"—")+'</td>').join("")+'</tr>').join("")+
-        '</tbody></table></div>';
+        visibleRows.map(row=>'<tr>'+columns.map(([key])=>'<td>'+esc(row[key]||"—")+'</td>').join("")+'</tr>').join("")+
+        '</tbody></table></div>'+(rows.length>state.pageSize?pagination({scope:"server",current:state.serverResultPage,total:rows.length}):"");
     }
     return summary;
   }
@@ -1091,31 +1144,57 @@
         icon("shield",24)+'<strong>中继服务器管理</strong><span>IP 列表、带宽限制和连接使用统计</span>'+icon("arrow",17)+'</button></div>';
     }
     const section=tab==="id"?"ID 服务器":"中继服务器";
-    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section);
+    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section&&!serverHiddenCommands.has(cmd.id));
     const selected=commands.find(cmd=>cmd.id===state.commandSelected)||commands[0];
     const groups=[...new Set(commands.map(serverCommandCategory))].map(category=>
       '<section class="server-command-group"><h3>'+esc(category)+'</h3><div class="server-command-list">'+
       commands.filter(cmd=>serverCommandCategory(cmd)===category).map(cmd=>
         '<button type="button" class="server-command-item '+(cmd.id===selected.id?"selected":"")+
         '" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'">'+
-        '<strong>'+esc(cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+
+        '<strong>'+esc(serverCombinedFeatures[cmd.id]?.title||cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+
       '</div></section>').join("");
     const result=state.serverResults[selected.id]||null;
+    const combined=serverCombinedFeatures[selected.id];
+    let editor="";
+    if(combined?.enable&&combined?.disable){
+      const selectedValue=result?.kind==="boolean"?(result.active?"yes":"no"):"";
+      editor='<div class="field"><label for="server-policy-value">'+esc(combined.title)+'</label>'+
+        '<select id="server-policy-value" name="policy" aria-label="'+esc(combined.title)+'">'+
+        '<option value=""'+(selectedValue===""?" selected":"")+' disabled>请选择设置</option>'+
+        '<option value="yes"'+(selectedValue==="yes"?" selected":"")+'>启用</option>'+
+        '<option value="no"'+(selectedValue==="no"?" selected":"")+'>关闭</option></select>'+
+        '</div><div class="server-submit-row"><button type="button" class="btn btn-primary" data-action="server-policy-save"'+
+        (state.serverBusy?" disabled":"")+'>保存设置</button></div>';
+    }else if(combined?.write){
+      const action=serverCommandByID(combined.write);
+      editor=commandInputs(action)+'<div class="server-submit-row"><button type="button" class="btn btn-primary" data-action="server-modify" data-id="'+esc(action.id)+'">保存设置</button></div>';
+    }else if(combined?.actions){
+      const all=combined.actions.map(serverCommandByID);
+      const first=all[0];
+      editor=commandInputs(first)+'<div class="server-submit-row">'+
+        all.map(cmd=>'<button type="button" class="btn '+(cmd.mode.endsWith("-remove")?"btn-danger":"")+
+        '" data-action="server-modify" data-id="'+esc(cmd.id)+'">'+esc(cmd.title)+'</button>').join("")+'</div>';
+    }else if(selected.mode==="none"){
+      editor=selected.cmd==="reload-geo"?
+        '<div class="server-submit-row"><button type="submit" class="btn btn-primary">更新数据库</button></div>':
+        '<p class="server-command-help">已自动查询当前状态。选择此项或点击刷新即可重新读取。</p>'+
+        '<button type="button" class="btn" data-action="server-query">重新查询</button>';
+    }else{
+      editor=commandInputs(selected)+'<div class="server-submit-row"><button type="submit" class="btn btn-primary">查询</button></div>';
+    }
     return heading+nav+'<div class="server-management-layout">'+
       '<aside class="panel server-command-menu"><div class="panel-header"><div><h2 class="panel-title">管理功能</h2>'+
       '<p class="panel-sub">'+esc(section)+' · 选择需要查看或修改的项目</p></div></div>'+
       '<div class="server-command-menu-body">'+groups+'</div></aside>'+
       '<div class="server-management-workspace"><section class="panel server-editor" id="server-command-panel">'+
-      '<div class="panel-header"><div><h2 class="panel-title">'+esc(selected.title)+'</h2>'+
+      '<div class="panel-header"><div><h2 class="panel-title">'+esc(combined?.title||selected.title)+'</h2>'+
       '<p class="panel-sub">'+esc(selected.description)+'</p></div></div>'+
-      '<form id="command-form" class="server-editor-body">'+commandInputs(selected)+
-      '<div class="server-submit-row"><button class="btn btn-primary" type="submit">'+
-      (selected.mode==="none"||selected.mode==="identifier"||selected.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(selected.cmd)?"查询":"执行操作")+
-      '</button></div></form></section>'+
-      '<section class="panel server-result-panel"><div class="panel-header"><div><h2 class="panel-title">查询与操作结果</h2>'+
-      '<p class="panel-sub">'+esc(selected.title)+'</p></div></div>'+
+      '<form id="command-form" class="server-editor-body">'+editor+'</form></section>'+
+      '<section class="panel server-result-panel"><div class="panel-header"><div><h2 class="panel-title">当前状态与查询结果</h2>'+
+      '<p class="panel-sub">'+esc(combined?.title||selected.title)+'</p></div></div>'+
       '<div class="server-result" id="server-result" role="status">'+
-      (state.serverError?'<div class="warning">'+esc(state.serverError)+'</div>':renderServerResult(result,selected))+
+      (state.serverBusy?'<div class="loading-table"><span class="spinner"></span>正在读取服务器状态…</div>':
+        state.serverError?'<div class="warning">'+esc(state.serverError)+'</div>':renderServerResult(result,selected))+
       '</div></section></div></div>';
   }
   const cleanupKinds=[
@@ -1260,9 +1339,9 @@
       '<small>在上方填写服务器地址、公钥和目标平台。使用本地文件时无须选择官方版本或保存配置，原始安装文件内容保持不变。</small></div>'+
       '<div class="head-actions"><button type="button" class="btn btn-primary" data-action="client-build-local">在浏览器生成并下载</button></div></div></section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">已保存的配置</h2></div>'+
-      '<div class="tips">'+profileList+'</div></section>'+
+      '<div class="tips">'+profileList+'</div>'+pagination({scope:"profiles",current:state.clientProfilePageNo,total:state.clientProfilesTotal})+'</section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">历史构建任务及安装包</h2></div>'+
-      '<div class="tips">'+history+'</div></section>'+
+      '<div class="tips">'+history+'</div>'+pagination({scope:"tasks",current:state.clientTaskPageNo,total:state.clientTasksTotal})+'</section>'+
       '<p class="subtitle" style="margin-top:12px">安装文件来自 RustDesk 官方发行版。对官方公布 SHA-256 的版本核对摘要；未公布摘要的旧版本会在下载时计算并保存 SHA-256。Linux 和 macOS 压缩包内包含原始安装文件与配置脚本，请在目标系统检查安装和连接。</p>';
   }
   function notificationsPage(){
@@ -1397,8 +1476,8 @@
       '<button class="btn btn-sm" data-action="refresh">刷新</button></div><div class="tips">'+channels+'</div></section>'+
       '<div style="margin-top:16px">'+config+'</div>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">发送记录</h2>'+
-      '<p class="panel-sub">最近 20 条，共 '+esc(state.pushTotal)+' 条。发送失败时可重试。</p></div></div>'+
-      '<div class="tips">'+history+'</div></section>';
+      '<p class="panel-sub">共 '+esc(state.pushTotal)+' 条发送记录。失败后可以重试。</p></div></div>'+
+      '<div class="tips">'+history+'</div>'+pagination()+'</section>';
   }
 
   function profile(){
@@ -1467,11 +1546,24 @@
 
   function settingsPage(){
     const current=state.settings||{items:[]},items=current.items||[];
+    const groups=[
+      {key:"general",label:"常规与账户",categories:["常规与登录","账户与安全","令牌","LDAP"]},
+      {key:"server",label:"服务器与网络",categories:["RustDesk 服务","HTTP 服务","网络代理"]},
+      {key:"storage",label:"数据库与存储",categories:["数据库","缓存","对象存储"]},
+      {key:"runtime",label:"附加服务与日志",categories:["附加服务","日志","其他"]},
+      {key:"overview",label:"服务概况",categories:[]},
+      {key:"all",label:"全部配置",categories:[]}
+    ];
+    const selected=groups.find(group=>group.key===state.settingsTab)||groups[0];
     const filtered=items.filter(item=>
-      (state.settingsCategory==="all"||item.category===state.settingsCategory)&&
+      (selected.key==="all"||selected.categories.includes(item.category))&&
       (!state.settingsSearch||[item.key,item.name,item.description,item.environment]
         .join(" ").toLowerCase().includes(state.settingsSearch.toLowerCase())));
-    const categories=[...new Set(items.map(item=>item.category))].sort();
+    const categories=[...new Set(filtered.map(item=>item.category))].sort();
+    const tabs='<div class="settings-tabs" role="tablist" aria-label="设置分类">'+
+      groups.map(group=>'<button type="button" class="settings-tab '+(group.key===selected.key?"active":"")+
+        '" role="tab" aria-selected="'+(group.key===selected.key)+'" data-action="settings-tab" data-tab="'+group.key+'">'+
+        esc(group.label)+'</button>').join("")+'</div>';
     const actions=[
       ["mail","SMTP 邮件服务"],["notifications","邮件通知"],["retention","日志保留期限"],
       ["policies","设备策略"],["controlRoles","控制角色"],["relayNodes","中继节点"],
@@ -1541,7 +1633,10 @@
           '</div>':'<p class="settings-item-meta">此项尚未在当前程序中使用。</p>')+
         '</div></article>';
     };
-    const show=filtered.map(itemView).join("")||'<div class="empty">没有匹配的设置项。</div>';
+    const show=categories.map(category=>'<section class="settings-category-section"><h2 class="settings-category-title">'+esc(category)+
+      ' <span>'+filtered.filter(item=>item.category===category).length+' 项</span></h2>'+
+      '<div class="settings-grid">'+filtered.filter(item=>item.category===category).map(itemView).join("")+'</div></section>').join("")||
+      '<div class="empty">没有匹配的设置项。</div>';
     const history=(state.settingsHistory||[]).map(row=>
       '<div class="status-row"><span><strong>'+esc(row.setting_key)+'</strong>'+
       '<span class="cell-sub">'+(row.enabled?"启用网页覆盖":"关闭网页覆盖")+
@@ -1554,8 +1649,14 @@
       esc(row.LastError||row.last_error||"")+'</span></span>'+
       '<button class="btn btn-sm" data-action="settings-outbox-retry" data-id="'+esc(row.Id||row.id)+
       '" data-category="'+esc(state.settingsFailedCategory)+'">重试</button></div>').join("");
-    return pageHeading("设置中心","查看每项设置的实际运行值、来源及用途，保存后按提示重新启动 API。")+
-      '<section class="panel settings-section"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
+    const catalog='<section class="panel settings-section settings-filter"><div class="settings-section-body settings-filter-body">'+
+      '<div class="field"><label for="settings-search">搜索当前分类中的设置</label>'+
+      '<input id="settings-search" value="'+esc(state.settingsSearch)+
+      '" placeholder="输入名称、用途、配置名称或环境变量"></div>'+
+      '<p class="settings-section-intro">本分类显示 '+filtered.length+' 项，共 '+items.length+
+      ' 项配置。保存网页设置后，请按提示重新启动 API。</p>'+
+      '</div></section>'+show;
+    const overview='<section class="panel settings-section"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
       '<div class="settings-section-body">'+
       '<p class="settings-section-intro">邮件、策略和用户推送等设置继续使用各自的管理页面。</p>'+
       '<nav class="settings-feature-links" aria-label="专项功能">'+links+'</nav>'+
@@ -1573,20 +1674,11 @@
       '<button type="button" class="btn btn-sm '+(state.settingsFailedCategory==="notification"?"btn-primary":"")+
       '" data-action="settings-outbox-category" data-category="notification">管理员邮件的失败事件</button></div>'+
       (failure?'<div class="settings-failed-list">'+failure+'</div>':'<p class="settings-section-intro">此类别暂无处理失败的事件。</p>')+
-      '</div></section>'+
-      '<section class="panel settings-section"><div class="settings-section-body settings-filter-body">'+
-      '<div class="form-grid">'+
-      '<div class="field"><label for="settings-search">搜索设置</label><input id="settings-search" value="'+esc(state.settingsSearch)+
-      '" placeholder="搜索名称、用途、配置名称或环境变量"></div>'+
-      '<div class="field"><label for="settings-category">设置类别</label><select id="settings-category">'+
-      '<option value="all">全部类别</option>'+categories.map(name=>'<option value="'+esc(name)+'" '+
-      (name===state.settingsCategory?"selected":"")+'>'+esc(name)+'</option>').join("")+
-      '</select></div></div>'+
-      '<p class="settings-section-intro">共 '+items.length+' 项配置，当前显示 '+filtered.length+' 项。覆盖设置的值会保存在持久化目录或数据库中。</p>'+
-      '</div></section>'+
-      '<div class="settings-grid">'+show+'</div>'+
-      (history?'<section class="panel settings-section settings-history"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div><div class="settings-section-body">'+history+'</div></section>':"");
-
+      '</div></section>'
+    return pageHeading("设置中心","按类别管理各项配置，查看当前运行值、来源与修改记录。")+tabs+
+      (selected.key==="overview"?overview+
+        (history?'<section class="panel settings-section settings-history"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div><div class="settings-section-body">'+history+'</div></section>':""):
+      catalog);
   }
   function renderPage(){
     if(state.page==="overview")return overview();
@@ -1813,10 +1905,8 @@
     const buttons=editable?'<button type="button" class="btn" data-action="entity-open-list">'+
       esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
     const adminUser=!device&&Number(info.id)>0&&available("users");
-    const userActions=adminUser?
-      (canPageAction("users","edit")?'<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户资料</button>':"")+
-      (hasPrivilege("users.edit_password")?'<button type="button" class="btn" data-action="reset-password" data-id="'+esc(info.id)+'">重设密码</button>':"")+
-      (hasPrivilege("users.manage_2fa")?'<button type="button" class="btn btn-danger" data-action="reset-user-mfa" data-id="'+esc(info.id)+'">清除双重认证</button>':""):"";
+    const userActions=adminUser&&canPageAction("users","edit")?
+      '<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户信息</button>':"";
     return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
       '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
@@ -1887,7 +1977,11 @@
         state.page==="accessRules"?
         '<button class="btn btn-primary" type="button" data-action="submit-access-rule">保存连接规则</button>':
         '<button class="btn btn-primary" type="submit" form="edit-form">保存</button>';
-      return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,
+      const userManagement=state.page==="users"&&m.action==="edit"?
+        '<div class="user-edit-security"><span>账户安全操作</span>'+
+        (hasPrivilege("users.edit_password")?'<button type="button" class="btn" data-action="reset-password" data-id="'+esc(m.data.id)+'">重设密码</button>':"")+
+        (hasPrivilege("users.manage_2fa")?'<button type="button" class="btn btn-danger" data-action="reset-user-mfa" data-id="'+esc(m.data.id)+'">清除双重认证</button>':"")+'</div>':"";
+      return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body+userManagement,
         '<button class="btn" data-action="close-modal">取消</button>'+saveButton);
     }
     if(m.kind==="csv"){
@@ -2190,8 +2284,8 @@
     if(/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip))return ip.split(".").every(part=>Number(part)<=255);
     return /^[0-9a-fA-F:]+$/.test(ip)&&ip.includes(":")&&ip.length<=45&&!ip.includes(":::")&&ip.split(":").filter(Boolean).every(part=>part.length<=4);
   }
-  async function sendCommand(form){
-    const cmd=serverCommandCatalog.find(item=>item.id===state.commandSelected);
+  async function sendCommand(form,commandID=state.commandSelected,resultKey=state.commandSelected){
+    const cmd=serverCommandByID(commandID);
     if(!cmd)return;
     let option="",value=String(form.elements.option?.value||form.elements.device_id?.value||"").trim();
     if(cmd.mode.startsWith("fixed-"))option=cmd.mode.slice(6);
@@ -2216,7 +2310,7 @@
       }
       option=entries.join(",");
     }
-    if(cmd.mode!=="none"&&!option){toast("请填写该操作要求的参数",true);return;}
+    if(cmd.mode!=="none"&&!cmd.mode.startsWith("fixed-")&&!option){toast("请填写该操作要求的参数",true);return;}
     const isRead=cmd.mode==="none"&&cmd.cmd!=="reload-geo"||cmd.mode==="identifier"||
       cmd.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(cmd.cmd);
     if(!isRead&&!window.confirm("确认执行“"+cmd.title+"”吗？"))return;
@@ -2237,7 +2331,7 @@
           displayed=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:refresh,option:""});
         }catch{displayed=response;}
       }
-      state.serverResults[cmd.id]=displayed;
+      state.serverResults[resultKey]=displayed;
       state.serverError="";
       render();
       toast(isRead?"查询完成":"操作请求已发送至服务器");
@@ -2270,6 +2364,10 @@
     else toast("浏览器阻止了打开新标签页，请在浏览器中允许该操作。",true);
   }
   document.addEventListener("click",async event=>{
+    if(event.target.id==="modal-overlay"){
+      state.modal=state.modal?.previous||null;render();return;
+    }
+    if(event.target.classList?.contains("picker-overlay")){closePickerDialog();return;}
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
@@ -2306,14 +2404,35 @@
       if(!["overview","id","relay"].includes(tab))return;
       state.serverTab=tab;
       state.commandSelected=tab==="relay"?"relay-usage":"id-relay-read";
-      state.serverError="";render();
+      state.serverError="";state.serverBusy=false;render();
+      if(tab!=="overview")await querySelectedServerCommand(serverSelectedCommand());
       return;
     }
     if(a==="server-select"){
       const command=serverCommandCatalog.find(item=>item.id===el.dataset.id);
       if(!command)return;
-      state.commandSelected=command.id;state.serverError="";
+      state.commandSelected=command.id;state.serverResultPage=1;state.serverError="";
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
+      await querySelectedServerCommand(command);
+      return;
+    }
+    if(a==="settings-tab"){
+      const key=el.dataset.tab;
+      if(!["general","server","storage","runtime","overview","all"].includes(key))return;
+      state.settingsTab=key;state.settingsSearch="";render();return;
+    }
+    if(a==="server-query"){await querySelectedServerCommand(serverSelectedCommand());return;}
+    if(a==="server-modify"){
+      const form=document.getElementById("command-form");
+      if(form&&form.reportValidity())await sendCommand(form,el.dataset.id,state.commandSelected);
+      return;
+    }
+    if(a==="server-policy-save"){
+      const selected=document.getElementById("server-policy-value")?.value;
+      const feature=serverCombinedFeatures[state.commandSelected];
+      if(!feature||!["yes","no"].includes(selected)){toast("请选择启用或关闭",true);return;}
+      const form=document.getElementById("command-form");
+      if(form)await sendCommand(form,selected==="yes"?feature.enable:feature.disable,state.commandSelected);
       return;
     }
     if(a==="picker-open"){await openPickerDialog(el.closest(".entity-picker"));return;}
@@ -2510,7 +2629,7 @@
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){
-      if(state.modal?.kind==="entity"&&state.modal.previous){state.modal=state.modal.previous;render();return;}
+      if(state.modal?.previous){state.modal=state.modal.previous;render();return;}
       if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
     }
@@ -2904,7 +3023,7 @@
     }
     if(a==="reset-password"){
       const user=state.rows.find(r=>String(r.id)===String(el.dataset.id))||(state.modal?.kind==="entity"&&state.modal.entityType==="user"&&String(state.modal.info?.id)===String(el.dataset.id)?state.modal.info:null);
-      if(user){state.modal={kind:"reset-password",user};render();}
+      if(user){state.modal={kind:"reset-password",user,previous:state.modal};render();}
       return;
     }
     if(a==="members"||a==="anchors"){await groupMembers(el.dataset.id,a==="anchors");return;}
@@ -2930,8 +3049,18 @@
       try{await request("/contact/delete","POST",{user_id:Number(el.dataset.id)});toast("已撤销共享");await load();}catch(e){toast(e.message,true);}return;
     }
     if(a==="contact-devices"){state.page="shared";state.sourceType="contact";state.sourceId=el.dataset.id;location.hash="#/shared";render();await load();return;}
-    if(a==="prev"&&state.pageNo>1){state.pageNo--;await load();return;}
-    if(a==="next"&&state.pageNo*state.pageSize<state.total){state.pageNo++;await load();return;}
+    if(a==="page-index") {
+      const next=Number(el.dataset.page),scope=el.dataset.scope;
+      const total=scope==="profiles"?state.clientProfilesTotal:scope==="tasks"?state.clientTasksTotal:scope==="server"?(state.serverResults[state.commandSelected]?.rows?.length||0):state.total;
+      const current=scope==="profiles"?state.clientProfilePageNo:scope==="tasks"?state.clientTaskPageNo:scope==="server"?state.serverResultPage:state.pageNo;
+      const max=Math.max(1,Math.ceil(total/state.pageSize));
+      if(!Number.isSafeInteger(next)||next<1||next>max||next===current)return;
+      if(scope==="profiles")state.clientProfilePageNo=next;
+      else if(scope==="tasks")state.clientTaskPageNo=next;
+      else if(scope==="server"){state.serverResultPage=next;render();return;}
+      else state.pageNo=next;
+      await load();return;
+    }
   });
   async function saveClientProfile(f){
     if(!f||!f.reportValidity())return;
@@ -3182,6 +3311,14 @@
         picker.querySelector(".picker-results").hidden=true;
         picker.querySelector(".picker-selection").textContent=kind==="all"?"适用于全部对象":"请搜索并选择"+(lookupLabels[kind]||"对象");
       });
+    }
+    if(el.classList.contains("pager-size")){
+      const size=Number(el.value);
+      if(![20,50,100].includes(size)||size===state.pageSize)return;
+      state.pageSize=size;localStorage.setItem("rustdesk.console.page-size",String(size));
+      state.pageNo=1;state.clientProfilePageNo=1;state.clientTaskPageNo=1;state.serverResultPage=1;
+      if(state.page==="server"){render();return;}
+      await load();return;
     }
     if(el.id==="table-sort-column"){state.sort[state.page]={key:el.value,dir:1};state.pageNo=1;await load();return;}
     if(el.id==="mobile-sort-column"){
