@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -220,6 +221,14 @@ func auditPersonalScope(tx *gorm.DB, userId uint) *gorm.DB {
 	)
 }
 
+// personalAuditDirectionExpression matches the personal audit direction shown
+// after enrichment, including records whose original owner IDs were absent.
+func personalAuditDirectionExpression(table string) string {
+ from:=fmt.Sprintf("(CASE WHEN %s.from_user_id != 0 THEN %s.from_user_id ELSE COALESCE((SELECT user_id FROM peers WHERE peers.id = %s.from_peer ORDER BY last_online_time DESC, row_id DESC LIMIT 1),0) END)",table,table,table)
+ to:=fmt.Sprintf("(CASE WHEN %s.to_user_id != 0 THEN %s.to_user_id ELSE COALESCE((SELECT user_id FROM peers WHERE peers.id = %s.peer_id ORDER BY last_online_time DESC, row_id DESC LIMIT 1),0) END)",table,table,table)
+ return "CASE WHEN "+from+" = ? AND "+to+" = ? THEN 'both' WHEN "+from+" = ? THEN 'outgoing' WHEN "+to+" = ? THEN 'incoming' ELSE '' END"
+}
+
 func (as *AuditService) OwnConnections(userId uint, page, pageSize uint,sort ...string) (*model.AuditConnList, error) {
 	res := &model.AuditConnList{}
 	if userId == 0 { return res, errors.New("user not found") }
@@ -229,7 +238,11 @@ func (as *AuditService) OwnConnections(userId uint, page, pageSize uint,sort ...
 	res.Page, res.PageSize = int64(page), int64(pageSize)
 	tx := auditPersonalScope(DB.Model(&model.AuditConn{}), userId)
 	if err := tx.Count(&res.Total).Error; err != nil { return nil, err }
-	if err := tx.Order("id DESC").Scopes(Paginate(page, pageSize),SortScope(sort...)).Find(&res.AuditConns).Error; err != nil { return nil, err }
+	ordered:=tx.Order("id DESC")
+	if len(sort)>=2 && sort[0]=="direction" {
+		ApplyComputedSort(ordered,personalAuditDirectionExpression("audit_conns"),[]interface{}{userId,userId,userId,userId},sort[1],"audit_conns.id")
+	}
+	if err := ordered.Scopes(Paginate(page, pageSize),SortScope(sort...)).Find(&res.AuditConns).Error; err != nil { return nil, err }
 	if err := as.EnrichConnections(res.AuditConns, userId); err != nil { return nil, err }
 	return res, nil
 }
@@ -243,7 +256,11 @@ func (as *AuditService) OwnFiles(userId uint, page, pageSize uint,sort ...string
 	res.Page, res.PageSize = int64(page), int64(pageSize)
 	tx := auditPersonalScope(DB.Model(&model.AuditFile{}), userId)
 	if err := tx.Count(&res.Total).Error; err != nil { return nil, err }
-	if err := tx.Order("id DESC").Scopes(Paginate(page, pageSize),SortScope(sort...)).Find(&res.AuditFiles).Error; err != nil { return nil, err }
+	ordered:=tx.Order("id DESC")
+	if len(sort)>=2 && sort[0]=="direction" {
+		ApplyComputedSort(ordered,personalAuditDirectionExpression("audit_files"),[]interface{}{userId,userId,userId,userId},sort[1],"audit_files.id")
+	}
+	if err := ordered.Scopes(Paginate(page, pageSize),SortScope(sort...)).Find(&res.AuditFiles).Error; err != nil { return nil, err }
 	if err := as.EnrichFiles(res.AuditFiles, userId); err != nil { return nil, err }
 	return res, nil
 }
