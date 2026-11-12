@@ -249,7 +249,9 @@ function serve(req, res) {
     if(route==="/api_token/create")return answer(res,{id:8,prefix:"rdapi_example",token:"rdapi_example-secret-value"});
     if(route==="/api_token/delete")return answer(res,{});
     if(route==="/session/list")return answer(res, {list:[
-      {id:4,device_id:"support-123456",conn_id:41,last_seen_at:1710000000}
+      {id:4,device_id:"support-123456",to_device_name:"Remote support PC",to_account:"support-owner",to_user_id:3,
+        from_peer:"support-654321",from_device_name:"Technician PC",from_account:"technician",from_user_id:11,
+        from_name:"operator",ip:"203.0.113.5",participant_recorded:true,conn_id:41,last_seen_at:1710000000}
     ],total:1});
     if(route==="/session/disconnect")return answer(res, {status:"pending"});
     if(route==="/session/disconnect/list")return answer(res, {list:[
@@ -1139,8 +1141,10 @@ test("settings center: administrator can inspect and save overrides on desktop",
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
     await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/环境变量/);
+    await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
     assert.match(await page.locator(".content").innerText(),/smtp.example.test/);
     assert.match(await page.locator(".content").innerText(),/连接日志 90 天/);
+    await page.locator('[data-action="settings-tab"][data-tab="general"]').click();
     assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
     assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
     assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
@@ -1163,6 +1167,7 @@ test("settings center: administrator inspects and retries failed email events",a
     page.on("dialog",dialog=>dialog.accept());
     await page.locator('nav.side-scroll button[data-view="settings"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
     await page.locator('[data-action="settings-outbox-category"][data-category="notification"]').click();
     const failure=page.locator('[data-action="settings-outbox-retry"][data-category="notification"]');
     await failure.waitFor({state:"visible"});
@@ -1266,6 +1271,7 @@ test("layout: brand, shortcuts and settings are arranged consistently",async()=>
       if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
       await page.locator('nav.side-scroll button[data-view="settings"]').click();
       await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
+      await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
       const layout=await page.evaluate(()=>{
         const section=document.querySelector(".settings-section");
         const body=section.querySelector(".settings-section-body");
@@ -2047,5 +2053,79 @@ test("device connection opens a new WebClient v2 tab with responsive fullscreen 
     assert.equal(await popup.locator("#v2-page-fullscreen").isVisible(),false);
     await popup.locator("#v2-screen-fullscreen").click();
     await popup.waitForFunction(()=>document.fullscreenElement===null);
+  }finally{await context.close();}
+});
+
+test("pagination shows numbered pages and defaults to 100 entries",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    const requests=[];
+    await page.route("**/api/admin/user/list?**",async route=>{
+      const url=new URL(route.request().url());
+      const index=Number(url.searchParams.get("page")||1);
+      const size=Number(url.searchParams.get("page_size")||100);
+      requests.push({index,size});
+      await route.fulfill({status:200,contentType:"application/json",
+        body:JSON.stringify({code:0,data:{total:235,list:Array.from({length:Math.min(size,Math.max(0,235-(index-1)*size))},(_,i)=>({
+          id:(index-1)*size+i+1,username:"test-user-"+((index-1)*size+i+1),status:1,group_id:1
+        }))}})});
+    });
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.getByRole("heading",{name:"用户管理"}).first().waitFor();
+    await page.locator('.pager-size').first().waitFor();
+    assert.equal(await page.locator(".pager-size").first().inputValue(),"100");
+    assert.ok(requests.some(x=>x.index===1&&x.size===100));
+    await page.locator('[data-action="page-index"][data-page="3"]').first().click();
+    assert.ok(requests.some(x=>x.index===3&&x.size===100));
+    await page.locator(".pager-size").first().selectOption("50");
+    assert.ok(requests.some(x=>x.index===1&&x.size===50));
+    assert.equal(await page.locator(".pager-size").first().inputValue(),"50");
+    const width=await page.evaluate(()=>({screen:innerWidth,document:document.documentElement.scrollWidth}));
+    assert.ok(width.document<=width.screen+2,"pagination overflows desktop");
+  }finally{await context.close();}
+});
+
+test("user security controls stay in the editor and backdrop closes drawers",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.getByRole("heading",{name:"用户管理"}).first().waitFor();
+    assert.equal(await page.locator('[data-action="reset-password"]').count(),0);
+    await page.locator('[data-action="edit"]').first().click();
+    await page.locator(".drawer").waitFor({state:"visible"});
+    assert.equal(await page.locator('[data-action="reset-password"]').count(),1);
+    assert.equal(await page.locator('[data-action="reset-user-mfa"]').count(),1);
+    await page.locator("#modal-overlay").click({position:{x:35,y:160}});
+    await page.locator("#modal-overlay").waitFor({state:"detached"});
+  }finally{await context.close();}
+});
+
+test("server selections automatically query live values and group related commands",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="server"]').click();
+    await page.getByRole("heading",{name:"服务器管理"}).first().waitFor();
+    const sent=page.waitForRequest(req=>req.url().endsWith("/api/admin/rustdesk/execute")&&req.method()==="POST");
+    await page.locator('[data-action="server-tab"][data-tab="id"]').first().click();
+    const payload=(await sent).postDataJSON();
+    assert.equal(payload.cmd,"relay-servers");
+    assert.equal(payload.option,"");
+    assert.equal(await page.locator('.server-command-item').filter({hasText:"启用客户端登录要求"}).count(),0);
+    await page.locator('[data-action="server-select"][data-id="id-must-login-read"]').click();
+    await page.locator("#server-policy-value").waitFor({state:"visible"});
+    assert.equal(await page.locator('[data-action="server-policy-save"]').count(),1);
+  }finally{await context.close();}
+});
+
+test("active connection rows display both device owners and the connecting account",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
+    await page.getByRole("heading",{name:"活动远程连接"}).first().waitFor();
+    const content=await page.locator(".content").innerText();
+    assert.match(content,/support-owner/);
+    assert.match(content,/technician/);
+    assert.match(content,/operator/);
+    assert.match(content,/Remote support PC/);
   }finally{await context.close();}
 });
