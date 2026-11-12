@@ -38,7 +38,7 @@ function fixture(options = {}) {
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
-    "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client",
+    "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-clear-password",
     "v2-session-tabs", "v2-session-panels", "v2-empty-session",
     "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
@@ -46,7 +46,11 @@ function fixture(options = {}) {
   const stage=createElement("stage");
   const docEvents={};
   const frameEvents={};
-  elements.get("v2-native-client").contentWindow={addEventListener(type,listener){frameEvents[type]=listener;}};
+  const bridgeCommands=[];
+  elements.get("v2-native-client").contentWindow={
+    addEventListener(type,listener){frameEvents[type]=listener;},
+    setByName(name,value){bridgeCommands.push([name,value]);}
+  };
   const server = {
     id_server: "desk.example.com:21116",
     key: "test-server-public-key"
@@ -105,7 +109,7 @@ function fixture(options = {}) {
     console
   }, {filename:"resources/web2/app.js"});
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
-  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,frameEvents,window,settle};
+  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,frameEvents,bridgeCommands,window,settle};
 }
 
 test("WebClient v2 loads its own server settings and shared device list",async()=>{
@@ -323,4 +327,27 @@ test("Function tabs keep the remote desktop mounted while opening new RustDesk m
   app.elements.get("v2-mode-adminTerminal").listeners.click();
   assert.equal(app.elements.get("v2-session-panels").children[3].src,"/webclient/#/terminal-admin/desk-01");
   assert.equal(desktop.src,address);
+});
+
+test("Remembered password deletion is scoped to one server and device without closing its session",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const firstId="desk-01",otherId="desk-02",host="desk.example.com:21116";
+  const savedKey="rustdesk.webclient.credentials.v1:"+JSON.stringify([host,firstId]);
+  const otherKey="rustdesk.webclient.credentials.v1:"+JSON.stringify([host,otherId]);
+  app.localStorage.setItem(savedKey,"[1,2,3]");
+  app.localStorage.setItem(otherKey,"[4,5,6]");
+  app.localStorage.setItem("peers",JSON.stringify({[firstId]:{remember:true,password:"legacy"}}));
+  app.elements.get("v2-id").value=firstId;
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const frame=app.elements.get("v2-native-client"),existing=frame.src;
+  app.elements.get("v2-clear-password").listeners.click();
+  assert.equal(app.localStorage.getItem(savedKey),null);
+  assert.equal(app.localStorage.getItem(otherKey),"[4,5,6]");
+  assert.equal(JSON.parse(app.localStorage.getItem("peers"))[firstId].remember,false);
+  assert.equal(JSON.parse(app.localStorage.getItem("peers"))[firstId].password,undefined);
+  assert.deepEqual(app.bridgeCommands.map(command=>command[0]),["forget_password"]);
+  assert.equal(frame.src,existing);
+  assert.equal(app.elements.get("v2-session-tabs").children.length,1);
+  assert.match(app.elements.get("v2-message").textContent,/已清除/);
 });
