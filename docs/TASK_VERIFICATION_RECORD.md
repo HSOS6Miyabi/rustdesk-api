@@ -247,3 +247,5 @@ Server 的 `src/geoip_country.rs` 支持两种格式，优先查询 MMDB，未�
 [PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 已合并至 `master`，包含在 API `v3.0.0-api.110` 中。官方版本方式从 RustDesk 的正式 GitHub Release 查询可用平台与文件信息；本地方式在浏览器中处理用户选择的 EXE、DEB、DMG，文件不会上传到服务器，也不计算 SHA-256。
 
 检查内容：不同官方版本的文件信息及平台匹配、官方校验摘要、没有摘要的旧版文件、Windows 配置文件名、Linux/macOS ZIP、脚本语法、浏览器本地生成和下载行为。实际安装与连接继续依照 T010、T013 检查。
+
+**本次正式发行结果：** [GitHub Release v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) 已发布，发行工作流 [#43157085657](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) 的九项任务全部通过。Docker 镜像支持 AMD64 和 ARM64。此结果完成了 T011、T012 的本次版本发行检查，T013 的真实系统安装检查仍需在相应设备上执行。

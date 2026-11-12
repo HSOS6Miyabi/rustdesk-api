@@ -71,3 +71,5 @@ API 当日发行的版本为 [v3.0.0-api.107](https://github.com/HSOS6Miyabi/rus
 ## 2026 年 11 月 12 日：安装包构建器
 
 [API `v3.0.0-api.110`](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) 包含 [PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16)。管理员可以选择官方 RustDesk 版本，或自行在浏览器中选择本地 EXE、DEB、DMG 文件生成安装配置包。浏览器不会将原始文件上传到服务器，也不计算 SHA-256。数据库迁移版本保持 **290**。详见 [客户端安装文件制作说明](CLIENT_BUILDER.md)。
+
+本次版本的 [发行工作流 #43157085657](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) 和 [GitHub Release](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) 已确认成功。Docker 镜像 `ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.110` 支持 AMD64、ARM64。
