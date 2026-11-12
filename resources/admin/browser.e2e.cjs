@@ -2013,12 +2013,15 @@ test("device whitelist supports multiple searches and manually entered external 
 
 test("device connection opens the original RustDesk remote controls and supports fullscreen", {timeout:90000},async()=>{
   const {context,page}=await pageForViewport(1440,900,false);
+  const nativeErrors=[];
   try{
     await page.locator('nav.side-scroll button[data-view="mydevices"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的设备");
     const opening=page.waitForEvent("popup");
     await page.locator('.table-scroll [data-action="device-connect"]').first().click();
     const popup=await opening;
+    popup.on("pageerror",err=>nativeErrors.push("pageerror: "+err.message));
+    popup.on("console",entry=>{if(entry.type()==="error"||entry.type()==="warning")nativeErrors.push(entry.type()+": "+entry.text());});
     await popup.waitForLoadState("load");
     const location=new URL(popup.url());
     assert.equal(location.pathname,"/webclient2/");
@@ -2027,10 +2030,24 @@ test("device connection opens the original RustDesk remote controls and supports
     assert.equal(await popup.locator('.stage-toolbar, #v2-active-device-id').count(),0);
     const frame=popup.frameLocator("#v2-native-client");
     await frame.locator("flt-glass-pane").first().waitFor({state:"attached",timeout:40000});
-    await popup.waitForFunction(()=>{
-      const child=document.querySelector("#v2-native-client")?.contentWindow;
-      return child?.__rustdeskNativeSessionSeen==="office";
-    },null,{timeout:40000});
+    try{
+      await popup.waitForFunction(()=>{
+        const child=document.querySelector("#v2-native-client")?.contentWindow;
+        return child?.__rustdeskNativeSessionSeen==="office";
+      },null,{timeout:20000});
+    }catch(error){
+      const debug=await popup.evaluate(()=>{
+        const frame=document.querySelector("#v2-native-client");
+        const child=frame?.contentWindow;
+        return {parentUrl:location.href, iframeSrc:frame?.src, iframeReady:child?.document?.readyState,
+          childUrl:child?.location?.href,childHTML:child?.document?.body?.innerText?.slice(0,1500),
+          dartScriptLoaded:!!child?.document?.querySelector('script[src*="main.dart.js"]'),
+          flutter:!!child?.document?.querySelector("flt-glass-pane"),
+          nativeSession:child?.__rustdeskNativeSessionSeen, nativeAuto:child?.__rustdeskAutoOpened,
+          rendererReady:child?.rustdeskRendererReady, status:document.querySelector("#engine-state")?.textContent};
+      });
+      throw Error("Flutter launch diagnostic: "+JSON.stringify({debug,errors:nativeErrors.slice(-20)})+"; "+error.message);
+    }
     const loaded=await popup.evaluate(()=>{
       const child=document.querySelector("#v2-native-client")?.contentWindow;
       return {flutter:!!child?.document?.querySelector("flt-glass-pane"),
