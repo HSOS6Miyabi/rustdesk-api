@@ -782,9 +782,10 @@ test("full administrator configures management role permissions and scope",async
     await page.locator('#edit-form input[name="permissions"][value="devices.view"]').check();
     await page.locator('#edit-form select[name="scope_type"]').selectOption("group");
     const scopePicker=page.locator('.entity-picker[data-picker-field="scope_id"]');
-    await scopePicker.locator('.picker-query').fill("研究人员组");
-    await scopePicker.locator('button[data-action="picker-search"]').click();
-    await scopePicker.locator('button[data-action="picker-select"][data-id="3"]').click();
+    await scopePicker.locator('[data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("研究人员组");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="3"]').click();
     await page.locator('#edit-form input[name="enabled"]').check();
     const submit=page.waitForRequest(req=>req.url().endsWith("/api/admin/admin_role/create")&&req.method()==="POST");
     await page.locator('button[data-action="submit-admin-role"]').click();
@@ -852,14 +853,16 @@ test("administrator can create a device-group connection access rule",async()=>{
     await editor.locator('input[name="name"]').fill("Shared support group");
     await editor.locator('select[name="source_type"]').selectOption("group");
     const sourcePicker=editor.locator('.entity-picker[data-picker-field="source_id"]');
-    await sourcePicker.locator('.picker-query').fill("帮助台用户组");
-    await sourcePicker.locator('button[data-action="picker-search"]').click();
-    await sourcePicker.locator('button[data-action="picker-select"][data-id="2"]').click();
+    await sourcePicker.locator('[data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("帮助台用户组");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="2"]').click();
     await editor.locator('select[name="target_type"]').selectOption("device_group");
     const targetPicker=editor.locator('.entity-picker[data-picker-field="target_id"]');
-    await targetPicker.locator('.picker-query').fill("实验室设备组");
-    await targetPicker.locator('button[data-action="picker-search"]').click();
-    await targetPicker.locator('button[data-action="picker-select"][data-id="3"]').click();
+    await targetPicker.locator('[data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("实验室设备组");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="3"]').click();
     await editor.locator('select[name="effect"]').selectOption("allow");
     await editor.locator('input[name="enabled"]').check();
     const sending=page.waitForRequest(req=>req.url().endsWith("/api/admin/access_rule/create")&&req.method()==="POST");
@@ -1024,7 +1027,7 @@ test("online and offline dots appear beside devices on desktop and mobile",async
     await admin.page.locator('nav.side-scroll button[data-view="devices"]').click();
     await admin.page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设备管理");
     await admin.page.getByText("office",{exact:true}).first().waitFor();
-    const row=admin.page.locator(".table-scroll tbody tr");
+    const row=admin.page.locator(".table-scroll tbody tr:not(.table-detail-row)");
     assert.equal(await row.count(),2);
     assert.ok(await row.nth(0).locator(".device-status-dot.online").count()>=1);
     assert.ok(await row.nth(1).locator(".device-status-dot.offline").count()>=1);
@@ -1596,6 +1599,7 @@ test("interactive server management presents form explanations",async()=>{
   try{
     await page.locator('nav button[data-view="server"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
+    await page.locator('button[data-action="server-tab"][data-tab="id"]').click();
     await page.locator('button[data-id="id-block-add"]').click();
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);
@@ -1718,10 +1722,11 @@ test("ordinary user can search users by nickname and inspect shared device detai
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="联系人" &&
       !document.querySelector(".content .loading-table"));
     const picker=page.locator('#contact-form .entity-picker');
-    await picker.locator(".picker-query").fill("Ali");
-    await picker.locator('[data-action="picker-search"]').click();
-    await picker.locator('[data-action="picker-select"][data-id="11"]').waitFor();
-    await picker.locator('[data-action="picker-select"][data-id="11"]').click();
+    await picker.locator('[data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("Ali");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="11"]').waitFor();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="11"]').click();
     assert.equal(await picker.locator('input[name="user_id"]').inputValue(),"11");
     await page.goto(baseUrl+"/_admin/#/overview?entity=device&value=shared-desk",{waitUntil:"networkidle"});
     const drawer=page.locator('.drawer[aria-label="设备信息"]');
@@ -1744,9 +1749,11 @@ test("device whitelist supports multiple searches and manually entered external 
     await picker.locator(".picker-manual-value").fill("desk-*");
     await picker.locator('[data-action="picker-manual-add"]').click();
     assert.equal(await picker.locator('input[name="id_whitelist"]').inputValue(),"desk-*");
-    await picker.locator(".picker-query").fill("office");
-    await picker.locator('[data-action="picker-search"]').click();
-    await picker.locator('[data-action="picker-select"][data-id="office"]').click();
+    await picker.locator('[data-action="picker-open"]').click();
+    await page.locator('.picker-dialog .picker-query').fill("office");
+    await page.locator('.picker-dialog [data-action="picker-search"]').click();
+    await page.locator('.picker-dialog [data-action="picker-select"][data-id="office"]').click();
+    await page.locator('.picker-dialog [data-action="picker-close"]').first().click();
     assert.equal(await picker.locator('input[name="id_whitelist"]').inputValue(),"desk-*,office");
     assert.ok(await picker.locator(".device-status-dot").count()>=1);
   }finally{await context.close();}
