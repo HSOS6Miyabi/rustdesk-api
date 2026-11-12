@@ -45,3 +45,19 @@ func SortScope(sort ...string) func(*gorm.DB)*gorm.DB {
   return tx
  }
 }
+
+// ApplyComputedSort applies an internally built expression for derived table columns.
+// Callers must use fixed SQL fragments and placeholders for every dynamic value.
+func ApplyComputedSort(tx *gorm.DB, expression string, vars []interface{}, direction, stableID string) *gorm.DB {
+ if tx==nil||tx.Statement==nil{return tx}
+ direction=strings.ToLower(strings.TrimSpace(direction))
+ if direction!="asc"&&direction!="desc"{return tx}
+ statement:=tx.Statement
+ if statement.Clauses==nil{statement.Clauses=map[string]clause.Clause{}}
+ sql:=expression+" "+strings.ToUpper(direction)
+ if stableID!=""{sql+=", "+stableID+" ASC"}
+ statement.Clauses["ORDER BY"]=clause.Clause{
+  Name:"ORDER BY",Expression:clause.OrderBy{Expression:clause.Expr{SQL:sql,Vars:vars}},
+ }
+ return tx
+}
