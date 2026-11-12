@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新支持按 RustDesk 官方版本生成安装文件，也允许在浏览器中直接处理本地 EXE、DEB、DMG 文件。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.111](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.111)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新完善多字段用户与设备搜索、跨分页排序、共享设备详情及导航折叠，并保留多个官方客户端版本与浏览器本地安装包制作功能。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -31,8 +31,8 @@
 ## 主要功能
 
 - **控制台**：在 `/_admin/` 登录。导航分类可以折叠，切换页面时保留侧边栏滚动位置；电脑和手机均可使用管理功能。
-- **设备与用户管理**：普通用户通过“我的设备”管理自己拥有的设备；管理员通过“设备管理”管理有权查看的设备。设备 ID、设备名称和用户名可打开详情。设备状态以绿色、红色或灰色圆点表示在线、离线或暂时无法确定。管理表格支持按当前页的列排序。
-- **关联对象搜索**：在分组、设备策略、地址簿共享及角色设置中通过搜索器选择用户或设备，并遵守账户的访问权限。
+- **设备与用户管理**：普通用户通过“我的设备”管理自己拥有的设备；管理员通过“设备管理”管理有权查看的设备。设备 ID、设备名称和用户名可打开详情。设备状态以绿色、红色或灰色圆点表示在线、离线或暂时无法确定。管理表格可以按列对所有分页记录进行升序和降序排列。
+- **关联对象搜索**：在分组、设备策略、地址簿共享及角色设置中按编号、名称、用户名等信息搜索并选择用户或设备。可以一次选择多个设备；搜索结果仅包含当前账户有权查看的数据。
 - **WebClient v2**：支持网页全屏和显示器全屏，均可退出。可搜索本人设备和共享设备，选择目标后建立远程连接。
 - **地址簿**：同一个页面内管理地址簿分类及其中的设备。原有数据保留。
 - **普通组**：成员只能在 RustDesk 客户端中查看自己的账户及设备。
