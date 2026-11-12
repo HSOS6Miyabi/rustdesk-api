@@ -2119,9 +2119,9 @@
     const values=target.value.split(/[,，\s]+/).filter(Boolean);
     if(!values.includes(id))values.push(id);
     target.value=values.join(",");
-    const label=picker.dataset.picker==="device"?"设备":"用户";
+    const kind=picker.dataset.picker,label=kind==="device"?"设备":kind==="user_group"?"用户分组":"用户";
     const selected=picker.querySelector(".picker-selected");
-    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(label==="设备"?deviceStatusDot(value):"")+label+' '+esc(value)+' ×</button>').join("");
+    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+(kind==="user_group"?esc(referenceText(kind,value)):esc(label+" "+value))+' ×</button>').join("");
     picker.querySelector(".picker-results").hidden=true;
     picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
   }

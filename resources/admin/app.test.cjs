@@ -127,7 +127,9 @@ function createConsole(isAdmin = false, overrides = {}) {
     documentElement: { dataset: {} },
     getElementById(id) { return id === "app" ? root : null; },
     addEventListener(name, handler) { events[name] = handler; },
-    querySelector() { return null; }
+    querySelector() { return null; },
+    createElement() { return { append() {}, remove() {}, className:"", role:"", textContent:"" }; },
+    body: { append() {} }
   };
   const mockWindow = {
     addEventListener() {},
