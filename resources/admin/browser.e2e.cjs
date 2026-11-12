@@ -51,6 +51,7 @@ function serve(req, res) {
     ]});
     if(route==="/mfa/disable"||route==="/mfa/recovery/regenerate")return answer(res,{recovery_codes:[]});
     if(route==="/config/admin")return answer(res, {title:"RustDesk 浏览器测试"});
+    if(route==="/config/server")return answer(res,{id_server:"desk.example.test:21116",key:"public-key-example"});
     if(route==="/settings/effective")return answer(res,{
       bootstrap_version:0,database_version:1,items:[
         {key:"app.register",name:"开放注册",description:"允许新用户自行注册",
@@ -300,6 +301,28 @@ function serve(req, res) {
     return answer(res, {list:[],total:0});
   }
 
+  if(pathname==="/webclient2/"||["/webclient2/index.html","/webclient2/app.js","/webclient2/style.css"].includes(pathname)){
+    const filename=pathname.endsWith("/")?"index.html":pathname.slice("/webclient2/".length);
+    const mime=filename.endsWith(".js")?"application/javascript":filename.endsWith(".css")?"text/css":"text/html";
+    res.writeHead(200,{"Content-Type":mime+"; charset=utf-8","Cache-Control":"no-store"});
+    res.end(fs.readFileSync(path.join(assetRoot,"../web2",filename)));
+    return;
+  }
+  if(pathname==="/webclient/js/dist/index.js"){
+    res.writeHead(200,{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store"});
+    res.end([
+      'document.querySelector("#app").innerHTML=\'<div id="connect"><input id="host"><input id="key"><input id="id"></div>\';',
+      'window.connect=()=>{document.documentElement.dataset.remoteConnect=document.querySelector("#app #id").value;};',
+      'window.cancel=()=>{};',
+      'window.addEventListener("load",()=>{window.rustdeskRendererReady=true;window.dispatchEvent(new Event("rustdesk:renderer-ready"));},{once:true});'
+    ].join("\n"));
+    return;
+  }
+  if(pathname==="/webclient-config/index.js"||pathname==="/webclient/js/dist/vendor.js"||
+     pathname==="/webclient/yuv-canvas-1.2.6.js"||pathname==="/webclient/ogvjs-1.8.6/ogv.js"){
+    res.writeHead(200,{"Content-Type":"application/javascript; charset=utf-8"});
+    res.end("");return;
+  }
   let name = pathname;
   if(name==="/_admin/"||name==="/_admin")name="/_admin/index.html";
   if(!name.startsWith("/_admin/")){
@@ -1749,5 +1772,52 @@ test("device whitelist supports multiple searches and manually entered external 
     await picker.locator('[data-action="picker-select"][data-id="office"]').click();
     assert.equal(await picker.locator('input[name="id_whitelist"]').inputValue(),"desk-*,office");
     assert.ok(await picker.locator(".device-status-dot").count()>=1);
+  }finally{await context.close();}
+});
+
+test("device connection opens a new WebClient v2 tab with responsive fullscreen controls",async()=>{
+  const {context,page}=await pageForViewport(1440,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="mydevices"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的设备");
+    const opening=page.waitForEvent("popup");
+    await page.locator('.table-scroll [data-action="device-connect"]').first().click();
+    const popup=await opening;
+    await popup.waitForLoadState("load");
+    await popup.waitForFunction(()=>document.documentElement.dataset.remoteConnect==="office");
+    const location=new URL(popup.url());
+    assert.equal(location.pathname,"/webclient2/");
+    assert.equal(location.searchParams.get("id"),"office");
+    assert.equal(await popup.locator("#v2-active-device-name").innerText(),"Office");
+    assert.equal(await popup.locator("#v2-active-device-id").innerText(),"ID office");
+    assert.equal(await popup.locator(".stage-header, .stage-footer").count(),0);
+    const normal=await popup.evaluate(()=>{
+      const stage=document.querySelector(".stage").getBoundingClientRect();
+      const engine=document.querySelector(".engine").getBoundingClientRect();
+      const toolbar=document.querySelector(".stage-toolbar").getBoundingClientRect();
+      return {stageHeight:stage.height,engineHeight:engine.height,toolbarHeight:toolbar.height};
+    });
+    assert.ok(normal.engineHeight>=normal.stageHeight-28,"remote desktop should use nearly all stage height");
+    assert.ok(normal.toolbarHeight<=45,"the control bar should remain compact");
+    const screenshotDirectory=path.join(assetRoot,"test-screenshots");
+    fs.mkdirSync(screenshotDirectory,{recursive:true});
+    await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-normal.png")});
+    await popup.locator("#v2-page-fullscreen").click();
+    assert.equal(await popup.locator("#v2-page-fullscreen").innerText(),"退出全屏");
+    assert.equal(await popup.locator("#v2-screen-fullscreen").isVisible(),false);
+    const pageMode=await popup.evaluate(()=>{
+      const screen=document.querySelector(".stage").getBoundingClientRect();
+      return {width:screen.width,height:screen.height,viewportWidth:innerWidth,viewportHeight:innerHeight};
+    });
+    assert.equal(pageMode.width,pageMode.viewportWidth);
+    assert.equal(pageMode.height,pageMode.viewportHeight);
+    await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-fullscreen.png")});
+    await popup.locator("#v2-page-fullscreen").click();
+    assert.equal(await popup.locator("#v2-screen-fullscreen").isVisible(),true);
+    await popup.locator("#v2-screen-fullscreen").click();
+    await popup.waitForFunction(()=>document.fullscreenElement===document.querySelector(".stage"));
+    assert.equal(await popup.locator("#v2-page-fullscreen").isVisible(),false);
+    await popup.locator("#v2-screen-fullscreen").click();
+    await popup.waitForFunction(()=>document.fullscreenElement===null);
   }finally{await context.close();}
 });
