@@ -1333,7 +1333,21 @@
       '<button type="button" class="btn btn-primary" data-action="email-verification-setup" '+
       (!email.mail_configured||!email.email?'disabled':'')+'>发送邮箱验证码并启用</button>';
     const account=state.user||{};
-    const securityCards=
+    const passkeys=Array.isArray(state.passkeys)?state.passkeys:[];
+    const passkeyRows=passkeys.length?passkeys.map(item=>
+      '<div class="passkey-item"><div class="passkey-item-info"><strong>'+esc(item.name||"Passkey")+'</strong>'+
+      '<span>添加于 '+date(item.created_at)+(item.last_used_at?' · 最近使用：'+date(item.last_used_at):" · 尚未使用")+'</span></div>'+
+      '<button type="button" class="btn btn-sm btn-danger" data-action="passkey-revoke" data-id="'+esc(item.id)+'">移除</button></div>').join(""):
+      '<p class="passkey-empty">您还没有添加 Passkey。</p>';
+    const passkeyCard='<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">Passkey 通行密钥</h2>'+
+      '<p class="panel-sub">使用指纹、面容或屏幕锁验证后登录。</p></div></div>'+
+      '<div class="profile-card-body"><p>Passkey 与当前访问域名绑定。添加后可直接使用 Passkey 登录。</p>'+
+      '<div class="passkey-register-row"><div class="field"><label for="passkey-name">Passkey 名称</label>'+
+      '<input id="passkey-name" maxlength="80" placeholder="例如：工作电脑或手机" value="我的设备"></div>'+
+      '<button class="btn btn-primary" type="button" data-action="passkey-register">添加 Passkey</button></div>'+
+      (state.passkeysError?'<p class="warning">'+esc(state.passkeysError)+'</p>':"")+
+      '<div class="passkey-list">'+passkeyRows+'</div></div></section>';
+    const securityCards=passkeyCard+
       '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">修改登录密码</h2><p class="panel-sub">更新后其他设备需要重新登录。</p></div></div>'+
       '<form id="password-form" class="tips profile-card-body"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="72" required></div><button class="btn btn-primary" type="submit">保存新密码</button></form></section>'+
       '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips profile-card-body">'+mfaActions+'</div></section>'+
