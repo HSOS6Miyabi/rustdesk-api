@@ -207,6 +207,7 @@ func FinishPasskeyRegistration(userID uint,origin,host,token,name string,request
     if len([]rune(label))>80{return nil,errors.New("Passkey 名称不能超过 80 个字符")}
     record:=&model.UserPasskey{
         UserId:userID,CredentialID:base64.RawURLEncoding.EncodeToString(cred.ID),
+        CredentialDigest:passkeyDigest(base64.RawURLEncoding.EncodeToString(cred.ID)),
         CredentialJSON:string(raw),RPID:rpID,Name:label,
     }
     if err=DB.Create(record).Error;err!=nil{return nil,errors.New("该 Passkey 已被注册")}
@@ -240,8 +241,8 @@ func FinishPasskeyLogin(origin,host,token,ip string,body []byte)(*model.User,err
         if err:=DB.Where("handle = ?",handle).First(&bound).Error;err!=nil{return nil,err}
         credentialID:=base64.RawURLEncoding.EncodeToString(rawID)
         var record model.UserPasskey
-        if err:=DB.Where("credential_id = ? AND user_id = ? AND rp_id = ?",
-            credentialID,bound.UserId,rpID).First(&record).Error;err!=nil{return nil,err}
+        if err:=DB.Where("credential_digest = ? AND user_id = ? AND rp_id = ?",
+            passkeyDigest(credentialID),bound.UserId,rpID).First(&record).Error;err!=nil{return nil,err}
         return loadPasskeyAccount(bound.UserId,false)
     }
     verified,credential,err:=VerifyPasskeyLoginResponse(verifier,lookup,session,body)
@@ -253,8 +254,8 @@ func FinishPasskeyLogin(origin,host,token,ip string,body []byte)(*model.User,err
     data,err:=json.Marshal(credential)
     if err!=nil{return nil,err}
     result:=DB.Model(&model.UserPasskey{}).
-        Where("credential_id = ? AND user_id = ? AND rp_id = ?",
-            credentialID,account.Owner.Id,rpID).
+        Where("credential_digest = ? AND user_id = ? AND rp_id = ?",
+            passkeyDigest(credentialID),account.Owner.Id,rpID).
         Updates(map[string]interface{}{
             "credential_json":string(data),"last_used_at":time.Now().Unix(),
         })

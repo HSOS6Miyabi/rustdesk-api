@@ -5,7 +5,8 @@ package model
 type UserPasskey struct {
     IdModel
     UserId uint `json:"user_id" gorm:"not null;index"`
-    CredentialID string `json:"-" gorm:"not null;uniqueIndex;size:1024"`
+    CredentialID string `json:"-" gorm:"not null;type:text"`
+    CredentialDigest string `json:"-" gorm:"not null;uniqueIndex;size:64"`
     CredentialJSON string `json:"-" gorm:"type:text;not null"`
     RPID string `json:"-" gorm:"not null;size:253"`
     Name string `json:"name" gorm:"not null;size:80"`

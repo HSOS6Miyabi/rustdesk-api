@@ -74,7 +74,7 @@ func TestPasskeyAccountIsolationAndCredentialRevocation(t *testing.T){
     if err!=nil||string(first.Handle)!=string(again.Handle){t.Fatalf("unstable passkey user handle: %v",err)}
     cred,_:=json.Marshal(&webauthn.Credential{ID:[]byte{1,2,3,4}})
     row:=model.UserPasskey{UserId:users["member"].Id,CredentialID:"AQIDBA",
-        CredentialJSON:string(cred),RPID:"desk.example.test",Name:"工作电脑"}
+        CredentialDigest:passkeyDigest("AQIDBA"),CredentialJSON:string(cred),RPID:"desk.example.test",Name:"工作电脑"}
     if err:=DB.Create(&row).Error;err!=nil{t.Fatal(err)}
     list,err:=ListAccountPasskeys(users["member"].Id)
     if err!=nil||len(list)!=1||list[0].Name!="工作电脑"{t.Fatalf("invalid passkey list: %+v %v",list,err)}
