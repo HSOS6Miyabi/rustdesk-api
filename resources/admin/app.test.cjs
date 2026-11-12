@@ -720,10 +720,11 @@ test("settings center lists effective sources without revealing secrets", async 
   await admin.settle();await admin.settle();
   await admin.open("settings");
   assert.match(admin.root.innerHTML, /设置中心/);
+  assert.match(admin.root.innerHTML, /data-action="settings-category"/);
+  await admin.events.click({target:{closest:()=>({dataset:{action:"settings-category",category:"常规与登录"}})}});
   assert.match(admin.root.innerHTML, /开放注册/);
   assert.match(admin.root.innerHTML, /RUSTDESK_API_APP_REGISTER/);
   assert.match(admin.root.innerHTML, /环境变量/);
-  assert.match(admin.root.innerHTML, /data-action="settings-category"/);
   await admin.events.click({target:{closest:()=>({dataset:{action:"settings-category",category:"令牌"}})}});
   assert.match(admin.root.innerHTML, /已配置（隐藏具体内容）/);
   assert.ok(admin.calls.some(call=>call.endpoint==="/settings/effective"));
