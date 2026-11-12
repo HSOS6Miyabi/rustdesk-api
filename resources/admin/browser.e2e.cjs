@@ -399,7 +399,8 @@ test("desktop: ordinary users see owned groups and audit records, not global adm
     assert.match(await page.locator(".content").innerText(),/我的家庭设备/);
     await page.locator('nav.side-scroll button[data-view="myconnections"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的连接记录");
-    await page.locator(".table-scroll tbody tr").first().waitFor({state:"visible"});
+    await page.locator(".table-scroll tbody tr:not(.table-detail-row)").first().waitFor({state:"visible"});
+    await page.waitForFunction(()=>!document.querySelector(".content .loading-table"));
     assert.match(await page.locator(".content").innerText(),/654321/);
     assert.match(await page.locator(".content").innerText(),/alice/);
   }finally{await context.close();}
@@ -1641,10 +1642,12 @@ test("personal session screens load account-owned records and submit session act
     assert.equal(disconnectPayload.device_id,"office");
     assert.equal(disconnectPayload.conn_id,301);
     await page.locator('nav.side-scroll button[data-view="myDisconnectHistory"]').click();
-    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的结束连接记录");
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的结束连接记录"&&!document.querySelector(".content .loading-table"));
+    await page.locator('.table-scroll tbody tr:not(.table-detail-row)').first().waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/office/);
     await page.locator('nav.side-scroll button[data-view="mysessions"]').click();
-    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的登录会话");
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的登录会话"&&!document.querySelector(".content .loading-table"));
+    await page.locator('.table-scroll tbody tr:not(.table-detail-row)').first().waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/192.0.2.1/);
     const revoked=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/user_token/revoke")&&req.method()==="POST");
     await page.locator('.table-scroll [data-action="session-revoke"]').first().click();
@@ -1656,7 +1659,7 @@ test("server management renders categorized API replies as metrics and tables",a
   const {context,page}=await pageForViewport(1440,900,true);
   try{
     await page.locator('nav button[data-view="server"]').click();
-    await page.locator('button[data-action="server-tab"][data-tab="relay"]').click();
+    await page.locator('.server-tabs .server-tab[data-tab="relay"]').click();
     const request=page.waitForRequest(req=>req.url().endsWith("/api/admin/rustdesk/execute")&&req.method()==="POST");
     await page.locator("#command-form button[type=submit]").click();
     const params=(await request).postDataJSON();
@@ -1676,7 +1679,7 @@ test("interactive server management presents form explanations",async()=>{
   try{
     await page.locator('nav button[data-view="server"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
-    await page.locator('button[data-action="server-tab"][data-tab="id"]').click();
+    await page.locator('.server-tabs .server-tab[data-tab="id"]').click();
     await page.locator('button[data-id="id-block-add"]').click();
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);

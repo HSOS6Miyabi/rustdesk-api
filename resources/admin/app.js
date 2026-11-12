@@ -817,14 +817,17 @@
     const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
     const widths=allCols.map(([key,label])=>{
       const width=tableColumnWidth(key,label,state.page);
-      return Math.max(key==="id"&&!deviceRowPages.has(state.page)?76:86,Math.round(width*.76));
+      return Math.max(key==="id"&&!deviceRowPages.has(state.page)?88:90,Math.round(width*.76));
     });
     const priorities=allCols.map(([key],index)=>{
       const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name",
         "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
         "active","current","expired_at","login_ip"]);
-      return (index===0?1000:important.has(key)?120:40)-(index*.1);
+      const participantPages=new Set(["myconnections","connections","mytransfers","transfers"]);
+      const participantColumns=["from_peer","peer_id","from_account","to_account","direction","created_at"];
+      const participantRank=participantPages.has(state.page)?participantColumns.indexOf(key):-1;
+      return (index===0?1000:participantRank>=0?300-participantRank*12:important.has(key)?120:40)-(index*.1);
     });
     const ordered=allCols.map((_,i)=>i).sort((a,b)=>priorities[b]-priorities[a]);
     const selected=new Set(),actionWidth=158;
