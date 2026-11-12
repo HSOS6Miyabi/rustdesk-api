@@ -376,3 +376,16 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .passkey-item-info span{font-size:11px;color:var(--muted);line-height:1.55}
 .passkey-empty{color:var(--muted);font-size:12px}
 @media(max-width:600px){.passkey-item{align-items:flex-start;flex-wrap:wrap}.passkey-register-row .btn{flex:1 1 100%}}
+
+
+/* Configuration pages use desktop width without leaving empty right columns. */
+.retention-panel{width:100%;min-width:0}
+.retention-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,255px),1fr));gap:17px}
+.retention-fields>.field{min-width:0}
+.mail-page-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(360px,1fr);gap:18px;align-items:start;min-width:0}
+.mail-page-grid>.panel{min-width:0}
+.mail-settings-card .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mail-test-card .form-grid{grid-template-columns:1fr}
+.mail-test-card .tips{display:grid;gap:14px}
+@media(max-width:1200px){.mail-page-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.mail-settings-card .form-grid{grid-template-columns:1fr}}
