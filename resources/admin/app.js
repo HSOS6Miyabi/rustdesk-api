@@ -452,7 +452,7 @@
       Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,pushStreamKeys:[],pushStreamSecret:"",geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -707,7 +707,7 @@
   }
   async function logout(){
     try{await request("/logout","POST",{});}catch{}
-    state.token="";state.user=null;state.isAdmin=false;state.devicePresence={};sessionStorage.removeItem("rustdesk.console.token");localStorage.removeItem("access_token");
+    state.token="";state.user=null;state.isAdmin=false;state.devicePresence={};state.pushStreamSecret="";sessionStorage.removeItem("rustdesk.console.token");localStorage.removeItem("access_token");
     await getOptions();render();
   }
   async function load(){
@@ -730,10 +730,12 @@
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
       }else if(k==="push"){
-        const [destinations,catalog,history]=await Promise.all([
+        const [destinations,catalog,history,keys]=await Promise.all([
           request("/push/channels"), request("/push/events"),
-          request("/push/history?"+new URLSearchParams({page:state.pageNo,page_size:state.pageSize}).toString())
+          request("/push/history?"+new URLSearchParams({page:state.pageNo,page_size:state.pageSize}).toString()),
+          request("/push/stream-keys")
         ]);
+        state.pushStreamKeys=keys.list||[];
         state.pushChannels=destinations.list||[];
         state.pushEvents=catalog||[];
         state.pushHistory=history.list||[];
@@ -1467,7 +1469,7 @@
   function pushPage(){
     const existing=state.pushEditing||{};
     const selected=existing.kind||"messagepusher";
-    const kinds=[["messagepusher","MessagePusher"],["smtp","SMTP 邮件"],["serverchan","Server酱 Turbo"]];
+    const kinds=[["messagepusher","MessagePusher"],["smtp","SMTP 邮件"],["serverchan","Server酱 Turbo"],["webhook","HTTP JSON"]];
     const typeLabel=Object.fromEntries(kinds);
     const eventLabels=state.pushEvents.length?state.pushEvents:[
       {code:"device.online",name:"设备上线"},{code:"device.offline",name:"设备离线"},
@@ -1494,6 +1496,10 @@
       textField("sc_base_url","Server酱 API 地址",selected==="serverchan"?existing.base_url||"https://sctapi.ftqq.com":"https://sctapi.ftqq.com","url","https://sctapi.ftqq.com")+
       textField("sc_api_key","SendKey", "", "password",existing.api_key_configured?"已保存，留空保持不变":"SCT...")+
       '</div>'+
+      '<div data-push-kind="webhook" '+(selected!=="webhook"?'hidden':'')+' class="form-grid">'+
+      textField("wh_base_url","接收 JSON 的 HTTPS 地址",selected==="webhook"?existing.base_url:"","url","https://example.com/events")+
+      textField("wh_api_key","Bearer 密钥（选填）","","password",existing.api_key_configured?"已保存，留空保持不变":"接收服务要求时填写")+
+      '<p class="panel-sub">事件会以 POST 请求发送到填写的完整地址，正文为 JSON。</p></div>'+
       '<div data-push-kind="smtp" '+(selected!=="smtp"?'hidden':'')+' class="form-grid">'+
       textField("smtp_host","SMTP 主机",existing.smtp_host)+
       '<div class="field"><label for="push-smtp-port">SMTP 端口</label><input id="push-smtp-port" name="smtp_port" type="number" min="1" max="65535" value="'+esc(existing.smtp_port||587)+'"></div>'+
@@ -1532,10 +1538,28 @@
       (x.last_error?' · '+esc(x.last_error):'')+'</span></span>'+
       (x.status==="failed"?'<button class="btn btn-sm" data-action="push-retry" data-id="'+esc(x.id)+'">重新发送</button>':'')+
       '</div>').join("")||'<p>目前没有发送记录。</p>';
-    return pageHeading("消息推送","支持 MessagePusher、SMTP 邮件和 Server酱。通知标题优先显示事件和设备，正文包含连接双方、IP、时间及其他可用信息。")+
+    const streamKeys=(state.pushStreamKeys||[]).map(x=>
+      '<div class="status-row"><span><strong>'+esc(x.name)+'</strong><span class="cell-sub">'+esc(x.prefix)+
+      ' · '+(x.revoked_at?'已撤销':x.expires_at&&Number(x.expires_at)*1000<Date.now()?'已过期':'可用')+
+      (x.expires_at?' · 有效期至 '+date(x.expires_at):' · 长期有效')+'</span></span>'+
+      (!x.revoked_at?'<button class="btn btn-sm btn-danger" data-action="push-stream-revoke" data-id="'+esc(x.id)+'">撤销</button>':'')+
+      '</div>').join("")||'<p>尚未生成 SSE 订阅密钥。</p>';
+    const streamSecret=state.pushStreamSecret?
+      '<div class="field"><label for="push-stream-secret">新密钥（只显示这一次，请妥善保存）</label>'+
+      '<div class="head-actions"><input id="push-stream-secret" class="form-control" readonly autocomplete="off" value="'+esc(state.pushStreamSecret)+'">'+
+      '<button class="btn btn-sm" data-action="push-stream-copy" type="button">复制密钥</button></div></div>':'';
+    const streamPanel='<section class="panel" style="margin-top:16px"><div class="panel-header"><div>'+
+      '<h2 class="panel-title">SSE 实时订阅</h2><p class="panel-sub">生成个人 API 密钥后，客户端使用 Authorization: Bearer 请求 /api/events/v1/stream。断开连接后可自动重连。</p>'+
+      '</div></div><div class="tips">'+streamSecret+
+      '<form id="push-stream-key-form" class="form-grid"><div class="field"><label>密钥名称</label>'+
+      '<input name="name" required minlength="2" maxlength="100" placeholder="例如：家庭自动化" autocomplete="off"></div>'+
+      '<div class="field"><label>有效天数（0 表示长期有效）</label><input name="expires_in_days" type="number" min="0" max="3650" value="365"></div>'+
+      '<div class="field"><label>操作</label><button class="btn btn-primary" type="submit">生成 SSE 密钥</button></div></form>'+
+      '<div style="margin-top:16px">'+streamKeys+'</div></div></section>';
+    return pageHeading("消息推送","支持 MessagePusher、SMTP 邮件、Server酱和自定义 HTTP JSON 推送。SSE 可以直接订阅实时事件。")+
       '<section class="panel"><div class="panel-header"><h2 class="panel-title">已配置的渠道</h2>'+
       '<button class="btn btn-sm" data-action="refresh">刷新</button></div><div class="tips">'+channels+'</div></section>'+
-      '<div style="margin-top:16px">'+config+'</div>'+
+      '<div style="margin-top:16px">'+config+'</div>'+streamPanel+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">发送记录</h2>'+
       '<p class="panel-sub">共 '+esc(state.pushTotal)+' 条发送记录。失败后可以重试。</p></div></div>'+
       '<div class="tips">'+history+'</div>'+pagination()+'</section>';
@@ -2729,6 +2753,25 @@
       return;
     }
 
+    if(a==="push-stream-copy"){
+      const field=document.getElementById("push-stream-secret");
+      if(!field)return;
+      field.focus();field.select();
+      try{
+        if(window.navigator?.clipboard?.writeText){
+          await window.navigator.clipboard.writeText(field.value);
+          toast("已复制 SSE 密钥");
+        }else toast("已选择密钥，请手动复制");
+      }catch{toast("已选择密钥，请手动复制");}
+      return;
+    }
+    if(a==="push-stream-revoke"){
+      const id=Number(el.dataset.id);
+      if(!Number.isSafeInteger(id)||id<=0||!window.confirm("确定撤销该 SSE 密钥吗？现有订阅连接将在凭据重新检查后关闭。"))return;
+      try{await request("/push/stream-keys/revoke","POST",{id});toast("密钥已撤销");await load();}
+      catch(e){toast(e.message,true);}
+      return;
+    }
     if(a==="push-new"){state.pushEditing=null;render();return;}
     if(a==="push-edit"){
       const found=state.pushChannels.find(item=>String(item.id)===String(el.dataset.id));
@@ -3237,7 +3280,7 @@
   document.addEventListener("submit",async event=>{
     const f=event.target;
     const formID=f.getAttribute("id");
-    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","push-channel-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(formID))return;
+    if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","push-channel-form","push-stream-key-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(formID))return;
     event.preventDefault();
     if(formID==="mfa-login-form"){
       const pending=state.modal;
@@ -3392,6 +3435,18 @@
       try{await request("/contact/add","POST",{username});toast("已向联系人开放您的设备");await load();}catch(e){toast(e.message,true);}
     }
     if(formID==="command-form")await sendCommand(f);
+    if(formID==="push-stream-key-form"){
+      const data=new FormData(f);
+      const name=String(data.get("name")||"").trim();
+      const days=Number(data.get("expires_in_days")||0);
+      try{
+        const result=await request("/push/stream-keys","POST",{name,expires_in_days:days});
+        state.pushStreamSecret=String(result.token||"");
+        toast("已生成 SSE 订阅密钥，请复制保存");
+        await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(formID==="push-channel-form"){
       const input=new FormData(f);
       const kind=String(f.elements.kind.value);
@@ -3401,9 +3456,11 @@
         enabled:f.elements.enabled.checked,
         events:[...f.querySelectorAll('input[name="event"]:checked')].map(item=>item.value),
         base_url:kind==="messagepusher"?String(input.get("mp_base_url")||""):
-          kind==="serverchan"?String(input.get("sc_base_url")||""):"",
+          kind==="serverchan"?String(input.get("sc_base_url")||""):
+          kind==="webhook"?String(input.get("wh_base_url")||""):"",
         api_key:kind==="messagepusher"?String(input.get("mp_api_key")||""):
-          kind==="serverchan"?String(input.get("sc_api_key")||""):"",
+          kind==="serverchan"?String(input.get("sc_api_key")||""):
+          kind==="webhook"?String(input.get("wh_api_key")||""):"",
         smtp_host:String(input.get("smtp_host")||""),
         smtp_port:Number(input.get("smtp_port")||587),
         smtp_security:String(input.get("smtp_security")||"starttls"),
