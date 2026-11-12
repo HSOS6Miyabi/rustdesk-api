@@ -603,6 +603,9 @@ func PushChannelsBind(rg *gin.RouterGroup) {
 	h := &admin.PushChannels{}
 	r := rg.Group("/push")
 	r.GET("/events", h.Catalog)
+    r.GET("/stream-keys", h.StreamKeys)
+    r.POST("/stream-keys", h.CreateStreamKey)
+    r.POST("/stream-keys/revoke", h.RevokeStreamKey)
 	r.GET("/channels", h.List)
 	r.POST("/channels", h.Save)
 	r.POST("/channels/delete", h.Delete)
