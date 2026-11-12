@@ -114,6 +114,11 @@ def browser_routes():
     for verb, paths in extra.items():
         routes.update((verb, PREFIX + path) for path in paths)
     routes = {x for x in routes if not x[1].endswith("/client_builder/tasks/")}
+    dynamic_routes = {
+        PREFIX + "/user/detail/": PREFIX + "/user/detail/:id",
+        PREFIX + "/user/relations/": PREFIX + "/user/relations/:id",
+    }
+    routes = {(method, dynamic_routes.get(uri, uri)) for method, uri in routes}
     return routes, pages
 
 
