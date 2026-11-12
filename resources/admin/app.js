@@ -1299,6 +1299,7 @@
     return genericList();
   }
   function lookupKind(name,row){
+    if(name==="id"&&state.page==="addressbooks")return "device";
     if(name==="to_id")return ({1:"user",2:"user_group",3:"all"})[String(document.querySelector('#edit-form [name="type"]')?.value||row.type||1)]||"all";
     if(name==="source_id")return ({all:"all",user:"user",group:"user_group"})[document.querySelector('#edit-form [name="source_type"]')?.value||row.source_type||"all"]||"all";
     if(name==="target_id"){
@@ -1328,14 +1329,17 @@
       '<div class="picker-results" role="listbox" hidden></div>'+
       '<small class="picker-selection">'+esc(all?"适用于全部对象":selected&&selected!=="0"?"当前选择："+selected:"选择搜索结果后将自动填写编号")+'</small></div>';
   }
-  function multiPicker(id,kind="user"){
+  function multiPicker(id,kind="user",initial=""){
+    const ids=[...new Set(String(initial||"").split(/[,;，\\s]+/).map(x=>x.trim()).filter(Boolean))];
+    const object=kind==="device"?"设备":"用户";
     return '<div class="entity-picker entity-picker-multi" data-picker="'+esc(kind)+'" data-target="'+esc(id)+'">'+
-      '<div class="picker-control"><input class="picker-query" type="search" autocomplete="off" placeholder="搜索用户名、昵称、邮箱或编号" aria-label="搜索用户">'+
+      '<div class="picker-control"><input class="picker-query" type="search" autocomplete="off" placeholder="'+(kind==="device"?"搜索设备 ID、备注、主机名、系统或用户名":"搜索用户名、昵称、邮箱或编号")+'" aria-label="搜索'+object+'">'+
       '<button type="button" class="btn btn-sm" data-action="picker-search">搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear">全部清除</button></div>'+
-      '<input type="hidden" id="'+esc(id)+'" name="'+esc(id)+'" value="">'+
-      '<div class="picker-results" role="listbox" hidden></div><div class="picker-selected" aria-live="polite"></div>'+
-      '<small class="picker-selection">搜索并选择用户，可以添加多个。</small></div>';
+      '<input type="hidden" id="'+esc(id)+'" name="'+esc(id)+'" value="'+esc(ids.join(","))+'">'+
+      '<div class="picker-results" role="listbox" hidden></div><div class="picker-selected" aria-live="polite">'+
+      ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+object+' '+esc(value)+' ×</button>').join("")+'</div>'+
+      '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:"可搜索并选择多个"+object+"，留空表示全部设备不受该白名单限制")+'</small></div>';
   }
   async function lookupPicker(picker){
     if(!picker||picker.dataset.picker==="all")return;
@@ -1349,11 +1353,11 @@
     try{
       let rows=[];
       if(kind==="user"&&!state.isAdmin&&!hasPrivilege("users.view")){
-        const result=await request("/my/group/user/lookup?username="+encodeURIComponent(q));
-        rows=result?.id?[result]:[];
+        const data=await request("/my/directory/users?keyword="+encodeURIComponent(q));
+        rows=data.list||[];
       }else{
         const paths={
-          user:"/user/list",device:state.isAdmin||hasPrivilege("devices.view")?"/peer/list":"/my/peer/list",
+          user:"/user/list",device:state.isAdmin||hasPrivilege("devices.view")?"/peer/list":"/my/directory/devices",
           user_group:state.isAdmin?"/group/list":"/my/group/list",
           device_group:"/device_group/list",collection:state.isAdmin?"/address_book_collection/list":"/my/address_book_collection/list",
           policy:"/device_policy/list",control_role:"/control_role/list",admin_role:"/admin_role/list"
@@ -1412,6 +1416,7 @@
         '<option value="'+esc(key)+'" '+(String(value)===String(key)?"selected":"")+'>'+
         esc(label)+'</option>').join("")+'</select>';
     }
+    else if(name==="id_whitelist")input=multiPicker(name,"device",value);
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
     else if(type==="color"){
       const color=Number(value===0||value==="0"?0:value||0xff5b9bd5)>>>0;
@@ -1914,9 +1919,10 @@
         if(!values.includes(id))values.push(id);
         target.value=values.join(",");
         const selected=picker.querySelector(".picker-selected");
-        selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除用户 '+esc(value)+'">用户 '+esc(value)+' ×</button>').join("");
+        const label=picker.dataset.picker==="device"?"设备":"用户";
+        selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+label+' '+esc(value)+' ×</button>').join("");
         picker.querySelector(".picker-query").value="";
-        picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 位用户";
+        picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
       }else{
         picker.querySelector(".picker-id").value=id;
         picker.dataset.username=el.dataset.username||"";
@@ -1932,7 +1938,7 @@
       const values=target.value.split(",").filter(v=>v&&v!==el.dataset.id);
       target.value=values.join(",");
       el.remove();
-      picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 位用户";
+      picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+(picker.dataset.picker==="device"?"设备":"用户");
       return;
     }
     if(a==="toggle-section"){
