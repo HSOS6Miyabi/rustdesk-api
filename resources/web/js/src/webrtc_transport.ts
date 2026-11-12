@@ -1,4 +1,5 @@
 import * as message from "./message.js";
+import {addSessionMode,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
 
 const MAX_FRAGMENT_PAYLOAD = 60000;
 const MAX_LOGICAL_MESSAGE = 16 * 1024 * 1024;
@@ -62,7 +63,12 @@ export default class WebRTCTransport {
     if(this.closed || this.channel.readyState!=="open"){
       throw new Error("WebRTC data channel is not open");
     }
-    const bytes=message.Message.encode(message.Message.fromPartial(data)).finish();
+    const extension=data as any;
+    let bytes=extension.__terminal_action
+      ? encodeTerminalMessage(extension.__terminal_action)
+      : message.Message.encode(message.Message.fromPartial(data)).finish();
+    if(extension.__login_mode||extension.__os_login)
+      bytes=addSessionMode(bytes,extension.__login_mode,extension.__os_login);
     if(bytes.length > MAX_LOGICAL_MESSAGE) throw new Error("WebRTC message exceeds size limit");
     // A failed send must close the transport to avoid leaving the recipient's
     // fragment accumulator in a partially sent state.
@@ -122,6 +128,8 @@ export default class WebRTCTransport {
     this.fragments=[];this.fragmentBytes=0;
     try{
       const decoded=message.Message.decode(merged);
+      const terminal=decodeTerminalMessage(merged);
+      if(terminal)(decoded as any).terminal_response=terminal;
       const waiter=this.waiting.shift();
       if(waiter){clearTimeout(waiter.timeout);waiter.resolve(decoded)}
       else this.frames.push(decoded);

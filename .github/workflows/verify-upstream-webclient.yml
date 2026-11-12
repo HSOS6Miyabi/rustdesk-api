@@ -1,0 +1,156 @@
+name: Build and integrate RustDesk 1.5.3 WebClient
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-upstream-webclient.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-official-webclient:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out WebClient integration
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          path: project
+          fetch-depth: 0
+      - name: Download official RustDesk 1.5.3 sources
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: 95cca3f661f635b3cc85c04935fe8d96d8f432ef
+          path: rustdesk-1.5.3
+          persist-credentials: false
+      - name: Install official Flutter build toolchain
+        uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          channel: stable
+          flutter-version: '3.24.5'
+          cache: true
+      - name: Preserve WebClient deep links before Flutter initializes
+        working-directory: rustdesk-1.5.3/flutter
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("lib/mobile/pages/home_page.dart")
+          source = path.read_text(encoding="utf-8")
+          before = "    if (webInitialLink.isEmpty) {\n      return;\n    }"
+          after = ("    if (isWeb && _initialLinkHandled) return;\n"
+                   "    if (webInitialLink.isEmpty) {\n"
+                   "      if (isWeb) {\n"
+                   "        webInitialLink = Uri.base.toString();\n"
+                   "      } else {\n"
+                   "        return;\n"
+                   "      }\n"
+                   "    }")
+          if source.count(before) != 1:
+              raise SystemExit("Unsupported upstream WebHomePage source")
+          source = source.replace(before, after)
+          marker = "class WebHomePage extends StatelessWidget {"
+          if source.count(marker) != 1:
+              raise SystemExit("Unexpected upstream WebHomePage declaration")
+          source = source.replace(marker, marker + "\n  static bool _initialLinkHandled = false;")
+          handled = "    final link = webInitialLink;\n    webInitialLink = '';"
+          if source.count(handled) != 1:
+              raise SystemExit("Unexpected upstream WebHomePage link handler")
+          source = source.replace(handled, handled + "\n    if (isWeb) _initialLinkHandled = true;")
+          start = "    if (id != null) {\n      connect(context, id,"
+          start_deferred = ("    if (id != null) {\n"
+                            "      WidgetsBinding.instance.addPostFrameCallback((_) {\n"
+                            "        if (!context.mounted) return;\n"
+                            "        connect(context, id!,")
+          finish = "        password: password);\n    }\n  }"
+          finish_deferred = "        password: password);\n      });\n    }\n  }"
+          if source.count(start) != 1 or source.count(finish) != 1:
+              raise SystemExit("Unsupported upstream connection handler")
+          source = source.replace(start, start_deferred).replace(finish, finish_deferred)
+          path.write_text(source, encoding="utf-8")
+          PY
+      - name: Initialize the browser home screen without waiting for native address-book services
+        working-directory: rustdesk-1.5.3/flutter
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("lib/main.dart")
+          source = path.read_text(encoding="utf-8")
+          before = ("  draggablePositions.load();\n"
+                    "  await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);\n"
+                    "  gFFI.userModel.refreshCurrentUser();\n"
+                    "  runApp(App());\n"
+                    "  await initUniLinks();")
+          after = ("  draggablePositions.load();\n"
+                   "  if (isWeb) {\n"
+                   "    runApp(App());\n"
+                   "    await initUniLinks();\n"
+                   "    return;\n"
+                   "  }\n"
+                   "  await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);\n"
+                   "  gFFI.userModel.refreshCurrentUser();\n"
+                   "  runApp(App());\n"
+                   "  await initUniLinks();")
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected upstream runMobileApp implementation")
+          path.write_text(source.replace(before, after), encoding="utf-8")
+          PY
+      - name: Build the official browser client
+        working-directory: rustdesk-1.5.3/flutter
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter config --enable-web
+          flutter create --project-name flutter_hbb --platforms web .
+          flutter pub get
+          flutter build web --release --base-href /webclient/
+      - name: Preserve the official WebClient build
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-official-1.5.3-webclient
+          path: rustdesk-1.5.3/flutter/build/web
+          retention-days: 7
+      - name: Integrate official browser client and keep the existing network transport
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          source = Path("rustdesk-1.5.3/flutter/build/web")
+          target = Path("project/resources/web")
+          for item in source.iterdir():
+              if item.name == "index.html":
+                  continue
+              dest = target / item.name
+              if item.is_dir():
+                  shutil.copytree(item, dest, dirs_exist_ok=True)
+              else:
+                  shutil.copy2(item, dest)
+          html = (source / "index.html").read_text(encoding="utf-8")
+          custom_scripts = """
+          <script src="/webclient-config/index.js"></script>
+          <script src="ogvjs-1.8.6/ogv.js"></script>
+          <script src="yuv-canvas-1.2.6.js"></script>
+          <link rel="modulepreload" href="js/dist/vendor.js">
+          <script type="module" src="js/dist/index.js"></script>
+          """
+          html = html.replace("</head>", custom_scripts + "\n</head>")
+          html = html.replace('<script src="flutter_bootstrap.js" async></script>',
+                              '<script src="flutter_bootstrap.js" defer></script>')
+          (target / "index.html").write_text(html, encoding="utf-8")
+          PY
+          git -C project config user.name "github-actions[bot]"
+          git -C project config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C project add resources/web
+          if ! git -C project diff --staged --quiet; then
+            git -C project commit -m "集成 RustDesk 1.5.3 官方 Flutter WebClient"
+            git -C project push origin HEAD:refs/heads/${{ github.event.pull_request.head.ref }}
+          fi

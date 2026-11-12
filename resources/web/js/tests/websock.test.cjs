@@ -53,6 +53,11 @@ function createFixture(){
       if(request==="./message.js")return fakeMessage;
       if(request==="./rendezvous.js")return fakeRendezvous;
       if(request==="./globals")return {encrypt(data){return data},decrypt(data){return data}};
+      if(request==="./modern_protocol.mjs")return {
+        addSessionMode(data){return data},
+        decodeTerminalMessage(){return null},
+        encodeTerminalMessage(){return Uint8Array.from([0])}
+      };
       if(request==="./webrtc_protocol")return{
         decodeRendezvous(bytes){return fakeRendezvous.RendezvousMessage.decode(bytes)},
         encodeOffer(){return new Uint8Array([44])},

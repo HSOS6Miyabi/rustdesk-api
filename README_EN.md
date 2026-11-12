@@ -2,7 +2,13 @@
 
 This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
 
-The current API release is [v3.0.0-api.114](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.114), using database migration version 291. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
+The current API release is [v3.0.0-api.116](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.116), using database migration version 291. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
+
+### RustDesk WebClient v2
+
+Open `/webclient2/` to connect using the RustDesk 1.5.3 Flutter Web client and its original remote-control toolbar. Remote desktop, file transfer, camera viewing, terminal access, and administrator terminal access are available as separate session types. Switching tabs keeps the existing remote session open. The session toolbar provides display switching and fullscreen controls without a separate device ID overlay.
+
+The RustDesk password prompt includes a **Remember password** option. When enabled, the browser retains the server-specific, device-specific salted authentication hash in `localStorage` and reuses it for later connections. Use **Clear saved password** in the connection settings to remove the remembered credential for the selected device. Only enable this option on a trusted browser. The bundled Flutter Web client is distributed under the GNU AGPL v3 license; see the [license text](resources/web/LICENCE) and the [RustDesk 1.5.3 upstream source](https://github.com/rustdesk/rustdesk/tree/1.5.3).
 
 The console supports persistent collapsible navigation, database-wide sortable tables, multi-field user and device search, and details for devices shared with the current account. The client builder can use published RustDesk versions or generate a configured installer from a local EXE, DEB, or DMG entirely in the browser. Locally selected files are not uploaded to the API, and their SHA-256 is not calculated.
 

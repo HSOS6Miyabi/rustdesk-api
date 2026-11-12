@@ -26,6 +26,9 @@ function loadTS(filename){
     } else if(id.startsWith("./")&&!path.extname(id)){
       const candidate=path.resolve(path.dirname(filename),id+".ts");
       if(fs.existsSync(candidate))return loadTS(candidate);
+    } else if(id.startsWith("./")&&id.endsWith(".mjs")){
+      const candidate=path.resolve(path.dirname(filename),id);
+      if(fs.existsSync(candidate))return originalRequire(candidate);
     }
     return originalRequire(id);
   };

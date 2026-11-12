@@ -36,6 +36,10 @@ export default class Connection {
   _password: Uint8Array | undefined;
   _options: any;
   _videoTestSpeed: number[];
+  _sessionMode: string;
+  _terminalAdmin: boolean;
+  _osUsername: string;
+  _osPassword: string;
   //_cursors: { [name: number]: any };
 
   constructor() {
@@ -43,7 +47,51 @@ export default class Connection {
     this._draw = globals.draw;
     this._id = "";
     this._videoTestSpeed = [0, 0];
+    this._sessionMode = "desktop";
+    this._terminalAdmin = false;
+    this._osUsername = "";
+    this._osPassword = "";
     //this._cursors = {};
+  }
+
+  setSessionMode(mode: string, administrator: boolean = false) {
+    if (!["desktop", "file", "camera", "terminal"].includes(mode)) throw new Error("Unknown session mode");
+    this._sessionMode = mode;
+    this._terminalAdmin = administrator;
+  }
+
+  sendTerminalAction(action: any) {
+    if (this._sessionMode !== "terminal") throw new Error("Terminal session required");
+    this._ws?.sendMessage({__terminal_action:action} as any);
+  }
+
+  readRemoteDir(path: string, includeHidden: boolean) {
+    if (this._sessionMode !== "file") throw new Error("File-transfer session required");
+    this._ws?.sendMessage({file_action:{read_dir:{path,include_hidden:includeHidden}}});
+  }
+
+  cancelFileJob(id: number) {
+    if (this._sessionMode !== "file") throw new Error("File-transfer session required");
+    this._ws?.sendMessage({file_action:{cancel:{id}}});
+  }
+
+  credentialStorageKey(id: string = this._id): string {
+    const server = String(localStorage.getItem("custom-rendezvous-server") ||
+      localStorage.getItem("rendezvous-server") || "").trim().toLowerCase();
+    return "rustdesk.webclient.credentials.v1:" + JSON.stringify([server, id]);
+  }
+
+  clearRememberedPassword(): void {
+    if (this._id) localStorage.removeItem(this.credentialStorageKey());
+    this._password = undefined;
+    if (this._options?.password !== undefined) {
+      delete this._options.password;
+      if (this._id) {
+        const peers = globals.getPeers();
+        peers[this._id] = this._options;
+        localStorage.setItem("peers", JSON.stringify(peers));
+      }
+    }
   }
 
   async start(id: string) {
@@ -62,13 +110,25 @@ export default class Connection {
     if (!this._options) {
       this._options = globals.getPeers()[id] || {};
     }
-    if (!this._password) {
-      const p = this.getOption("password");
-      if (p) {
+    // Keep remembered credentials specific to the selected server and device.
+    if (this._options.password !== undefined) {
+      delete this._options.password;
+      const peers = globals.getPeers();
+      peers[id] = this._options;
+      localStorage.setItem("peers", JSON.stringify(peers));
+    }
+    if (!this._password && this.getRemember()) {
+      const stored = localStorage.getItem(this.credentialStorageKey(id));
+      if (stored) {
         try {
-          this._password = Uint8Array.from(JSON.parse("[" + p + "]"));
-        } catch (e) {
-          console.error(e);
+          const bytes = JSON.parse(stored);
+          if (!Array.isArray(bytes) || bytes.length !== 32 ||
+              !bytes.every((byte: unknown) => Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
+            throw Error("Invalid credential");
+          }
+          this._password = Uint8Array.from(bytes);
+        } catch {
+          localStorage.removeItem(this.credentialStorageKey(id));
         }
       }
     }
@@ -91,7 +151,9 @@ export default class Connection {
     );
     await ws.open();
     console.log(new Date() + ": Connected to rendezvoous server");
-    const conn_type = rendezvous.ConnType.DEFAULT_CONN;
+    const conn_type = this._sessionMode==="file"
+      ? rendezvous.ConnType.FILE_TRANSFER
+      : rendezvous.ConnType.DEFAULT_CONN;
     const nat_type = rendezvous.NatType.SYMMETRIC;
     const punch_hole_request = rendezvous.PunchHoleRequest.fromPartial({
       id,
@@ -363,6 +425,10 @@ export default class Connection {
           this._password = Uint8Array.from(JSON.parse("[" + tmp + "]"));
           this.setOption('tmppwd', '')
         }
+        if(this._sessionMode==="terminal"&&this._terminalAdmin){
+          this.msgbox("terminal-admin-login-password","","");
+          continue;
+        }
         if (!this._password)
           this.msgbox("input-password", "Password Required", "");
         this.login();
@@ -376,7 +442,7 @@ export default class Connection {
         const r = msg?.login_response;
         if (r.error) {
           if (r.error == "Wrong Password") {
-            this._password = undefined;
+            this.clearRememberedPassword();
             this.msgbox(
               "re-input-password",
               r.error,
@@ -438,6 +504,25 @@ export default class Connection {
         globals.pushEvent("cursor_position", msg?.cursor_position);
       } else if (msg?.misc) {
         if (!this.handleMisc(msg?.misc)) break;
+      } else if((msg as any)?.terminal_response){
+        const response=(msg as any).terminal_response;
+        if(response.type==="data"&&response.data instanceof Uint8Array){
+          let bytes=response.data;
+          if(response.compressed){
+            const uncompressed=await decompress(bytes);
+            if(!uncompressed)continue;
+            bytes=uncompressed;
+          }
+          let encoded="";
+          for(let i=0;i<bytes.length;i+=8192)encoded+=String.fromCharCode(...bytes.subarray(i,i+8192));
+          response.data=btoa(encoded);
+        }
+        globals.pushEvent("terminal_response",response);
+      } else if(msg?.file_response){
+        const response=msg.file_response;
+        if(response.dir)globals.pushEvent("file_dir",{value:JSON.stringify(response.dir),is_local:false});
+        if(response.error)globals.pushEvent("job_error",{id:response.error.id,err:response.error.error});
+        if(response.done)globals.pushEvent("job_done",{id:response.done.id,file_num:response.done.file_num});
       } else if (msg?.audio_frame) {
         globals.playAudio(msg?.audio_frame.data);
       }
@@ -471,7 +556,11 @@ export default class Connection {
     this._draw = callback;
   }
 
-  login(password: string | undefined = undefined) {
+  login(password: string | undefined = undefined, osUsername: string = "", osPassword: string = "") {
+    if (this._sessionMode==="terminal") {
+      this._osUsername=osUsername;
+      this._osPassword=osPassword;
+    }
     if (password) {
       const salt = this._hash?.salt;
       let p = hash([password, salt!]);
@@ -504,7 +593,13 @@ export default class Connection {
       option: this.getOptionMessage(),
       video_ack_required: true,
     });
-    this._ws?.sendMessage({ login_request });
+    if(this._sessionMode==="file"){
+      login_request.file_transfer=message.FileTransfer.fromPartial({dir:"",show_hidden:false});
+    }
+    const outgoing:any={login_request};
+    if(this._sessionMode==="camera"||this._sessionMode==="terminal")outgoing.__login_mode=this._sessionMode;
+    if(this._sessionMode==="terminal")outgoing.__os_login={username:this._osUsername,password:this._osPassword};
+    this._ws?.sendMessage(outgoing);
   }
 
   getOptionMessage(): message.OptionMessage | undefined {
@@ -581,7 +676,7 @@ export default class Connection {
 
   handlePeerInfo(pi: message.PeerInfo) {
     this._peerInfo = pi;
-    if (pi.displays.length == 0) {
+    if (pi.displays.length == 0 && (this._sessionMode==="desktop"||this._sessionMode==="camera")) {
       this.msgbox("error", "Remote Error", "No Display");
       return;
     }
@@ -592,16 +687,10 @@ export default class Connection {
     const username = this.getOption("info")?.username;
     if (username && !pi.username) pi.username = username;
     this.setOption("info", pi);
-    if (this.getRemember()) {
-      if (this._password?.length) {
-        const p = this._password.toString();
-        if (p != this.getOption("password")) {
-          this.setOption("password", p);
-          console.log("remember password of " + this._id);
-        }
-      }
+    if (this.getRemember() && this._password?.length === 32) {
+      localStorage.setItem(this.credentialStorageKey(), JSON.stringify(Array.from(this._password)));
     } else {
-      this.setOption("password", undefined);
+      this.clearRememberedPassword();
     }
   }
 
@@ -657,7 +746,8 @@ export default class Connection {
   }
 
   setRemember(v: Boolean) {
-    this.setOption("remember", v);
+    this.setOption("remember", Boolean(v));
+    if (!v) this.clearRememberedPassword();
   }
 
   getOption(name: string): any {
@@ -863,7 +953,6 @@ function testDelay() {
   });
 }
 
-testDelay();
 
 function getDefaultUri(isRelay: Boolean = false): string {
   const host = localStorage.getItem("custom-rendezvous-server");
