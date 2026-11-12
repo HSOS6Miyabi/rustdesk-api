@@ -1616,8 +1616,9 @@
       {key:"all",label:"全部配置",categories:[]}
     ];
     const selected=groups.find(group=>group.key===state.settingsTab)||groups[0];
+    const defaultCategory=selected.key==="general"?"账户与安全":selected.categories[0];
     const selectedCategory=selected.categories.includes(state.settingsCategory)?
-      state.settingsCategory:(selected.categories[0]||"all");
+      state.settingsCategory:(defaultCategory||"all");
     const filtered=items.filter(item=>
       (selected.key==="all"||selected.categories.includes(item.category))&&
       (selected.key==="all"||item.category===selectedCategory)&&
