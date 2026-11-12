@@ -1313,6 +1313,8 @@
       '<button type="button" class="btn btn-sm" data-action="picker-search" '+(all?"disabled":"")+'>搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear" '+(all?"disabled":"")+'>清除</button></div>'+
       '<div class="picker-results" role="listbox" hidden></div>'+
+      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" maxlength="253" aria-label="手动填写设备 ID" placeholder="输入尚未登记的外部设备 ID">'+
+      '<button class="btn btn-sm" type="button" data-action="picker-manual-single">使用此设备 ID</button></div>':"")+
       '<small class="picker-selection">'+esc(all?"适用于全部对象":selected&&selected!=="0"?"当前选择："+selected:"选择搜索结果后将自动填写编号")+'</small></div>';
   }
   function multiPicker(id,kind="user",initial=""){
@@ -1921,6 +1923,17 @@
       picker.querySelector(".picker-results").hidden=true;
       picker.querySelector(".picker-selection").textContent="尚未选择";
       return;
+    }
+    if(a==="picker-manual-single"){
+      const picker=el.closest(".entity-picker"),input=picker?.querySelector(".picker-manual-value");
+      if(!picker||!input)return;
+      const value=input.value.trim();
+      if(!/^[A-Za-z0-9_.:*?@-]{1,253}$/.test(value)){toast("请输入有效的设备 ID",true);return;}
+      picker.querySelector(".picker-id").value=value;
+      picker.querySelector(".picker-query").value=value;
+      picker.querySelector(".picker-results").hidden=true;
+      picker.querySelector(".picker-selection").textContent="已填写设备 ID："+value;
+      input.value="";return;
     }
     if(a==="picker-manual-add"){
       const picker=el.closest(".entity-picker"),input=picker?.querySelector(".picker-manual-value");
