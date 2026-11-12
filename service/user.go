@@ -150,7 +150,7 @@ func (us *UserService) CurUser(c *gin.Context) *model.User {
 	return u
 }
 
-func (us *UserService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.UserList) {
+func (us *UserService) List(page, pageSize uint, where func(tx *gorm.DB), sort ...string) (res *model.UserList) {
 	res = &model.UserList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -159,7 +159,7 @@ func (us *UserService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.Users)
 	return
 }
@@ -533,7 +533,7 @@ func (us *UserService) Register(username string, email string, password string, 
 	return u
 }
 
-func (us *UserService) TokenList(page uint, size uint, f func(tx *gorm.DB)) *model.UserTokenList {
+func (us *UserService) TokenList(page uint, size uint, f func(tx *gorm.DB), sort ...string) *model.UserTokenList {
 	res := &model.UserTokenList{}
 	res.Page = int64(page)
 	res.PageSize = int64(size)
@@ -542,7 +542,7 @@ func (us *UserService) TokenList(page uint, size uint, f func(tx *gorm.DB)) *mod
 		f(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, size))
+	tx.Scopes(Paginate(page,size),SortScope(sort...))
 	tx.Find(&res.UserTokens)
 	return res
 }
