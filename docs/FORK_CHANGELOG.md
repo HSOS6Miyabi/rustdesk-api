@@ -2,7 +2,7 @@
 
 本仓库基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 持续维护，保留原项目账户、地址簿、Web 客户端及 Go API 的主要结构。下表按实际使用的功能整理增加的模块，便于接手开发人员理解用途、启用条件与受影响的位置。
 
-当前正式发布为 [v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109)。设备管理与 WebClient 功能见 [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)，个人数据编辑与接口检查见 [拉取请求 #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)。
+当前正式发布为 [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110)。设备管理与 WebClient 功能见 [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)，个人数据编辑与接口检查见 [拉取请求 #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)。
 
 | 功能 | 管理页面或使用入口 | 主要代码 | 使用条件 |
 | --- | --- | --- | --- |
@@ -24,13 +24,13 @@
 | TOTP 与邮箱验证码 | 个人设置 | `service/totp.go`、`service/email_login.go` | 用户自行启用；邮件验证码还需要 SMTP |
 | 通知与发送失败重试 | 邮件事件通知、消息推送 | `service/notification.go`、`service/push_delivery.go`、`service/event_outbox.go` | 管理员或用户启用订阅后处理事件 |
 | 多中继和地理位置 | 中继节点管理 | `service/relay_node.go`、`service/geoip.go` | 需要多个中继时启用；国家识别还需本地 GeoLite2 数据 |
-| 安装包生成与下载 | 客户端安装包构建 | `service/client_build.go`、`service/client_build_worker.go` | 选择官方客户端平台并建立任务 |
+| 安装包生成与下载 | 客户端安装包构建 | `service/client_build.go`、`service/client_release.go`、`resources/admin/client-local.js` | 可按官方版本下载，也可在浏览器直接处理本地 EXE、DEB、DMG |
 | 审计记录与保留期限 | 日志记录、日志保留设置 | `service/audit_management.go`、`model/audit_management.go` | 日志保留天数可分别配置 |
 | 设置中心与启动配置覆盖 | 设置中心 | `config/settings.go`、`service/settings.go`、`http/controller/admin/settings.go` | 仅系统管理员；覆盖值优先于环境变量，修改后重新启动 API |
 
 ## 主要数据库变化
 
-相对于上游新增了群组成员、联系人、策略分配、会话管理、管理员角色、个人推送和通知记录等业务表。现有数据库在启动时由 `cmd/apimain.go` 按迁移版本更新。当前正式版本 `v3.0.0-api.109` 使用数据库迁移版本 **290**。
+相对于上游新增了群组成员、联系人、策略分配、会话管理、管理员角色、个人推送和通知记录等业务表。现有数据库在启动时由 `cmd/apimain.go` 按迁移版本更新。当前正式版本 `v3.0.0-api.110` 使用数据库迁移版本 **290**。
 
 设置中心增加 `system_setting_overrides`、`system_setting_revisions` 和 `system_setting_histories`。通知事件表还保存处理状态、失败次数、下一次重试时间和共享处理权的标识。升级前需备份数据库，回退旧版程序之前先核对其对新增字段的兼容性。
 

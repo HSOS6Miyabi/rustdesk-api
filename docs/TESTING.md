@@ -405,3 +405,17 @@ python3 scripts/test_frontend_api_contract.py /tmp/rustdesk-api-contract
 测试脚本根据管理控制台、WebClient v2 和原版 WebClient 实际使用的 HTTP 方法与路径检查后端路由。随后在临时目录中创建 SQLite 数据库、启动独立 API 服务，以管理员和普通用户身份发送 HTTP 请求。测试检查返回格式、个人资料及设备信息的修改结果、跨账户访问限制、无效输入和退出登录。测试完成时会关闭测试服务，临时数据库不会写入正式安装目录。
 
 如需单独检查已注册路由，可运行 `python3 scripts/test_frontend_api_contract.py --static`。GitHub Actions 的 `Frontend-driven API integration audit` 会同时执行前后端现有测试和上述 HTTP 集成测试。
+
+## 多版本及浏览器本地安装包检查
+
+在项目根目录运行：
+
+```bash
+go test ./service -run 'TestClientBuild|TestOfficialClient|TestOfficialLinuxAndMac|TestClientSetupScript' -count=1
+node --test resources/admin/client-local.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+Go 测试检查官方正式版本的文件列表、平台、大小及 SHA-256，核查没有官方摘要的旧版本、第三方 URL 和异常下载响应。浏览器测试检查 Windows 文件内容保持不变、Linux/macOS ZIP 内容和配置脚本、浏览器下载及本地文件不上传 API。ZIP 使用标准 CRC-32；本地文件方式不计算 SHA-256。
+
+真实操作系统上的客户端安装、管理员权限、配置读取及远程连接仍应单独检查。

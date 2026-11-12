@@ -13,6 +13,17 @@ import (
 
 type ClientBuilder struct{}
 
+// Versions reports available stable official releases.
+func (h *ClientBuilder) Versions(c *gin.Context) {
+    items,err:=service.ListOfficialClientVersions(c.Request.Context())
+    if err!=nil {
+        response.Success(c,gin.H{"list":[]service.OfficialClientVersion{},
+            "warning":"暂时无法读取官方版本列表，可以手动填写已发布的版本号"})
+        return
+    }
+    response.Success(c,gin.H{"list":items})
+}
+
 func (h *ClientBuilder) Profiles(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}

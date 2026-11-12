@@ -2,7 +2,7 @@
 
 以下清单记录当前分支中已经实现的功能，实际发布范围应与 GitHub Release 对应提交核对。详细模块位置见 [分支功能说明](FORK_CHANGELOG.md)，历史实施记录见 [实施台账](IMPLEMENTATION_LEDGER.md)。
 
-本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前 `master` 分支和自动化测试结果为依据；实际设备、生产数据库及邮件服务商的检查另行列明。正式发行版 `v3.0.0-api.109` 的数据库迁移版本为 **290**。客户端构建器支持 Windows、Linux 和 macOS 的 x64/ARM64 官方 1.5.1 安装文件，均通过完整性检查。
+本项目面向个人和小型团队，提供开源、自托管的 RustDesk 常用管理功能。本表以当前 `master` 分支和自动化测试结果为依据；实际设备、生产数据库及邮件服务商的检查另行列明。正式发行版 `v3.0.0-api.110` 的数据库迁移版本为 **290**。客户端构建器支持根据官方正式版本选择平台安装文件，也支持在浏览器内直接处理本地 EXE、DEB、DMG。
 
 | 功能 | 当前情况 | 对应模块 | 后续工作 |
 | --- | --- | --- | --- |
@@ -39,7 +39,7 @@
 | 多中继节点与 GeoLite2 国家识别 | 已实现 IP 网络、国家代码选择、自动同步、节点故障替换与 MMDB/CSV 读取 | `service/relay_node.go`、Server `src/relay_policy.rs`、`src/geoip_country.rs` | 真实跨地区连接测试 |
 | 独立 API 令牌与自动化管理 | 已实现细分操作权限、有效期、撤销及管理员身份复核，Go 和浏览器测试通过 | `http/router/automation.go`、`http/middleware/automation_auth.go` | 对接实际自动化脚本 |
 | 批量联系人、共享、部署和回收站管理 | 已实现，支持事务检查与管理界面操作，Go 和浏览器测试通过 | `service/address_book_batch.go`、`http/controller/admin/contact_batch.go` | 在真实团队数据上检查操作 |
-| 自定义客户端构建器 | 已实现 Windows、Linux、macOS 的 x64/ARM64 任务、校验下载和配置脚本打包，自动测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
+| 自定义客户端构建器 | 已支持多个官方版本以及浏览器本地生成 EXE、DEB、DMG 配置包；安装文件不上传 API，自动化测试通过 | `service/client_build.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go` | 对应系统真实安装、登录与连接检查 |
 
 既有功能的合并记录包括 API [#6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6) 与 Server [#4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4)。设置中心与可靠性改进已通过 API [#11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11) 合并至 `master`，并纳入正式发行版 `v3.0.0-api.107`。
 

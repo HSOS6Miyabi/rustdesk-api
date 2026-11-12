@@ -29,7 +29,7 @@ Redis 集成测试需要设置 `REDIS_TEST_ADDR`，例如 `127.0.0.1:6379`。Git
 
 ## 发布
 
-普通提交与标签推送仅运行验证工作流。常规里程碑发布在 `v*` 标签上手动启动 GitHub Actions，并启用 `milestone_release`。本次批准的正式版本为 `v3.0.0-api.107`；以后普通提交仍只运行检查，新的发行版本需要再次批准。
+普通提交与标签推送仅运行验证工作流。常规里程碑发布在 `v*` 标签上手动启动 GitHub Actions，并启用 `milestone_release`。当前批准的正式版本为 `v3.0.0-api.110`；以后普通提交仍只运行检查，新的发行版本需要再次批准。
 
 发布前检查配置文件中的端口及 JWT 密钥设置，并备份正式环境数据库。
 
@@ -68,7 +68,7 @@ WebClient 同时支持 WebSocket 中继和 WebRTC。WebSocket 收到消息后直
 
 ## 2026 年 11 月里程碑发行
 
-API 正式版本已更新至 `v3.0.0-api.107`。安装文件和多架构 Docker 镜像可从对应 GitHub Release 与容器仓库获取。
+API 正式版本已更新至 `v3.0.0-api.110`。安装文件和多架构 Docker 镜像可从对应 GitHub Release 与容器仓库获取。
 
 Server `v1.1.17-api.21` 的组合 Docker 镜像使用 API `v3.0.0-api.103`，升级时应检查容器内实际使用的 API 版本。Server 的对应版本也已发布，两个仓库的发行工作流和镜像构建检查均已完成。
 
@@ -97,3 +97,7 @@ bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 - 实际 SMTP 服务商、两台设备的远程操作、跨地区中继和生产数据恢复，应根据部署环境继续检查。
 
 详细任务结果见 [统一实施台账](IMPLEMENTATION_LEDGER.md)、[逐项测试记录](TASK_VERIFICATION_RECORD.md) 与 [本次版本说明](releases/v3.0.0-api.107.md)。
+
+## 2026 年 11 月 12 日：客户端安装文件生成
+
+[PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 为安装包构建器增加官方多版本选择与浏览器本地文件生成。浏览器选择本地 EXE、DEB、DMG 时，原始文件不会上传 API，也不计算 SHA-256。ZIP 使用 CRC-32。核查时运行 `service/client_release_test.go`、`resources/admin/client-local.test.cjs` 以及管理控制台 Chromium 测试。正式 API 版本 `v3.0.0-api.110` 继续使用数据库迁移版本 **290**。

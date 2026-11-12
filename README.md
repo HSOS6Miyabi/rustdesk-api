@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新完善个人地址簿、设备标签、WebClient 请求参数检查和前后端接口测试。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新支持按 RustDesk 官方版本生成安装文件，也允许在浏览器中直接处理本地 EXE、DEB、DMG 文件。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -167,11 +167,11 @@ GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译�
 
 ## 多平台客户端安装文件与自动化管理
 
-当前管理控制台提供“客户端安装包构建”，可保存服务器地址、公钥和 API 地址，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务，并下载经过 SHA-256 检查的官方 RustDesk 1.5.1 安装程序。Windows 文件名包含服务器配置；Linux 和 macOS 提供带有配置脚本的 ZIP，保留原始 DEB 或 DMG 内容。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
+当前管理控制台提供“客户端安装包构建”，可以选择 RustDesk 的正式发行版本，创建 Windows、Linux、macOS 的 x64/ARM64 安装文件任务。还可以直接使用本地 EXE、DEB 或 DMG 文件，由浏览器生成配置后的下载文件，全程不上传安装文件，也不计算 SHA-256。Windows 文件名包含服务器配置，Linux 和 macOS 提供附带配置脚本的 ZIP。详见 [客户端构建器说明](docs/CLIENT_BUILDER.md)。
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 
-当前正式版本 `v3.0.0-api.107` 的数据库迁移版本为 **290**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
+当前正式版本 `v3.0.0-api.110` 的数据库迁移版本为 **290**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
 

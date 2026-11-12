@@ -1,6 +1,6 @@
 services:
   rustdesk-api:
-    image: ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.107
+    image: ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.110
     container_name: rustdesk-api
     environment:
       TZ: Asia/Shanghai

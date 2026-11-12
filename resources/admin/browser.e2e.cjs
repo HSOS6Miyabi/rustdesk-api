@@ -216,6 +216,10 @@ function serve(req, res) {
     if(route==="/push/channels/test"||route==="/push/history/retry")return answer(res,{status:"queued"});
     if(route==="/push/channels/delete")return answer(res,{});
 
+    if(route==="/client_builder/versions")return answer(res,{list:[
+      {version:"1.5.3",platforms:["windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64"]},
+      {version:"1.4.5",platforms:["windows-x64","linux-x64","linux-arm64","macos-x64","macos-arm64"]}
+    ]});
     if(route==="/client_builder/profiles"){
       if(req.method==="POST")return answer(res,{id:3});
       return answer(res,{list:[
@@ -302,7 +306,7 @@ function serve(req, res) {
     res.writeHead(404);res.end("Not found");return;
   }
   const filename=name.slice("/_admin/".length);
-  if(!["index.html","style.css","app.js","favicon.svg"].includes(filename)){
+  if(!["index.html","style.css","app.js","client-local.js","favicon.svg"].includes(filename)){
     res.writeHead(404);res.end("Not found");return;
   }
   const file=path.join(assetRoot,filename);
@@ -888,6 +892,7 @@ test("administrator can configure Windows installers and inspect email delivery 
     await page.locator('input[name="host"]').fill("support.example.test:21116");
     await page.locator('input[name="public_key"]').fill("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
     await page.locator('input[name="api_server"]').fill("https://support.example.test");
+    await page.locator('input[name="version"]').fill("1.4.5");
     const profileForm=page.locator("#client-profile-form");
     const invalid=await profileForm.evaluate(form=>[...form.elements].filter(
       field=>!field.checkValidity()).map(field=>field.name));
@@ -899,7 +904,7 @@ test("administrator can configure Windows installers and inspect email delivery 
     assert.equal(payload.platform,"windows-x64");
     assert.equal(payload.host,"support.example.test:21116");
     assert.equal(payload.api_server,"https://support.example.test");
-    assert.equal(payload.version,"1.5.1");
+    assert.equal(payload.version,"1.4.5");
     await page.getByText("客户端配置已保存").first().waitFor();
     await page.locator('nav.side-scroll button[data-view="notifications"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="邮件事件通知");
@@ -1625,6 +1630,41 @@ test("direct entity links from WebClient open the authorized detail view",async(
     await page.goto(baseUrl+"/_admin/#/overview?entity=device&value=office",{waitUntil:"networkidle"});
     await page.locator('.drawer[aria-label="设备信息"]').waitFor();
     assert.match(await page.locator(".drawer").innerText(),/office/);
+  }finally{await context.close();}
+});
+
+// The administrator's selected file stays inside Chromium for local packaging.
+test("browser-local installer packages download without sending their source files to the API",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="clientBuilder"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="客户端安装包构建");
+    await page.locator("#client-host").fill("desk.example.test:21116");
+    await page.locator("#client-public_key").fill(Buffer.alloc(32,7).toString("base64"));
+    await page.locator("#client-api_server").fill("https://desk.example.test");
+    const uploadRequests=[];
+    page.on("request",request=>{
+      if(["POST","PATCH","PUT"].includes(request.method()))uploadRequests.push(request.url());
+    });
+    const input=page.locator("#client-local-file");
+    const content=Buffer.concat([Buffer.from("MZ"),Buffer.alloc(256,17)]);
+    await input.setInputFiles({name:"rustdesk-test.exe",mimeType:"application/octet-stream",buffer:content});
+    let downloadPromise=page.waitForEvent("download");
+    await page.locator('[data-action="client-build-local"]').click();
+    let download=await downloadPromise;
+    assert.match(download.suggestedFilename(),/^rustdesk-licensed-[A-Za-z0-9_-]+[.]exe$/);
+    assert.deepEqual(fs.readFileSync(await download.path()),content);
+    await page.locator("#client-platform").selectOption("linux-x64");
+    await input.setInputFiles({name:"rustdesk-test.deb",mimeType:"application/octet-stream",
+      buffer:Buffer.concat([Buffer.from("!<arch>\n"),Buffer.alloc(256,19)])});
+    downloadPromise=page.waitForEvent("download");
+    await page.locator('[data-action="client-build-local"]').click();
+    download=await downloadPromise;
+    assert.equal(download.suggestedFilename(),"rustdesk-local-linux-x64-configured.zip");
+    const zipped=fs.readFileSync(await download.path());
+    assert.equal(zipped.readUInt32LE(0),0x04034b50);
+    assert.ok(zipped.includes(Buffer.from("install-and-configure.sh")));
+    assert.equal(uploadRequests.length,0,"the installer must never be uploaded to API endpoints");
   }finally{await context.close();}
 });
 
