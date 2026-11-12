@@ -26,6 +26,14 @@
   const sessionPanels=el("v2-session-panels");
   const emptySession=el("v2-empty-session");
   const sessions=new Map();
+  const modes={desktop:{route:"connect",label:"桌面"},file:{route:"file-transfer",label:"文件"},camera:{route:"view-camera",label:"摄像"},terminal:{route:"terminal",label:"终端"}};
+  const modeButtons=Object.fromEntries(Object.keys(modes).map(mode=>[mode,el("v2-mode-"+mode)]));
+  let selectedMode="desktop";
+  function renderModeTabs(){
+    for(const [mode,button] of Object.entries(modeButtons)){
+      button.setAttribute("aria-selected",String(mode===selectedMode));
+    }
+  }
   let firstClientInUse=false;
   let activeSessionKey="";
   function showSession(key){
@@ -35,6 +43,8 @@
     config.id.value=chosen.id;
     config.host.value=chosen.host;
     state.activeName=chosen.name;
+    selectedMode=chosen.mode;
+    renderModeTabs();
     for(const [sessionKey,session] of sessions){
       session.frame.classList.toggle("session-inactive",sessionKey!==key);
     }
@@ -69,8 +79,8 @@
       const tab=document.createElement("button");
       tab.type="button";
       tab.className="session-tab";
-      tab.textContent=session.name;
-      tab.title=session.name+" · "+session.id;
+      tab.textContent=session.name+" · "+modes[session.mode].label;
+      tab.title=session.name+" · "+session.id+" · "+modes[session.mode].label;
       tab.setAttribute("role","tab");
       tab.setAttribute("aria-selected",String(key===activeSessionKey));
       tab.addEventListener("click",()=>showSession(key));
@@ -250,15 +260,16 @@
       el("v2-captcha").querySelector('input[name="captcha_id"]').value=data.id;
     }catch{}
   }
-  function connectToDevice(){
+  function connectToDevice(mode=selectedMode){
     const host=config.host.value.trim(),key=config.key.value.trim(),id=config.id.value.trim();
+    if(!modes[mode])return;
     if(!host||!id){message("请填写服务器和设备 ID");return;}
     store("custom-rendezvous-server",host);store("rendezvous-server",host);
     store("key",key);store("id",id);store("remote-id",id);
     sessionStorage.setItem("rustdesk.webclient.webrtc",el("v2-webrtc").checked?"Y":"N");
 
     updateDeviceIdentity();
-    const sessionKey=host+"|"+id;
+    const sessionKey=host+"|"+id+"|"+mode;
     if(sessions.has(sessionKey)){
       showSession(sessionKey);
       message("已切换至："+id);
@@ -276,10 +287,11 @@
       watchClient(frame);
       sessionPanels.append(frame);
     }
-    const session={id,host,name:state.activeName||id,frame};
+    const session={id,host,name:state.activeName||id,mode,frame};
     sessions.set(sessionKey,session);
-    frame.title=session.name+" · RustDesk 远程桌面";
-    frame.src="/webclient/?connect="+encodeURIComponent(id)+"#/?";
+    frame.title=session.name+" · "+modes[mode].label+" · RustDesk";
+    frame.name="rustdesk-peer:"+id;
+    frame.src="/webclient/#/"+modes[mode].route+"/"+encodeURIComponent(id);
     showSession(sessionKey);
     message("正在通过 RustDesk 连接："+id);
   }
@@ -288,6 +300,14 @@
     state.autoConnect=false;
     connectToDevice();
   }
+  for(const [mode,button] of Object.entries(modeButtons)){
+    button.addEventListener("click",()=>{
+      selectedMode=mode;
+      renderModeTabs();
+      if(activeSessionKey)connectToDevice(mode);
+    });
+  }
+  renderModeTabs();
   el("connect-form").addEventListener("submit",e=>{e.preventDefault();state.autoConnect=false;connectToDevice();});
   el("v2-disconnect").addEventListener("click",()=>{
     if(activeSessionKey)closeSession(activeSessionKey);

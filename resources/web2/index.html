@@ -63,7 +63,15 @@
   <div id="shared-items" class="device-list"></div>
  </aside>
  <section class="stage" aria-label="RustDesk 远程桌面">
-  <nav id="v2-session-tabs" class="session-tabs" role="tablist" aria-label="远程连接会话" hidden></nav>
+  <div class="workspace-switcher">
+   <nav class="mode-tabs" role="tablist" aria-label="远程连接功能">
+    <button type="button" id="v2-mode-desktop" role="tab" aria-selected="true">桌面</button>
+    <button type="button" id="v2-mode-file" role="tab" aria-selected="false">文件</button>
+    <button type="button" id="v2-mode-camera" role="tab" aria-selected="false">摄像</button>
+    <button type="button" id="v2-mode-terminal" role="tab" aria-selected="false">终端</button>
+   </nav>
+   <nav id="v2-session-tabs" class="session-tabs" role="tablist" aria-label="远程连接会话" hidden></nav>
+  </div>
   <div id="v2-session-panels" class="session-panels">
    <div id="v2-empty-session" class="session-placeholder">选择设备并连接，远程会话将在这里显示。</div>
    <iframe id="v2-native-client" class="native-client session-inactive" src="about:blank" title="RustDesk 远程桌面" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>

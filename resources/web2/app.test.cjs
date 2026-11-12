@@ -39,7 +39,8 @@ function fixture(options = {}) {
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
     "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client",
-    "v2-session-tabs", "v2-session-panels", "v2-empty-session", "v2-device-query", "v2-search-device", "v2-device-results"
+    "v2-session-tabs", "v2-session-panels", "v2-empty-session",
+    "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
@@ -130,7 +131,7 @@ test("WebClient v2 launches the original RustDesk client with the selected devic
   await app.settle();
   app.elements.get("v2-id").value="123456789";
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
-  assert.equal(app.elements.get("v2-native-client").src,"/webclient/?connect=123456789#/?");
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/123456789");
   assert.equal(app.localStorage.getItem("custom-rendezvous-server"),"desk.example.com:21116");
   assert.equal(app.sessionStorage.getItem("rustdesk.console.token"),"session-token");
   assert.equal(app.localStorage.getItem("access_token"),null);
@@ -236,8 +237,8 @@ test("Linked devices start the existing RustDesk client using the original toolb
   const app=fixture({token:"session-token",search:"?id=owned-01&name=Office%20desktop"});
   await app.settle();
   assert.equal(app.elements.get("v2-id").value,"owned-01");
-  assert.equal(app.elements.get("v2-native-client").title,"Office desktop · RustDesk 远程桌面");
-  assert.equal(app.elements.get("v2-native-client").src,"/webclient/?connect=owned-01#/?");
+  assert.equal(app.elements.get("v2-native-client").title,"Office desktop · 桌面 · RustDesk");
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/owned-01");
   app.elements.get("v2-native-client").listeners.load();
   assert.match(app.elements.get("engine-state").textContent,/RustDesk 操作界面/);
 });
@@ -285,11 +286,11 @@ test("Switching remote-session tabs preserves existing iframe connections",async
   assert.equal(panels.children.length,1);
   const second=panels.children[0];
   assert.equal(first.src,firstAddress);
-  assert.equal(second.src,"/webclient/?connect=second-device#/?");
+  assert.equal(second.src,"/webclient/#/connect/second-device");
   assert.equal(tabs.children[1].children[0].attributes["aria-selected"],"true");
   tabs.children[0].children[0].listeners.click();
   assert.equal(first.src,firstAddress);
-  assert.equal(second.src,"/webclient/?connect=second-device#/?");
+  assert.equal(second.src,"/webclient/#/connect/second-device");
   assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
   assert.equal(app.elements.get("v2-id").value,"first-device");
   app.elements.get("v2-disconnect").listeners.click();
@@ -297,4 +298,27 @@ test("Switching remote-session tabs preserves existing iframe connections",async
   assert.equal(second.removed,undefined);
   assert.equal(tabs.children.length,1);
   assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
+});
+
+test("Function tabs keep the remote desktop mounted while opening new RustDesk modes",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="desk-01";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const desktop=app.elements.get("v2-native-client");
+  const address=desktop.src;
+  assert.equal(app.elements.get("v2-mode-desktop").attributes["aria-selected"],"true");
+  app.elements.get("v2-mode-file").listeners.click();
+  assert.equal(app.elements.get("v2-mode-file").attributes["aria-selected"],"true");
+  assert.equal(app.elements.get("v2-session-panels").children[0].src,"/webclient/#/file-transfer/desk-01");
+  assert.equal(desktop.src,address);
+  app.elements.get("v2-mode-desktop").listeners.click();
+  assert.equal(desktop.src,address);
+  assert.equal(app.elements.get("v2-session-panels").children.length,1);
+  assert.equal(app.elements.get("v2-mode-desktop").attributes["aria-selected"],"true");
+  app.elements.get("v2-mode-camera").listeners.click();
+  assert.equal(app.elements.get("v2-session-panels").children[1].src,"/webclient/#/view-camera/desk-01");
+  app.elements.get("v2-mode-terminal").listeners.click();
+  assert.equal(app.elements.get("v2-session-panels").children[2].src,"/webclient/#/terminal/desk-01");
+  assert.equal(desktop.src,address);
 });
