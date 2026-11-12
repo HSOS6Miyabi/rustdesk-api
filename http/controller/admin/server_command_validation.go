@@ -46,17 +46,23 @@ func validateRustdeskCommand(target, command, option string) error {
 	}
 	requireNumber := func(input string) error {
 		number, err := strconv.ParseFloat(input, 64)
-		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 || number > 1000000000 {
-			return errors.New("数值应介于 0 与 1000000000 之间")
-		}
-		return nil
+		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) || number <= 0 || number > 1000000000 {
+            return errors.New("请填写大于 0 且不超过 1000000000 的数值")
+        }
+        if command == "downgrade-threshold" && number > 1 {
+            return errors.New("降级阈值必须大于 0 且不超过 1")
+        }
+        if command == "downgrade-start-check" && number != math.Trunc(number) {
+            return errors.New("降级检查间隔必须是整数秒数")
+        }
+        return nil
 	}
 	noArguments := func() error {
 		if option != "" { return errors.New("该操作不需要参数") }
 		return nil
 	}
 	switch command {
-	case "h", "usage":
+	case "h", "usage", "reload-geo", "punch-requests":
 		return noArguments()
 	case "relay-servers":
 		if option == "" { return nil }
@@ -84,7 +90,7 @@ func validateRustdeskCommand(target, command, option string) error {
 			!serverCommandDeviceID.MatchString(parts[0]) {
 			return errors.New("请输入有效的设备 ID，可在末尾填写 - 清除记录")
 		}
-	case "always-use-relay":
+	case "always-use-relay", "must-login":
 		if option != "" && option != "y" && option != "n" {
 			return errors.New("此设置只接受 y 或 n")
 		}
@@ -93,6 +99,7 @@ func validateRustdeskCommand(target, command, option string) error {
 		for _, item := range parts { if err := requireIP(item); err != nil { return err } }
 	case "blacklist", "blacklist-add", "blacklist-remove",
 		"blocklist", "blocklist-add", "blocklist-remove":
+		if (command == "blacklist" || command == "blocklist") && option == "" { return nil }
 		if len(parts) != 1 { return errors.New("此操作需要一个 IP 地址") }
 		return requireIP(parts[0])
 	case "downgrade-threshold", "downgrade-start-check", "limit-speed",

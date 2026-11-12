@@ -64,6 +64,7 @@ func Init(g *gin.Engine) {
 
 	ShareRecordBind(adg)
 	MyBind(adg)
+	PersonalSessionBind(adg)
 
 	RustdeskCmdBind(adg)
 	DeviceGroupBind(adg)
@@ -79,7 +80,8 @@ func Init(g *gin.Engine) {
 
 func RustdeskCmdBind(adg *gin.RouterGroup) {
 	cont := &admin.Rustdesk{}
-	rg := adg.Group("/rustdesk")
+	rg := adg.Group("/rustdesk").Use(middleware.AdminPrivilege())
+	rg.POST("/execute", cont.ExecuteCmd)
 	rg.POST("/sendCmd", cont.SendCmd)
 	rg.GET("/cmdList", cont.CmdList)
 	rg.POST("/cmdDelete", cont.CmdDelete)
@@ -265,6 +267,15 @@ func AddressBookCollectionRuleBind(rg *gin.RouterGroup) {
 		aR.POST("/delete", cont.Delete)
 	}
 }
+func PersonalSessionBind(rg *gin.RouterGroup) {
+    handler:=&my.SessionViews{}
+    rg.GET("/my/session/list",handler.Active)
+    rg.GET("/my/session/disconnect/list",handler.Disconnections)
+    rg.POST("/my/session/disconnect",handler.Disconnect)
+    rg.GET("/my/user_token/list",handler.Logins)
+    rg.POST("/my/user_token/revoke",handler.RevokeLogin)
+}
+
 func UserTokenBind(rg *gin.RouterGroup) {
 	aR := rg.Group("/user_token").Use(middleware.AdminPrivilege())
 	cont := &admin.UserToken{}

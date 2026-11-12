@@ -7,7 +7,6 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/service"
-	"gorm.io/gorm"
 )
 
 type UserToken struct {
@@ -32,13 +31,14 @@ func (ct *UserToken) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.UserService.TokenList(query.Page, query.PageSize, func(tx *gorm.DB) {
-		if query.UserId > 0 {
-			tx.Where("user_id = ?", query.UserId)
-		}
-		tx.Order("id desc")
-	},query.SortBy,query.SortDir)
-	response.Success(c, res)
+    page,size:=query.Page,query.PageSize
+    if page==0 {page=1}
+    if size==0 {size=20}
+    if size>100 {size=100}
+    rows,total,err:=service.ListLoginSessions(0,true,c.GetHeader("api-token"),page,size,query.SortBy,query.SortDir)
+    if err!=nil {response.Fail(c,101,err.Error());return}
+    response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
+
 }
 
 // Delete 删除
