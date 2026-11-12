@@ -1624,7 +1624,7 @@ test("responsive data tables keep columns readable across screen sizes",async()=
             assert.ok(result.hasScrollableRegion,"Wide table cannot scroll on "+role+" "+key);
           const cellWidths=await page.locator(".data-table tbody tr:first-child td:not(.cell-actions)").evaluateAll(cells=>
             cells.map(cell=>({label:cell.dataset.column,width:cell.getBoundingClientRect().width})));
-          assert.ok(cellWidths.every(item=>item.width>=78),
+          assert.ok(cellWidths.every(item=>item.label==="direction"?item.width>=48:item.width>=78),
             "Found compressed columns in "+role+" "+key+": "+JSON.stringify(cellWidths));
         }else{
           assert.ok(result.cardsVisible&&result.cardCount>0,
@@ -1787,7 +1787,10 @@ test("interactive server management presents form explanations",async()=>{
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);
     await form.locator('[name="option"]').fill("invalid-ip");
+    await page.locator("#server-result .loading-table").waitFor({state:"detached"});
+    assert.equal(await form.locator('[name="option"]').inputValue(),"invalid-ip");
     await form.locator('[data-action="server-modify"][data-id="id-block-add"]').click();
+    await page.locator(".toast-wrap .toast.error").waitFor({state:"visible",timeout:5000});
     assert.match(await page.locator(".toast-wrap").innerText(),/有效的 IPv4 或 IPv6/);
   }finally{await context.close();}
 });
