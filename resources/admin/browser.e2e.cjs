@@ -913,7 +913,8 @@ test("administrator can reset a team member's lost second-factor credentials",as
     await page.locator('nav.side-scroll button[data-view="users"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
     await page.getByText("owner",{exact:true}).first().waitFor();
-    const reset=page.locator('button[data-action="reset-user-mfa"]').first();
+    await page.locator('[data-action="edit"]').first().click();
+    const reset=page.locator('.drawer button[data-action="reset-user-mfa"]').first();
     await reset.waitFor({state:"visible"});
     const saved=page.waitForRequest(req=>
       req.url().endsWith("/api/admin/user/mfa/reset")&&req.method()==="POST");
@@ -1748,16 +1749,16 @@ test("server management renders categorized API replies as metrics and tables",a
   const {context,page}=await pageForViewport(1440,900,true);
   try{
     await page.locator('nav button[data-view="server"]').click();
-    await page.locator('.server-tabs .server-tab[data-tab="relay"]').click();
     const request=page.waitForRequest(req=>req.url().endsWith("/api/admin/rustdesk/execute")&&req.method()==="POST");
-    await page.locator("#command-form button[type=submit]").click();
+    await page.locator('.server-tabs .server-tab[data-tab="relay"]').click();
     const params=(await request).postDataJSON();
     assert.equal(params.target,"21117");
     assert.equal(params.cmd,"usage");
     await page.locator(".server-result-table tbody tr").waitFor();
     assert.match(await page.locator(".server-result").innerText(),/192.0.2.5/);
-    await page.locator('button[data-id="relay-speed-read"]').click();
-    await page.locator("#command-form button[type=submit]").click();
+    const metric=page.waitForResponse(res=>res.url().endsWith("/api/admin/rustdesk/execute")&&res.request().method()==="POST");
+    await page.locator('button[data-action="server-select"][data-id="relay-speed-read"]').click();
+    await metric;
     await page.getByText("12.5",{exact:false}).first().waitFor();
     assert.match(await page.locator(".server-result").innerText(),/Mb\/s/);
   }finally{await context.close();}
@@ -1769,11 +1770,11 @@ test("interactive server management presents form explanations",async()=>{
     await page.locator('nav button[data-view="server"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
     await page.locator('.server-tabs .server-tab[data-tab="id"]').click();
-    await page.locator('button[data-id="id-block-add"]').click();
+    await page.locator('button[data-action="server-select"][data-id="id-block-read"]').click();
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);
     await form.locator('[name="option"]').fill("invalid-ip");
-    await form.locator('button[type="submit"]').click();
+    await form.locator('[data-action="server-modify"][data-id="id-block-add"]').click();
     assert.match(await page.locator(".toast-wrap").innerText(),/有效的 IPv4 或 IPv6/);
   }finally{await context.close();}
 });
@@ -1943,6 +1944,7 @@ test("server-side table sorting keeps one order when moving between pages",async
   const {context,page}=await pageForViewport(1360,850,true);
   try{
     await page.locator('nav button[data-view="groups"]').click();
+    await page.locator('.pager-size').first().selectOption("20");
     const requested=[];
     page.on("request",req=>{
       const url=new URL(req.url());
@@ -1954,7 +1956,7 @@ test("server-side table sorting keeps one order when moving between pages",async
     await page.locator('[data-action="sort-table"][data-column="name"]').click();
     await page.locator('tbody tr').first().waitFor({state:"visible"});
     assert.match(await page.locator("tbody").innerText(),/A Group/);
-    await page.locator('[data-action="next"]').click();
+    await page.locator('[data-action="page-index"][aria-label="下一页"]').first().click();
     await page.waitForFunction(()=>document.querySelector(".pager")?.textContent.includes("第 2 / 2"));
     assert.match(await page.locator("tbody").innerText(),/U Group/);
     assert.ok(requested.some(x=>x.sort==="name"&&x.dir==="asc"&&x.page===1));
@@ -2071,7 +2073,7 @@ test("pagination shows numbered pages and defaults to 100 entries",async()=>{
         }))}})});
     });
     await page.locator('nav.side-scroll button[data-view="users"]').click();
-    await page.getByRole("heading",{name:"用户管理"}).first().waitFor();
+    await page.getByRole("heading",{name:"用户账户"}).first().waitFor();
     await page.locator('.pager-size').first().waitFor();
     assert.equal(await page.locator(".pager-size").first().inputValue(),"100");
     assert.ok(requests.some(x=>x.index===1&&x.size===100));
@@ -2089,7 +2091,7 @@ test("user security controls stay in the editor and backdrop closes drawers",asy
   const {context,page}=await pageForViewport(1440,900,true);
   try{
     await page.locator('nav.side-scroll button[data-view="users"]').click();
-    await page.getByRole("heading",{name:"用户管理"}).first().waitFor();
+    await page.getByRole("heading",{name:"用户账户"}).first().waitFor();
     assert.equal(await page.locator('[data-action="reset-password"]').count(),0);
     await page.locator('[data-action="edit"]').first().click();
     await page.locator(".drawer").waitFor({state:"visible"});
@@ -2125,7 +2127,8 @@ test("active connection rows display both device owners and the connecting accou
     const content=await page.locator(".content").innerText();
     assert.match(content,/support-owner/);
     assert.match(content,/technician/);
-    assert.match(content,/operator/);
     assert.match(content,/Remote support PC/);
+    await page.locator('[data-action="table-details"]').first().click();
+    assert.match(await page.locator(".content").innerText(),/operator/);
   }finally{await context.close();}
 });
