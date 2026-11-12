@@ -6,6 +6,7 @@ import (
     "time"
 
     "github.com/lejianwen/rustdesk-api/v2/model"
+    apilog "github.com/lejianwen/rustdesk-api/v2/lib/logger"
     "gorm.io/gorm"
 )
 
@@ -52,6 +53,7 @@ func logCleanupCategories(policy *model.AuditRetentionPolicy) []logCleanupCatego
         {key: "notification_failed", name: "管理员邮件失败记录", table: &model.NotificationDelivery{}, column: "updated_at", statuses: []string{"failed"}, days: policy.NotificationFailedDays},
         {key: "push_outbox_failed", name: "个人推送事件处理失败记录", table: &model.PushEventOutbox{}, column: "updated_at", statuses: []string{"failed"}, days: policy.PushOutboxFailedDays},
         {key: "notification_outbox_failed", name: "管理员邮件事件处理失败记录", table: &model.NotificationEventOutbox{}, column: "updated_at", statuses: []string{"failed"}, days: policy.NotificationOutboxFailedDays},
+        {key: "server_log", name: "服务器运行日志文件", days: policy.ServerLogDays},
     }
 }
 
@@ -128,6 +130,18 @@ func runLogCleanup(request LogCleanupRequest, now time.Time, preview bool, requi
             continue
         }
         item := LogCleanupResult{Kind: category.key, Name: category.name, RetentionDays: category.days}
+        if category.key == "server_log" {
+            days := request.Days
+            if request.Mode == "retention" { days = category.days }
+            if request.Mode == "all" { days = 0 }
+            if (request.Mode != "retention" || days > 0) && Config != nil {
+                count, err := apilog.ProcessLogArchives(Config.Logger.Path, now, days, !preview)
+                if err != nil { return nil, fmt.Errorf("清理服务器运行日志失败: %w", err) }
+                if preview { item.Eligible = count } else { item.Deleted = count }
+            }
+            results = append(results, item)
+            continue
+        }
         if !DB.Migrator().HasTable(category.table) {
             results = append(results, item)
             continue
@@ -183,6 +197,7 @@ func PruneAdditionalLogRecords(now time.Time) error {
         map[string]bool{
             "disconnect": true, "settings_history": true,
             "push_outbox_failed": true, "notification_outbox_failed": true,
+            "server_log": true,
         })
     return err
 }

@@ -27,6 +27,7 @@ type AuditRetentionPolicy struct {
 	SettingsHistoryDays int `json:"settings_history_days" gorm:"not null;default:0"`
 	PushOutboxFailedDays int `json:"push_outbox_failed_days" gorm:"not null;default:0"`
 	NotificationOutboxFailedDays int `json:"notification_outbox_failed_days" gorm:"not null;default:0"`
+	ServerLogDays int `json:"server_log_days" gorm:"not null;default:30"`
 	PushSentDays int `json:"push_sent_days" gorm:"not null;default:30"`
 	PushFailedDays int `json:"push_failed_days" gorm:"not null;default:90"`
 	NotificationSentDays int `json:"notification_sent_days" gorm:"not null;default:30"`

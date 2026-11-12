@@ -1089,7 +1089,8 @@
     ["push_sent","个人推送成功记录"],["push_failed","个人推送失败记录"],
     ["notification_sent","管理员邮件成功记录"],["notification_failed","管理员邮件失败记录"],
     ["push_outbox_failed","个人推送事件处理失败记录"],
-    ["notification_outbox_failed","管理员邮件事件处理失败记录"]
+    ["notification_outbox_failed","管理员邮件事件处理失败记录"],
+    ["server_log","服务器运行日志文件"]
   ];
   function retentionPage(){
     const data=state.retention||{};
@@ -1099,7 +1100,8 @@
       ["push_sent_days","个人推送：发送成功",30],["push_failed_days","个人推送：发送失败",90],
       ["notification_sent_days","管理员邮件：发送成功",30],["notification_failed_days","管理员邮件：发送失败",90],
       ["push_outbox_failed_days","个人推送：事件处理失败",0],
-      ["notification_outbox_failed_days","管理员邮件：事件处理失败",0]];
+      ["notification_outbox_failed_days","管理员邮件：事件处理失败",0],
+      ["server_log_days","服务器运行日志归档文件",30]];
     const inputs=fields.map(([key,label,defaultDays])=>
       '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??defaultDays)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
     ).join("");
@@ -1111,10 +1113,10 @@
       '<option value="'+value+'" '+(request.mode===value?'selected':'')+'>'+esc(label)+'</option>').join("");
     const preview=state.cleanupPreview;
     const rows=preview?.items?.filter(item=>item.eligible>0)||[];
-    const previewHTML=!preview?'':('<div class="cleanup-results" role="status"><strong>预计删除 '+esc(preview.total??0)+' 条记录</strong>'+
+    const previewHTML=!preview?'':('<div class="cleanup-results" role="status"><strong>预计清理 '+esc(preview.total??0)+' 项历史数据</strong>'+
       (rows.length?'<div class="cleanup-result-list">'+rows.map(item=>
-        '<div class="status-row"><span>'+esc(item.name)+'</span><strong>'+esc(item.eligible)+' 条</strong></div>'
-      ).join("")+'</div>':'<p>当前没有符合所选条件的记录。</p>')+'</div>');
+        '<div class="status-row"><span>'+esc(item.name)+'</span><strong>'+esc(item.eligible)+(item.kind==="server_log"?" 个文件":" 条")+'</strong></div>'
+      ).join("")+'</div>':'<p>当前没有符合所选条件的历史数据。</p>')+'</div>');
     return pageHeading("日志保留设置","为各类历史记录设置自动清理期限，也可以按类别手动清理。")+
       '<div class="retention-layout"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2>'+
       '<p class="panel-sub">服务启动后及此后每 24 小时检查一次。设置保存后立即生效，无须重新启动。</p></div></div>'+
@@ -1132,6 +1134,7 @@
       '<button class="btn" type="button" data-action="log-cleanup-preview">查看符合条件的记录</button>'+
       '<button class="btn btn-danger" type="button" data-action="log-cleanup-run" '+(preview?.total>0?'':'disabled')+'>确认清理</button>'+
       '</div><p>结束连接记录仅清理已完成或已失效的请求。正在发送的消息及等待重试的任务不会删除。</p>'+
+      '<p>服务器运行日志按日期或文件大小归档，清理时仅删除归档文件，当前日志文件继续正常写入。</p>'+
       previewHTML+'</div></section></div>';
   }
   function readLogCleanupInput(){
@@ -2414,10 +2417,10 @@
             toast("请先查看当前条件下符合清理要求的记录",true);return;
           }
           const category=cleanupKinds.find(([key])=>key===input.kind)?.[1]||"记录";
-          if(!window.confirm("确定永久删除 "+category+" 中的 "+state.cleanupPreview.total+" 条记录吗？删除后无法恢复。"))return;
+          if(!window.confirm("确定永久清理 "+category+" 中的 "+state.cleanupPreview.total+" 项历史数据吗？删除后无法恢复。"))return;
           const result=await request("/audit/cleanup","POST",{...input,confirmation:"DELETE_LOGS"});
           state.cleanupPreview=null;
-          toast("已清理 "+(result.deleted||0)+" 条记录");
+          toast("已清理 "+(result.deleted||0)+" 项历史数据");
           await load();
         }
       }catch(error){toast(error.message,true);}

@@ -69,9 +69,10 @@ func TestLogCleanupPreviewAndTerminalStatusProtection(t *testing.T) {
         "notification_sent": 1, "notification_failed": 1,
         "push_outbox_failed": 1, "notification_outbox_failed": 1,
     }
-    if len(preview) != len(want) { t.Fatalf("expected %d categories; got %d",len(want),len(preview)) }
+    if len(preview) != len(want)+1 { t.Fatalf("expected %d categories; got %d",len(want)+1,len(preview)) }
     var total int64
     for _, row := range preview {
+        if row.Kind=="server_log" { continue }
         if row.Eligible != want[row.Kind] {
             t.Errorf("%s preview: got %d, want %d", row.Kind, row.Eligible, want[row.Kind])
         }
@@ -178,7 +179,7 @@ func TestManualCleanupProcessesLargeLogTablesInBatches(t *testing.T) {
     rows:=make([]model.LoginLog,1105)
     for i:=range rows{rows[i].Client="webadmin"}
     if err:=DB.CreateInBatches(rows,100).Error;err!=nil{t.Fatal(err)}
-    if err:=DB.Model(&model.LoginLog{}).UpdateColumn("created_at",old).Error;err!=nil{t.Fatal(err)}
+    if err:=DB.Model(&model.LoginLog{}).Where("id > ?",0).UpdateColumn("created_at",old).Error;err!=nil{t.Fatal(err)}
     cleaned,err:=RunLogCleanup(LogCleanupRequest{Kind:"login",Mode:"older",Days:30,Confirmation:"DELETE_LOGS"},now)
     if err!=nil{t.Fatal(err)}
     if len(cleaned)!=1||cleaned[0].Deleted!=int64(len(rows)){

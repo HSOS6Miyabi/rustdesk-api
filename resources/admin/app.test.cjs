@@ -861,6 +861,7 @@ test("log retention page exposes terminal-history categories and a confirmed cle
   assert.match(app.root.innerHTML,/结束连接记录/);
   assert.match(app.root.innerHTML,/设置修改历史/);
   assert.match(app.root.innerHTML,/事件处理失败/);
+  assert.match(app.root.innerHTML,/服务器运行日志归档文件/);
   assert.match(app.root.innerHTML,/data-action="log-cleanup-preview"/);
   assert.match(app.root.innerHTML,/data-action="log-cleanup-run" disabled/);
   const original=app.document.getElementById.bind(app.document);
@@ -871,7 +872,7 @@ test("log retention page exposes terminal-history categories and a confirmed cle
   }[id]||original(id));
   await app.action("log-cleanup-preview");
   assert.ok(app.calls.some(x=>x.endpoint==="/audit/cleanup/preview"&&x.method==="GET"));
-  assert.match(app.root.innerHTML,/预计删除 2 条记录/);
+  assert.match(app.root.innerHTML,/预计清理 2 项历史数据/);
   await app.action("log-cleanup-run");
   assert.ok(app.calls.some(x=>x.endpoint==="/audit/cleanup"&&x.method==="POST"));
 });

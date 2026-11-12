@@ -52,6 +52,7 @@ func GetAuditRetention() (*model.AuditRetentionPolicy,error) {
 		policy.PushFailedDays=90
 		policy.NotificationSentDays=30
 		policy.NotificationFailedDays=90
+		policy.ServerLogDays=30
 		return &policy,nil
 	}
 	return &policy,err
@@ -61,7 +62,7 @@ func SaveAuditRetention(policy *model.AuditRetentionPolicy) error {
 	if policy==nil{return errors.New("retention policy is required")}
 	for _,days:=range []int{policy.ConnectionDays,policy.FileDays,policy.AlarmDays,policy.LoginDays,policy.OperationDays,
 		policy.PushSentDays,policy.PushFailedDays,policy.NotificationSentDays,policy.NotificationFailedDays,
-		policy.DisconnectDays,policy.SettingsHistoryDays,policy.PushOutboxFailedDays,policy.NotificationOutboxFailedDays}{
+		policy.DisconnectDays,policy.SettingsHistoryDays,policy.PushOutboxFailedDays,policy.NotificationOutboxFailedDays,policy.ServerLogDays}{
 		if days<0||days>3650{return fmt.Errorf("retention days must be between 0 and 3650")}
 	}
 	policy.Id=1
@@ -74,6 +75,7 @@ func SaveAuditRetention(policy *model.AuditRetentionPolicy) error {
 		"disconnect_days": policy.DisconnectDays, "settings_history_days": policy.SettingsHistoryDays,
 		"push_outbox_failed_days": policy.PushOutboxFailedDays,
 		"notification_outbox_failed_days": policy.NotificationOutboxFailedDays,
+		"server_log_days": policy.ServerLogDays,
 		"push_sent_days": policy.PushSentDays, "push_failed_days": policy.PushFailedDays,
 		"notification_sent_days": policy.NotificationSentDays,
 		"notification_failed_days": policy.NotificationFailedDays,
@@ -85,6 +87,7 @@ func SaveAuditRetention(policy *model.AuditRetentionPolicy) error {
 			"connection_days","file_days","alarm_days","login_days","operation_days",
 			"disconnect_days","settings_history_days",
 			"push_outbox_failed_days","notification_outbox_failed_days",
+			"server_log_days",
 			"push_sent_days","push_failed_days","notification_sent_days",
 			"notification_failed_days","updated_at",
 		}),
