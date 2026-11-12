@@ -323,3 +323,21 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 @media(max-width:1190px){.content{padding:25px 18px 65px}.topbar{padding:0 18px}}
 @media(max-width:900px){.table-scroll-hint{display:none}.table-detail-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.content{padding:20px 13px 52px}.topbar{padding:0 12px}.page-head{margin-bottom:18px}}
+
+/* Identifiers stay readable on one line; descriptive text can use two lines. */
+.data-table td[data-column="id"]>span,
+.data-table td[data-column="device_id"]>span,
+.data-table td[data-column="peer_id"]>span,
+.data-table td[data-column="from_peer"]>span,
+.data-table td[data-column="direction"]>span{
+  display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  -webkit-line-clamp:unset;line-clamp:unset;
+}
+.data-table td:is([data-column="id"],[data-column="device_id"],[data-column="peer_id"],[data-column="from_peer"]) .entity-link{
+  max-width:100%;white-space:nowrap;
+}
+.data-table td:is([data-column="id"],[data-column="device_id"],[data-column="peer_id"],[data-column="from_peer"]) .entity-link>span:last-child{
+  display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  -webkit-line-clamp:unset;line-clamp:unset;
+}
+

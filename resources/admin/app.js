@@ -788,7 +788,7 @@
     const deviceIDPages=new Set(["devices","mydevices","shared","addressbooks","trash"]);
     const widths={
       id:deviceIDPages.has(page)?164:80,
-      device_id:168,peer_id:168,from_peer:168,
+      device_id:200,peer_id:176,from_peer:176,
       device_uuid:176,conn_id:145,conn_audit_ref:190,
       direction:172,type:128,rule:136,status:130,enabled:126,
       name:180,alias:162,hostname:168,nickname:164,
