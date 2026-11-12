@@ -177,6 +177,7 @@ func invalidatePushActivity() {
 }
 
 func hasPushSubscription(code string) bool {
+    if HasLivePushSubscribers(code) || HasRemotePushSubscribers(code) { return true }
 	if DB == nil {
 		return false
 	}

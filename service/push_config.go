@@ -29,6 +29,7 @@ var pushEventCatalog = []PushEventOption{
 	{"device.offline", "设备离线"},
 	{"device.registered", "新设备登记"},
 	{"connection.started", "远程连接建立"},
+    {"connection.authenticated", "远程连接认证成功"},
 	{"connection.ended", "远程连接结束"},
 	{"audit.file", "文件传输"},
 	{"audit.alarm", "设备安全告警"},
@@ -185,7 +186,7 @@ func validEmail(value string) bool {
 
 func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, error) {
 	if userID == 0 { return PublicPushChannel{}, errors.New("请先登录") }
-	if input.Kind != "messagepusher" && input.Kind != "smtp" && input.Kind != "serverchan" {
+	if input.Kind != "messagepusher" && input.Kind != "smtp" && input.Kind != "serverchan" && input.Kind != "webhook" {
 		return PublicPushChannel{}, errors.New("不支持的推送服务类型")
 	}
 	input.Name = strings.TrimSpace(input.Name)
@@ -242,13 +243,22 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 		if input.ClearAPIKey { record.KeyCiphertext = "" } else { record.KeyCiphertext = existing.KeyCiphertext }
 		if input.APIKey != "" {
 			key := strings.TrimSpace(input.APIKey)
-			if key == "" || strings.ContainsAny(key, "/?# \t") {
-				return PublicPushChannel{}, errors.New("发送密钥不能包含空格或 URL 特殊字符")
-			}
+			if key == "" {
+                return PublicPushChannel{}, errors.New("发送密钥不能为空")
+            }
+            if input.Kind == "webhook" {
+                for _, character := range key {
+                    if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~+/=", character) {
+                        return PublicPushChannel{}, errors.New("HTTP 推送密钥包含无效字符")
+                    }
+                }
+            } else if strings.ContainsAny(key, "/?# \t") {
+                return PublicPushChannel{}, errors.New("发送密钥不能包含空格或 URL 特殊字符")
+            }
 			record.KeyCiphertext, err = encryptPushSecret(key)
 			if err != nil { return PublicPushChannel{}, err }
 		}
-		if record.Enabled && (record.BaseURL == "" || record.KeyCiphertext == "") {
+		if record.Enabled && (record.BaseURL == "" || (input.Kind != "webhook" && record.KeyCiphertext == "")) {
 			return PublicPushChannel{}, errors.New("启用推送需要填写服务地址及发送密钥")
 		}
 	}

@@ -33,6 +33,7 @@ var apiTokenPermissions = map[string]bool{
 	"policies.read": true,
 	"policies.manage": true,
 	"audits.read": true,
+    "events.read": true,
 }
 
 func normalizeAPITokenPermissions(requested []string) (string,error) {
@@ -121,4 +122,24 @@ func RevokeAPIToken(id uint) error {
 	if result.Error!=nil{return result.Error}
 	if result.RowsAffected==0{return gorm.ErrRecordNotFound}
 	return nil
+}
+
+// ListPushStreamTokens exposes only dedicated subscription keys owned by the user.
+func ListPushStreamTokens(userID uint) ([]model.APIToken, error) {
+    if userID == 0 { return nil, errors.New("user required") }
+    var keys []model.APIToken
+    err := DB.Where("user_id = ? AND permissions = ?", userID, "events.read").
+        Order("id DESC").Limit(100).Find(&keys).Error
+    return keys, err
+}
+
+// RevokePushStreamToken cannot modify another user's or a management key.
+func RevokePushStreamToken(userID, id uint) error {
+    if userID == 0 || id == 0 { return errors.New("invalid API key") }
+    result := DB.Model(&model.APIToken{}).
+        Where("id = ? AND user_id = ? AND permissions = ?", id, userID, "events.read").
+        Update("revoked_at", time.Now().Unix())
+    if result.Error != nil { return result.Error }
+    if result.RowsAffected != 1 { return gorm.ErrRecordNotFound }
+    return nil
 }

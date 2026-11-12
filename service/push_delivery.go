@@ -56,13 +56,16 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 	var channels []model.PushChannel
 	if err := DB.Where("user_id IN ? AND enabled = ?", unique, true).
 		Find(&channels).Error; err != nil { return err }
-	if len(channels) == 0 { return nil }
+	needStream := hasUserStreamSubscriber(unique, event.Code)
+    needRemote := HasRemotePushSubscribers(event.Code)
+    if len(channels) == 0 && !needStream && !needRemote { return nil }
 	now := time.Now().Unix()
 	key := event.Reference
 	if key == "" { key = fmt.Sprintf("%d:%d", now, time.Now().UnixNano()) }
-	var records []model.PushDelivery
-	var title, body string
-	for _, channel := range channels {
+    var records []model.PushDelivery
+    var title, body string
+    var encoded []byte
+    for _, channel := range channels {
 		if !pushSubscribed(&channel, event.Code) { continue }
 		if title == "" {
 			var err error
@@ -70,17 +73,39 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 			if err != nil { return err }
 		}
 		if title == "" { continue }
-		records = append(records, model.PushDelivery{
-			UserId: channel.UserId, ChannelId: channel.Id, EventType: event.Code,
-			EventKey: eventHash(event.Code + ":" + key), Title: title, Body: body,
-			Status: "pending", NextAttemptAt: now,
-		})
-	}
-	if len(records) == 0 { return nil }
-	result := DB.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&records, 100)
-	if result.Error != nil { return result.Error }
-	if result.RowsAffected > 0 { wakePushDelivery() }
-	return nil
+        payload := ""
+        if channel.Kind == "webhook" {
+            if encoded == nil {
+                var err error
+                encoded, err = marshalPushEventEnvelope(event, key, title, body)
+                if err != nil { return err }
+            }
+            payload = string(encoded)
+        }
+        records = append(records, model.PushDelivery{
+            UserId: channel.UserId, ChannelId: channel.Id, EventType: event.Code,
+            EventKey: eventHash(event.Code + ":" + key), Title: title, Body: body,
+            Payload: payload, Status: "pending", NextAttemptAt: now,
+        })
+    }
+    if (needStream || needRemote) && title == "" {
+        var err error
+        title, body, err = formatPushMessage(event)
+        if err != nil { return err }
+    }
+    if (needStream || needRemote) && encoded == nil {
+        var err error
+        encoded, err = marshalPushEventEnvelope(event, key, title, body)
+        if err != nil { return err }
+    }
+    if len(records) > 0 {
+        result := DB.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&records, 100)
+        if result.Error != nil { return result.Error }
+        if result.RowsAffected > 0 { wakePushDelivery() }
+    }
+    if needStream { PublishLivePushForUsers(unique, event.Code, encoded) }
+    if needRemote { publishRemotePushEvent(unique, event.Code, encoded) }
+    return nil
 }
 
 func QueuePushTest(userID, channelID uint) error {
@@ -246,6 +271,7 @@ func sendPushSMTP(channel *model.PushChannel, title, body string) error {
 func sendPushDelivery(channel *model.PushChannel, delivery *model.PushDelivery) error {
 	if channel == nil || !channel.Enabled { return errors.New("推送渠道已关闭") }
 	if channel.Kind == "smtp" { return sendPushSMTP(channel, delivery.Title, delivery.Body) }
+    if channel.Kind == "webhook" { return sendPushWebhook(channel, delivery) }
 	if channel.Kind == "messagepusher" || channel.Kind == "serverchan" {
 		return sendPushHTTP(channel, delivery.Title, delivery.Body)
 	}
@@ -330,6 +356,7 @@ var pushWorkerOnce sync.Once
 
 func StartPushWorker() {
 	pushWorkerOnce.Do(func() {
+        startPushStreamRedisBridge()
 		startPersonalDeliverySchedulers()
 		startPushEventWorker()
 		launchServiceWorker(func(ctx context.Context) {
