@@ -313,6 +313,27 @@
     if(activeSessionKey)closeSession(activeSessionKey);
     else message("当前没有活动的远程连接。");
   });
+  el("v2-clear-password").addEventListener("click",()=>{
+    const id=config.id.value.trim(),host=config.host.value.trim();
+    if(!id||!host){message("请先填写服务器和设备 ID。");return;}
+    const storageKey="rustdesk.webclient.credentials.v1:"+
+      JSON.stringify([host.toLowerCase(),id]);
+    const existed=localStorage.getItem(storageKey)!==null;
+    localStorage.removeItem(storageKey);
+    try{
+      const peers=JSON.parse(localStorage.getItem("peers")||"{}");
+      if(peers[id]&&typeof peers[id]==="object"){
+        delete peers[id].password;
+        peers[id].remember=false;
+        localStorage.setItem("peers",JSON.stringify(peers));
+      }
+    }catch{}
+    for(const session of sessions.values()){
+      if(session.id!==id||session.host.toLowerCase()!==host.toLowerCase())continue;
+      try{session.frame.contentWindow?.setByName?.("forget_password","");}catch{}
+    }
+    message(existed?"已清除该设备保存的密码。":"当前设备没有已保存的密码。");
+  });
   el("v2-refresh").addEventListener("click",loadDevices);
   let lookupSequence=0;
   async function searchDevices(){
