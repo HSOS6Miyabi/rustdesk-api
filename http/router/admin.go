@@ -365,6 +365,7 @@ func MyBind(rg *gin.RouterGroup) {
 		cont := &my.Directory{}
 		rg.GET("/my/directory/users", cont.Users)
 		rg.GET("/my/directory/user", cont.User)
+		rg.GET("/my/directory/user/relations", cont.UserRelations)
 		rg.GET("/my/directory/devices", cont.Devices)
 		rg.GET("/my/directory/device", cont.Device)
 	}
