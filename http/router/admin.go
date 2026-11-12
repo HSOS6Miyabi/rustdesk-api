@@ -117,6 +117,7 @@ func UserBind(rg *gin.RouterGroup) {
 		cont := &admin.User{}
 		aRP.GET("/list", cont.List)
 		aRP.GET("/detail/:id", cont.Detail)
+		aRP.GET("/relations/:id", cont.Relations)
 		aRP.POST("/create", cont.Create)
 		aRP.POST("/update", cont.Update)
 		aRP.POST("/delete", cont.Delete)
