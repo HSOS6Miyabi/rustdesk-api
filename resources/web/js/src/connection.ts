@@ -75,6 +75,25 @@ export default class Connection {
     this._ws?.sendMessage({file_action:{cancel:{id}}});
   }
 
+  credentialStorageKey(id: string = this._id): string {
+    const server = String(localStorage.getItem("custom-rendezvous-server") ||
+      localStorage.getItem("rendezvous-server") || "").trim().toLowerCase();
+    return "rustdesk.webclient.credentials.v1:" + JSON.stringify([server, id]);
+  }
+
+  clearRememberedPassword(): void {
+    if (this._id) localStorage.removeItem(this.credentialStorageKey());
+    this._password = undefined;
+    if (this._options?.password !== undefined) {
+      delete this._options.password;
+      if (this._id) {
+        const peers = globals.getPeers();
+        peers[this._id] = this._options;
+        localStorage.setItem("peers", JSON.stringify(peers));
+      }
+    }
+  }
+
   async start(id: string) {
     try {
       await this._start(id);
@@ -91,13 +110,26 @@ export default class Connection {
     if (!this._options) {
       this._options = globals.getPeers()[id] || {};
     }
-    if (!this._password) {
-      const p = this.getOption("password");
-      if (p) {
+    // Password hashes from older clients were not separated by server.
+    // Discard that shared entry and use only the credentials for this server/device pair.
+    if (this._options.password !== undefined) {
+      delete this._options.password;
+      const peers = globals.getPeers();
+      peers[id] = this._options;
+      localStorage.setItem("peers", JSON.stringify(peers));
+    }
+    if (!this._password && this.getRemember()) {
+      const stored = localStorage.getItem(this.credentialStorageKey(id));
+      if (stored) {
         try {
-          this._password = Uint8Array.from(JSON.parse("[" + p + "]"));
-        } catch (e) {
-          console.error(e);
+          const bytes = JSON.parse(stored);
+          if (!Array.isArray(bytes) || bytes.length !== 32 ||
+              !bytes.every((byte: unknown) => Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
+            throw Error("Invalid credential");
+          }
+          this._password = Uint8Array.from(bytes);
+        } catch {
+          localStorage.removeItem(this.credentialStorageKey(id));
         }
       }
     }
@@ -411,7 +443,7 @@ export default class Connection {
         const r = msg?.login_response;
         if (r.error) {
           if (r.error == "Wrong Password") {
-            this._password = undefined;
+            this.clearRememberedPassword();
             this.msgbox(
               "re-input-password",
               r.error,
@@ -656,16 +688,10 @@ export default class Connection {
     const username = this.getOption("info")?.username;
     if (username && !pi.username) pi.username = username;
     this.setOption("info", pi);
-    if (this.getRemember()) {
-      if (this._password?.length) {
-        const p = this._password.toString();
-        if (p != this.getOption("password")) {
-          this.setOption("password", p);
-          console.log("remember password of " + this._id);
-        }
-      }
+    if (this.getRemember() && this._password?.length === 32) {
+      localStorage.setItem(this.credentialStorageKey(), JSON.stringify(Array.from(this._password)));
     } else {
-      this.setOption("password", undefined);
+      this.clearRememberedPassword();
     }
   }
 
@@ -721,7 +747,8 @@ export default class Connection {
   }
 
   setRemember(v: Boolean) {
-    this.setOption("remember", v);
+    this.setOption("remember", Boolean(v));
+    if (!v) this.clearRememberedPassword();
   }
 
   getOption(name: string): any {
