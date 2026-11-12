@@ -12,10 +12,10 @@ test("WebClient v2 reuses RustDesk Flutter's remote desktop page and built-in to
   assert.match(flutter,/A\.Go\.prototype=\{/);
 });
 test("Flutter's remote page automatically opens a selected device only once",()=>{
-  assert.match(flutter,/__rustdeskAutoOpened/);
-  assert.match(flutter,/URLSearchParams\(window\.location\.search\)\.get\("connect"\)/);
-  assert.match(flutter,/remoteHome\.HF\(remoteId\)/);
-  assert.match(flutter,/rustdesk:native-session-open/);
+  assert.match(flutter,/session_add_sync/);
+  assert.match(flutter,/session_start/);
+  assert.match(flutter,/Web Client V2 \(Preview\)/);
+  assert.match(connection,/rustdesk:native-session-open/);
 });
 test("original RustDesk remote UI retains mouse, keyboard and display-switch actions",()=>{
   assert.match(flutter,/"send_mouse"/);

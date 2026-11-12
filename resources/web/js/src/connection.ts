@@ -863,7 +863,6 @@ function testDelay() {
   });
 }
 
-testDelay();
 
 function getDefaultUri(isRelay: Boolean = false): string {
   const host = localStorage.getItem("custom-rendezvous-server");

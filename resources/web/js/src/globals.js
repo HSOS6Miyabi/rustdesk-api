@@ -77,7 +77,7 @@ export function draw(frame) {
         for (let i = 0; i < size; i += row) {
             flipPixels.set(pixels.subarray(i, i + row), end - i);
         }
-        window.onRgba(flipPixels);
+        window.onRgba(0, flipPixels);
         testSpeed[1] += new Date().getTime() - tm0;
         testSpeed[0] += 1;
         if (testSpeed[0] > 30) {
@@ -184,6 +184,49 @@ export function decrypt(signed, nonce, key) {
 window.setByName = (name, value) => {
     myconsole('setByName', name, value);
     switch (name) {
+        case 'session_add_sync': {
+            const options = JSON.parse(value || '{}');
+            if (!options.id || typeof options.id !== 'string') return 'Invalid remote device';
+            window.__rustdeskSessionOptions = options;
+            return '';
+        }
+        case 'session_start': {
+            const request = JSON.parse(value || '{}');
+            const id = String(request.id || '').trim();
+            if (!id) return '';
+            const conn = newConn();
+            const mode = window.__rustdeskSessionOptions || {};
+            if (mode.isFileTransfer || mode.isViewCamera || mode.isTerminal) {
+                msgbox('error', 'Unsupported Web session', 'This connection type requires an updated browser protocol adapter.');
+                return '';
+            }
+            window.__rustdeskNativeSessionSeen = id;
+            window.dispatchEvent(new CustomEvent('rustdesk:native-session-open', {detail:{id}}));
+            conn.start(id);
+            return '';
+        }
+        case 'session_login': {
+            const request = JSON.parse(value || '{}');
+            getConn()?.login(String(request.password || ''));
+            return '';
+        }
+        case 'session_close':
+            close();
+            return '';
+        case 'option:toggle':
+            getConn()?.toggleOption(value);
+            return '';
+        case 'option:session': {
+            const sessionOption = typeof value === 'string' && value.startsWith('{') ? JSON.parse(value) : null;
+            if (sessionOption?.name) localStorage.setItem('rustdesk.session.' + sessionOption.name, sessionOption.value);
+            return '';
+        }
+        case 'option:flutter:peer':
+        case 'option:flutter:local': {
+            const option = JSON.parse(value || '{}');
+            if (option.name) localStorage.setItem('rustdesk.flutter.' + option.name, option.value);
+            return '';
+        }
         case 'remote_id':
             localStorage.setItem('remote-id', value);
             break;
@@ -304,9 +347,22 @@ function _getByName(name, arg) {
         case 'remote_id':
             return localStorage.getItem('remote-id');
         case 'remember':
-            return curConn.getRemember();
+            return getConn()?.getRemember() || false;
         case 'toggle_option':
-            return curConn.getOption(arg) || false;
+        case 'option:toggle':
+            return getConn()?.getOption(arg) || false;
+        case 'option:session':
+            return localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+        case 'option:flutter:peer':
+        case 'option:flutter:local':
+            return localStorage.getItem('rustdesk.flutter.' + arg) || '';
+        case 'option:local':
+            return localStorage.getItem(arg) || '';
+        case 'login_method':
+        case 'conn_session_id':
+            return '';
+        case 'api_server':
+            return localStorage.getItem('api-server') || '';
         case 'option':
             const v = localStorage.getItem(arg);
             if (arg === 'access_token' && v) {
@@ -314,7 +370,7 @@ function _getByName(name, arg) {
             }
             return v;
         case 'image_quality':
-            return curConn.getImageQuality();
+            return getConn()?.getImageQuality() || 'balanced';
         case 'translate':
             arg = JSON.parse(arg);
             return translate(arg.locale, arg.text);
@@ -343,7 +399,7 @@ export function playAudio(packet) {
 window.init = async () => {
     if (yuvWorker) {
         yuvWorker.onmessage = (e) => {
-            if (typeof window.onRgba === "function") window.onRgba(e.data);
+            if (typeof window.onRgba === "function") window.onRgba(0, e.data);
         }
     }
     opusWorker.onmessage = (e) => {
