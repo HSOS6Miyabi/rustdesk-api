@@ -51,6 +51,7 @@ jobs:
           test -s resources/admin/app.js
           test -s resources/web2/index.html
           node --check resources/admin/app.js
+          node --check resources/admin/passkey.js
           node --check resources/admin/client-local.js
           node --check resources/web2/app.js
       - uses: actions/setup-node@v4
@@ -132,6 +133,14 @@ jobs:
           retention-days: 3
       - name: Test WebRTC media transport in Chromium
         run: node --test resources/admin/browser.webrtc.e2e.cjs
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Test browser Passkey registration, login and administrator account operations
+        run: |
+          go build -o /tmp/rustdesk-passkey-api ./cmd/apimain.go
+          node --test resources/admin/passkey.integration.cjs
 
   build:
     needs: [test, browser-e2e]

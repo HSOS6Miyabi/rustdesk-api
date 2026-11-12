@@ -42,6 +42,7 @@ jobs:
       - name: Check JavaScript syntax and run existing interaction tests
         run: |
           node --check resources/admin/app.js
+          node --check resources/admin/passkey.js
           node --check resources/web2/app.js
           node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
       - name: Run existing Go tests
