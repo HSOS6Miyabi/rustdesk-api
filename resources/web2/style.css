@@ -65,6 +65,7 @@ body.webclient-page-fullscreen{overflow:hidden}
 .mode-tabs button:hover:not([aria-selected="true"]){background:#dae5f1}
 .workspace-switcher .session-tabs{min-width:0;flex:1}
 .webclient-page-fullscreen .workspace-switcher,.stage:fullscreen .workspace-switcher{display:flex;align-items:center;padding:8px 10px;background:#13283d}
+.webclient-page-fullscreen .workspace-switcher .session-tabs,.stage:fullscreen .workspace-switcher .session-tabs{width:auto;flex:0 1 auto;max-width:min(65vw,700px)}
 @media(max-width:1080px){.workspace-switcher{flex-wrap:wrap}.mode-tabs{width:100%;justify-content:center}.workspace-switcher .session-tabs{width:100%;flex-basis:100%}}
 @media(max-width:680px){.mode-tabs button{flex:1;padding:5px 8px}.mode-tabs{width:100%}}
 
