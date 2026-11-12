@@ -1888,7 +1888,8 @@ test("device and user names open detail panels with management links",async()=>{
     await page.locator('.table-scroll [data-action="entity-detail"][data-entity-type="user"]').first().click();
     await page.locator('.drawer[aria-label="用户信息"]').waitFor();
     assert.match(await page.locator(".drawer").innerText(),/用户名/);
-    assert.equal(await page.locator('[data-action="entity-open-list"]').count(),1);
+    assert.equal(await page.locator('[data-action="entity-open-list"]').count(),0);
+    assert.equal(await page.locator('[data-action="entity-admin-edit"]').count(),1);
   }finally{await context.close();}
 });
 
