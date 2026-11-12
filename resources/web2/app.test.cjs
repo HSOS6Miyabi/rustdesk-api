@@ -37,7 +37,7 @@ function fixture(options = {}) {
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc", "app",
-    "host", "key", "v2-page-fullscreen", "v2-screen-fullscreen", "v2-device-query", "v2-search-device", "v2-device-results"
+    "host", "key", "v2-page-fullscreen", "v2-screen-fullscreen", "v2-device-query", "v2-search-device", "v2-device-results", "v2-active-device-name", "v2-active-device-id"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
@@ -64,12 +64,15 @@ function fixture(options = {}) {
   const localStorage = storage({access_token:"stale-persistent-token"});
   const sessionStorage = storage(options.token ? {"rustdesk.console.token":options.token} : {});
   const assigned = [];
+  const winEvents = {};
   let connectionCount = 0;
   const window = {
+    rustdeskRendererReady:options.rendererReady??true,
+    addEventListener(type,handler){winEvents[type]=handler;},
     connect(){connectionCount++;},
     cancel(){},
     scrollTo(){},
-    location:{assign(url){assigned.push(url);}}
+    location:{search:options.search||"",assign(url){assigned.push(url);}}
   };
   const document = {
     fullscreenElement:null,
@@ -105,7 +108,7 @@ function fixture(options = {}) {
     console
   }, {filename:"resources/web2/app.js"});
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
-  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,
+  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,winEvents,window,
     settle,connectCount:()=>connectionCount};
 }
 
@@ -188,7 +191,7 @@ test("WebClient v2 supports both page and display fullscreen with exit controls"
   const screen=app.elements.get("v2-screen-fullscreen");
   await page.listeners.click();
   assert.equal(page.attributes["aria-pressed"],"true");
-  assert.match(page.textContent,/退出网页全屏/);
+  assert.equal(page.textContent,"退出全屏");
   app.docEvents.keydown({key:"Escape"});
   assert.equal(page.attributes["aria-pressed"],"false");
   await screen.listeners.click();
@@ -225,4 +228,40 @@ test("WebClient v2 searches owned and shared devices by their details",async()=>
   assert.match(ownerResult.children[0].children[0].children[0].className,/device-status-dot online/);
   ownerResult.children[1].listeners.click();
   assert.equal(app.elements.get("v2-id").value,"owned-01");
+});
+
+test("WebClient v2 opens a linked device after renderer initialization",async()=>{
+  const app=fixture({token:"session-token",rendererReady:false,search:"?id=owned-01&name=Office%20desktop"});
+  await app.settle();
+  assert.equal(app.elements.get("v2-id").value,"owned-01");
+  assert.equal(app.elements.get("v2-active-device-id").textContent,"ID owned-01");
+  assert.equal(app.elements.get("v2-active-device-name").textContent,"Office desktop");
+  assert.equal(app.connectCount(),0);
+  app.window.rustdeskRendererReady=true;
+  app.winEvents["rustdesk:renderer-ready"]();
+  assert.equal(app.connectCount(),1);
+  assert.equal(app.elements.get("native-id").value,"owned-01");
+  app.winEvents["rustdesk:renderer-ready"]();
+  assert.equal(app.connectCount(),1);
+});
+test("Selecting a shared device updates the compact remote-desktop information bar",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const item=app.elements.get("shared-items").children[0];
+  item.children[1].listeners.click();
+  assert.equal(app.elements.get("v2-active-device-name").textContent,"Remote Workstation");
+  assert.equal(app.elements.get("v2-active-device-id").textContent,"ID 123456789");
+  app.elements.get("v2-id").value="manual-02";
+  app.elements.get("v2-id").listeners.input();
+  assert.equal(app.elements.get("v2-active-device-id").textContent,"ID manual-02");
+  assert.equal(app.elements.get("v2-active-device-name").textContent,"设备名称未设置");
+});
+test("Remote desktop has an overlay toolbar and no redundant header or footer",()=>{
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  const css=fs.readFileSync(path.join(__dirname,"style.css"),"utf8");
+  assert.match(html,/class="stage-toolbar"/);
+  assert.doesNotMatch(html,/class="stage-header"|class="stage-footer"/);
+  assert.match(html,/id="v2-active-device-name"/);
+  assert.match(css,/\.stage-toolbar\{position:absolute/);
+  assert.match(css,/\.stage:fullscreen/);
 });

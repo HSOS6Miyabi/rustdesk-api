@@ -3,13 +3,23 @@
   const el = id => document.getElementById(id);
   const store = (key, value) => localStorage.setItem(key, value);
   const read = key => localStorage.getItem(key)||"";
-  const state = { token:sessionStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,pageFullscreen:false };
+  const linkedDevice=new URLSearchParams(window.location.search||"");
+  const initialDeviceId=String(linkedDevice.get("id")||"").trim();
+  const state = { token:sessionStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,defaultsLoaded:false,
+    pageFullscreen:false,autoConnect:Boolean(initialDeviceId),activeName:String(linkedDevice.get("name")||"").slice(0,160) };
   const config = {
     host: el("v2-host"), key: el("v2-key"), id: el("v2-id")
   };
   config.host.value=read("custom-rendezvous-server")||read("rendezvous-server");
   config.key.value=read("key");
-  config.id.value=read("remote-id")||read("id");
+  config.id.value=initialDeviceId||read("remote-id")||read("id");
+  function updateDeviceIdentity(){
+    const id=config.id.value.trim();
+    el("v2-active-device-name").textContent=id?(state.activeName||"设备名称未设置"):"未选择设备";
+    el("v2-active-device-id").textContent=id?"ID "+id:"";
+  }
+  config.id.addEventListener("input",()=>{state.activeName="";state.autoConnect=false;updateDeviceIdentity();});
+  updateDeviceIdentity();
   el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y";
   function message(text){el("v2-message").textContent=text;}
   const stage=document.querySelector(".stage");
@@ -19,13 +29,14 @@
     document.body.classList.toggle("webclient-page-fullscreen",state.pageFullscreen&&!monitorFullscreen);
     pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen&&!monitorFullscreen));
     screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
-    pageFullscreenButton.textContent=state.pageFullscreen&&!monitorFullscreen?"退出网页全屏":"网页全屏";
-    screenFullscreenButton.textContent=monitorFullscreen?"退出显示器全屏":"显示器全屏";
+    pageFullscreenButton.textContent=state.pageFullscreen&&!monitorFullscreen?"退出全屏":"网页全屏";
+    screenFullscreenButton.textContent=monitorFullscreen?"退出全屏":"显示器全屏";
     if(monitorFullscreen)state.pageFullscreen=false;
   }
   pageFullscreenButton.addEventListener("click",async()=>{
     if(document.fullscreenElement){
-      try{await document.exitFullscreen();}catch(error){message("退出显示器全屏失败："+error.message);return;}
+      try{await document.exitFullscreen();}catch(error){message("退出显示器全屏失败："+error.message);}
+      return;
     }
     state.pageFullscreen=!state.pageFullscreen;
     syncFullscreen();
@@ -61,8 +72,11 @@
     if(!res.ok||typeof data.code==="number"&&data.code!==0)throw Error(data.message||data.error||"请求失败");
     return data.data===undefined?data:data.data;
   }
-  function useDevice(id){
+  function useDevice(id,name=""){
     config.id.value=id;
+    state.activeName=String(name||"");
+    state.autoConnect=false;
+    updateDeviceIdentity();
     config.id.focus();
     message("已选择设备 "+id+"，请点击发起连接。");
     window.scrollTo({top:0,behavior:"smooth"});
@@ -133,7 +147,7 @@
         left.append(title,sub);
         const connect=document.createElement("button");connect.type="button";connect.className="device-connect";
         connect.textContent="选中连接";connect.setAttribute("aria-label","选择设备 "+String(item.id||""));
-        connect.addEventListener("click",()=>useDevice(item.id));
+        connect.addEventListener("click",()=>useDevice(item.id,item.alias||item.hostname||""));
         card.append(left,connect);
         list.append(card);
       }
@@ -161,8 +175,7 @@
       el("v2-captcha").querySelector('input[name="captcha_id"]').value=data.id;
     }catch{}
   }
-  el("connect-form").addEventListener("submit",e=>{
-    e.preventDefault();
+  function connectToDevice(){
     const host=config.host.value.trim(),key=config.key.value.trim(),id=config.id.value.trim();
     if(!host||!id){message("请填写服务器和设备 ID");return;}
     store("custom-rendezvous-server",host);store("rendezvous-server",host);
@@ -174,9 +187,18 @@
     if(nativeKey)nativeKey.value=key;
     if(nativeID)nativeID.value=id;
     if(typeof window.connect!=="function"){message("远程连接组件尚未加载完毕，请刷新页面。");return;}
+    updateDeviceIdentity();
     window.connect();
     message("正在连接："+id);
-  });
+  }
+  function attemptAutoConnect(){
+    if(!state.autoConnect||!state.ready||!state.defaultsLoaded||window.rustdeskRendererReady!==true||
+      !config.host.value.trim())return;
+    state.autoConnect=false;
+    connectToDevice();
+  }
+  window.addEventListener("rustdesk:renderer-ready",attemptAutoConnect);
+  el("connect-form").addEventListener("submit",e=>{e.preventDefault();state.autoConnect=false;connectToDevice();});
   el("v2-disconnect").addEventListener("click",()=>{
     if(typeof window.cancel==="function")window.cancel();
     message("连接已断开");
@@ -227,7 +249,7 @@
         const label=document.createElement("span");label.className="webclient-search-description";label.append(detail,meta);
         const choose=document.createElement("button");
         choose.type="button";choose.className="secondary";choose.textContent="选择此设备";
-        choose.addEventListener("click",()=>useDevice(peer.id));
+        choose.addEventListener("click",()=>useDevice(peer.id,peer.alias||peer.hostname||""));
         row.append(label,choose);target.append(row);
       }
     }catch(error){
@@ -266,6 +288,7 @@
         el("engine-state").textContent="远程连接组件已就绪";
         el("engine-state").classList.add("ready");
         const placeholder=document.querySelector("#app .placeholder");if(placeholder)placeholder.remove();
+        attemptAutoConnect();
         return true;
       }
       return false;
@@ -276,6 +299,18 @@
   }
   watchEngine();
   localStorage.removeItem("access_token");
-  loadConnectionDefaults().then(loadDevices);
+  loadConnectionDefaults().then(()=>{
+    state.defaultsLoaded=true;
+    attemptAutoConnect();
+    return loadDevices();
+  });
+  if(initialDeviceId&&state.token){
+    request("/my/directory/device?id="+encodeURIComponent(initialDeviceId)).then(info=>{
+      if(config.id.value.trim()===initialDeviceId&&info?.id){
+        state.activeName=String(info.alias||info.hostname||state.activeName||"").slice(0,160);
+        updateDeviceIdentity();
+      }
+    }).catch(()=>{});
+  }
   if(!state.token){setupLoginOptions();showCaptcha();}
 })();
