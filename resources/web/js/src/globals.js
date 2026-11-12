@@ -461,6 +461,11 @@ window.init = async () => {
     });
     await initZstd();
     console.log('init done');
+    if (typeof window.onInitFinished === "function") {
+        const notify = window.onInitFinished;
+        window.onInitFinished = undefined;
+        notify();
+    }
 }
 
 export function getPeers() {
