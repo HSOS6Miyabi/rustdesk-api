@@ -7,6 +7,7 @@ import (
     "fmt"
     "io"
     "net/http"
+    "time"
 
     "github.com/lejianwen/rustdesk-api/v2/model"
 )
@@ -19,10 +20,14 @@ func sendPushWebhook(channel *model.PushChannel, delivery *model.PushDelivery) e
     if err != nil { return err }
     data := []byte(delivery.Payload)
     if len(data) == 0 {
-        data, err = json.Marshal(map[string]string{
-            "type": delivery.EventType,
-            "title": delivery.Title,
-            "body": delivery.Body,
+        occurred := time.Time(delivery.CreatedAt)
+        if occurred.IsZero() { occurred = time.Now() }
+        data, err = json.Marshal(PushEventEnvelope{
+            ID: delivery.EventKey,
+            Type: delivery.EventType,
+            OccurredAt: occurred.UTC().Format(time.RFC3339Nano),
+            Title: delivery.Title,
+            Body: delivery.Body,
         })
         if err != nil { return err }
     }
