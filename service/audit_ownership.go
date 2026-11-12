@@ -220,7 +220,7 @@ func auditPersonalScope(tx *gorm.DB, userId uint) *gorm.DB {
 	)
 }
 
-func (as *AuditService) OwnConnections(userId uint, page, pageSize uint) (*model.AuditConnList, error) {
+func (as *AuditService,sort ...string) OwnConnections(userId uint, page, pageSize uint) (*model.AuditConnList, error) {
 	res := &model.AuditConnList{}
 	if userId == 0 { return res, errors.New("user not found") }
 	if page == 0 { page = 1 }
@@ -229,12 +229,12 @@ func (as *AuditService) OwnConnections(userId uint, page, pageSize uint) (*model
 	res.Page, res.PageSize = int64(page), int64(pageSize)
 	tx := auditPersonalScope(DB.Model(&model.AuditConn{}), userId)
 	if err := tx.Count(&res.Total).Error; err != nil { return nil, err }
-	if err := tx.Order("id DESC").Scopes(Paginate(page, pageSize)).Find(&res.AuditConns).Error; err != nil { return nil, err }
+	if err := tx.Order("id DESC").Scopes(Paginate(page, pageSize),SortScope(sort...)).Find(&res.AuditConns).Error; err != nil { return nil, err }
 	if err := as.EnrichConnections(res.AuditConns, userId); err != nil { return nil, err }
 	return res, nil
 }
 
-func (as *AuditService) OwnFiles(userId uint, page, pageSize uint) (*model.AuditFileList, error) {
+func (as *AuditService,sort ...string) OwnFiles(userId uint, page, pageSize uint) (*model.AuditFileList, error) {
 	res := &model.AuditFileList{}
 	if userId == 0 { return res, errors.New("user not found") }
 	if page == 0 { page = 1 }
@@ -243,7 +243,7 @@ func (as *AuditService) OwnFiles(userId uint, page, pageSize uint) (*model.Audit
 	res.Page, res.PageSize = int64(page), int64(pageSize)
 	tx := auditPersonalScope(DB.Model(&model.AuditFile{}), userId)
 	if err := tx.Count(&res.Total).Error; err != nil { return nil, err }
-	if err := tx.Order("id DESC").Scopes(Paginate(page, pageSize)).Find(&res.AuditFiles).Error; err != nil { return nil, err }
+	if err := tx.Order("id DESC").Scopes(Paginate(page, pageSize),SortScope(sort...)).Find(&res.AuditFiles).Error; err != nil { return nil, err }
 	if err := as.EnrichFiles(res.AuditFiles, userId); err != nil { return nil, err }
 	return res, nil
 }
