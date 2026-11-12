@@ -398,6 +398,12 @@ function serve(req, res) {
   res.end(fs.readFileSync(file));
 }
 
+async function captureManagementScreenshot(page, filename) {
+  const folder=path.join(__dirname,"test-screenshots","management-review");
+  fs.mkdirSync(folder,{recursive:true});
+  await page.screenshot({path:path.join(folder,filename),fullPage:false,animations:"disabled"});
+}
+
 async function pageForViewport(width, height, admin=false) {
   const context = await browser.newContext({
     viewport:{width,height},deviceScaleFactor:1,locale:"zh-CN",
@@ -1143,9 +1149,13 @@ test("settings center: administrator can inspect and save overrides on desktop",
     await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/环境变量/);
     await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-overview.png");
     assert.match(await page.locator(".content").innerText(),/smtp.example.test/);
     assert.match(await page.locator(".content").innerText(),/连接日志 90 天/);
+    await page.locator('[data-action="settings-tab"][data-tab="storage"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-storage.png");
     await page.locator('[data-action="settings-tab"][data-tab="general"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-account.png");
     assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
     assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
     assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
@@ -2089,6 +2099,7 @@ test("pagination shows numbered pages and defaults to 100 entries",async()=>{
     await page.waitForFunction(()=>document.querySelector(".pager")?.textContent.includes("第 1 / 5 页"));
     assert.ok(requests.some(x=>x.index===1&&x.size===50));
     assert.equal(await page.locator(".pager-size").first().inputValue(),"50");
+    await captureManagementScreenshot(page,"desktop-pagination.png");
     const width=await page.evaluate(()=>({screen:innerWidth,document:document.documentElement.scrollWidth}));
     assert.ok(width.document<=width.screen+2,"pagination overflows desktop");
   }finally{await context.close();}
@@ -2104,6 +2115,7 @@ test("user security controls stay in the editor and backdrop closes drawers",asy
     await page.locator(".drawer").waitFor({state:"visible"});
     assert.equal(await page.locator('[data-action="reset-password"]').count(),1);
     assert.equal(await page.locator('[data-action="reset-user-mfa"]').count(),1);
+    await captureManagementScreenshot(page,"desktop-user-editor.png");
     await page.locator("#modal-overlay").click({position:{x:35,y:160}});
     await page.locator("#modal-overlay").waitFor({state:"detached"});
   }finally{await context.close();}
@@ -2123,6 +2135,7 @@ test("server selections automatically query live values and group related comman
     await page.locator('[data-action="server-select"][data-id="id-must-login-read"]').click();
     await page.locator("#server-policy-value").waitFor({state:"visible"});
     assert.equal(await page.locator('[data-action="server-policy-save"]').count(),1);
+    await captureManagementScreenshot(page,"desktop-server-login-policy.png");
   }finally{await context.close();}
 });
 
@@ -2137,5 +2150,6 @@ test("active connection rows display both device owners and the connecting accou
     assert.match(content,/Remote support PC/);
     await page.locator('[data-action="table-details"]').first().click();
     assert.match(await page.locator(".content").innerText(),/operator/);
+    await captureManagementScreenshot(page,"desktop-active-connection.png");
   }finally{await context.close();}
 });
