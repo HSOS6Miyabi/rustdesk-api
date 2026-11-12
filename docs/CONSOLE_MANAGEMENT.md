@@ -109,4 +109,4 @@ docker compose pull rustdesk-api
 docker compose up -d --force-recreate rustdesk-api
 ```
 
-Compose 文件指定已发布的版本，并在启动时检查该镜像。升级完成后，可在浏览器中重新进入控制台，核对底部显示的资源版本。如果 CDN 对入口网页设置了额外的缓存规则，应让 `/_admin/` 及 `/_admin/index.html` 遵循服务器的缓存响应头。
+Compose 默认使用 `ghcr.io/hsos6miyabi/rustdesk-api:latest`，并设置 `pull_policy: always`。运行 `docker compose up -d` 时会检查并获取最新正式版镜像，有更新时会重新创建容器。升级完成后，可以在浏览器中重新进入控制台，检查底部显示的资源版本。如果 CDN 自行设置了入口网页的缓存规则，请让 `/_admin/` 和 `/_admin/index.html` 遵循服务器返回的缓存响应头。
