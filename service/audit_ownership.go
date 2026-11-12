@@ -74,6 +74,7 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 	if event == nil || strings.TrimSpace(event.PeerId) == "" || event.ConnId == 0 {
 		return errors.New("connection ID and target device ID are required")
 	}
+    event.AuthenticatedNew = false
 	if event.Action != "" && event.Action != model.AuditActionNew && event.Action != model.AuditActionClose {
 		return errors.New("unsupported connection event")
 	}
