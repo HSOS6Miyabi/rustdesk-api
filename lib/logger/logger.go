@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"time"
 )
 
 const (
@@ -31,7 +32,7 @@ func New(c *Config) *log.Logger {
 	f := c.Path
 	var write io.Writer
 	if f != "" {
-		fwriter, err := os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		fwriter, err := newRotatingFileWriter(f, time.Now)
 		if err != nil {
 			panic("open log file fail!")
 		}

@@ -429,7 +429,7 @@
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -1118,17 +1118,72 @@
       (state.serverError?'<div class="warning">'+esc(state.serverError)+'</div>':renderServerResult(result,selected))+
       '</div></section></div></div>';
   }
+  const cleanupKinds=[
+    ["all","全部记录类别"],["connection","远程连接记录"],["file","文件传输记录"],
+    ["alarm","安全告警"],["login","用户登录记录"],["operation","管理操作记录"],
+    ["disconnect","结束连接记录"],["settings_history","设置修改历史"],
+    ["push_sent","个人推送成功记录"],["push_failed","个人推送失败记录"],
+    ["notification_sent","管理员邮件成功记录"],["notification_failed","管理员邮件失败记录"],
+    ["push_outbox_failed","个人推送事件处理失败记录"],
+    ["notification_outbox_failed","管理员邮件事件处理失败记录"],
+    ["server_log","服务器运行日志文件"]
+  ];
   function retentionPage(){
     const data=state.retention||{};
     const fields=[["connection_days","远程连接记录",0],["file_days","文件传输记录",0],
       ["alarm_days","安全告警",0],["login_days","用户登录记录",0],["operation_days","管理操作记录",0],
-      ["push_sent_days","个人推送：成功发送",30],["push_failed_days","个人推送：发送失败",90],
-      ["notification_sent_days","管理员邮件：发送成功",30],["notification_failed_days","管理员邮件：发送失败",90]];
+      ["disconnect_days","结束连接记录",0],["settings_history_days","设置修改历史",0],
+      ["push_sent_days","个人推送：发送成功",30],["push_failed_days","个人推送：发送失败",90],
+      ["notification_sent_days","管理员邮件：发送成功",30],["notification_failed_days","管理员邮件：发送失败",90],
+      ["push_outbox_failed_days","个人推送：事件处理失败",0],
+      ["notification_outbox_failed_days","管理员邮件：事件处理失败",0],
+      ["server_log_days","服务器运行日志归档文件",30]];
     const inputs=fields.map(([key,label,defaultDays])=>
       '<div class="field"><label for="'+key+'">'+label+'</label><input id="'+key+'" name="'+key+'" type="number" min="0" max="3650" step="1" required value="'+esc(data[key]??defaultDays)+'"><small>单位：天。填写 0 表示永久保留。</small></div>'
     ).join("");
-    return pageHeading("日志保留设置","审计记录默认永久保留；成功发送的通知默认保留 30 天，失败通知默认保留 90 天。")+
-      '<section class="panel retention-panel"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2><p class="panel-sub">服务启动后以及此后每 24 小时检查一次。您可随时修改期限。</p></div></div><form id="retention-form" class="tips"><div class="retention-fields">'+inputs+'</div><button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>';
+    const request=state.cleanupRequest;
+    const kindOptions=cleanupKinds.map(([key,label])=>
+      '<option value="'+key+'" '+(request.kind===key?'selected':'')+'>'+esc(label)+'</option>').join("");
+    const modes=[["retention","按照已保存的保留期限"],["older","删除早于指定天数的记录"],["all","删除所选类别的全部历史记录"]];
+    const modeOptions=modes.map(([value,label])=>
+      '<option value="'+value+'" '+(request.mode===value?'selected':'')+'>'+esc(label)+'</option>').join("");
+    const preview=state.cleanupPreview;
+    const rows=preview?.items?.filter(item=>item.eligible>0)||[];
+    const previewHTML=!preview?'':('<div class="cleanup-results" role="status"><strong>预计清理 '+esc(preview.total??0)+' 项历史数据</strong>'+
+      (rows.length?'<div class="cleanup-result-list">'+rows.map(item=>
+        '<div class="status-row"><span>'+esc(item.name)+'</span><strong>'+esc(item.eligible)+(item.kind==="server_log"?" 个文件":" 条")+'</strong></div>'
+      ).join("")+'</div>':'<p>当前没有符合所选条件的历史数据。</p>')+'</div>');
+    return pageHeading("日志保留设置","为各类历史记录设置自动清理期限，也可以按类别手动清理。")+
+      '<div class="retention-layout"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2>'+
+      '<p class="panel-sub">服务启动后及此后每 24 小时检查一次。设置保存后立即生效，无须重新启动。</p></div></div>'+
+      '<form id="retention-form" class="tips"><div class="retention-fields">'+inputs+'</div>'+
+      '<button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>'+
+      '<section class="panel"><div class="panel-header"><div><h2 class="panel-title">手动清理历史记录</h2>'+
+      '<p class="panel-sub">可先查看符合条件的记录数量，再确认永久删除。</p></div></div>'+
+      '<div class="tips"><div class="cleanup-fields">'+
+      '<div class="field"><label for="cleanup-kind">记录类别</label><select id="cleanup-kind">'+kindOptions+'</select></div>'+
+      '<div class="field"><label for="cleanup-mode">清理方式</label><select id="cleanup-mode">'+modeOptions+'</select></div>'+
+      '<div class="field"><label for="cleanup-days">指定保留天数</label>'+
+      '<input id="cleanup-days" type="number" min="1" max="3650" step="1" value="'+esc(request.days)+'">'+
+      '<small>选择“删除早于指定天数的记录”时使用。</small></div></div>'+
+      '<div class="cleanup-actions">'+
+      '<button class="btn" type="button" data-action="log-cleanup-preview">查看符合条件的记录</button>'+
+      '<button class="btn btn-danger" type="button" data-action="log-cleanup-run" '+(preview?.total>0?'':'disabled')+'>确认清理</button>'+
+      '</div><p>结束连接记录仅清理已完成或已失效的请求。正在发送的消息及等待重试的任务不会删除。</p>'+
+      '<p>服务器运行日志按日期或文件大小归档，清理时仅删除归档文件，当前日志文件继续正常写入。</p>'+
+      previewHTML+'</div></section></div>';
+  }
+  function readLogCleanupInput(){
+    const kind=document.getElementById("cleanup-kind")?.value||"";
+    const mode=document.getElementById("cleanup-mode")?.value||"";
+    const days=Number(document.getElementById("cleanup-days")?.value);
+    if(!cleanupKinds.some(([value])=>value===kind)||!["retention","older","all"].includes(mode)){
+      throw Error("请选择有效的日志类别和清理方式");
+    }
+    if(mode==="older"&&(!Number.isInteger(days)||days<1||days>3650)){
+      throw Error("指定的保留天数必须在 1 至 3650 之间");
+    }
+    return {kind,mode,days:mode==="older"?days:0};
   }
   async function exportAudit(kind, filters={}){
     try{
@@ -2418,6 +2473,30 @@
       if(!Number.isSafeInteger(id)||id<=0)return;
       try{await request("/push/channels/test","POST",{id});toast("测试通知已加入发送队列");await load();}
       catch(err){toast(err.message,true);}
+      return;
+    }
+    if(a==="log-cleanup-preview"||a==="log-cleanup-run"){
+      try{
+        const input=readLogCleanupInput();
+        if(a==="log-cleanup-preview"){
+          const params=new URLSearchParams(input);
+          state.cleanupRequest={...input,days:input.days||30};
+          state.cleanupPreview=await request("/audit/cleanup/preview?"+params.toString());
+          render();
+        }else{
+          if(!state.cleanupPreview||state.cleanupPreview.total<1||
+             input.kind!==state.cleanupRequest.kind||input.mode!==state.cleanupRequest.mode||
+             (input.mode==="older"&&input.days!==state.cleanupRequest.days)){
+            toast("请先查看当前条件下符合清理要求的记录",true);return;
+          }
+          const category=cleanupKinds.find(([key])=>key===input.kind)?.[1]||"记录";
+          if(!window.confirm("确定永久清理 "+category+" 中的 "+state.cleanupPreview.total+" 项历史数据吗？删除后无法恢复。"))return;
+          const result=await request("/audit/cleanup","POST",{...input,confirmation:"DELETE_LOGS"});
+          state.cleanupPreview=null;
+          toast("已清理 "+(result.deleted||0)+" 项历史数据");
+          await load();
+        }
+      }catch(error){toast(error.message,true);}
       return;
     }
     if(a==="push-retry"){

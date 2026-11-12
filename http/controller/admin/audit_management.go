@@ -80,6 +80,46 @@ func (a *AuditManagement) SaveRetention(c *gin.Context){
 	response.Success(c,&policy)
 }
 
+func auditCleanupAdministrator(c *gin.Context) bool {
+	user := service.AllService.UserService.CurUser(c)
+	if user == nil || user.Id == 0 || !service.AllService.UserService.IsAdmin(user) {
+		response.Fail(c, 403, "只有系统管理员可以清理日志")
+		return false
+	}
+	return true
+}
+
+func (a *AuditManagement) CleanupPreview(c *gin.Context) {
+	if !auditCleanupAdministrator(c) { return }
+	days := 0
+	if raw := c.Query("days"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil { response.Fail(c, 101, "无效的保留天数"); return }
+		days = value
+	}
+	rows, err := service.PreviewLogCleanup(service.LogCleanupRequest{
+		Kind: c.Query("kind"), Mode: c.Query("mode"), Days: days,
+	}, time.Now())
+	if err != nil { response.Fail(c, 101, err.Error()); return }
+	var total int64
+	for _, row := range rows { total += row.Eligible }
+	response.Success(c, gin.H{"items": rows, "total": total})
+}
+
+func (a *AuditManagement) Cleanup(c *gin.Context) {
+	if !auditCleanupAdministrator(c) { return }
+	var request service.LogCleanupRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.Fail(c, 101, "请填写有效的日志清理条件")
+		return
+	}
+	rows, err := service.RunLogCleanup(request, time.Now())
+	if err != nil { response.Fail(c, 101, err.Error()); return }
+	var total int64
+	for _, row := range rows { total += row.Deleted }
+	response.Success(c, gin.H{"items": rows, "deleted": total})
+}
+
 func exportColumns(kind string) (interface{},[]string,error) {
 	switch kind {
 	case "audit_conn":

@@ -439,6 +439,8 @@ func AuditManagementBind(rg *gin.RouterGroup) {
 	adm.GET("/operations",handler.Operations)
 	adm.GET("/retention",handler.Retention)
 	adm.POST("/retention",handler.SaveRetention)
+	adm.GET("/cleanup/preview",handler.CleanupPreview)
+	adm.POST("/cleanup",handler.Cleanup)
 	adm.GET("/export",handler.Export)
 }
 
