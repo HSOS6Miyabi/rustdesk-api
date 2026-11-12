@@ -777,7 +777,7 @@
       out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
     }
     if(state.page==="users"&&hasPrivilege("users.manage_2fa")){
-      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">重置双重认证</button>';
+      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">清除双重认证</button>';
     }
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
@@ -1327,11 +1327,19 @@
       '<button type="button" class="btn btn-danger" data-action="email-verification-disable">关闭邮箱登录验证</button>':
       '<button type="button" class="btn btn-primary" data-action="email-verification-setup" '+
       (!email.mail_configured||!email.email?'disabled':'')+'>发送邮箱验证码并启用</button>';
-    return pageHeading("个人设置","管理自己的登录密码与可选双重认证。")+
-      '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>'+
-      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips" style="display:flex;gap:10px;flex-wrap:wrap">'+mfaActions+'</div></section>'+
-      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div><div class="tips" style="display:grid;gap:10px"><p>启用后将通过邮件接收登录验证码。已启用 TOTP 的账户优先使用身份验证器。</p>'+
+    const account=state.user||{};
+    const securityCards=
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">修改登录密码</h2><p class="panel-sub">更新后其他设备需要重新登录。</p></div></div>'+
+      '<form id="password-form" class="tips profile-card-body"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="72" required></div><button class="btn btn-primary" type="submit">保存新密码</button></form></section>'+
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips profile-card-body">'+mfaActions+'</div></section>'+
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div>'+
+      '<div class="tips profile-card-body"><p>启用后通过邮件接收登录验证码。已启用 TOTP 时优先使用身份验证器。</p>'+
       emailButton+(!email.mail_configured?'<p>管理员尚未启用 SMTP 邮件服务。</p>':'')+'</div></section>';
+    return pageHeading("个人设置","查看个人资料并管理账户登录与身份认证方式。")+
+      '<section class="panel profile-summary"><div class="profile-summary-id"><span class="profile-avatar">'+esc((account.nickname||account.username||"U").slice(0,1)).toUpperCase()+'</span>'+
+      '<div><h2>'+esc(account.nickname||account.username||"当前账户")+'</h2><p>@'+esc(account.username||"")+'</p></div></div>'+
+      '<div class="profile-summary-meta"><span>电子邮箱 <strong>'+esc(account.email||"未设置")+'</strong></span><span>身份 <strong>'+(state.isAdmin?"系统管理员":"普通用户")+'</strong></span></div></section>'+
+      '<div class="profile-grid">'+securityCards+'</div>';
   }
   function riskNotice(key){
       if(key==="jwt.key"||key==="app.internal-key"){

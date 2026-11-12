@@ -245,6 +245,10 @@ func (ct *User) UpdatePassword(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
 		return
 	}
+	if f.Id == service.AllService.UserService.CurUser(c).Id {
+		response.Fail(c, 101, "请在个人设置中修改自己的密码")
+		return
+	}
 	err := service.AllService.UserService.UpdatePassword(u, f.Password)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
