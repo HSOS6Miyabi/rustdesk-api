@@ -72,3 +72,35 @@ func TestWebhookPostsDirectJSONAndRetries(t *testing.T) {
     second:=<-received
     if first.Payload.ID!=second.Payload.ID {t.Fatal("retry changed the event ID")}
 }
+
+func TestWebhookSupportsSecureBearerCredentials(t *testing.T) {
+    cleanup := setupPushTestDB(t)
+    defer cleanup()
+    t.Setenv("RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS", "1")
+    incoming := make(chan string, 1)
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        incoming <- r.Header.Get("Authorization")
+        w.WriteHeader(http.StatusNoContent)
+    }))
+    defer server.Close()
+    owner := &model.User{Username:"webhook-bearer-owner",Status:model.COMMON_STATUS_ENABLE}
+    if err := DB.Create(owner).Error; err != nil { t.Fatal(err) }
+    saved, err := SavePushChannel(owner.Id, PushChannelInput{
+        Kind:"webhook",Name:"Secure webhook",Enabled:true,BaseURL:server.URL+"/incoming",
+        APIKey:"abc+/_==",Events:[]string{"device.offline"},
+    })
+    if err != nil { t.Fatal(err) }
+    var channel model.PushChannel
+    if err := DB.First(&channel,saved.Id).Error; err != nil { t.Fatal(err) }
+    if channel.KeyCiphertext == "abc+/_==" || channel.KeyCiphertext == "" {
+        t.Fatal("webhook credential was not encrypted")
+    }
+    if err := sendPushWebhook(&channel, &model.PushDelivery{
+        EventType:"device.offline", Payload:`{"type":"device.offline"}`,
+    }); err != nil { t.Fatal(err) }
+    select {
+    case got := <-incoming:
+        if got != "Bearer abc+/_==" { t.Fatalf("unexpected Authorization header: %s",got) }
+    default: t.Fatal("webhook receiver did not get request")
+    }
+}
