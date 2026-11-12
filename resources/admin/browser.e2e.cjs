@@ -2079,7 +2079,14 @@ test("pagination shows numbered pages and defaults to 100 entries",async()=>{
     assert.ok(requests.some(x=>x.index===1&&x.size===100));
     await page.locator('[data-action="page-index"][data-page="3"]').first().click();
     assert.ok(requests.some(x=>x.index===3&&x.size===100));
+    const resized=page.waitForResponse(res=>{
+      const target=new URL(res.url());
+      return target.pathname.endsWith("/api/admin/user/list") &&
+        target.searchParams.get("page")==="1" && target.searchParams.get("page_size")==="50";
+    });
     await page.locator(".pager-size").first().selectOption("50");
+    await resized;
+    await page.waitForFunction(()=>document.querySelector(".pager")?.textContent.includes("第 1 / 5 页"));
     assert.ok(requests.some(x=>x.index===1&&x.size===50));
     assert.equal(await page.locator(".pager-size").first().inputValue(),"50");
     const width=await page.evaluate(()=>({screen:innerWidth,document:document.documentElement.scrollWidth}));
