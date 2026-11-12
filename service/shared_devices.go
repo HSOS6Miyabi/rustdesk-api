@@ -80,7 +80,7 @@ func sharedOwnerSources(user *model.User) (map[uint][]SharedDeviceSource, error)
 	return owners, nil
 }
 
-func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filter, sourceType string, sourceId uint) (*SharedDevicePage, error) {
+func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filter, sourceType string, sourceId uint, sort ...string) (*SharedDevicePage, error) {
 	if user == nil || user.Id == 0 {
 		return nil, fmt.Errorf("user is required")
 	}
@@ -116,6 +116,7 @@ func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filte
 	if err := query.Count(&result.Total).Error; err != nil { return nil, err }
 	var peers []model.Peer
 	if err := query.Order("last_online_time DESC, row_id DESC").
+		Scopes(SortScope(sort...)).
 		Offset(int((page-1)*size)).Limit(int(size)).Find(&peers).Error; err != nil { return nil, err }
 	var users []model.User
 	if err := DB.Select("id, username").Where("id IN ?", ids).Find(&users).Error; err != nil { return nil, err }
