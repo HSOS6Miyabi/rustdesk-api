@@ -46,7 +46,7 @@ jobs:
           node --check resources/admin/app.js
           node --check resources/admin/passkey.js
           node --check resources/web2/app.js
-          node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
+          node --test resources/admin/app.test.cjs resources/web2/app.test.cjs resources/web/js/tests/bridge.test.cjs resources/web/js/tests/flutter-native.test.cjs
       - name: Run existing Go tests
         run: go test ./... -count=1
       - name: Verify browser endpoints with real HTTP requests

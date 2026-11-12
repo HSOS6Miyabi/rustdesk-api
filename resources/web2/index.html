@@ -33,6 +33,7 @@
    <label class="rtc-toggle" for="v2-webrtc"><input id="v2-webrtc" name="webrtc" type="checkbox"><span>优先通过 WebRTC 直接连接</span></label>
    <p class="helper rtc-help">适用于 RustDesk 1.5.x 客户端。若无法建立直接连接，将自动尝试原有的 WebSocket 中继连接。</p>
    <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
+   <div class="display-actions"><button class="secondary" type="button" id="v2-page-fullscreen" aria-pressed="false">网页全屏</button><button class="secondary" type="button" id="v2-screen-fullscreen" aria-pressed="false">显示器全屏</button></div>
   </form>
   <p id="v2-message" class="connection-notice" role="status" aria-live="polite">准备连接</p>
   <div class="webclient-device-search">
@@ -61,12 +62,9 @@
   </div>
   <div id="shared-items" class="device-list"></div>
  </aside>
- <section class="stage" aria-label="远程桌面画面">
-  <div class="stage-toolbar" role="toolbar" aria-label="远程桌面显示设置">
-    <div class="stage-device"><strong id="v2-active-device-name">未选择设备</strong><span id="v2-active-device-id"></span></div>
-    <div class="stage-controls"><button type="button" class="secondary" id="v2-page-fullscreen" aria-pressed="false" title="使用当前页面显示远程桌面">网页全屏</button><button type="button" class="secondary" id="v2-screen-fullscreen" aria-pressed="false" title="使用整个显示器显示远程桌面">显示器全屏</button></div>
-  </div>
-  <div id="app" class="engine"><div class="placeholder"><div class="screen-icon">▣</div><h3>等待连接设备</h3><p>在左侧输入设备 ID，然后选择“发起连接”。</p></div></div>
+ <section class="stage" aria-label="RustDesk 远程桌面">
+  <iframe id="v2-native-client" class="native-client" src="/webclient/#/?" title="RustDesk 远程桌面" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
+  <button id="v2-fullscreen-exit" type="button" class="fullscreen-exit" aria-label="退出全屏" title="退出全屏（Esc）" hidden>⤡</button>
  </section>
 </main>
 </body>

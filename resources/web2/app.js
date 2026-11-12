@@ -14,46 +14,55 @@
   config.key.value=read("key");
   config.id.value=initialDeviceId||read("remote-id")||read("id");
   function updateDeviceIdentity(){
-    const id=config.id.value.trim();
-    el("v2-active-device-name").textContent=id?(state.activeName||"设备名称未设置"):"未选择设备";
-    el("v2-active-device-id").textContent=id?"ID "+id:"";
+    el("v2-native-client").title=state.activeName||"RustDesk 远程桌面";
   }
   config.id.addEventListener("input",()=>{state.activeName="";state.autoConnect=false;updateDeviceIdentity();});
   updateDeviceIdentity();
   el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y";
   function message(text){el("v2-message").textContent=text;}
   const stage=document.querySelector(".stage");
+  const nativeClient=el("v2-native-client");
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
+  const exitButton=el("v2-fullscreen-exit");
   function syncFullscreen(){
     const monitorFullscreen=document.fullscreenElement===stage;
-    document.body.classList.toggle("webclient-page-fullscreen",state.pageFullscreen&&!monitorFullscreen);
-    pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen&&!monitorFullscreen));
-    screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
-    pageFullscreenButton.textContent=state.pageFullscreen&&!monitorFullscreen?"退出全屏":"网页全屏";
-    screenFullscreenButton.textContent=monitorFullscreen?"退出全屏":"显示器全屏";
     if(monitorFullscreen)state.pageFullscreen=false;
+    document.body.classList.toggle("webclient-page-fullscreen",state.pageFullscreen&&!monitorFullscreen);
+    pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen));
+    screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
+    exitButton.hidden=!(state.pageFullscreen||monitorFullscreen);
+  }
+  async function exitFullscreen(){
+    if(document.fullscreenElement===stage){
+      try{await document.exitFullscreen();}catch(error){message("退出全屏失败："+error.message);}
+    }
+    state.pageFullscreen=false;
+    syncFullscreen();
   }
   pageFullscreenButton.addEventListener("click",async()=>{
-    if(document.fullscreenElement){
-      try{await document.exitFullscreen();}catch(error){message("退出显示器全屏失败："+error.message);}
-      return;
-    }
+    if(document.fullscreenElement===stage){await exitFullscreen();return;}
     state.pageFullscreen=!state.pageFullscreen;
     syncFullscreen();
   });
   screenFullscreenButton.addEventListener("click",async()=>{
-    if(document.fullscreenElement===stage){
-      try{await document.exitFullscreen();}catch(error){message("退出显示器全屏失败："+error.message);}
-      return;
-    }
+    if(document.fullscreenElement===stage){await exitFullscreen();return;}
     try{
       if(!stage.requestFullscreen)throw Error("当前浏览器不支持此功能");
       await stage.requestFullscreen({navigationUI:"hide"});
       state.pageFullscreen=false;
       syncFullscreen();
-    }catch(error){
-      message("无法进入显示器全屏："+error.message+"。您仍可使用网页全屏。");
-    }
+    }catch(error){message("无法进入显示器全屏："+error.message);}
+  });
+  exitButton.addEventListener("click",exitFullscreen);
+  nativeClient.addEventListener("load",()=>{
+    state.ready=true;
+    el("engine-state").textContent="RustDesk 操作界面已加载";
+    el("engine-state").classList.add("ready");
+    try{
+      nativeClient.contentWindow.addEventListener("keydown",event=>{
+        if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
+      },true);
+    }catch{}
   });
   document.addEventListener("fullscreenchange",syncFullscreen);
   document.addEventListener("keydown",event=>{
@@ -182,25 +191,18 @@
     store("key",key);store("id",id);store("remote-id",id);
     sessionStorage.setItem("rustdesk.webclient.webrtc",el("v2-webrtc").checked?"Y":"N");
 
-    const nativeHost=document.getElementById("host"),nativeKey=document.getElementById("key"),nativeID=document.querySelector("#app #id");
-    if(nativeHost)nativeHost.value=host;
-    if(nativeKey)nativeKey.value=key;
-    if(nativeID)nativeID.value=id;
-    if(typeof window.connect!=="function"){message("远程连接组件尚未加载完毕，请刷新页面。");return;}
     updateDeviceIdentity();
-    window.connect();
-    message("正在连接："+id);
+    nativeClient.src="/webclient/?connect="+encodeURIComponent(id)+"#/?";
+    message("正在通过 RustDesk 连接："+id);
   }
   function attemptAutoConnect(){
-    if(!state.autoConnect||!state.ready||!state.defaultsLoaded||window.rustdeskRendererReady!==true||
-      !config.host.value.trim())return;
+    if(!state.autoConnect||!state.defaultsLoaded||!config.host.value.trim())return;
     state.autoConnect=false;
     connectToDevice();
   }
-  window.addEventListener("rustdesk:renderer-ready",attemptAutoConnect);
   el("connect-form").addEventListener("submit",e=>{e.preventDefault();state.autoConnect=false;connectToDevice();});
   el("v2-disconnect").addEventListener("click",()=>{
-    if(typeof window.cancel==="function")window.cancel();
+    nativeClient.src="/webclient/#/?";
     message("连接已断开");
   });
   el("v2-refresh").addEventListener("click",loadDevices);
@@ -280,24 +282,6 @@
     }catch(err){el("shared-info").textContent="登录失败："+err.message;await showCaptcha();}
     finally{submit.disabled=false;}
   });
-  function watchEngine(){
-    const check=()=>{
-      const native=document.querySelector("#app #connect");
-      if(native&&typeof window.connect==="function"){
-        state.ready=true;
-        el("engine-state").textContent="远程连接组件已就绪";
-        el("engine-state").classList.add("ready");
-        const placeholder=document.querySelector("#app .placeholder");if(placeholder)placeholder.remove();
-        attemptAutoConnect();
-        return true;
-      }
-      return false;
-    };
-    if(check())return;
-    const observer=new MutationObserver(()=>{if(check())observer.disconnect();});
-    observer.observe(el("app"),{childList:true,subtree:true});
-  }
-  watchEngine();
   localStorage.removeItem("access_token");
   loadConnectionDefaults().then(()=>{
     state.defaultsLoaded=true;

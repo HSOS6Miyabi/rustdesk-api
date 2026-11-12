@@ -364,20 +364,28 @@ function serve(req, res) {
     res.end(fs.readFileSync(path.join(assetRoot,"../web2",filename)));
     return;
   }
-  if(pathname==="/webclient/js/dist/index.js"){
+  if(pathname==="/webclient-config/index.js"){
     res.writeHead(200,{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"no-store"});
-    res.end([
-      'document.querySelector("#app").innerHTML=\'<div id="connect"><input id="host"><input id="key"><input id="id"></div>\';',
-      'window.connect=()=>{document.documentElement.dataset.remoteConnect=document.querySelector("#app #id").value;};',
-      'window.cancel=()=>{};',
-      'window.addEventListener("load",()=>{window.rustdeskRendererReady=true;window.dispatchEvent(new Event("rustdesk:renderer-ready"));},{once:true});'
-    ].join("\n"));
+    res.end('localStorage.setItem("api-server",location.origin);window.ws_host="127.0.0.1";window.webclient_magic_queryonline=false;');
     return;
   }
-  if(pathname==="/webclient-config/index.js"||pathname==="/webclient/js/dist/vendor.js"||
-     pathname==="/webclient/yuv-canvas-1.2.6.js"||pathname==="/webclient/ogvjs-1.8.6/ogv.js"){
-    res.writeHead(200,{"Content-Type":"application/javascript; charset=utf-8"});
-    res.end("");return;
+  if(pathname==="/webclient/"||pathname.startsWith("/webclient/")){
+    const resource=pathname.slice("/webclient/".length)||"index.html";
+    const root=path.resolve(assetRoot,"../web");
+    const filename=path.resolve(root,resource);
+    if(!filename.startsWith(root+path.sep)||!fs.existsSync(filename)||!fs.statSync(filename).isFile()){
+      res.writeHead(404);res.end("Not found");return;
+    }
+    const mime=resource.endsWith(".js")?"application/javascript":
+      resource.endsWith(".wasm")?"application/wasm":
+      resource.endsWith(".json")?"application/json":
+      resource.endsWith(".css")?"text/css":
+      resource.endsWith(".png")?"image/png":
+      resource.endsWith(".svg")?"image/svg+xml":
+      resource.endsWith(".otf")?"font/otf":"text/html";
+    res.writeHead(200,{"Content-Type":mime+"; charset=utf-8","Cache-Control":"no-store"});
+    res.end(fs.readFileSync(filename));
+    return;
   }
   let name = pathname;
   if(name==="/_admin/"||name==="/_admin")name="/_admin/index.html";
@@ -2003,7 +2011,7 @@ test("device whitelist supports multiple searches and manually entered external 
   }finally{await context.close();}
 });
 
-test("device connection opens a new WebClient v2 tab with responsive fullscreen controls",async()=>{
+test("device connection opens the original RustDesk remote controls and supports fullscreen", {timeout:90000},async()=>{
   const {context,page}=await pageForViewport(1440,900,false);
   try{
     await page.locator('nav.side-scroll button[data-view="mydevices"]').click();
@@ -2012,40 +2020,49 @@ test("device connection opens a new WebClient v2 tab with responsive fullscreen 
     await page.locator('.table-scroll [data-action="device-connect"]').first().click();
     const popup=await opening;
     await popup.waitForLoadState("load");
-    await popup.waitForFunction(()=>document.documentElement.dataset.remoteConnect==="office");
     const location=new URL(popup.url());
     assert.equal(location.pathname,"/webclient2/");
     assert.equal(location.searchParams.get("id"),"office");
-    assert.equal(await popup.locator("#v2-active-device-name").innerText(),"Office");
-    assert.equal(await popup.locator("#v2-active-device-id").innerText(),"ID office");
-    assert.equal(await popup.locator(".stage-header, .stage-footer").count(),0);
+    assert.equal(await popup.locator("#v2-id").inputValue(),"office");
+    assert.equal(await popup.locator('.stage-toolbar, #v2-active-device-id').count(),0);
+    const frame=popup.frameLocator("#v2-native-client");
+    await frame.locator("flt-glass-pane").first().waitFor({state:"attached",timeout:40000});
+    await popup.waitForFunction(()=>{
+      const child=document.querySelector("#v2-native-client")?.contentWindow;
+      return child?.__rustdeskNativeSessionSeen==="office";
+    },null,{timeout:40000});
+    const loaded=await popup.evaluate(()=>{
+      const child=document.querySelector("#v2-native-client")?.contentWindow;
+      return {flutter:!!child?.document?.querySelector("flt-glass-pane"),
+        bridge:typeof child?.onGlobalEvent,
+        opened:child?.__rustdeskNativeSessionSeen};
+    });
+    assert.equal(loaded.flutter,true);
+    assert.equal(loaded.bridge,"function");
+    assert.equal(loaded.opened,"office");
     const normal=await popup.evaluate(()=>{
       const stage=document.querySelector(".stage").getBoundingClientRect();
-      const engine=document.querySelector(".engine").getBoundingClientRect();
-      const toolbar=document.querySelector(".stage-toolbar").getBoundingClientRect();
-      return {stageHeight:stage.height,engineHeight:engine.height,toolbarHeight:toolbar.height};
+      const frame=document.querySelector("#v2-native-client").getBoundingClientRect();
+      return {stageHeight:stage.height,frameHeight:frame.height};
     });
-    assert.ok(normal.engineHeight>=normal.stageHeight-28,"remote desktop should use nearly all stage height");
-    assert.ok(normal.toolbarHeight<=45,"the control bar should remain compact");
+    assert.ok(normal.frameHeight>=normal.stageHeight-20,"RustDesk's native controls should fill the stage");
     const screenshotDirectory=path.join(assetRoot,"test-screenshots");
     fs.mkdirSync(screenshotDirectory,{recursive:true});
-    await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-normal.png")});
+    await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-native-normal.png")});
     await popup.locator("#v2-page-fullscreen").click();
-    assert.equal(await popup.locator("#v2-page-fullscreen").innerText(),"退出全屏");
-    assert.equal(await popup.locator("#v2-screen-fullscreen").isVisible(),false);
+    await popup.locator("#v2-fullscreen-exit").waitFor({state:"visible"});
     const pageMode=await popup.evaluate(()=>{
-      const screen=document.querySelector(".stage").getBoundingClientRect();
-      return {width:screen.width,height:screen.height,viewportWidth:innerWidth,viewportHeight:innerHeight};
+      const stage=document.querySelector(".stage").getBoundingClientRect();
+      return {width:stage.width,height:stage.height,viewportWidth:innerWidth,viewportHeight:innerHeight};
     });
     assert.equal(pageMode.width,pageMode.viewportWidth);
     assert.equal(pageMode.height,pageMode.viewportHeight);
-    await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-fullscreen.png")});
-    await popup.locator("#v2-page-fullscreen").click();
-    assert.equal(await popup.locator("#v2-screen-fullscreen").isVisible(),true);
+    await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-native-fullscreen.png")});
+    await popup.locator("#v2-fullscreen-exit").click();
+    await popup.locator("#v2-fullscreen-exit").waitFor({state:"hidden"});
     await popup.locator("#v2-screen-fullscreen").click();
     await popup.waitForFunction(()=>document.fullscreenElement===document.querySelector(".stage"));
-    assert.equal(await popup.locator("#v2-page-fullscreen").isVisible(),false);
-    await popup.locator("#v2-screen-fullscreen").click();
+    await popup.locator("#v2-fullscreen-exit").click();
     await popup.waitForFunction(()=>document.fullscreenElement===null);
   }finally{await context.close();}
 });

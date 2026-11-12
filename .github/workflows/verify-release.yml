@@ -65,7 +65,7 @@ jobs:
           npm run build
       - name: WebRTC protocol and data-channel tests
         working-directory: resources/web/js
-        run: node --test tests/webrtc.test.cjs tests/websock.test.cjs
+        run: node --test tests/webrtc.test.cjs tests/websock.test.cjs tests/bridge.test.cjs tests/flutter-native.test.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: webclient-js-bundle

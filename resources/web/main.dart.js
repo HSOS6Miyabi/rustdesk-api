@@ -88081,7 +88081,22 @@ $S:510}
 A.As.prototype={
 ac(){return new A.Go(A.oV(null),B.i)}}
 A.Go.prototype={
-aH(){this.aW()},
+aH(){this.aW()
+if(!window.__rustdeskAutoOpened){
+var remoteId=new URLSearchParams(window.location.search).get("connect")
+if(remoteId&&/^[A-Za-z0-9_.:@-]{1,253}$/.test(remoteId)){
+window.__rustdeskAutoOpened=true
+var remoteHome=this
+window.setTimeout(function(){
+if(remoteHome.c!=null){
+window.__rustdeskNativeSessionSeen=remoteId
+window.dispatchEvent(new CustomEvent("rustdesk:native-session-open",{detail:{id:remoteId}}))
+remoteHome.HF(remoteId)
+}
+},350)
+}
+}
+},
 I(a){var s,r,q,p,o,n=this,m=null
 A.ro(a,t._e)
 s=n.d
