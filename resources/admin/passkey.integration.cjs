@@ -187,9 +187,12 @@ test("administrators update a user's profile and securely reset credentials",asy
     await page.locator("#table-search").fill(username);
     await page.locator('#table-search').press("Enter");
     await page.getByRole("heading",{name:"用户账户"}).waitFor();
-    const actions=page.locator('.table-scroll [data-action="reset-password"]');
+    const edit=page.locator('.table-scroll [data-action="edit"]').first();
+    await edit.waitFor({timeout:12000});
+    await edit.click();
+    const actions=page.locator('.drawer [data-action="reset-password"]');
     await actions.first().waitFor({timeout:12000});
-    assert.ok((await page.locator('.table-scroll [data-action="reset-user-mfa"]').count())>0);
+    assert.ok((await page.locator('.drawer [data-action="reset-user-mfa"]').count())>0);
     await actions.first().click();
     await page.getByText("重设用户密码").first().waitFor();
     assert.equal(await page.locator('#new-user-password').getAttribute("minlength"),"8");

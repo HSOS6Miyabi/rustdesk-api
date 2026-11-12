@@ -2,6 +2,8 @@ package service
 
 import (
 	"net"
+    "os"
+    "path/filepath"
 	"strings"
 	"sync"
 
@@ -23,23 +25,36 @@ func GeoIPReady() bool {
 
 func initGeoIP() {
 	geoIPOnce.Do(func() {
-		path := strings.TrimSpace(config.RuntimeOption("runtime.geoip-db"))
-		if path == "" { return }
-		db, err := maxminddb.Open(path)
-		if err != nil {
-			geoIPLoadError = err
-			if Logger != nil { Logger.WithError(err).Warn("cannot read GeoIP city database") }
-			return
-		}
-		geoIPDB = db
+		configured := strings.TrimSpace(config.RuntimeOption("runtime.geoip-db"))
+        paths := []string{}
+        if configured != "" {
+            paths = append(paths, configured)
+        } else {
+            paths = append(paths, filepath.Join("resources", "geoip", "dbip-city-lite.mmdb"))
+            if executable, err := os.Executable(); err == nil {
+                paths = append(paths, filepath.Join(filepath.Dir(executable), "resources", "geoip", "dbip-city-lite.mmdb"))
+            }
+        }
+        for _, path := range paths {
+            db, err := maxminddb.Open(path)
+            if err == nil { geoIPDB = db; return }
+            if !os.IsNotExist(err) {
+                geoIPLoadError = err
+                if Logger != nil { Logger.WithError(err).Warn("cannot read GeoIP city database") }
+                return
+            }
+        }
+        if configured != "" { geoIPLoadError = os.ErrNotExist }
 	})
 }
 
 type geoIPRecord struct {
 	Country struct {
+		ISOCode string `maxminddb:"iso_code"`
 		Names map[string]string `maxminddb:"names"`
 	} `maxminddb:"country"`
 	Subdivisions []struct {
+		ISOCode string `maxminddb:"iso_code"`
 		Names map[string]string `maxminddb:"names"`
 	} `maxminddb:"subdivisions"`
 	City struct {
@@ -65,11 +80,12 @@ func localPushGeoIP(ipValue string) string {
 	if geoIPDB == nil { return "" }
 	var location geoIPRecord
 	if err := geoIPDB.Lookup(ip, &location); err != nil { return "" }
+	if chineseName := chinaGeoIPDescription(location); chineseName != "" {
+		return chineseName
+	}
 	names := make([]string, 0, 3)
 	add := func(m map[string]string) {
-		value := m["zh-CN"]
-		if value == "" { value = m["en"] }
-		value = pushShort(value, 60)
+		value := geoIPPreferredName(m)
 		if value == "" { return }
 		if len(names) == 0 || names[len(names)-1] != value {
 			names = append(names, value)
@@ -78,7 +94,7 @@ func localPushGeoIP(ipValue string) string {
 	add(location.Country.Names)
 	if len(location.Subdivisions) > 0 { add(location.Subdivisions[0].Names) }
 	add(location.City.Names)
-	return strings.Join(names, " · ")
+	return strings.Join(names, " ")
 }
 
 // GeoIPDescription returns display-only geolocation text. Unknown public

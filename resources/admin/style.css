@@ -396,3 +396,63 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .mail-test-card .tips{display:grid;gap:14px}
 @media(max-width:1200px){.mail-page-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.mail-settings-card .form-grid{grid-template-columns:1fr}}
+
+
+/* Pagination and grouped settings */
+.pager-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:13px;min-width:0}
+.pager-size-label{display:inline-flex;gap:7px;align-items:center;white-space:nowrap}
+.pager-size{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:7px 9px;border-radius:9px;min-height:35px}
+.pager-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.pager-buttons button{padding:0 9px}
+.pager-buttons button.current{background:var(--main-soft);border-color:var(--main);color:var(--main);font-weight:760}
+.pager-ellipsis{display:inline-grid;place-items:center;width:21px}
+.settings-tabs{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:18px;padding:7px;border:1px solid var(--line);border-radius:14px;background:var(--panel);min-width:0}
+.settings-tab{border:1px solid transparent;background:transparent;color:var(--muted);padding:10px 13px;border-radius:9px;min-height:40px;font-size:13px;font-weight:650}
+.settings-tab:hover{background:var(--panel2);color:var(--text)}
+.settings-tab.active{border-color:var(--line);background:var(--main-soft);color:var(--main);font-weight:750}
+.settings-category-section{min-width:0;margin:0 0 26px}
+.settings-category-title{font-size:15px;line-height:1.5;margin:0 0 13px;font-weight:760}
+.settings-category-title span{font-size:12px;font-weight:400;color:var(--muted)}
+.settings-filter .field{max-width:580px}
+.user-edit-security{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:16px;margin-top:18px;border:1px solid var(--line);background:var(--panel2);border-radius:12px}
+.user-edit-security>span{color:var(--muted);font-size:12px;font-weight:720;flex-basis:100%}
+.data-attribution{font-size:11px;color:var(--muted);margin-top:26px}
+.data-attribution a{text-decoration:underline;text-underline-offset:2px}
+@media(max-width:600px){
+ .pager{align-items:flex-start;flex-direction:column;gap:10px}
+ .pager-controls{justify-content:flex-start}
+ .settings-tabs{padding:5px;gap:4px}
+ .settings-tab{flex:1 1 126px;padding:9px 7px;font-size:12px}
+ .user-edit-security .btn{flex:1 1 140px}
+}
+
+
+/* The complete location is shown on every row, including narrow tables. */
+.data-table td:is([data-column="ip"],[data-column="login_ip"],[data-column="client_ip"],
+ [data-column="source_ip"],[data-column="last_online_ip"],[data-column="remote_ip"],
+ [data-column="public_ip"],[data-column="private_ip"],[data-column="device_ip"])>span{
+  display:block;
+  -webkit-line-clamp:unset;
+  line-clamp:unset;
+  overflow:visible;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  max-height:none;
+}
+.data-table td:is([data-column="ip"],[data-column="login_ip"],[data-column="client_ip"],
+ [data-column="source_ip"],[data-column="last_online_ip"],[data-column="remote_ip"],
+ [data-column="public_ip"],[data-column="private_ip"],[data-column="device_ip"]) .ip-location{
+  display:block;
+  white-space:normal;
+  overflow:visible;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.connection-direction{
+  display:inline-flex;align-items:center;justify-content:center;min-height:28px;
+  width:32px;color:var(--main);vertical-align:middle;
+}
+.data-table td[data-column="direction"]{text-align:center}
+.data-table td[data-column="direction"]>span{display:flex;justify-content:center;overflow:visible;line-height:28px}
+.data-table th[data-column="direction"]{text-align:center}
+.mobile-item .connection-direction{justify-content:flex-start}

@@ -123,7 +123,7 @@ function createConsole(isAdmin = false, overrides = {}) {
   const fetch = async function(url, options) {
     const location = new URL(String(url), "https://example.test");
     const endpoint = location.pathname.replace(/^\/api\/admin/, "");
-    calls.push({ endpoint, method: options?.method || "GET" });
+    calls.push({ endpoint, method: options?.method || "GET", query:location.search });
     if (!Object.prototype.hasOwnProperty.call(fixtures, endpoint)) {
       return { ok: true, status: 200, async json() { return { code: 101, message: "Unexpected "+endpoint }; } };
     }
@@ -727,13 +727,20 @@ test("settings center lists effective sources without revealing secrets", async 
   assert.ok(admin.calls.some(call=>call.endpoint==="/settings/effective"));
 });
 
-test("settings center shows specialized effective values and key change warnings",async()=>{
+test("settings center uses categories for system, account and overview settings",async()=>{
   const app=createConsole(true);
   await app.settle();await app.settle();await app.open("settings");
+  assert.match(app.root.innerHTML,/data-action="settings-tab"/);
+  assert.match(app.root.innerHTML,/更换通信密钥前/);
+  assert.doesNotMatch(app.root.innerHTML,/切换数据库前/);
+  const switchTab=async tab=>{
+    await app.events.click({target:{closest:()=>({dataset:{action:"settings-tab",tab}})}});
+  };
+  await switchTab("storage");
+  assert.match(app.root.innerHTML,/切换数据库前/);
+  await switchTab("overview");
   assert.match(app.root.innerHTML,/mail.example.test/);
   assert.match(app.root.innerHTML,/连接日志 90 天/);
-  assert.match(app.root.innerHTML,/更换通信密钥前/);
-  assert.match(app.root.innerHTML,/切换数据库前/);
 });
 
 test("separates owned devices and administrator device inventory",async()=>{
@@ -770,7 +777,7 @@ test("server administration uses navigation and structured results",async()=>{
   assert.match(app.root.innerHTML,/data-action="server-tab"/);
   assert.match(app.root.innerHTML,/desk.example.test/);
   await app.events.click({target:{closest:()=>({dataset:{action:"server-tab",tab:"id"}})}});
-  assert.match(app.root.innerHTML,/设置中继服务器列表/);
+  assert.match(app.root.innerHTML,/中继服务器列表设置/);
   assert.match(app.root.innerHTML,/data-action="server-select"/);
   await app.events.click({target:{closest:()=>({dataset:{action:"server-tab",tab:"relay"}})}});
   assert.match(app.root.innerHTML,/查看中继使用情况/);
@@ -828,11 +835,13 @@ test("account profile uses all desktop space with Passkey management",async()=>{
   assert.doesNotMatch(app.root.innerHTML,/max-width:650px/);
 });
 
-test("administrator user detail offers profile editing, password reset and MFA clearing",async()=>{
+test("administrator account security actions are inside the user editor",async()=>{
   const app=createConsole(true);
   app.fixtures["/user/list"]={list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1};
-  await app.settle();
-  await app.open("users");
+  await app.settle();await app.open("users");
+  assert.doesNotMatch(app.root.innerHTML,/data-action="reset-password"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="reset-user-mfa"/);
+  await app.action("edit",3);
   assert.match(app.root.innerHTML,/data-action="reset-password"/);
   assert.match(app.root.innerHTML,/data-action="reset-user-mfa"/);
   await app.action("reset-password",3);
@@ -912,4 +921,59 @@ test("ordinary users cannot open the log cleanup administration page",async()=>{
   const app=createConsole(false);
   await app.settle();await app.settle();
   assert.doesNotMatch(app.root.innerHTML,/data-view="retention"/);
+});
+
+test("list paging defaults to 100 and uses numbered page navigation",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user/list"]={list:[{id:1,username:"admin"}],total:205};
+  await app.settle();await app.settle();await app.open("users");
+  assert.match(app.root.innerHTML,/第 1 \/ 3 页/);
+  assert.match(app.root.innerHTML,/data-page="3"/);
+  assert.match(app.root.innerHTML,/value="100" selected/);
+  assert.ok(app.calls.some(call=>call.endpoint==="/user/list"&&call.query.includes("page_size=100")));
+  await app.events.click({target:{closest:()=>({dataset:{action:"page-index",page:"3",scope:""}})}});
+  assert.match(app.root.innerHTML,/第 3 \/ 3 页/);
+  assert.ok(app.calls.some(call=>call.endpoint==="/user/list"&&call.query.includes("page=3")&&call.query.includes("page_size=100")));
+});
+
+test("server read-only commands execute when selected",async()=>{
+  const app=createConsole(true);
+  await app.settle();await app.settle();await app.open("server");
+  const before=app.calls.filter(call=>call.endpoint==="/rustdesk/execute").length;
+  await app.events.click({target:{closest:()=>({dataset:{action:"server-tab",tab:"id"}})}});
+  const after=app.calls.filter(call=>call.endpoint==="/rustdesk/execute").length;
+  assert.equal(after,before+1);
+  assert.match(app.root.innerHTML,/客户端登录要求设置/);
+  assert.doesNotMatch(app.root.innerHTML,/查询客户端登录要求<\/strong>/);
+  assert.doesNotMatch(app.root.innerHTML,/启用客户端登录要求<\/strong>/);
+});
+
+test("clicking the empty overlay closes the user editor",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user/list"]={list:[{id:3,username:"owner",status:1}],total:1};
+  await app.settle();await app.open("users");
+  await app.action("edit",3);
+  assert.match(app.root.innerHTML,/id="modal-overlay"/);
+  await app.events.click({target:{id:"modal-overlay",classList:{contains:()=>false},closest:()=>null}});
+  assert.doesNotMatch(app.root.innerHTML,/id="modal-overlay"/);
+});
+
+test("connection direction uses icons with accessible labels",async()=>{
+  const app=createConsole(false);
+  await app.settle();await app.settle();await app.open("myconnections");
+  assert.match(app.root.innerHTML,/class="connection-direction"/);
+  assert.match(app.root.innerHTML,/aria-label="我发起的连接"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-column="direction"[^>]*>[^<]*我发起的连接/);
+});
+
+test("admin user details do not duplicate editing and security actions",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user/list"]={list:[{id:17,username:"helper",status:1,group_id:1}],total:1};
+  await app.settle();await app.open("users");
+  await app.events.click({target:{closest:()=>({dataset:{action:"entity-detail",entityType:"user",entityId:"17",entityLabel:"helper"}})}});
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/data-action="entity-admin-edit"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="entity-open-list"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="reset-password"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="reset-user-mfa"/);
 });

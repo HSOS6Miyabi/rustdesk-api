@@ -196,7 +196,8 @@ function serve(req, res) {
     });
     if(route==="/notification/retry")return answer(res,{});
     if(route==="/geoip/lookup")return answer(res,{
-      locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址"},
+      locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址",
+        "221.11.67.245":"中国 · 陕西 · 西安 · 雁塔区"},
       device_status:{"office":true,"home-remote":false,"654321":true,"123456":false,
         "managed-desk":false,"helpdesk":true,"desk-001":true,"support-123456":true},
       database_ready:false
@@ -249,7 +250,9 @@ function serve(req, res) {
     if(route==="/api_token/create")return answer(res,{id:8,prefix:"rdapi_example",token:"rdapi_example-secret-value"});
     if(route==="/api_token/delete")return answer(res,{});
     if(route==="/session/list")return answer(res, {list:[
-      {id:4,device_id:"support-123456",conn_id:41,last_seen_at:1710000000}
+      {id:4,device_id:"support-123456",to_device_name:"Remote support PC",to_account:"support-owner",to_user_id:3,
+        from_peer:"support-654321",from_device_name:"Technician PC",from_account:"technician",from_user_id:11,
+        from_name:"operator",ip:"221.11.67.245",participant_recorded:true,conn_id:41,last_seen_at:1710000000}
     ],total:1});
     if(route==="/session/disconnect")return answer(res, {status:"pending"});
     if(route==="/session/disconnect/list")return answer(res, {list:[
@@ -411,6 +414,12 @@ function serve(req, res) {
     filename.endsWith(".svg")?"image/svg+xml":"text/html";
   res.writeHead(200, {"Content-Type":mime+"; charset=utf-8","Cache-Control":"no-store"});
   res.end(fs.readFileSync(file));
+}
+
+async function captureManagementScreenshot(page, filename) {
+  const folder=path.join(__dirname,"test-screenshots","management-review");
+  fs.mkdirSync(folder,{recursive:true});
+  await page.screenshot({path:path.join(folder,filename),fullPage:false,animations:"disabled"});
 }
 
 async function pageForViewport(width, height, admin=false) {
@@ -928,7 +937,8 @@ test("administrator can reset a team member's lost second-factor credentials",as
     await page.locator('nav.side-scroll button[data-view="users"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="用户账户");
     await page.getByText("owner",{exact:true}).first().waitFor();
-    const reset=page.locator('button[data-action="reset-user-mfa"]').first();
+    await page.locator('[data-action="edit"]').first().click();
+    const reset=page.locator('.drawer button[data-action="reset-user-mfa"]').first();
     await reset.waitFor({state:"visible"});
     const saved=page.waitForRequest(req=>
       req.url().endsWith("/api/admin/user/mfa/reset")&&req.method()==="POST");
@@ -1156,8 +1166,14 @@ test("settings center: administrator can inspect and save overrides on desktop",
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
     await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
     assert.match(await page.locator(".content").innerText(),/环境变量/);
+    await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-overview.png");
     assert.match(await page.locator(".content").innerText(),/smtp.example.test/);
     assert.match(await page.locator(".content").innerText(),/连接日志 90 天/);
+    await page.locator('[data-action="settings-tab"][data-tab="storage"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-storage.png");
+    await page.locator('[data-action="settings-tab"][data-tab="general"]').click();
+    await captureManagementScreenshot(page,"desktop-settings-account.png");
     assert.match(await page.locator(".content").innerText(),/已配置（隐藏具体内容）/);
     assert.equal(await page.locator('[data-setting-item="jwt.key"] input').getAttribute("type"),"password");
     assert.ok(!(await page.locator(".content").innerText()).includes("private-jwt-test-value"));
@@ -1180,6 +1196,7 @@ test("settings center: administrator inspects and retries failed email events",a
     page.on("dialog",dialog=>dialog.accept());
     await page.locator('nav.side-scroll button[data-view="settings"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
+    await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
     await page.locator('[data-action="settings-outbox-category"][data-category="notification"]').click();
     const failure=page.locator('[data-action="settings-outbox-retry"][data-category="notification"]');
     await failure.waitFor({state:"visible"});
@@ -1283,6 +1300,7 @@ test("layout: brand, shortcuts and settings are arranged consistently",async()=>
       if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
       await page.locator('nav.side-scroll button[data-view="settings"]').click();
       await page.locator('[data-setting-item="app.register"]').waitFor({state:"visible"});
+      await page.locator('[data-action="settings-tab"][data-tab="overview"]').click();
       const layout=await page.evaluate(()=>{
         const section=document.querySelector(".settings-section");
         const body=section.querySelector(".settings-section-body");
@@ -1599,7 +1617,9 @@ test("responsive data tables keep columns readable across screen sizes",async()=
             regionWidth:Math.round(getWidth(region)),
             cardCount:cardItems.length,
             mobileFieldWidth:mobileField?Math.round(getWidth(mobileField)):0,
-            narrow,nonwrappingDirection:oneLine(direction),nonwrappingDevice:oneLine(device),
+            narrow,nonwrappingDirection:direction?.querySelector('.connection-direction')?
+              direction.scrollWidth<=direction.clientWidth+1:oneLine(direction),
+            nonwrappingDevice:oneLine(device),
             firstCellText:cells[0]?.textContent.trim()||"",
             hasScrollableRegion:region.scrollWidth>region.clientWidth+1
           };
@@ -1621,7 +1641,7 @@ test("responsive data tables keep columns readable across screen sizes",async()=
             assert.ok(result.hasScrollableRegion,"Wide table cannot scroll on "+role+" "+key);
           const cellWidths=await page.locator(".data-table tbody tr:first-child td:not(.cell-actions)").evaluateAll(cells=>
             cells.map(cell=>({label:cell.dataset.column,width:cell.getBoundingClientRect().width})));
-          assert.ok(cellWidths.every(item=>item.width>=78),
+          assert.ok(cellWidths.every(item=>item.label==="direction"?item.width>=48:item.width>=78),
             "Found compressed columns in "+role+" "+key+": "+JSON.stringify(cellWidths));
         }else{
           assert.ok(result.cardsVisible&&result.cardCount>0,
@@ -1759,16 +1779,16 @@ test("server management renders categorized API replies as metrics and tables",a
   const {context,page}=await pageForViewport(1440,900,true);
   try{
     await page.locator('nav button[data-view="server"]').click();
-    await page.locator('.server-tabs .server-tab[data-tab="relay"]').click();
     const request=page.waitForRequest(req=>req.url().endsWith("/api/admin/rustdesk/execute")&&req.method()==="POST");
-    await page.locator("#command-form button[type=submit]").click();
+    await page.locator('.server-tabs .server-tab[data-tab="relay"]').click();
     const params=(await request).postDataJSON();
     assert.equal(params.target,"21117");
     assert.equal(params.cmd,"usage");
     await page.locator(".server-result-table tbody tr").waitFor();
     assert.match(await page.locator(".server-result").innerText(),/192.0.2.5/);
-    await page.locator('button[data-id="relay-speed-read"]').click();
-    await page.locator("#command-form button[type=submit]").click();
+    const metric=page.waitForResponse(res=>res.url().endsWith("/api/admin/rustdesk/execute")&&res.request().method()==="POST");
+    await page.locator('button[data-action="server-select"][data-id="relay-speed-read"]').click();
+    await metric;
     await page.getByText("12.5",{exact:false}).first().waitFor();
     assert.match(await page.locator(".server-result").innerText(),/Mb\/s/);
   }finally{await context.close();}
@@ -1780,11 +1800,14 @@ test("interactive server management presents form explanations",async()=>{
     await page.locator('nav button[data-view="server"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="服务器管理");
     await page.locator('.server-tabs .server-tab[data-tab="id"]').click();
-    await page.locator('button[data-id="id-block-add"]').click();
+    await page.locator('button[data-action="server-select"][data-id="id-block-read"]').click();
     const form=page.locator("#command-form");
     assert.equal(await form.locator('[name="option"]').count(),1);
     await form.locator('[name="option"]').fill("invalid-ip");
-    await form.locator('button[type="submit"]').click();
+    await page.locator("#server-result .loading-table").waitFor({state:"detached"});
+    assert.equal(await form.locator('[name="option"]').inputValue(),"invalid-ip");
+    await form.locator('[data-action="server-modify"][data-id="id-block-add"]').click();
+    await page.locator(".toast-wrap .toast.error").waitFor({state:"visible",timeout:5000});
     assert.match(await page.locator(".toast-wrap").innerText(),/有效的 IPv4 或 IPv6/);
   }finally{await context.close();}
 });
@@ -1887,7 +1910,8 @@ test("device and user names open detail panels with management links",async()=>{
     await page.locator('.table-scroll [data-action="entity-detail"][data-entity-type="user"]').first().click();
     await page.locator('.drawer[aria-label="用户信息"]').waitFor();
     assert.match(await page.locator(".drawer").innerText(),/用户名/);
-    assert.equal(await page.locator('[data-action="entity-open-list"]').count(),1);
+    assert.equal(await page.locator('[data-action="entity-open-list"]').count(),0);
+    assert.equal(await page.locator('[data-action="entity-admin-edit"]').count(),1);
   }finally{await context.close();}
 });
 
@@ -1954,6 +1978,7 @@ test("server-side table sorting keeps one order when moving between pages",async
   const {context,page}=await pageForViewport(1360,850,true);
   try{
     await page.locator('nav button[data-view="groups"]').click();
+    await page.locator('.pager-size').first().selectOption("20");
     const requested=[];
     page.on("request",req=>{
       const url=new URL(req.url());
@@ -1965,7 +1990,7 @@ test("server-side table sorting keeps one order when moving between pages",async
     await page.locator('[data-action="sort-table"][data-column="name"]').click();
     await page.locator('tbody tr').first().waitFor({state:"visible"});
     assert.match(await page.locator("tbody").innerText(),/A Group/);
-    await page.locator('[data-action="next"]').click();
+    await page.locator('[data-action="page-index"][aria-label="下一页"]').first().click();
     await page.waitForFunction(()=>document.querySelector(".pager")?.textContent.includes("第 2 / 2"));
     assert.match(await page.locator("tbody").innerText(),/U Group/);
     assert.ok(requested.some(x=>x.sort==="name"&&x.dir==="asc"&&x.page===1));
@@ -2102,5 +2127,162 @@ test("device connection opens the original RustDesk remote controls and supports
     await popup.waitForFunction(()=>document.fullscreenElement===document.querySelector(".stage"));
     await popup.locator("#v2-fullscreen-exit").click();
     await popup.waitForFunction(()=>document.fullscreenElement===null);
+  }finally{await context.close();}
+});
+
+test("pagination shows numbered pages and defaults to 100 entries",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    const requests=[];
+    await page.route("**/api/admin/user/list?**",async route=>{
+      const url=new URL(route.request().url());
+      const index=Number(url.searchParams.get("page")||1);
+      const size=Number(url.searchParams.get("page_size")||100);
+      requests.push({index,size});
+      await route.fulfill({status:200,contentType:"application/json",
+        body:JSON.stringify({code:0,data:{total:235,list:Array.from({length:Math.min(size,Math.max(0,235-(index-1)*size))},(_,i)=>({
+          id:(index-1)*size+i+1,username:"test-user-"+((index-1)*size+i+1),status:1,group_id:1
+        }))}})});
+    });
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.getByRole("heading",{name:"用户账户"}).first().waitFor();
+    await page.locator('.pager-size').first().waitFor();
+    assert.equal(await page.locator(".pager-size").first().inputValue(),"100");
+    assert.ok(requests.some(x=>x.index===1&&x.size===100));
+    await page.locator('[data-action="page-index"][data-page="3"]').first().click();
+    assert.ok(requests.some(x=>x.index===3&&x.size===100));
+    const resized=page.waitForResponse(res=>{
+      const target=new URL(res.url());
+      return target.pathname.endsWith("/api/admin/user/list") &&
+        target.searchParams.get("page")==="1" && target.searchParams.get("page_size")==="50";
+    });
+    await page.locator(".pager-size").first().selectOption("50");
+    await resized;
+    await page.waitForFunction(()=>document.querySelector(".pager")?.textContent.includes("第 1 / 5 页"));
+    assert.ok(requests.some(x=>x.index===1&&x.size===50));
+    assert.equal(await page.locator(".pager-size").first().inputValue(),"50");
+    await captureManagementScreenshot(page,"desktop-pagination.png");
+    const width=await page.evaluate(()=>({screen:innerWidth,document:document.documentElement.scrollWidth}));
+    assert.ok(width.document<=width.screen+2,"pagination overflows desktop");
+  }finally{await context.close();}
+});
+
+test("user security controls stay in the editor and backdrop closes drawers",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.getByRole("heading",{name:"用户账户"}).first().waitFor();
+    assert.equal(await page.locator('[data-action="reset-password"]').count(),0);
+    await page.locator('[data-action="edit"]').first().click();
+    await page.locator(".drawer").waitFor({state:"visible"});
+    assert.equal(await page.locator('[data-action="reset-password"]').count(),1);
+    assert.equal(await page.locator('[data-action="reset-user-mfa"]').count(),1);
+    await captureManagementScreenshot(page,"desktop-user-editor.png");
+    await page.locator("#modal-overlay").click({position:{x:35,y:160}});
+    await page.locator("#modal-overlay").waitFor({state:"detached"});
+  }finally{await context.close();}
+});
+
+test("server selections automatically query live values and group related commands",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="server"]').click();
+    await page.getByRole("heading",{name:"服务器管理"}).first().waitFor();
+    const sent=page.waitForRequest(req=>req.url().endsWith("/api/admin/rustdesk/execute")&&req.method()==="POST");
+    await page.locator('[data-action="server-tab"][data-tab="id"]').first().click();
+    const payload=(await sent).postDataJSON();
+    assert.equal(payload.cmd,"relay-servers");
+    assert.equal(payload.option,"");
+    assert.equal(await page.locator('.server-command-item').filter({hasText:"启用客户端登录要求"}).count(),0);
+    await page.locator('[data-action="server-select"][data-id="id-must-login-read"]').click();
+    await page.locator("#server-policy-value").waitFor({state:"visible"});
+    assert.equal(await page.locator('[data-action="server-policy-save"]').count(),1);
+    await captureManagementScreenshot(page,"desktop-server-login-policy.png");
+  }finally{await context.close();}
+});
+
+test("active connection rows display both device owners and the connecting account",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
+    await page.getByRole("heading",{name:"活动远程连接"}).first().waitFor();
+    await page.waitForFunction(()=>document.querySelector(".content")?.textContent?.includes("support-owner"));
+    const content=await page.locator(".content").innerText();
+    assert.match(content,/support-owner/);
+    assert.match(content,/technician/);
+    assert.match(content,/Remote support PC/);
+    await page.locator('[data-action="table-details"]').first().click();
+    assert.match(await page.locator(".content").innerText(),/operator/);
+    await captureManagementScreenshot(page,"desktop-active-connection.png");
+  }finally{await context.close();}
+});
+
+test("full GeoIP names remain readable and connection directions use a compact accessible icon",async()=>{
+  const cases=[[1440,900,"desktop"],[375,812,"phone"]];
+  for(const [width,height,label] of cases){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
+      await page.waitForFunction(()=>document.querySelector('.ip-location')?.textContent.includes("陕西"));
+      if(width>900&&await page.locator('.data-table td[data-column="ip"]').count()===0){
+        await page.locator('[data-action="table-columns"]').click();
+      }
+      if(width>900){
+        await page.locator('.data-table tbody td[data-column="ip"]').first().scrollIntoViewIfNeeded();
+      }
+      const checks=await page.evaluate(()=>{
+        const region=document.querySelector('.data-table td[data-column="ip"]');
+        const field=region?.querySelector(':scope > span');
+        const location=region?.querySelector('.ip-location');
+        const card=document.querySelector('.mobile-list .ip-location');
+        const loc=location||card;
+        const css=field?getComputedStyle(field):null;
+        return {width:document.documentElement.scrollWidth,screen:innerWidth,
+          location:loc?.textContent,clamp:css?.webkitLineClamp,
+          height:field?.getBoundingClientRect().height,scrollHeight:field?.scrollHeight};
+      });
+      assert.ok(checks.width<=checks.screen+2,"IP table overflows "+label+": "+JSON.stringify(checks));
+      assert.match(checks.location||"",/中国 · 陕西 · 西安 · 雁塔区/);
+      if(width>900){
+        assert.equal(checks.clamp,"none","IP location must not use two-line clamping");
+        assert.ok(checks.scrollHeight<=checks.height+3,"IP location is clipped: "+JSON.stringify(checks));
+      }
+      await captureManagementScreenshot(page,"corrected-active-ip-"+label+".png");
+      if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
+      await page.locator('nav.side-scroll button[data-view="myconnections"]').click();
+      const direction=page.locator('[data-column="direction"] .connection-direction').first();
+      if(width>900){
+        await direction.waitFor();
+        assert.equal(await direction.getAttribute("aria-label"),"我发起的连接");
+        assert.equal((await direction.innerText()).trim(),"");
+        await captureManagementScreenshot(page,"corrected-direction-icon.png");
+      }else{
+        await page.locator('.mobile-item .connection-direction').first().waitFor();
+        await captureManagementScreenshot(page,"corrected-direction-mobile.png");
+      }
+    }finally{await context.close();}
+  }
+});
+
+test("user detail shows only relevant actions and an outside click dismisses the drawer",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="users"]').click();
+    await page.locator('[data-action="entity-detail"][data-entity-type="user"]').first().click();
+    const dialog=page.locator('.drawer');
+    await dialog.waitFor();
+    assert.equal(await dialog.locator('[data-action="reset-password"]').count(),0);
+    assert.equal(await dialog.locator('[data-action="reset-user-mfa"]').count(),0);
+    assert.equal(await dialog.locator('[data-action="entity-open-list"]').count(),0);
+    assert.equal(await dialog.locator('[data-action="entity-admin-edit"]').count(),1);
+    await captureManagementScreenshot(page,"corrected-user-detail.png");
+    await page.locator('#modal-overlay').click({position:{x:24,y:130}});
+    await page.locator('#modal-overlay').waitFor({state:"detached"});
+    await page.locator('[data-action="edit"]').first().click();
+    await page.locator('.drawer [data-action="reset-password"]').waitFor();
+    await captureManagementScreenshot(page,"corrected-user-editor.png");
+    await page.locator('#modal-overlay').click({position:{x:24,y:130}});
+    await page.locator('#modal-overlay').waitFor({state:"detached"});
   }finally{await context.close();}
 });
