@@ -166,6 +166,9 @@
     moon:'<path d="M20 15.4A8 8 0 0 1 8.6 4a8.5 8.5 0 1 0 11.4 11.4z"/>',
     logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5m5 5H9"/>',
     arrow:'<path d="M5 12h14m-7-7 7 7-7 7"/>',
+    directionOut:'<path d="M5 19 19 5M10 5h9v9"/>',
+    directionIn:'<path d="M19 5 5 19M14 19H5v-9"/>',
+    directionBoth:'<path d="m7 7-4 4 4 4m-4-4h18M17 3l4 4-4 4M21 7H3"/>',
     info:'<circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/>',
     chevron:'<path d="m6 9 6 6 6-6"/>'
   };
@@ -212,7 +215,7 @@
   }
   function geoIPText(ip){
     const name=String(state.geoLocations[ip]||"位置未知");
-    return '<span class="ip-location">（'+esc(name)+'）</span>';
+    return '<span class="ip-location" title="'+esc(name)+'" aria-label="IP 归属地：'+esc(name)+'">（'+esc(name)+'）</span>';
   }
   function showIP(value){
     const raw=String(value||"").trim();
@@ -391,7 +394,11 @@
     if(k==="source_type")return ({all:"所有已登录用户",user:"指定用户",group:"指定用户组"}[v]||v);
     if(k==="target_type")return ({all:"全部设备",device:"指定设备",user:"指定所有者",device_group:"指定设备组"}[v]||v);
     if(k==="effect")return ({allow:"允许访问",deny:"禁止访问"}[v]||v);
-    if(k==="direction")return v==="outgoing"?"我发起的连接":v==="incoming"?"连接我的设备":v==="both"?"双方均为我的设备":"—";
+    if(k==="direction") {
+      const name=directionLabel(v);
+      const symbol=v==="outgoing"?"directionOut":v==="incoming"?"directionIn":v==="both"?"directionBoth":"info";
+      return '<span class="connection-direction" title="'+esc(name)+'" role="img" aria-label="'+esc(name)+'">'+icon(symbol,19)+'</span>';
+    }
     if(k==="primary_auth")return (["未报告","点击授权","临时密码","永久密码","切换控制方向"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
     if(k==="two_factor")return (["未报告","TOTP 动态验证码","可信设备"][Number(v)]||"其他方式")+" ("+esc(txt(v))+")";
     if(k==="typ")return ({0:"IP 白名单拒绝",1:"密码尝试次数过多",2:"短时间连续登录失败",6:"IPv6 地址段登录尝试过多",7:"系统账户登录暂缓",8:"系统账户登录并发限制",9:"会话权限违规",10:"设备 ID 白名单拒绝"}[Number(v)]||"其他告警")+" ("+esc(txt(v))+")";
@@ -423,6 +430,18 @@
     if(["sent_at","created_at","last_online_time","expire","expired_at","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
+  }
+  function directionLabel(value){
+    return value==="outgoing"?"我发起的连接":value==="incoming"?"连接我的设备":
+      value==="both"?"双方均为我的设备":"未记录连接方向";
+  }
+  function columnTitle(key,value){
+    if(key==="direction")return directionLabel(value);
+    if(geoIPFields.has(key)){
+      const ip=findDisplayIP(value),location=ip?state.geoLocations[ip]:"";
+      return String(value||"")+(location?" · "+location:"");
+    }
+    return txt(value);
   }
   const state={
     token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
@@ -558,7 +577,7 @@
       }
       nav+="</div>";
     }
-    return '<div class="workspace"><div class="sidebar-backdrop '+(state.mobile?"show":"")+'" data-action="mobile-close"></div><aside class="sidebar '+(state.mobile?"open":"")+'"><div class="side-head">'+brand()+'</div><nav class="side-scroll" aria-label="导航">'+nav+'</nav><div class="side-bottom"><div class="side-avatar"><span class="avatar">'+esc(username[0]||"R").toUpperCase()+'</span><div class="side-account"><strong>'+esc(username)+'</strong><small>'+(state.isAdmin?"系统管理员":"普通用户")+'</small></div></div></div></aside><div class="main"><header class="topbar"><div class="breadcrumbs"><button class="icon-btn mobile-only" data-action="mobile-open" aria-label="打开导航">'+icon("menu")+'</button><span>'+esc(pages[state.page].section)+'</span><span>/</span><span class="crumb-current">'+esc(pages[state.page].name)+'</span></div><div class="top-actions"><button class="icon-btn" data-action="refresh" title="刷新">'+icon("refresh")+'</button><button class="icon-btn" data-action="theme" title="切换主题">'+icon(state.theme==="dark"?"sun":"moon")+'</button><button class="top-user" data-view="profile"><span class="mini-avatar">'+esc(username[0]||"R").toUpperCase()+'</span>'+esc(username)+'</button><button class="icon-btn" data-action="logout" title="退出登录">'+icon("logout")+'</button></div></header><main class="content">'+renderPage()+'<footer class="data-attribution">IP 地理位置数据：<a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">DB-IP</a></footer></main></div></div>'+renderModal();
+    return '<div class="workspace"><div class="sidebar-backdrop '+(state.mobile?"show":"")+'" data-action="mobile-close"></div><aside class="sidebar '+(state.mobile?"open":"")+'"><div class="side-head">'+brand()+'</div><nav class="side-scroll" aria-label="导航">'+nav+'</nav><div class="side-bottom"><div class="side-avatar"><span class="avatar">'+esc(username[0]||"R").toUpperCase()+'</span><div class="side-account"><strong>'+esc(username)+'</strong><small>'+(state.isAdmin?"系统管理员":"普通用户")+'</small></div></div></div></aside><div class="main"><header class="topbar"><div class="breadcrumbs"><button class="icon-btn mobile-only" data-action="mobile-open" aria-label="打开导航">'+icon("menu")+'</button><span>'+esc(pages[state.page].section)+'</span><span>/</span><span class="crumb-current">'+esc(pages[state.page].name)+'</span></div><div class="top-actions"><button class="icon-btn" data-action="refresh" title="刷新">'+icon("refresh")+'</button><button class="icon-btn" data-action="theme" title="切换主题">'+icon(state.theme==="dark"?"sun":"moon")+'</button><button class="top-user" data-view="profile"><span class="mini-avatar">'+esc(username[0]||"R").toUpperCase()+'</span>'+esc(username)+'</button><button class="icon-btn" data-action="logout" title="退出登录">'+icon("logout")+'</button></div></header><main class="content">'+renderPage()+'<footer class="data-attribution">IP 地理位置数据：<a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">DB-IP</a><span class="console-revision"> · 控制台资源版本：'+esc(document.querySelector('meta[name="rustdesk-console-revision"]')?.content?.slice(0,12)||"当前版本")+'</span></footer></main></div></div>'+renderModal();
   }
   function render(){
     if(!state.token||!state.user){login();return;}
@@ -823,14 +842,14 @@
       id:deviceIDPages.has(page)?164:80,
       device_id:200,peer_id:176,from_peer:176,
       device_uuid:176,conn_id:145,conn_audit_ref:190,
-      direction:172,type:128,rule:136,status:130,enabled:126,
+      direction:68,type:128,rule:136,status:130,enabled:126,
       name:180,alias:162,hostname:168,nickname:164,
       username:170,owner_username:178,from_account:178,to_account:178,
       account:160,email:236,sender_email:226,
       from_name:174,from_device_name:174,to_device_name:174,
       from_user_id:160,to_user_id:160,owner_user_id:160,
       user_id:136,group_id:140,collection_id:142,policy_id:158,
-      client_ip:192,last_online_ip:192,source_ip:192,ip:192,
+      client_ip:224,last_online_ip:224,source_ip:224,ip:224,login_ip:224,
       created_at:190,deleted_at:190,updated_at:190,last_online_time:190,
       last_used_at:190,expires_at:190,completed_at:190,delivered_at:190,
       os:140,platform:160,method:116,primary_auth:152,two_factor:148,
@@ -856,7 +875,7 @@
     const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
     const widths=allCols.map(([key,label])=>{
       const width=tableColumnWidth(key,label,state.page);
-      return Math.max(104,Math.round(width*.76));
+      return key==="direction"?68:Math.max(104,Math.round(width*.76));
     });
     const priorities=allCols.map(([key],index)=>{
       const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","to_account","from_account","from_peer","to_device_name","from_device_name",
@@ -899,7 +918,7 @@
       const cells=visible.map(([key])=>{
         const first=key===allCols[0][0];
         return '<td data-column="'+esc(key)+'" class="'+(multiline.has(key)?"cell-multiline ":"")+
-          (first?"cell-primary":"")+'" title="'+esc(txt(row[key]))+'"><span class="'+(first?"cell-title":"")+
+          (first?"cell-primary":"")+'" title="'+esc(columnTitle(key,row[key]))+'"><span class="'+(first?"cell-title":"")+
           '">'+colValue(row[key],key,row)+'</span></td>';
       }).join("");
       const detail=hidden.length?'<button type="button" class="btn btn-sm" data-action="table-details" data-row="'+index+'" aria-expanded="false">查看详情</button>':"";
@@ -1177,8 +1196,7 @@
     }else if(selected.mode==="none"){
       editor=selected.cmd==="reload-geo"?
         '<div class="server-submit-row"><button type="submit" class="btn btn-primary">更新数据库</button></div>':
-        '<p class="server-command-help">已自动查询当前状态。选择此项或点击刷新即可重新读取。</p>'+
-        '<button type="button" class="btn" data-action="server-query">重新查询</button>';
+        '<p class="server-command-help">选择此项后自动查询。如需重新查询，请使用页面右上角的刷新按钮。</p>';
     }else{
       editor=commandInputs(selected)+'<div class="server-submit-row"><button type="submit" class="btn btn-primary">查询</button></div>';
     }
@@ -1902,7 +1920,7 @@
       '<dl class="entity-data">'+rows+'</dl>'+
       (m.loading?"":!m.found?'<p class="subtitle">当前账户可查看的信息已显示。其他详情需要相应管理权限。</p>':"")+'</div>';
     const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
-    const buttons=editable?'<button type="button" class="btn" data-action="entity-open-list">'+
+    const buttons=editable&&editable!=="users"?'<button type="button" class="btn" data-action="entity-open-list">'+
       esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
     const adminUser=!device&&Number(info.id)>0&&available("users");
     const userActions=adminUser&&canPageAction("users","edit")?
@@ -2364,10 +2382,13 @@
     else toast("浏览器阻止了打开新标签页，请在浏览器中允许该操作。",true);
   }
   document.addEventListener("click",async event=>{
-    if(event.target.id==="modal-overlay"){
-      state.modal=state.modal?.previous||null;render();return;
+    const clickTarget=event.target;
+    if(clickTarget?.closest?.(".picker-overlay")&&!clickTarget.closest(".picker-dialog")){
+      closePickerDialog();return;
     }
-    if(event.target.classList?.contains("picker-overlay")){closePickerDialog();return;}
+    if((clickTarget?.id==="modal-overlay"||clickTarget?.closest?.("#modal-overlay"))&&!clickTarget?.closest?.(".drawer")){
+      state.modal=null;render();return;
+    }
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
@@ -2398,7 +2419,11 @@
       view(m.destination,m.destination==="profile"?"":m.entityType==="user"?String(m.info.username||m.entityId):m.entityId);
       return;
     }
-    if(a==="refresh"){await load();return;}
+    if(a==="refresh"){
+      await load();
+      if(state.page==="server"&&state.serverTab!=="overview")await querySelectedServerCommand(serverSelectedCommand());
+      return;
+    }
     if(a==="server-tab"){
       const tab=el.dataset.tab;
       if(!["overview","id","relay"].includes(tab))return;
