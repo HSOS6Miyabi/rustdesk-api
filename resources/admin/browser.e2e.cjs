@@ -2151,6 +2151,7 @@ test("active connection rows display both device owners and the connecting accou
   try{
     await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
     await page.getByRole("heading",{name:"活动远程连接"}).first().waitFor();
+    await page.waitForFunction(()=>document.querySelector(".content")?.textContent?.includes("support-owner"));
     const content=await page.locator(".content").innerText();
     assert.match(content,/support-owner/);
     assert.match(content,/technician/);
