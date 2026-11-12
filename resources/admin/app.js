@@ -1330,7 +1330,7 @@
       '<small class="picker-selection">'+esc(all?"适用于全部对象":selected&&selected!=="0"?"当前选择："+selected:"选择搜索结果后将自动填写编号")+'</small></div>';
   }
   function multiPicker(id,kind="user",initial=""){
-    const ids=[...new Set(String(initial||"").split(/[,;，\\s]+/).map(x=>x.trim()).filter(Boolean))];
+    const ids=[...new Set(String(initial||"").split(/[,;，\s]+/).map(x=>x.trim()).filter(Boolean))];
     const object=kind==="device"?"设备":"用户";
     return '<div class="entity-picker entity-picker-multi" data-picker="'+esc(kind)+'" data-target="'+esc(id)+'">'+
       '<div class="picker-control"><input class="picker-query" type="search" autocomplete="off" placeholder="'+(kind==="device"?"搜索设备 ID、备注、主机名、系统或用户名":"搜索用户名、昵称、邮箱或编号")+'" aria-label="搜索'+object+'">'+
@@ -1449,7 +1449,9 @@
       ["备注",info.alias],["主机名",info.hostname],["操作系统",info.os],
       ["操作系统用户",info.username],["最后在线时间",info.last_online_time?date(info.last_online_time):"",true],
       ["最近上线 IP",info.last_online_ip?showIP(info.last_online_ip):"",true],
-      ["设备备注",info.note],["所有者用户 ID",info.user_id]
+      ["设备备注",info.note],
+      ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):"",true],
+      ["所有者用户 ID",info.user_id]
     ]:[
       ["用户编号",info.id||(/^[0-9]+$/.test(id)?id:"")],
       ["用户名",info.username||(/^[0-9]+$/.test(id)?"":id)],
@@ -1457,7 +1459,9 @@
       ["主要分组 ID",info.group_id],["备注",info.remark]
     ];
     const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
-    const editable=device?available("devices")?"devices":info.user_id&&Number(info.user_id)===Number(state.user?.id)?"mydevices":available("shared")?"shared":"mydevices":
+    const owned=Boolean(info.owned||info.user_id&&Number(info.user_id)===Number(state.user?.id));
+    const editable=device?
+      !m.found?"":owned?"mydevices":available("devices")?"devices":available("shared")?"shared":"":
       available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
     m.destination=editable;
     const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':'<strong>'+esc(m.label||id)+'</strong>')+
@@ -1479,10 +1483,14 @@
       if(type==="device"){
         data=state.rows.find(row=>deviceRowPages.has(state.page)&&String(row.id)===String(id))||
           state.metrics?.recent?.find(row=>String(row.id)===String(id))||null;
-        if(!data){
-          const route=available("devices")?"/peer/list":"/my/peer/list";
-          const list=await request(route+"?page=1&page_size=80&keyword="+encodeURIComponent(id));
-          data=(list.list||[]).find(row=>String(row.id)===String(id))||null;
+        try{
+          const detail=await request("/my/directory/device?id="+encodeURIComponent(id));
+          if(detail?.id)data=detail;
+        }catch{
+          if(!data&&available("devices")){
+            const list=await request("/peer/list?page=1&page_size=80&keyword="+encodeURIComponent(id));
+            data=(list.list||[]).find(row=>String(row.id)===String(id))||null;
+          }
         }
         if(state.devicePresence[id]===undefined){
           try{
@@ -1495,6 +1503,9 @@
         if(!data&&(state.isAdmin||hasPrivilege("users.view"))){
           const list=await request("/user/list?page=1&page_size=80&keyword="+encodeURIComponent(id));
           data=(list.list||[]).find(row=>String(row.id)===String(id)||row.username===String(id))||null;
+        }
+        if(!data){
+          try{data=await request("/my/directory/user?id="+encodeURIComponent(id));}catch{}
         }
         if(!data&&(String(state.user?.id)===String(id)||String(state.user?.username)===String(id)))data=state.user;
       }
