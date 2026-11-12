@@ -26,7 +26,7 @@
   const sessionPanels=el("v2-session-panels");
   const emptySession=el("v2-empty-session");
   const sessions=new Map();
-  const modes={desktop:{route:"connect",label:"桌面"},file:{route:"file-transfer",label:"文件"},camera:{route:"view-camera",label:"摄像"},terminal:{route:"terminal",label:"终端"}};
+  const modes={desktop:{route:"connect",label:"桌面"},file:{route:"file-transfer",label:"文件"},camera:{route:"view-camera",label:"摄像"},terminal:{route:"terminal",label:"终端"},adminTerminal:{route:"terminal-admin",label:"管理员终端"}};
   const modeButtons=Object.fromEntries(Object.keys(modes).map(mode=>[mode,el("v2-mode-"+mode)]));
   let selectedMode="desktop";
   function renderModeTabs(){

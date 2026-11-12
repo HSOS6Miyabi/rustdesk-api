@@ -40,7 +40,7 @@ function fixture(options = {}) {
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
     "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client",
     "v2-session-tabs", "v2-session-panels", "v2-empty-session",
-    "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-device-query", "v2-search-device", "v2-device-results"
+    "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
@@ -262,7 +262,7 @@ test("The original Flutter client renders the operation bar without an additiona
   assert.match(html,/id="v2-session-panels"/);
   assert.match(html,/id="v2-fullscreen-exit"/);
   assert.doesNotMatch(html,/class="stage-toolbar"|id="v2-active-device-id"|id="app"/);
-  assert.match(original,/main.dart.js/);
+  assert.match(original,/flutter_bootstrap\.js/);
   assert.match(css,/\.native-client\{/);
   assert.match(css,/\.stage:fullscreen/);
 });
@@ -320,5 +320,7 @@ test("Function tabs keep the remote desktop mounted while opening new RustDesk m
   assert.equal(app.elements.get("v2-session-panels").children[1].src,"/webclient/#/view-camera/desk-01");
   app.elements.get("v2-mode-terminal").listeners.click();
   assert.equal(app.elements.get("v2-session-panels").children[2].src,"/webclient/#/terminal/desk-01");
+  app.elements.get("v2-mode-adminTerminal").listeners.click();
+  assert.equal(app.elements.get("v2-session-panels").children[3].src,"/webclient/#/terminal-admin/desk-01");
   assert.equal(desktop.src,address);
 });

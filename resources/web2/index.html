@@ -69,14 +69,15 @@
     <button type="button" id="v2-mode-file" role="tab" aria-selected="false">文件</button>
     <button type="button" id="v2-mode-camera" role="tab" aria-selected="false">摄像</button>
     <button type="button" id="v2-mode-terminal" role="tab" aria-selected="false">终端</button>
+    <button type="button" id="v2-mode-adminTerminal" role="tab" aria-selected="false">管理员终端</button>
    </nav>
    <nav id="v2-session-tabs" class="session-tabs" role="tablist" aria-label="远程连接会话" hidden></nav>
+   <button id="v2-fullscreen-exit" type="button" class="fullscreen-exit" aria-label="退出全屏" title="退出全屏（Esc）" hidden>退出全屏</button>
   </div>
   <div id="v2-session-panels" class="session-panels">
    <div id="v2-empty-session" class="session-placeholder">选择设备并连接，远程会话将在这里显示。</div>
    <iframe id="v2-native-client" class="native-client session-inactive" src="about:blank" title="RustDesk 远程桌面" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
   </div>
-  <button id="v2-fullscreen-exit" type="button" class="fullscreen-exit" aria-label="退出全屏" title="退出全屏（Esc）" hidden>⤡</button>
  </section>
 </main>
 </body>

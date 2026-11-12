@@ -15,7 +15,7 @@
 .session-placeholder{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;font-size:13px;color:#99b5cc}
 .display-actions{display:flex;gap:8px;margin:11px 0 0}
 .display-actions .secondary{flex:1;padding:8px 6px;min-height:34px;font-size:11px}
-.fullscreen-exit{position:absolute;top:7px;left:min(calc(50% + 303px),calc(100% - 39px));z-index:10;display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:9px;border:1px solid #45627e;background:#243e55;color:#fff;font-size:19px;cursor:pointer}
+.fullscreen-exit{position:relative;z-index:2;flex:0 0 auto;min-width:65px;height:30px;padding:0 10px;border-radius:8px;border:1px solid #45627e;background:#243e55;color:#fff;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
 .fullscreen-exit:hover,.fullscreen-exit:focus-visible{background:#355d7b}
 @media(max-width:950px){.layout{grid-template-columns:minmax(260px,315px) minmax(0,1fr)}.aside{padding:26px 20px}.toplinks{gap:12px}.badge{display:none}}@media(max-width:680px){.top{height:65px;padding:0 15px}.layout{display:flex;flex-direction:column}.aside{max-height:none;overflow:visible;padding:25px 19px 19px}.stage{padding:8px;min-height:410px}.native-client{min-height:410px}.toplinks a{font-size:11px}.toplinks a:first-of-type{display:none}.aside h1{font-size:24px}.actions{flex-wrap:wrap}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 [hidden]{display:none!important}
@@ -30,10 +30,10 @@
 .connection-notice{margin:8px 0 0;color:#668099;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
 body.webclient-page-fullscreen{overflow:hidden}
 .webclient-page-fullscreen .stage,.stage:fullscreen{position:fixed;inset:0;width:100vw;height:100dvh;min-height:0;max-height:100dvh;z-index:1000;padding:0;margin:0;background:#101d2b;overflow:hidden}
-.webclient-page-fullscreen .session-tabs,.stage:fullscreen .session-tabs{display:none}
-.webclient-page-fullscreen .session-panels,.stage:fullscreen .session-panels{width:100%;height:100%;border-radius:0}
+.webclient-page-fullscreen .session-tabs,.stage:fullscreen .session-tabs{max-width:100%}
+.webclient-page-fullscreen .session-panels,.stage:fullscreen .session-panels{width:100%;flex:1;min-height:0;height:auto;border-radius:0}
 .webclient-page-fullscreen .native-client,.stage:fullscreen .native-client{height:100%;border-radius:0}
-@media(max-width:680px){.fullscreen-exit{left:auto;right:5px;top:5px}}
+@media(max-width:680px){.fullscreen-exit{min-width:65px;height:30px}}
 
 /* Shared-device identifiers open their details; the separate action selects a connection. */
 .device-description{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
@@ -64,6 +64,6 @@ body.webclient-page-fullscreen{overflow:hidden}
 .mode-tabs button[aria-selected="true"]{background:white;color:#1654a5;box-shadow:0 1px 5px #1e3a5f16}
 .mode-tabs button:hover:not([aria-selected="true"]){background:#dae5f1}
 .workspace-switcher .session-tabs{min-width:0;flex:1}
-.webclient-page-fullscreen .workspace-switcher,.stage:fullscreen .workspace-switcher{display:none}
+.webclient-page-fullscreen .workspace-switcher,.stage:fullscreen .workspace-switcher{display:flex;align-items:center;padding:8px 10px;background:#13283d}
 @media(max-width:1080px){.workspace-switcher{flex-wrap:wrap}.mode-tabs{width:100%;justify-content:center}.workspace-switcher .session-tabs{width:100%;flex-basis:100%}}
 @media(max-width:680px){.mode-tabs button{flex:1;padding:5px 8px}.mode-tabs{width:100%}}
