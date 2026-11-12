@@ -77,8 +77,8 @@ test("Remembered passwords are isolated by server and device and can be cleared"
 });
 
 test("Browser password bridge follows the checkbox and does not log credential payloads",()=>{
-  assert.match(globalsSource,/case 'login':[\\s\\S]*?setRemember\\(request\\.remember === true/);
-  assert.match(globalsSource,/case 'session_login':[\\s\\S]*?setRemember\\(request\\.remember === true/);
+  assert.match(globalsSource,/case 'login':[\s\S]*?setRemember\(request\.remember === true/);
+  assert.match(globalsSource,/case 'session_login':[\s\S]*?setRemember\(request\.remember === true/);
   assert.match(globalsSource,/case 'forget_password'/);
-  assert.doesNotMatch(globalsSource,/myconsole\\('setByName', name, value\\)/);
+  assert.doesNotMatch(globalsSource,/myconsole\('setByName', name, value\)/);
 });
