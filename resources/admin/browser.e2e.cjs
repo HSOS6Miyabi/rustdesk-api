@@ -862,6 +862,7 @@ test("administrator can configure Windows installers and inspect email delivery 
     await page.locator('input[name="host"]').fill("support.example.test:21116");
     await page.locator('input[name="public_key"]').fill("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
     await page.locator('input[name="api_server"]').fill("https://support.example.test");
+    await page.locator('input[name="version"]').fill("1.4.5");
     const profileForm=page.locator("#client-profile-form");
     const invalid=await profileForm.evaluate(form=>[...form.elements].filter(
       field=>!field.checkValidity()).map(field=>field.name));
@@ -873,7 +874,7 @@ test("administrator can configure Windows installers and inspect email delivery 
     assert.equal(payload.platform,"windows-x64");
     assert.equal(payload.host,"support.example.test:21116");
     assert.equal(payload.api_server,"https://support.example.test");
-    assert.equal(payload.version,"1.5.1");
+    assert.equal(payload.version,"1.4.5");
     await page.getByText("客户端配置已保存").first().waitFor();
     await page.locator('nav.side-scroll button[data-view="notifications"]').click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="邮件事件通知");
