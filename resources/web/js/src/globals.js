@@ -196,10 +196,9 @@ window.setByName = (name, value) => {
             if (!id) return '';
             const conn = newConn();
             const mode = window.__rustdeskSessionOptions || {};
-            if (mode.isFileTransfer || mode.isViewCamera || mode.isTerminal) {
-                msgbox('error', 'Unsupported Web session', 'This connection type requires an updated browser protocol adapter.');
-                return '';
-            }
+            conn.setSessionMode(mode.isFileTransfer ? "file" : mode.isViewCamera ? "camera" : mode.isTerminal ? "terminal" : "desktop",
+                !!window.__rustdeskTerminalAdmin && !!mode.isTerminal);
+            window.__rustdeskTerminalAdmin = false;
             window.__rustdeskNativeSessionSeen = id;
             window.dispatchEvent(new CustomEvent('rustdesk:native-session-open', {detail:{id}}));
             conn.start(id);
@@ -213,6 +212,42 @@ window.setByName = (name, value) => {
         case 'session_close':
             close();
             return '';
+        case 'envvar': {
+            const setting=JSON.parse(value||'{}');
+            if(setting.name==='IS_TERMINAL_ADMIN')window.__rustdeskTerminalAdmin=setting.value==='Y';
+            return '';
+        }
+        case 'read_remote_dir': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.readRemoteDir(String(request.path||''),!!request.include_hidden);
+            return '';
+        }
+        case 'cancel_job':
+            getConn()?.cancelFileJob(Number(value||0));
+            return '';
+        case 'open_terminal': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({open:{terminal_id:Number(request.terminal_id||0),
+                rows:Number(request.rows||24),cols:Number(request.cols||80)}});
+            return '';
+        }
+        case 'send_terminal_input': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({data:{terminal_id:Number(request.terminal_id||0),
+                data:String(request.data||'')}});
+            return '';
+        }
+        case 'resize_terminal': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({resize:{terminal_id:Number(request.terminal_id||0),
+                rows:Number(request.rows||24),cols:Number(request.cols||80)}});
+            return '';
+        }
+        case 'close_terminal': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({close:{terminal_id:Number(request.terminal_id||0)}});
+            return '';
+        }
         case 'option:toggle':
             getConn()?.toggleOption(value);
             return '';
@@ -363,6 +398,10 @@ function _getByName(name, arg) {
             return '';
         case 'api_server':
             return localStorage.getItem('api-server') || '';
+        case 'platform':
+            return getConn()?._peerInfo?.platform || '';
+        case 'envvar':
+            return '';
         case 'option':
             const v = localStorage.getItem(arg);
             if (arg === 'access_token' && v) {
