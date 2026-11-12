@@ -462,9 +462,9 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
  .data-table td.cell-device-stack{white-space:normal;overflow:hidden;text-overflow:clip}
  .data-table .cell-device-stack .entity-link{display:inline-flex;width:100%;align-items:flex-start;gap:7px;vertical-align:top;line-height:1.4}
  .data-table .cell-device-stack .entity-link>.device-status-dot{margin:4px 0 0;flex:0 0 9px}
- .data-table .cell-device-stack .entity-link-text{display:grid;gap:4px;min-width:0;max-width:100%;text-align:left}
- .data-table .cell-device-stack .entity-link-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
- .data-table .cell-device-stack .entity-link-id{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+ .data-table td.cell-device-stack .entity-link>.entity-link-text{display:flex;flex-flow:column nowrap;align-items:flex-start;justify-content:center;gap:4px;min-width:0;max-width:100%;text-align:left;-webkit-line-clamp:unset;line-clamp:unset;white-space:normal}
+ .data-table td.cell-device-stack .entity-link-text>.entity-link-name{display:block;width:100%;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .data-table td.cell-device-stack .entity-link-text>.entity-link-id{display:block;width:100%;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
  .data-table .cell-device-stack .entity-link:focus-visible{outline-offset:2px}
 }
 
