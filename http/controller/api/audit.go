@@ -32,15 +32,23 @@ func (a *Audit) AuditConn(c *gin.Context) {
 		response.Error(c, err.Error())
 		return
 	}
-	if record.Id != 0 && (record.Action == "" || record.Action == "new" || record.Action == "close") {
-		code := "connection.started"
-		if record.Action == "close" { code = "connection.ended" }
-		service.PublishPushEvent(service.PushEvent{
-			Code:code, DeviceID:record.PeerId, FromPeer:record.FromPeer,
-			SourceIP:record.Ip, ConnID:record.ConnId,
-			Reference:fmt.Sprintf("conn:%d:%s:%s",record.Id,code,record.EventNonce),
-		})
-	}
+	if record.Id != 0 && (record.Action == "new" || record.Action == "close") {
+        code := "connection.started"
+        if record.Action == "close" { code = "connection.ended" }
+        service.PublishPushEvent(service.PushEvent{
+            Code:code, DeviceID:record.PeerId, FromPeer:record.FromPeer,
+            SourceIP:record.Ip, ConnID:record.ConnId,
+            Reference:fmt.Sprintf("conn:%d:%s:%s",record.Id,code,record.EventNonce),
+        })
+    }
+    if record.AuthenticatedNew {
+        service.PublishPushEvent(service.PushEvent{
+            Code:"connection.authenticated", DeviceID:record.PeerId,
+            FromPeer:record.FromPeer, SourceIP:record.Ip, ConnID:record.ConnId,
+            Reference:fmt.Sprintf("conn:%d:authenticated",record.Id),
+            Detail:"远程连接已通过身份认证",
+        })
+    }
 	response.Success(c, "")
 }
 
