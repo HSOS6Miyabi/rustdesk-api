@@ -2319,6 +2319,8 @@ test("desktop connection list stacks device names above IDs without clipping",as
           clipped:cell.scrollWidth>cell.clientWidth+2};
       });
     });
+    if(!check.some(item=>item.stacked&&item.columnLayout))console.log("DEVICE_COLUMN_LAYOUT",JSON.stringify(check));
+    await captureManagementScreenshot(page,"desktop-connections-stacked.png");
     assert.ok(check.some(item=>item.stacked&&item.columnLayout),"device name and ID should occupy distinct rows with a vertical flex layout");
     assert.ok(check.every(item=>!item.clipped),"device ID column must not overflow");
     const bounds=await page.evaluate(()=>({width:document.documentElement.scrollWidth,screen:innerWidth}));
