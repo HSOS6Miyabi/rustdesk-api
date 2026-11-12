@@ -25,6 +25,7 @@ function createElement(id = "") {
     setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
+    remove() { this.removed = true; },
     replaceChildren(...items) { this.children = items; },
     focus() {}, scrollIntoView() {},
     querySelector() { return createElement(); }
@@ -37,7 +38,8 @@ function fixture(options = {}) {
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
-    "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-device-query", "v2-search-device", "v2-device-results"
+    "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client",
+    "v2-session-tabs", "v2-session-panels", "v2-empty-session", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
@@ -133,7 +135,7 @@ test("WebClient v2 launches the original RustDesk client with the selected devic
   assert.equal(app.sessionStorage.getItem("rustdesk.console.token"),"session-token");
   assert.equal(app.localStorage.getItem("access_token"),null);
   app.elements.get("v2-disconnect").listeners.click();
-  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/?");
+  assert.equal(app.elements.get("v2-native-client").src,"about:blank");
 });
 
 test("WebClient v2 offers SSO when password login is disabled",async()=>{
@@ -255,9 +257,44 @@ test("The original Flutter client renders the operation bar without an additiona
   const css=fs.readFileSync(path.join(__dirname,"style.css"),"utf8");
   const original=fs.readFileSync(path.join(__dirname,"../web/index.html"),"utf8");
   assert.match(html,/<iframe id="v2-native-client"/);
+  assert.match(html,/id="v2-session-tabs"/);
+  assert.match(html,/id="v2-session-panels"/);
   assert.match(html,/id="v2-fullscreen-exit"/);
   assert.doesNotMatch(html,/class="stage-toolbar"|id="v2-active-device-id"|id="app"/);
   assert.match(original,/main.dart.js/);
   assert.match(css,/\.native-client\{/);
   assert.match(css,/\.stage:fullscreen/);
+});
+
+test("Switching remote-session tabs preserves existing iframe connections",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const id=app.elements.get("v2-id");
+  const connect=app.elements.get("connect-form").listeners.submit;
+  const first=app.elements.get("v2-native-client");
+  id.value="first-device";
+  connect({preventDefault(){}});
+  const firstAddress=first.src;
+  assert.equal(app.elements.get("v2-session-tabs").children.length,1);
+  id.value="second-device";
+  id.listeners.input();
+  connect({preventDefault(){}});
+  const tabs=app.elements.get("v2-session-tabs");
+  const panels=app.elements.get("v2-session-panels");
+  assert.equal(tabs.children.length,2);
+  assert.equal(panels.children.length,1);
+  const second=panels.children[0];
+  assert.equal(first.src,firstAddress);
+  assert.equal(second.src,"/webclient/?connect=second-device#/?");
+  assert.equal(tabs.children[1].children[0].attributes["aria-selected"],"true");
+  tabs.children[0].children[0].listeners.click();
+  assert.equal(first.src,firstAddress);
+  assert.equal(second.src,"/webclient/?connect=second-device#/?");
+  assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
+  assert.equal(app.elements.get("v2-id").value,"first-device");
+  app.elements.get("v2-disconnect").listeners.click();
+  assert.equal(first.src,"about:blank");
+  assert.equal(second.removed,undefined);
+  assert.equal(tabs.children.length,1);
+  assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
 });
