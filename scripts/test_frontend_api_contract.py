@@ -694,6 +694,16 @@ def check_real_changes(admin):
     own=user.success("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
     check(own["id"]==device_id and own["owned"] is True,
           "Owned device details do not match the logged-in owner")
+    relations=admin.success("GET","/user/relations/"+str(user_id))
+    check(isinstance(relations.get("groups"),list) and
+          isinstance(relations.get("devices"),list) and
+          isinstance(relations.get("device_total"),int),
+          "Administrator user relations must include groups and device counts")
+    check(any(record["id"]==device_id for record in relations["devices"]),
+          "The assigned device is absent from its owner's details")
+    _,private_relations=stranger.send("GET","/user/relations/"+str(user_id))
+    check(private_relations.get("code")!=0,
+          "An unrelated account could see another user's group and device inventory")
     own_results=user.success("GET","/my/directory/devices?keyword=Personal")["list"]
     check(any(item["id"]==device_id for item in own_results),
           "Device search does not search aliases")
