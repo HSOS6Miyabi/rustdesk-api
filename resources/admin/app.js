@@ -738,21 +738,7 @@
       sum+(char.charCodeAt(0)>255?13:7),0)+36;
     return Math.max(widths[key]||144,Math.min(300,labelWidth));
   }
-  function sortedRows(rows){
-    const selection=state.sort[state.page];
-    if(!selection||!selection.key)return rows;
-    const collator=new Intl.Collator("zh-CN",{numeric:true,sensitivity:"base"});
-    return [...rows].sort((a,b)=>{
-      const av=a[selection.key],bv=b[selection.key];
-      if(av===bv)return 0;
-      if(av===null||av===undefined||av==="")return 1;
-      if(bv===null||bv===undefined||bv==="")return -1;
-      if(typeof av==="number"&&typeof bv==="number")return (av-bv)*selection.dir;
-      return collator.compare(String(av),String(bv))*selection.dir;
-    });
-  }
-  function table(p,sourceRows){
-    const rows=sortedRows(sourceRows);
+  function table(p,rows){
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
@@ -1337,9 +1323,13 @@
       '<button type="button" class="btn btn-sm" data-action="picker-search">搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear">全部清除</button></div>'+
       '<input type="hidden" id="'+esc(id)+'" name="'+esc(id)+'" value="'+esc(ids.join(","))+'">'+
-      '<div class="picker-results" role="listbox" hidden></div><div class="picker-selected" aria-live="polite">'+
-      ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+object+' '+esc(value)+' ×</button>').join("")+'</div>'+
-      '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:"可搜索并选择多个"+object+"，留空表示全部设备不受该白名单限制")+'</small></div>';
+      '<div class="picker-results" role="listbox" hidden></div>'+
+      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" aria-label="手动填写设备 ID 或匹配规则" placeholder="可填写外部设备 ID 或 desk-* 等匹配规则" maxlength="253">'+
+      '<button type="button" class="btn btn-sm" data-action="picker-manual-add">添加设备 ID</button></div>':"")+
+      '<div class="picker-selected" aria-live="polite">'+
+      ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+object+' '+esc(value)+' ×</button>').join("")+'</div>'+
+      '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:
+        kind==="device"?"搜索并选择设备，留空表示适用于所有设备":"搜索并选择用户")+'</small></div>';
   }
   async function lookupPicker(picker){
     if(!picker||picker.dataset.picker==="all")return;
@@ -1881,6 +1871,18 @@
     }
   }
 
+  function addMultiPickerValue(picker,id){
+    const target=document.getElementById(picker?.dataset.target||"");
+    if(!target)return;
+    const values=target.value.split(/[,，\s]+/).filter(Boolean);
+    if(!values.includes(id))values.push(id);
+    target.value=values.join(",");
+    const label=picker.dataset.picker==="device"?"设备":"用户";
+    const selected=picker.querySelector(".picker-selected");
+    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(label==="设备"?deviceStatusDot(value):"")+label+' '+esc(value)+' ×</button>').join("");
+    picker.querySelector(".picker-results").hidden=true;
+    picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
+  }
   document.addEventListener("click",async event=>{
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
@@ -1920,20 +1922,19 @@
       picker.querySelector(".picker-selection").textContent="尚未选择";
       return;
     }
+    if(a==="picker-manual-add"){
+      const picker=el.closest(".entity-picker"),input=picker?.querySelector(".picker-manual-value");
+      if(!picker?.dataset.target||!input)return;
+      const value=input.value.trim();
+      if(!/^[A-Za-z0-9_.:*?@-]{1,253}$/.test(value)){toast("请输入有效的设备 ID 或匹配规则",true);return;}
+      addMultiPickerValue(picker,value);input.value="";return;
+    }
     if(a==="picker-select"){
       const picker=el.closest(".entity-picker");if(!picker)return;
       const id=el.dataset.id,title=el.dataset.title;
       if(picker.dataset.target){
-        const target=document.getElementById(picker.dataset.target);
-        if(!target)return;
-        const values=target.value.split(/[,，\s]+/).filter(Boolean);
-        if(!values.includes(id))values.push(id);
-        target.value=values.join(",");
-        const selected=picker.querySelector(".picker-selected");
-        const label=picker.dataset.picker==="device"?"设备":"用户";
-        selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+label+' '+esc(value)+' ×</button>').join("");
+        addMultiPickerValue(picker,id);
         picker.querySelector(".picker-query").value="";
-        picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
       }else{
         picker.querySelector(".picker-id").value=id;
         picker.dataset.username=el.dataset.username||"";
