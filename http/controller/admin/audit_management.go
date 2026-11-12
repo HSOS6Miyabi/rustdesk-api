@@ -38,7 +38,7 @@ func (a *AuditManagement) Alarms(c *gin.Context) {
 	}
 	peer:=strings.TrimSpace(c.Query("peer_id"))
 	if len(peer)>128{response.Fail(c,101,"设备 ID 超出长度限制");return}
-	list,total,err:=service.AllService.AuditService.AllAlarms(page,size,peer,alarmType)
+	list,total,err:=service.AllService.AuditService.AllAlarms(page,size,peer,alarmType,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":list,"total":total,"page":page,"page_size":size})
 }
@@ -47,7 +47,7 @@ func (a *AuditManagement) MyAlarms(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Fail(c,101,"无效的页码");return}
 	user:=service.AllService.UserService.CurUser(c)
-	list,total,err:=service.AllService.AuditService.OwnAlarms(user.Id,page,size)
+	list,total,err:=service.AllService.AuditService.OwnAlarms(user.Id,page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":list,"total":total,"page":page,"page_size":size})
 }
@@ -62,7 +62,7 @@ func (a *AuditManagement) Operations(c *gin.Context){
 		userId=uint(id)
 	}
 	method:=strings.ToUpper(strings.TrimSpace(c.Query("method")))
-	list,total,err:=service.AllService.AuditService.AllOperations(page,size,userId,method)
+	list,total,err:=service.AllService.AuditService.AllOperations(page,size,userId,method,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":list,"total":total,"page":page,"page_size":size})
 }
