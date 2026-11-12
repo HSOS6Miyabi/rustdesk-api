@@ -110,8 +110,7 @@ export default class Connection {
     if (!this._options) {
       this._options = globals.getPeers()[id] || {};
     }
-    // Password hashes from older clients were not separated by server.
-    // Discard that shared entry and use only the credentials for this server/device pair.
+    // Keep remembered credentials specific to the selected server and device.
     if (this._options.password !== undefined) {
       delete this._options.password;
       const peers = globals.getPeers();
