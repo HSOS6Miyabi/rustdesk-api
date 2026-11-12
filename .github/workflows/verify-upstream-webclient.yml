@@ -1,4 +1,4 @@
-name: Verify RustDesk 1.5.3 WebClient build
+name: Build and integrate RustDesk 1.5.3 WebClient
 
 on:
   pull_request:
@@ -7,13 +7,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-official-webclient:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
+      - name: Check out WebClient integration
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          path: project
+          fetch-depth: 0
       - name: Download official RustDesk 1.5.3 sources
         uses: actions/checkout@v4
         with:
@@ -37,9 +43,47 @@ jobs:
           flutter pub get
           flutter build web --release --base-href /webclient/
       - name: Preserve the official WebClient build
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: rustdesk-official-1.5.3-webclient
           path: rustdesk-1.5.3/flutter/build/web
           retention-days: 7
+      - name: Integrate official browser client and keep the existing network transport
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          source = Path("rustdesk-1.5.3/flutter/build/web")
+          target = Path("project/resources/web")
+          for item in source.iterdir():
+              if item.name == "index.html":
+                  continue
+              dest = target / item.name
+              if item.is_dir():
+                  shutil.copytree(item, dest, dirs_exist_ok=True)
+              else:
+                  shutil.copy2(item, dest)
+          html = (source / "index.html").read_text(encoding="utf-8")
+          custom_scripts = """
+          <script src="/webclient-config/index.js"></script>
+          <script src="ogvjs-1.8.6/ogv.js"></script>
+          <script src="yuv-canvas-1.2.6.js"></script>
+          <link rel="modulepreload" href="js/dist/vendor.js">
+          <script type="module" src="js/dist/index.js"></script>
+          """
+          html = html.replace("</head>", custom_scripts + "\n</head>")
+          html = html.replace('<script src="flutter_bootstrap.js" async></script>',
+                              '<script src="flutter_bootstrap.js" defer></script>')
+          (target / "index.html").write_text(html, encoding="utf-8")
+          PY
+          git -C project config user.name "github-actions[bot]"
+          git -C project config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C project add resources/web
+          if ! git -C project diff --staged --quiet; then
+            git -C project commit -m "集成 RustDesk 1.5.3 官方 Flutter WebClient"
+            git -C project push origin HEAD:refs/heads/${{ github.event.pull_request.head.ref }}
+          fi
