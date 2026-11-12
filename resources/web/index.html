@@ -32,6 +32,19 @@
 
     <title>RustDesk</title>
     <link rel="manifest" href="manifest.json">
+    <script>
+    (function () {
+        var requestedDevice = new URLSearchParams(location.search).get("connect");
+        if (requestedDevice && /^[A-Za-z0-9_.:@-]{1,253}$/.test(requestedDevice)) {
+            window.__rustdeskRequestedDevice = requestedDevice;
+            try {
+                sessionStorage.setItem("rustdesk.webclient.pending-id", requestedDevice);
+            } catch (error) {
+                console.warn("Unable to retain the requested device:", error);
+            }
+        }
+    })();
+    </script>
     <script src="/webclient-config/index.js"></script>
     <script src="ogvjs-1.8.6/ogv.js"></script>
     <script type="module" crossorigin src="js/dist/index.js?native-v2-20261112"></script>

@@ -88083,7 +88083,8 @@ ac(){return new A.Go(A.oV(null),B.i)}}
 A.Go.prototype={
 aH(){this.aW()
 if(!window.__rustdeskAutoOpened){
-var remoteId=new URLSearchParams(window.location.search).get("connect")
+var remoteId=window.__rustdeskRequestedDevice||sessionStorage.getItem("rustdesk.webclient.pending-id")||new URLSearchParams(window.location.search).get("connect")
+sessionStorage.removeItem("rustdesk.webclient.pending-id")
 if(remoteId&&/^[A-Za-z0-9_.:@-]{1,253}$/.test(remoteId)){
 window.__rustdeskAutoOpened=true
 var remoteHome=this
