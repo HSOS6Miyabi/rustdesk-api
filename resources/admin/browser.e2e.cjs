@@ -1378,7 +1378,9 @@ test("visual audit: capture all administration pages", async()=>{
     }finally{await context.close();}
   }
   fs.writeFileSync(path.join(folder,"layout-report.json"),JSON.stringify(results,null,2));
-  const defects=results.filter(item=>item.error||item.viewportOverflow||item.clipped?.length||(item.viewport>=1200&&item.unusedRight>Math.max(180,item.contentWidth*.18)));
+  const defects=results.filter(item=>item.error||item.viewportOverflow||item.clipped?.length||
+    (item.viewport>=1200&&item.unusedRight>Math.max(180,item.contentWidth*.18))||
+    (item.viewport>=1200&&item.panelWhitespace?.some(panel=>panel.width>=950&&panel.unused>panel.width*.55)));
   assert.equal(defects.length,0,JSON.stringify(defects.slice(0,8)));
   console.log("Captured "+results.length+" page screenshots across desktop, tablet and phone layouts.");
 });
