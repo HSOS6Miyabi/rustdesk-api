@@ -2020,8 +2020,8 @@ test("device connection opens the original RustDesk remote controls and supports
     const opening=page.waitForEvent("popup");
     await page.locator('.table-scroll [data-action="device-connect"]').first().click();
     const popup=await opening;
-    popup.on("pageerror",err=>nativeErrors.push("pageerror: "+err.message));
-    popup.on("console",entry=>{if(entry.type()==="error"||entry.type()==="warning")nativeErrors.push(entry.type()+": "+entry.text().slice(0,600));});
+    popup.on("pageerror",err=>nativeErrors.push("pageerror: "+(err.stack||err.message).slice(0,1600)));
+    popup.on("console",entry=>{const value=entry.text();if(entry.type()==="error"||entry.type()==="warning"||/setByName|initialLink|Exception|FlutterError|\bconnect\b/.test(value))nativeErrors.push(entry.type()+": "+value.slice(0,600));});
     await popup.waitForLoadState("load");
     const location=new URL(popup.url());
     assert.equal(location.pathname,"/webclient2/");
@@ -2046,7 +2046,10 @@ test("device connection opens the original RustDesk remote controls and supports
           nativeSession:child?.__rustdeskNativeSessionSeen, nativeAuto:child?.__rustdeskAutoOpened,
           rendererReady:child?.rustdeskRendererReady, status:document.querySelector("#engine-state")?.textContent};
       });
-      throw Error("Flutter launch diagnostic: "+JSON.stringify({debug,errors:nativeErrors.slice(-20)})+"; "+error.message);
+      const screenshotDirectory=path.join(assetRoot,"test-screenshots");
+      fs.mkdirSync(screenshotDirectory,{recursive:true});
+      await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-debug.png")}).catch(()=>{});
+      throw Error("Flutter launch diagnostic: "+JSON.stringify({debug,errors:nativeErrors.slice(-35)})+"; "+error.message);
     }
     const loaded=await popup.evaluate(()=>{
       const child=document.querySelector("#v2-native-client")?.contentWindow;
