@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - development/m1-device-management
+      - 'feature/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:

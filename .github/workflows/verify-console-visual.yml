@@ -1,6 +1,13 @@
 name: Verify console visual layouts
 
 on:
+  push:
+    branches:
+      - 'feature/**'
+    paths:
+      - 'resources/admin/**'
+      - 'scripts/create_visual_review_gallery.py'
+      - '.github/workflows/verify-console-visual.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -46,7 +53,7 @@ jobs:
             resources/admin/test-screenshots/audit \
             resources/admin/test-screenshots/contact-sheets
       - name: Save screenshots on the isolated visual review branch
-        if: success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: success() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -64,7 +71,7 @@ jobs:
           AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
             push --force "https://github.com/$GITHUB_REPOSITORY.git" \
-            HEAD:refs/heads/audit/passkey-pr19
+            HEAD:refs/heads/audit/console-visual-review
       - name: Upload inspection reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4
