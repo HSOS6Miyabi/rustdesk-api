@@ -2312,23 +2312,14 @@ test("desktop connection list stacks device names above IDs without clipping",as
       const cells=[...document.querySelectorAll('.data-table td.cell-device-stack')];
       return cells.map(cell=>{
         const name=cell.querySelector('.entity-link-name'),id=cell.querySelector('.entity-link-id');
+        const nameBox=name?.getBoundingClientRect(),idBox=id?.getBoundingClientRect();
         return {name:name?.textContent,id:id?.textContent,
-          stacked:!!(name&&id&&id.getBoundingClientRect().top>=name.getBoundingClientRect().bottom+1),
-          columnLayout:!!(name&&getComputedStyle(name.parentElement).display==="flex"&&
-            getComputedStyle(name.parentElement).flexDirection==="column"),
-          style:name?{display:getComputedStyle(name.parentElement).display,
-            flexDirection:getComputedStyle(name.parentElement).flexDirection,
-            matching:name.parentElement.matches('.data-table td.cell-device-stack .entity-link>.entity-link-text'),
-            media:matchMedia('(min-width:901px)').matches,
-            css:[...document.styleSheets].map(s=>s.href),
-            rules:[...document.styleSheets].some(sheet=>[...sheet.cssRules].some(rule=>
-              rule.cssText.includes('td.cell-device-stack .entity-link')))}:null,
+          stacked:!!(nameBox&&idBox&&idBox.top-nameBox.top>=8&&
+            idBox.top>=nameBox.bottom-1),
           clipped:cell.scrollWidth>cell.clientWidth+2};
       });
     });
-    if(!check.some(item=>item.stacked&&item.columnLayout))console.log("DEVICE_COLUMN_LAYOUT",JSON.stringify(check));
-    await captureManagementScreenshot(page,"desktop-connections-stacked.png");
-    assert.ok(check.some(item=>item.stacked&&item.columnLayout),"device name and ID should occupy distinct rows with a vertical flex layout");
+    assert.ok(check.length>=2&&check.every(item=>item.stacked),"device name and ID must appear on separate visible lines");
     assert.ok(check.every(item=>!item.clipped),"device ID column must not overflow");
     const bounds=await page.evaluate(()=>({width:document.documentElement.scrollWidth,screen:innerWidth}));
     assert.ok(bounds.width<=bounds.screen+2,"desktop content must fit the viewport");
