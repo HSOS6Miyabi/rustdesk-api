@@ -41,7 +41,7 @@ func (ct *Tag) List(c *gin.Context) {
 		if query.CollectionId != nil && *query.CollectionId >= 0 {
 			tx.Where("collection_id = ?", query.CollectionId)
 		}
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 

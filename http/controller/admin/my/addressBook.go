@@ -52,7 +52,7 @@ func (ct *AddressBook) List(c *gin.Context) {
 		if query.CollectionId != nil && *query.CollectionId >= 0 {
 			tx.Where("collection_id = ?", query.CollectionId)
 		}
-	})
+	},query.SortBy,query.SortDir)
 
 	abCIds := make([]uint, 0)
 	for _, ab := range res.AddressBooks {

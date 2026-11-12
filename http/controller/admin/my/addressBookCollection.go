@@ -67,7 +67,7 @@ func (abc *AddressBookCollection) List(c *gin.Context) {
 	query.UserId = int(u.Id)
 	res := service.AllService.AddressBookService.ListCollection(query.Page, query.PageSize, func(tx *gorm.DB) {
 		tx.Where("user_id = ?", query.UserId)
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 
