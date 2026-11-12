@@ -309,9 +309,15 @@ function serve(req, res) {
       total:2
     });
     if(route==="/user/mfa/reset")return answer(res,{});
-    if(route==="/user/list")return answer(res, {
-      list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1
-    });
+    if(route==="/user/list"){
+      const keyword=String(requestUrl.searchParams.get("keyword")||"").toLowerCase();
+      return answer(res,{
+        list:keyword.includes("alice")?
+          [{id:11,username:"alice",nickname:"Alice",email:"alice@example.test",status:1,group_id:1}]:
+          [{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],
+        total:1
+      });
+    }
     if(route==="/my/group/members")return answer(res, {
       user_ids:[3],users:[{id:3,username:"owner",nickname:"Owner"}]
     });
