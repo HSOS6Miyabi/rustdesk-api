@@ -12,7 +12,7 @@ type RelayNodes struct{}
 func (h *RelayNodes) List(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	nodes,total,err:=service.ListRelayNodes(page,size)
+	nodes,total,err:=service.ListRelayNodes(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":nodes,"total":total,"page":page,"page_size":size})
 }

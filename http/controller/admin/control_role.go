@@ -14,7 +14,7 @@ type ControlRoles struct{}
 func (h *ControlRoles) List(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	roles,total,err:=service.ListControlRoles(page,size)
+	roles,total,err:=service.ListControlRoles(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":roles,"total":total,"page":page,"page_size":size})
 }
@@ -58,7 +58,7 @@ type ControlAssignments struct{}
 func (h *ControlAssignments) List(c *gin.Context) {
 	page,size,err:=auditPage(c)
 	if err!=nil{response.Error(c,"无效的页码");return}
-	rows,total,err:=service.ListControlRoleAssignments(page,size)
+	rows,total,err:=service.ListControlRoleAssignments(page,size,c.Query("sort_by"),c.Query("sort_dir"))
 	if err!=nil{response.Error(c,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }

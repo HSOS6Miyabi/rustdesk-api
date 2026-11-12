@@ -41,7 +41,7 @@ func (a *Audit) ConnList(c *gin.Context) {
 			tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
 		}
 		tx.Order("id desc")
-	})
+	},query.SortBy,query.SortDir)
 	if err := service.AllService.AuditService.EnrichConnections(res.AuditConns, 0); err != nil {
 		response.Fail(c, 101, err.Error()); return
 	}
@@ -143,7 +143,7 @@ func (a *Audit) FileList(c *gin.Context) {
 			tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
 		}
 		tx.Order("id desc")
-	})
+	},query.SortBy,query.SortDir)
 	if err := service.AllService.AuditService.EnrichFiles(res.AuditFiles, 0); err != nil {
 		response.Fail(c, 101, err.Error()); return
 	}

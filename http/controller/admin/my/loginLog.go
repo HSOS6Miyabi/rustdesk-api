@@ -36,7 +36,7 @@ func (ct *LoginLog) List(c *gin.Context) {
 	res := service.AllService.LoginLogService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		tx.Where("user_id = ? and is_deleted = ?", u.Id, model.IsDeletedNo)
 		tx.Order("id desc")
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 

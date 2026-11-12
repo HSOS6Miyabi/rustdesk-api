@@ -236,3 +236,9 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 /* Keep secondary authentication controls separated from the submit button. */
 .login-card #login-form + button[data-action="forgot-password"]{display:inline-flex;margin-top:12px;min-height:38px}
 @media(max-width:600px){.login-card #login-form + button[data-action="forgot-password"]{margin-top:14px}}
+
+/* Select existing devices from the directory, or retain an external RustDesk ID. */
+.picker-manual{display:flex;align-items:stretch;gap:9px;min-width:0;flex-wrap:wrap;padding-top:2px}
+.field .picker-manual>input{width:auto;min-width:145px;flex:1 1 180px;min-height:38px}
+.picker-manual>.btn{flex:0 0 auto}
+@media(max-width:450px){.picker-manual>input,.picker-manual>.btn{flex-basis:100%}}

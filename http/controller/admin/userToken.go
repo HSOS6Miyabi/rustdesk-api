@@ -37,7 +37,7 @@ func (ct *UserToken) List(c *gin.Context) {
 			tx.Where("user_id = ?", query.UserId)
 		}
 		tx.Order("id desc")
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 

@@ -110,21 +110,21 @@ func DeleteControlRoleAssignment(id uint)error{
 	return nil
 }
 
-func ListControlRoles(page,pageSize uint)([]model.ControlRole,int64,error){
+func ListControlRoles(page,pageSize uint,sort ...string)([]model.ControlRole,int64,error){
 	var count int64
 	var roles []model.ControlRole
 	tx:=DB.Model(&model.ControlRole{})
 	if err:=tx.Count(&count).Error;err!=nil{return nil,0,err}
-	err:=tx.Order("id DESC").Scopes(Paginate(page,pageSize)).Find(&roles).Error
+	err:=tx.Order("id DESC").Scopes(Paginate(page,pageSize),SortScope(sort...)).Find(&roles).Error
 	return roles,count,err
 }
 
-func ListControlRoleAssignments(page,pageSize uint)([]model.ControlRoleAssignment,int64,error){
+func ListControlRoleAssignments(page,pageSize uint,sort ...string)([]model.ControlRoleAssignment,int64,error){
 	var count int64
 	var rows []model.ControlRoleAssignment
 	tx:=DB.Model(&model.ControlRoleAssignment{})
 	if err:=tx.Count(&count).Error;err!=nil{return nil,0,err}
-	err:=tx.Order("id DESC").Scopes(Paginate(page,pageSize)).Find(&rows).Error
+	err:=tx.Order("id DESC").Scopes(Paginate(page,pageSize),SortScope(sort...)).Find(&rows).Error
 	return rows,count,err
 }
 

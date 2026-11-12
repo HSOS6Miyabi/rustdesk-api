@@ -16,7 +16,7 @@ func (d *DevicePolicy) List(c *gin.Context){
 	var total int64
 	if err:=tx.Count(&total).Error;err!=nil{response.Fail(c,101,err.Error());return}
 	var list []model.DevicePolicy
-	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size)).Find(&list).Error;err!=nil{
+	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size),service.SortScope(c.Query("sort_by"),c.Query("sort_dir"))).Find(&list).Error;err!=nil{
 		response.Fail(c,101,err.Error());return
 	}
 	response.Success(c,gin.H{"list":list,"total":total,"page":page,"page_size":size})
@@ -52,7 +52,7 @@ func (d *DevicePolicy) AssignmentList(c *gin.Context){
 	tx:=service.DB.Model(&model.DevicePolicyAssignment{})
 	if err:=tx.Count(&total).Error;err!=nil{response.Fail(c,101,err.Error());return}
 	var list []model.DevicePolicyAssignment
-	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size)).Find(&list).Error;err!=nil{
+	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size),service.SortScope(c.Query("sort_by"),c.Query("sort_dir"))).Find(&list).Error;err!=nil{
 		response.Fail(c,101,err.Error());return
 	}
 	response.Success(c,gin.H{"list":list,"total":total,"page":page,"page_size":size})
@@ -109,7 +109,7 @@ func (d *DevicePolicy) UserAssignmentList(c *gin.Context) {
 	var total int64
 	tx:=service.DB.Model(&model.DevicePolicyUserAssignment{})
 	if err:=tx.Count(&total).Error;err!=nil{response.Fail(c,101,err.Error());return}
-	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size)).Find(&rows).Error;err!=nil{response.Fail(c,101,err.Error());return}
+	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size),service.SortScope(c.Query("sort_by"),c.Query("sort_dir"))).Find(&rows).Error;err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }
 
@@ -144,7 +144,7 @@ func (d *DevicePolicy) GroupAssignmentList(c *gin.Context) {
 	var total int64
 	tx:=service.DB.Model(&model.DevicePolicyGroupAssignment{})
 	if err:=tx.Count(&total).Error;err!=nil{response.Fail(c,101,err.Error());return}
-	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size)).Find(&rows).Error;err!=nil{response.Fail(c,101,err.Error());return}
+	if err:=tx.Order("id DESC").Scopes(service.Paginate(page,size),service.SortScope(c.Query("sort_by"),c.Query("sort_dir"))).Find(&rows).Error;err!=nil{response.Fail(c,101,err.Error());return}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})
 }
 

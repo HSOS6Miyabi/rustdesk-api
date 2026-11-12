@@ -2,6 +2,15 @@
 
 ## 接手总览（更新于 2026 年 11 月 12 日）
 
+### 管理控制台搜索、排序与共享设备详情
+
+[API PR #15](https://github.com/HSOS6Miyabi/rustdesk-api/pull/15) 完善了主要管理表格的排序：用户点击列标题后，API 根据已校验的字段在数据库查询中排序，再按页返回结果。排序支持升序和降序，电脑与手机使用相同的查询结果。
+
+个人设备及共享设备通过独立的查询接口按设备 ID、备注、主机名、系统和相关账户信息查找；用户可以按编号、用户名、昵称和邮箱查找。设备搜索结果和详情遵守当前登录账户的权限。设备安全策略中的设备 ID 白名单可以选择多个设备，也可以添加尚未登记的外部设备 ID 或匹配规则。导航分类可分别折叠，切换页面时保留滚动位置。
+
+相关实现：`http/controller/admin/my/directory.go`、`service/shared_devices.go`、`service/sort_query.go` 和 `resources/admin/app.js`。隔离环境的 HTTP 集成测试及浏览器测试见 `scripts/test_frontend_api_contract.py`、`resources/admin/browser.e2e.cjs`，详细执行命令见 [测试说明](TESTING.md)。数据库迁移版本保持 **290**。
+
+
 ### 安装包构建器的多版本与本地文件生成
 
 [API PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 已合并到 `master`。官方版本方式从 RustDesk 的正式 GitHub Release 查询安装文件和平台，核对文件大小；官方提供 SHA-256 时直接比对，未提供摘要时计算下载文件的 SHA-256 并保存。

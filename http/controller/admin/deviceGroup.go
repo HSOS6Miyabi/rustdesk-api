@@ -84,7 +84,7 @@ func (ct *DeviceGroup) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.GroupService.DeviceGroupList(query.Page, query.PageSize, nil)
+	res := service.AllService.GroupService.DeviceGroupList(query.Page, query.PageSize, nil, query.SortBy, query.SortDir)
 	response.Success(c, res)
 }
 

@@ -230,7 +230,7 @@ func (o *Oauth) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.OauthService.List(query.Page, query.PageSize, nil)
+	res := service.AllService.OauthService.List(query.Page, query.PageSize, nil, query.SortBy, query.SortDir)
 	for _, provider := range res.Oauths { provider.ClientSecret = "" }
 	response.Success(c, res)
 }

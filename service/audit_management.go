@@ -18,7 +18,7 @@ func normalizeAuditPage(page,size uint) (uint,uint) {
 	return page,size
 }
 
-func (as *AuditService) AllAlarms(page,size uint,peer string,alarmType *int) ([]model.AuditAlarm,int64,error){
+func (as *AuditService) AllAlarms(page,size uint,peer string,alarmType *int,sort ...string) ([]model.AuditAlarm,int64,error){
 	page,size=normalizeAuditPage(page,size)
 	tx:=DB.Model(&model.AuditAlarm{})
 	if peer!=""{tx=tx.Where("peer_id = ?",peer)}
@@ -26,11 +26,11 @@ func (as *AuditService) AllAlarms(page,size uint,peer string,alarmType *int) ([]
 	var total int64
 	if err:=tx.Count(&total).Error;err!=nil{return nil,0,err}
 	var rows []model.AuditAlarm
-	err:=tx.Order("id DESC").Scopes(Paginate(page,size)).Find(&rows).Error
+	err:=tx.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&rows).Error
 	return rows,total,err
 }
 
-func (as *AuditService) AllOperations(page,size uint,userId uint,method string) ([]model.AuditOperation,int64,error){
+func (as *AuditService) AllOperations(page,size uint,userId uint,method string,sort ...string) ([]model.AuditOperation,int64,error){
 	page,size=normalizeAuditPage(page,size)
 	tx:=DB.Model(&model.AuditOperation{})
 	if userId!=0{tx=tx.Where("user_id = ?",userId)}
@@ -38,7 +38,7 @@ func (as *AuditService) AllOperations(page,size uint,userId uint,method string) 
 	var total int64
 	if err:=tx.Count(&total).Error;err!=nil{return nil,0,err}
 	var rows []model.AuditOperation
-	err:=tx.Order("id DESC").Scopes(Paginate(page,size)).Find(&rows).Error
+	err:=tx.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&rows).Error
 	return rows,total,err
 }
 

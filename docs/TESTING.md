@@ -419,3 +419,16 @@ node --test resources/admin/browser.e2e.cjs
 Go 测试检查官方正式版本的文件列表、平台、大小及 SHA-256，核查没有官方摘要的旧版本、第三方 URL 和异常下载响应。浏览器测试检查 Windows 文件内容保持不变、Linux/macOS ZIP 内容和配置脚本、浏览器下载及本地文件不上传 API。ZIP 使用标准 CRC-32；本地文件方式不计算 SHA-256。
 
 真实操作系统上的客户端安装、管理员权限、配置读取及远程连接仍应单独检查。
+
+## 控制台目录与跨分页排序
+
+在独立 API 测试环境中运行以下命令，使用临时 SQLite 数据库执行用户和设备查询、共享权限及多页排序检查：
+
+```bash
+go build -o /tmp/rustdesk-api-contract ./cmd/apimain.go
+python3 scripts/test_frontend_api_contract.py /tmp/rustdesk-api-contract
+node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
+node --test resources/admin/browser.e2e.cjs
+```
+
+在管理界面，选择用户分组等包含多个分页的列表，点击列标题切换升序和降序，再访问第二页检查顺序是否连续。设备搜索器可以搜索本人及有权查看的共享设备；当用户撤销共享关系后，其他账户将不能继续读取对应设备的信息。使用 `RUSTDESK_VISUAL_AUDIT=1` 可以生成电脑、平板、手机的页面截图并检查间距与列宽。

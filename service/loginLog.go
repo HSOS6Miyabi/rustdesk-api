@@ -15,7 +15,7 @@ func (us *LoginLogService) InfoById(id uint) *model.LoginLog {
 	return u
 }
 
-func (us *LoginLogService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.LoginLogList) {
+func (us *LoginLogService) List(page, pageSize uint, where func(tx *gorm.DB),sort ...string) (res *model.LoginLogList) {
 	res = &model.LoginLogList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -24,7 +24,7 @@ func (us *LoginLogService) List(page, pageSize uint, where func(tx *gorm.DB)) (r
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.LoginLogs)
 	return
 }

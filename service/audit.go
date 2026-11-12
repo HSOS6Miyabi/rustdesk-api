@@ -8,7 +8,7 @@ import (
 type AuditService struct {
 }
 
-func (as *AuditService) AuditConnList(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AuditConnList) {
+func (as *AuditService) AuditConnList(page, pageSize uint, where func(tx *gorm.DB),sort ...string) (res *model.AuditConnList) {
 	res = &model.AuditConnList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -17,7 +17,7 @@ func (as *AuditService) AuditConnList(page, pageSize uint, where func(tx *gorm.D
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.AuditConns)
 	return
 }
@@ -57,7 +57,7 @@ func (as *AuditService) FileInfoById(id uint) (res *model.AuditFile) {
 	return
 }
 
-func (as *AuditService) AuditFileList(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AuditFileList) {
+func (as *AuditService) AuditFileList(page, pageSize uint, where func(tx *gorm.DB),sort ...string) (res *model.AuditFileList) {
 	res = &model.AuditFileList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -66,7 +66,7 @@ func (as *AuditService) AuditFileList(page, pageSize uint, where func(tx *gorm.D
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.AuditFiles)
 	return
 }

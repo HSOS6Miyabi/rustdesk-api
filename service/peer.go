@@ -89,7 +89,7 @@ func (ps *PeerService) ListByUserIds(userIds []uint, page, pageSize uint) (res *
 	return
 }
 
-func (ps *PeerService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.PeerList) {
+func (ps *PeerService) List(page, pageSize uint, where func(tx *gorm.DB), sort ...string) (res *model.PeerList) {
 	res = &model.PeerList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -98,7 +98,7 @@ func (ps *PeerService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.Peers)
 	return
 }

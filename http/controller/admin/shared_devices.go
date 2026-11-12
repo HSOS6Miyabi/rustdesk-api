@@ -18,6 +18,7 @@ func (ct *SharedDevices) List(c *gin.Context) {
 	page, err := service.AllService.PeerService.SharedDeviceList(
 		current, uint(queryPage), uint(querySize),
 		c.Query("search"), c.DefaultQuery("source_type", "all"), uint(querySource),
+        c.Query("sort_by"), c.Query("sort_dir"),
 	)
 	if err != nil { response.Fail(c, 101, err.Error()); return }
 	response.Success(c, page)

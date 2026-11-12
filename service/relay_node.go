@@ -115,12 +115,12 @@ func DeleteRelayNode(id uint)error {
 	return nil
 }
 
-func ListRelayNodes(page,pageSize uint)([]model.RelayNode,int64,error){
+func ListRelayNodes(page,pageSize uint,sort ...string)([]model.RelayNode,int64,error){
 	var total int64
 	var nodes []model.RelayNode
 	query:=DB.Model(&model.RelayNode{})
 	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
-	err:=query.Order("priority ASC, id ASC").Scopes(Paginate(page,pageSize)).
+	err:=query.Order("priority ASC, id ASC").Scopes(Paginate(page,pageSize),SortScope(sort...)).
 		Find(&nodes).Error
 	return nodes,total,err
 }

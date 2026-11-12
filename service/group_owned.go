@@ -33,10 +33,10 @@ func (gs *GroupService) OwnedGroup(ownerId, groupId uint) (*model.Group, error) 
 	return group, nil
 }
 
-func (gs *GroupService) OwnedGroups(ownerId, page, pageSize uint) *model.GroupList {
+func (gs *GroupService) OwnedGroups(ownerId, page, pageSize uint, sort ...string) *model.GroupList {
 	return gs.List(page, pageSize, func(tx *gorm.DB) {
 		tx.Where("owner_user_id = ?", ownerId).Order("id DESC")
-	})
+	},sort...)
 }
 
 func (gs *GroupService) CreateOwnedGroup(ownerId uint, name string, kind int) (*model.Group, error) {

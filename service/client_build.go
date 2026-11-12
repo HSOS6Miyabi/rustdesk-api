@@ -124,23 +124,23 @@ func SaveClientBuildProfile(profile *model.ClientBuildProfile) error {
 	return nil
 }
 
-func ListClientBuildProfiles(page,size uint) ([]model.ClientBuildProfile,int64,error) {
+func ListClientBuildProfiles(page,size uint,sort ...string) ([]model.ClientBuildProfile,int64,error) {
 	if page==0{page=1};if size==0{size=20};if size>100{size=100}
 	var total int64
 	query:=DB.Model(&model.ClientBuildProfile{})
 	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
 	var records []model.ClientBuildProfile
-	err:=query.Order("id DESC").Scopes(Paginate(page,size)).Find(&records).Error
+	err:=query.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&records).Error
 	return records,total,err
 }
 
-func ListClientBuildTasks(page,size uint) ([]model.ClientBuildTask,int64,error) {
+func ListClientBuildTasks(page,size uint,sort ...string) ([]model.ClientBuildTask,int64,error) {
 	if page==0{page=1};if size==0{size=20};if size>100{size=100}
 	var total int64
 	query:=DB.Model(&model.ClientBuildTask{})
 	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
 	var records []model.ClientBuildTask
-	err:=query.Order("id DESC").Scopes(Paginate(page,size)).Find(&records).Error
+	err:=query.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&records).Error
 	return records,total,err
 }
 

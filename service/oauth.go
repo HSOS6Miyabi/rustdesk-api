@@ -414,7 +414,7 @@ func (os *OauthService) constructScopes(scopes string) []string {
 	return strings.Split(scopes, ",")
 }
 
-func (os *OauthService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.OauthList) {
+func (os *OauthService) List(page, pageSize uint, where func(tx *gorm.DB), sort ...string) (res *model.OauthList) {
 	res = &model.OauthList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -423,7 +423,7 @@ func (os *OauthService) List(page, pageSize uint, where func(tx *gorm.DB)) (res 
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.Oauths)
 	return
 }

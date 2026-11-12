@@ -327,23 +327,23 @@ func RequestDeviceDisconnect(deviceID string,connID int32,requester uint) error 
 	return err
 }
 
-func ListActiveDeviceSessions(page,pageSize uint) ([]model.DeviceActiveConnection,int64,error) {
+func ListActiveDeviceSessions(page,pageSize uint,sort ...string) ([]model.DeviceActiveConnection,int64,error) {
 	var total int64
 	var rows []model.DeviceActiveConnection
 	query:=DB.Model(&model.DeviceActiveConnection{}).
 		Where("last_seen_at >= ?",time.Now().Unix()-sessionAliveSeconds)
 	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
-	if err:=query.Order("last_seen_at DESC").Scopes(Paginate(page,pageSize)).
+	if err:=query.Order("last_seen_at DESC").Scopes(Paginate(page,pageSize),SortScope(sort...)).
 		Find(&rows).Error;err!=nil{return nil,0,err}
 	return rows,total,nil
 }
 
-func ListDisconnectRequests(page,pageSize uint) ([]model.DeviceDisconnectRequest,int64,error) {
+func ListDisconnectRequests(page,pageSize uint,sort ...string) ([]model.DeviceDisconnectRequest,int64,error) {
 	var total int64
 	var rows []model.DeviceDisconnectRequest
 	query:=DB.Model(&model.DeviceDisconnectRequest{})
 	if err:=query.Count(&total).Error;err!=nil{return nil,0,err}
-	if err:=query.Order("id DESC").Scopes(Paginate(page,pageSize)).
+	if err:=query.Order("id DESC").Scopes(Paginate(page,pageSize),SortScope(sort...)).
 		Find(&rows).Error;err!=nil{return nil,0,err}
 	return rows,total,nil
 }

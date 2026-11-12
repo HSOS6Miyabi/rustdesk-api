@@ -17,7 +17,7 @@ func (us *GroupService) InfoById(id uint) *model.Group {
 	return u
 }
 
-func (us *GroupService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.GroupList) {
+func (us *GroupService) List(page, pageSize uint, where func(tx *gorm.DB), sort ...string) (res *model.GroupList) {
 	res = &model.GroupList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -26,7 +26,7 @@ func (us *GroupService) List(page, pageSize uint, where func(tx *gorm.DB)) (res 
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.Groups)
 	return
 }
@@ -75,7 +75,7 @@ func (us *GroupService) DeviceGroupInfoById(id uint) *model.DeviceGroup {
 	return u
 }
 
-func (us *GroupService) DeviceGroupList(page, pageSize uint, where func(tx *gorm.DB)) (res *model.DeviceGroupList) {
+func (us *GroupService) DeviceGroupList(page, pageSize uint, where func(tx *gorm.DB), sort ...string) (res *model.DeviceGroupList) {
 	res = &model.DeviceGroupList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -84,7 +84,7 @@ func (us *GroupService) DeviceGroupList(page, pageSize uint, where func(tx *gorm
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.DeviceGroups)
 	return
 }

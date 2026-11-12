@@ -18,7 +18,7 @@ func (h *APITokens) List(c *gin.Context) {
 	var total int64
 	if err:=query.Count(&total).Error;err!=nil{response.Fail(c,101,err.Error());return}
 	var rows []model.APIToken
-	if err:=query.Order("id DESC").Scopes(service.Paginate(page,size)).Find(&rows).Error;err!=nil{
+	if err:=query.Order("id DESC").Scopes(service.Paginate(page,size),service.SortScope(c.Query("sort_by"),c.Query("sort_dir"))).Find(&rows).Error;err!=nil{
 		response.Fail(c,101,err.Error());return
 	}
 	response.Success(c,gin.H{"list":rows,"total":total,"page":page,"page_size":size})

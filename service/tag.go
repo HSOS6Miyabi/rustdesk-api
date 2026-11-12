@@ -69,7 +69,7 @@ func (s *TagService) InfoById(id uint) *model.Tag {
 	return u
 }
 
-func (s *TagService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.TagList) {
+func (s *TagService) List(page, pageSize uint, where func(tx *gorm.DB), sort ...string) (res *model.TagList) {
 	res = &model.TagList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -78,7 +78,7 @@ func (s *TagService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *mo
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.Tags)
 	return
 }

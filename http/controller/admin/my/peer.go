@@ -58,7 +58,7 @@ func (ct *Peer) List(c *gin.Context) {
 		if query.Uuids != "" {
 			tx.Where("uuid in (?)", query.Uuids)
 		}
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 

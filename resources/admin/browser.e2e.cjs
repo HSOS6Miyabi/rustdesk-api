@@ -92,14 +92,44 @@ function serve(req, res) {
       outgoing:[{user_id:11,username:"alice",nickname:"Alice"}],
       incoming:[{user_id:12,username:"bob",nickname:"Bob"}]
     });
+    if(route==="/my/directory/users")return answer(res,{list:[
+      {id:11,username:"alice",nickname:"Alice"},
+      {id:3,username:"owner",nickname:"Owner"}
+    ],total:2});
+    if(route==="/my/directory/user")return answer(res,
+      requestUrl.searchParams.get("id")==="alice"?{id:11,username:"alice",nickname:"Alice"}:
+      {id:3,username:"owner",nickname:"Owner"});
+    if(route==="/my/directory/devices")return answer(res,{list:[
+      {row_id:101,id:"office",alias:"Office",hostname:"办公电脑",user_id:3,owned:true},
+      {row_id:505,id:"shared-desk",alias:"Shared Desk",hostname:"实验室电脑",
+        owner_username:"alice",user_id:11,owned:false}
+    ],total:2});
+    if(route==="/my/directory/device"){
+      if(requestUrl.searchParams.get("id")==="shared-desk")return answer(res,{
+        row_id:505,id:"shared-desk",alias:"Shared Desk",hostname:"实验室电脑",
+        user_id:11,owner_username:"alice",owned:false,last_online_time:1710000000
+      });
+      return answer(res,{row_id:101,id:"office",alias:"Office",hostname:"办公电脑",
+        user_id:3,owner_username:"owner",owned:true,last_online_time:1710000000});
+    }
     if(route==="/my/group/list")return answer(res, {
       list:[{id:7,name:"我的家庭设备",type:3,owner_user_id:3}],total:1
     });
-    if(route==="/group/list")return answer(res, {
-      list:[{id:1,name:"系统分组",type:1,owner_user_id:0},
-        {id:2,name:"帮助台用户组",type:1,owner_user_id:0},
-        {id:3,name:"研究人员组",type:1,owner_user_id:0}],total:3
-    });
+    if(route==="/group/list"){
+      if(requestUrl.searchParams.get("sort_by")==="name"){
+        const pageIndex=Number(requestUrl.searchParams.get("page")||1);
+        const dir=requestUrl.searchParams.get("sort_dir");
+        const alphabet=Array.from({length:23},(_,i)=>String.fromCharCode(65+i)+" Group");
+        if(dir==="desc")alphabet.reverse();
+        return answer(res,{list:alphabet.slice((pageIndex-1)*20,pageIndex*20).
+          map((name,i)=>({id:i+100+pageIndex*20,name,type:1})),total:23});
+      }
+      return answer(res,{
+        list:[{id:1,name:"系统分组",type:1,owner_user_id:0},
+          {id:2,name:"帮助台用户组",type:1,owner_user_id:0},
+          {id:3,name:"研究人员组",type:1,owner_user_id:0}],total:3
+      });
+    }
     if(route==="/device_group/list")return answer(res,{
       list:[{id:3,name:"实验室设备组"}],total:1
     });
@@ -1513,11 +1543,13 @@ test("navigation groups remain stable while opening lower items",async()=>{
     assert.equal(await page.locator('button[data-section="系统管理"]').getAttribute("aria-expanded"),"false");
     await page.locator('button[data-section="系统管理"]').click();
     await sidebar.evaluate(node=>node.scrollTop=node.scrollHeight);
+    const target=page.locator('nav button[data-view="settings"]');
+    await target.scrollIntoViewIfNeeded();
     const before=await sidebar.evaluate(node=>node.scrollTop);
-    await page.locator('nav button[data-view="settings"]').click();
+    await target.click();
     await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="设置中心");
     const after=await sidebar.evaluate(node=>node.scrollTop);
-    assert.ok(after>before-65,"navigation scroll must remain at the selected lower section");
+    assert.ok(Math.abs(after-before)<65,"navigation scroll position should remain near the clicked item");
   }finally{await context.close();}
 });
 
@@ -1635,5 +1667,87 @@ test("browser-local installer packages download without sending their source fil
     assert.equal(zipped.readUInt32LE(0),0x04034b50);
     assert.ok(zipped.includes(Buffer.from("install-and-configure.sh")));
     assert.equal(uploadRequests.length,0,"the installer must never be uploaded to API endpoints");
+  }finally{await context.close();}
+});
+
+test("the active primary navigation category can collapse and stays collapsed after reload",async()=>{
+  const {context,page}=await pageForViewport(1360,850,false);
+  try{
+    const toggle=page.locator('nav button[data-section="工作空间"]');
+    assert.equal(await toggle.getAttribute("aria-expanded"),"true");
+    await toggle.click();
+    assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+    assert.equal(await page.locator('nav button[data-view="overview"]').isVisible(),false);
+    await page.reload({waitUntil:"networkidle"});
+    assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+    await toggle.click();
+    assert.equal(await page.locator('nav button[data-view="overview"]').isVisible(),true);
+  }finally{await context.close();}
+});
+
+test("server-side table sorting keeps one order when moving between pages",async()=>{
+  const {context,page}=await pageForViewport(1360,850,true);
+  try{
+    await page.locator('nav button[data-view="groups"]').click();
+    const requested=[];
+    page.on("request",req=>{
+      const url=new URL(req.url());
+      if(url.pathname.endsWith("/api/admin/group/list")&&url.searchParams.has("sort_by")){
+        requested.push({sort:url.searchParams.get("sort_by"),
+          dir:url.searchParams.get("sort_dir"),page:Number(url.searchParams.get("page"))});
+      }
+    });
+    await page.locator('[data-action="sort-table"][data-column="name"]').click();
+    await page.locator('tbody tr').first().waitFor({state:"visible"});
+    assert.match(await page.locator("tbody").innerText(),/A Group/);
+    await page.locator('[data-action="next"]').click();
+    await page.waitForFunction(()=>document.querySelector(".pager")?.textContent.includes("第 2 / 2"));
+    assert.match(await page.locator("tbody").innerText(),/U Group/);
+    assert.ok(requested.some(x=>x.sort==="name"&&x.dir==="asc"&&x.page===1));
+    assert.ok(requested.some(x=>x.sort==="name"&&x.dir==="asc"&&x.page===2));
+    await page.locator('[data-action="sort-table"][data-column="name"]').click();
+    assert.match(await page.locator("tbody").innerText(),/W Group/);
+    assert.ok(requested.some(x=>x.dir==="desc"&&x.page===1));
+  }finally{await context.close();}
+});
+
+test("ordinary user can search users by nickname and inspect shared device details",async()=>{
+  const {context,page}=await pageForViewport(1360,900,false);
+  try{
+    await page.locator('nav button[data-view="contacts"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="联系人" &&
+      !document.querySelector(".content .loading-table"));
+    const picker=page.locator('#contact-form .entity-picker');
+    await picker.locator(".picker-query").fill("Ali");
+    await picker.locator('[data-action="picker-search"]').click();
+    await picker.locator('[data-action="picker-select"][data-id="11"]').waitFor();
+    await picker.locator('[data-action="picker-select"][data-id="11"]').click();
+    assert.equal(await picker.locator('input[name="user_id"]').inputValue(),"11");
+    await page.goto(baseUrl+"/_admin/#/overview?entity=device&value=shared-desk",{waitUntil:"networkidle"});
+    const drawer=page.locator('.drawer[aria-label="设备信息"]');
+    await drawer.waitFor({state:"visible"});
+    await page.waitForFunction(()=>document.querySelector(".drawer")?.textContent.includes("实验室电脑"));
+    assert.match(await drawer.innerText(),/alice/);
+    await drawer.locator('[data-action="entity-open-list"]').click();
+    assert.equal(await page.locator("h1").textContent(),"共享设备");
+  }finally{await context.close();}
+});
+
+test("device whitelist supports multiple searches and manually entered external IDs",async()=>{
+  const {context,page}=await pageForViewport(1360,900,true);
+  try{
+    await page.locator('nav button[data-view="policies"]').click();
+    await page.locator('button[data-action="create"]').click();
+    const picker=page.locator('.drawer .entity-picker[data-target="id_whitelist"]');
+    await picker.waitFor({state:"visible"});
+    assert.match(await picker.innerText(),/所有设备/);
+    await picker.locator(".picker-manual-value").fill("desk-*");
+    await picker.locator('[data-action="picker-manual-add"]').click();
+    assert.equal(await picker.locator('input[name="id_whitelist"]').inputValue(),"desk-*");
+    await picker.locator(".picker-query").fill("office");
+    await picker.locator('[data-action="picker-search"]').click();
+    await picker.locator('[data-action="picker-select"][data-id="office"]').click();
+    assert.equal(await picker.locator('input[name="id_whitelist"]').inputValue(),"desk-*,office");
+    assert.ok(await picker.locator(".device-status-dot").count()>=1);
   }finally{await context.close();}
 });

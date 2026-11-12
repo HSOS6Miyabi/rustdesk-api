@@ -475,7 +475,7 @@
       const links=items.filter(([,p])=>p.section===section);
       if(section==="客户端")links.push(["webclient",{name:"WebClient v2",icon:"monitor"}]);
       if(!links.length)continue;
-      const collapsed=!!state.navCollapsed[section] && !links.some(([key])=>key===state.page);
+      const collapsed=!!state.navCollapsed[section];
       nav+='<button type="button" class="side-section-toggle" data-action="toggle-section" data-section="'+esc(section)+'" aria-expanded="'+(!collapsed)+'">'+
         '<span>'+esc(section)+'</span>'+icon("chevron",16)+'</button><div class="side-section-links" '+(collapsed?"hidden":"")+'>';
       for(const [key,p] of links){
@@ -600,6 +600,7 @@
         state.contacts=await request("/contact/list");
       }else if(k==="shared"){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize,search:state.query,source_type:state.sourceType,source_id:state.sourceId});
+        const order=state.sort[k];if(order?.key){q.set("sort_by",order.key);q.set("sort_dir",order.dir===-1?"desc":"asc");}
         const result=await request("/shared_devices/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
@@ -630,7 +631,8 @@
       }else if(k==="notifications"){
         const [config,history]=await Promise.all([
           request("/notification/settings"),
-          request("/notification/list?page="+state.pageNo+"&page_size="+state.pageSize)
+          request("/notification/list?"+new URLSearchParams({page:state.pageNo,page_size:state.pageSize,
+            ...(state.sort[k]?.key?{sort_by:state.sort[k].key,sort_dir:state.sort[k].dir===-1?"desc":"asc"}:{})}).toString())
         ]);
         state.notifications=config;
         state.rows=history.list||[];state.total=history.total||0;
@@ -648,6 +650,7 @@
       }else if(p.endpoint){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize});
         if(p.search&&state.query)q.set(p.search,state.query);
+        const order=state.sort[k];if(order?.key){q.set("sort_by",order.key);q.set("sort_dir",order.dir===-1?"desc":"asc");}
         const result=await request(endpoint(activeKey())+"/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
       }
@@ -737,21 +740,7 @@
       sum+(char.charCodeAt(0)>255?13:7),0)+36;
     return Math.max(widths[key]||144,Math.min(300,labelWidth));
   }
-  function sortedRows(rows){
-    const selection=state.sort[state.page];
-    if(!selection||!selection.key)return rows;
-    const collator=new Intl.Collator("zh-CN",{numeric:true,sensitivity:"base"});
-    return [...rows].sort((a,b)=>{
-      const av=a[selection.key],bv=b[selection.key];
-      if(av===bv)return 0;
-      if(av===null||av===undefined||av==="")return 1;
-      if(bv===null||bv===undefined||bv==="")return -1;
-      if(typeof av==="number"&&typeof bv==="number")return (av-bv)*selection.dir;
-      return collator.compare(String(av),String(bv))*selection.dir;
-    });
-  }
-  function table(p,sourceRows){
-    const rows=sortedRows(sourceRows);
+  function table(p,rows){
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
@@ -781,7 +770,7 @@
     const mobileSort='<div class="mobile-sort"><label for="mobile-sort-column">按列排序</label><select id="mobile-sort-column" aria-label="排序字段">'+
       cols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||cols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
       '</select><button type="button" class="btn btn-sm" data-action="mobile-sort-dir">'+(state.sort[state.page]?.dir===-1?"降序 ▼":"升序 ▲")+'</button></div>';
-    const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对当前页记录排序。</p>';
+    const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对所有分页记录排序。</p>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
       '表格，可左右滚动查看" tabindex="0"><table class="data-table" style="--table-min-width:'+
       totalWidth+'px">'+colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
@@ -1315,6 +1304,7 @@
     return genericList();
   }
   function lookupKind(name,row){
+    if(name==="id"&&state.page==="addressbooks")return "device";
     if(name==="to_id")return ({1:"user",2:"user_group",3:"all"})[String(document.querySelector('#edit-form [name="type"]')?.value||row.type||1)]||"all";
     if(name==="source_id")return ({all:"all",user:"user",group:"user_group"})[document.querySelector('#edit-form [name="source_type"]')?.value||row.source_type||"all"]||"all";
     if(name==="target_id"){
@@ -1342,16 +1332,25 @@
       '<button type="button" class="btn btn-sm" data-action="picker-search" '+(all?"disabled":"")+'>搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear" '+(all?"disabled":"")+'>清除</button></div>'+
       '<div class="picker-results" role="listbox" hidden></div>'+
+      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" maxlength="253" aria-label="手动填写设备 ID" placeholder="输入尚未登记的外部设备 ID">'+
+      '<button class="btn btn-sm" type="button" data-action="picker-manual-single">使用此设备 ID</button></div>':"")+
       '<small class="picker-selection">'+esc(all?"适用于全部对象":selected&&selected!=="0"?"当前选择："+selected:"选择搜索结果后将自动填写编号")+'</small></div>';
   }
-  function multiPicker(id,kind="user"){
+  function multiPicker(id,kind="user",initial=""){
+    const ids=[...new Set(String(initial||"").split(/[,;，\s]+/).map(x=>x.trim()).filter(Boolean))];
+    const object=kind==="device"?"设备":"用户";
     return '<div class="entity-picker entity-picker-multi" data-picker="'+esc(kind)+'" data-target="'+esc(id)+'">'+
-      '<div class="picker-control"><input class="picker-query" type="search" autocomplete="off" placeholder="搜索用户名、昵称、邮箱或编号" aria-label="搜索用户">'+
+      '<div class="picker-control"><input class="picker-query" type="search" autocomplete="off" placeholder="'+(kind==="device"?"搜索设备 ID、备注、主机名、系统或用户名":"搜索用户名、昵称、邮箱或编号")+'" aria-label="搜索'+object+'">'+
       '<button type="button" class="btn btn-sm" data-action="picker-search">搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear">全部清除</button></div>'+
-      '<input type="hidden" id="'+esc(id)+'" name="'+esc(id)+'" value="">'+
-      '<div class="picker-results" role="listbox" hidden></div><div class="picker-selected" aria-live="polite"></div>'+
-      '<small class="picker-selection">搜索并选择用户，可以添加多个。</small></div>';
+      '<input type="hidden" id="'+esc(id)+'" name="'+esc(id)+'" value="'+esc(ids.join(","))+'">'+
+      '<div class="picker-results" role="listbox" hidden></div>'+
+      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" aria-label="手动填写设备 ID 或匹配规则" placeholder="可填写外部设备 ID 或 desk-* 等匹配规则" maxlength="253">'+
+      '<button type="button" class="btn btn-sm" data-action="picker-manual-add">添加设备 ID</button></div>':"")+
+      '<div class="picker-selected" aria-live="polite">'+
+      ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+object+' '+esc(value)+' ×</button>').join("")+'</div>'+
+      '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:
+        kind==="device"?"搜索并选择设备，留空表示适用于所有设备":"搜索并选择用户")+'</small></div>';
   }
   async function lookupPicker(picker){
     if(!picker||picker.dataset.picker==="all")return;
@@ -1365,11 +1364,11 @@
     try{
       let rows=[];
       if(kind==="user"&&!state.isAdmin&&!hasPrivilege("users.view")){
-        const result=await request("/my/group/user/lookup?username="+encodeURIComponent(q));
-        rows=result?.id?[result]:[];
+        const data=await request("/my/directory/users?keyword="+encodeURIComponent(q));
+        rows=data.list||[];
       }else{
         const paths={
-          user:"/user/list",device:state.isAdmin||hasPrivilege("devices.view")?"/peer/list":"/my/peer/list",
+          user:"/user/list",device:state.isAdmin||hasPrivilege("devices.view")?"/peer/list":"/my/directory/devices",
           user_group:state.isAdmin?"/group/list":"/my/group/list",
           device_group:"/device_group/list",collection:state.isAdmin?"/address_book_collection/list":"/my/address_book_collection/list",
           policy:"/device_policy/list",control_role:"/control_role/list",admin_role:"/admin_role/list"
@@ -1428,6 +1427,7 @@
         '<option value="'+esc(key)+'" '+(String(value)===String(key)?"selected":"")+'>'+
         esc(label)+'</option>').join("")+'</select>';
     }
+    else if(name==="id_whitelist")input=multiPicker(name,"device",value);
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
     else if(type==="color"){
       const color=Number(value===0||value==="0"?0:value||0xff5b9bd5)>>>0;
@@ -1460,7 +1460,9 @@
       ["备注",info.alias],["主机名",info.hostname],["操作系统",info.os],
       ["操作系统用户",info.username],["最后在线时间",info.last_online_time?date(info.last_online_time):"",true],
       ["最近上线 IP",info.last_online_ip?showIP(info.last_online_ip):"",true],
-      ["设备备注",info.note],["所有者用户 ID",info.user_id]
+      ["设备备注",info.note],
+      ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):"",true],
+      ["所有者用户 ID",info.user_id]
     ]:[
       ["用户编号",info.id||(/^[0-9]+$/.test(id)?id:"")],
       ["用户名",info.username||(/^[0-9]+$/.test(id)?"":id)],
@@ -1468,7 +1470,9 @@
       ["主要分组 ID",info.group_id],["备注",info.remark]
     ];
     const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
-    const editable=device?available("devices")?"devices":info.user_id&&Number(info.user_id)===Number(state.user?.id)?"mydevices":available("shared")?"shared":"mydevices":
+    const owned=Boolean(info.owned||info.user_id&&Number(info.user_id)===Number(state.user?.id));
+    const editable=device?
+      !m.found?"":owned?"mydevices":available("devices")?"devices":available("shared")?"shared":"":
       available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
     m.destination=editable;
     const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':'<strong>'+esc(m.label||id)+'</strong>')+
@@ -1490,10 +1494,14 @@
       if(type==="device"){
         data=state.rows.find(row=>deviceRowPages.has(state.page)&&String(row.id)===String(id))||
           state.metrics?.recent?.find(row=>String(row.id)===String(id))||null;
-        if(!data){
-          const route=available("devices")?"/peer/list":"/my/peer/list";
-          const list=await request(route+"?page=1&page_size=80&keyword="+encodeURIComponent(id));
-          data=(list.list||[]).find(row=>String(row.id)===String(id))||null;
+        try{
+          const detail=await request("/my/directory/device?id="+encodeURIComponent(id));
+          if(detail?.id)data=detail;
+        }catch{
+          if(!data&&available("devices")){
+            const list=await request("/peer/list?page=1&page_size=80&keyword="+encodeURIComponent(id));
+            data=(list.list||[]).find(row=>String(row.id)===String(id))||null;
+          }
         }
         if(state.devicePresence[id]===undefined){
           try{
@@ -1506,6 +1514,9 @@
         if(!data&&(state.isAdmin||hasPrivilege("users.view"))){
           const list=await request("/user/list?page=1&page_size=80&keyword="+encodeURIComponent(id));
           data=(list.list||[]).find(row=>String(row.id)===String(id)||row.username===String(id))||null;
+        }
+        if(!data){
+          try{data=await request("/my/directory/user?id="+encodeURIComponent(id));}catch{}
         }
         if(!data&&(String(state.user?.id)===String(id)||String(state.user?.username)===String(id)))data=state.user;
       }
@@ -1881,6 +1892,18 @@
     }
   }
 
+  function addMultiPickerValue(picker,id){
+    const target=document.getElementById(picker?.dataset.target||"");
+    if(!target)return;
+    const values=target.value.split(/[,，\s]+/).filter(Boolean);
+    if(!values.includes(id))values.push(id);
+    target.value=values.join(",");
+    const label=picker.dataset.picker==="device"?"设备":"用户";
+    const selected=picker.querySelector(".picker-selected");
+    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(label==="设备"?deviceStatusDot(value):"")+label+' '+esc(value)+' ×</button>').join("");
+    picker.querySelector(".picker-results").hidden=true;
+    picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
+  }
   document.addEventListener("click",async event=>{
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
@@ -1906,10 +1929,18 @@
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       return;
     }
-    if(a==="picker-search"){await lookupPicker(el.closest(".entity-picker"));return;}
+    if(a==="picker-search"){
+      const picker=el.closest(".entity-picker");
+      if(!picker)return;
+      clearTimeout(picker.searchTimer);
+      await lookupPicker(picker);
+      return;
+    }
     if(a==="picker-clear"){
       const picker=el.closest(".entity-picker");
       if(!picker)return;
+      clearTimeout(picker.searchTimer);
+      picker.dataset.sequence=String(Number(picker.dataset.sequence||0)+1);
       if(picker.dataset.target){
         const target=document.getElementById(picker.dataset.target);
         if(target)target.value="";
@@ -1920,19 +1951,30 @@
       picker.querySelector(".picker-selection").textContent="尚未选择";
       return;
     }
+    if(a==="picker-manual-single"){
+      const picker=el.closest(".entity-picker"),input=picker?.querySelector(".picker-manual-value");
+      if(!picker||!input)return;
+      const value=input.value.trim();
+      if(!/^[A-Za-z0-9_.:*?@-]{1,253}$/.test(value)){toast("请输入有效的设备 ID",true);return;}
+      picker.querySelector(".picker-id").value=value;
+      picker.querySelector(".picker-query").value=value;
+      picker.querySelector(".picker-results").hidden=true;
+      picker.querySelector(".picker-selection").textContent="已填写设备 ID："+value;
+      input.value="";return;
+    }
+    if(a==="picker-manual-add"){
+      const picker=el.closest(".entity-picker"),input=picker?.querySelector(".picker-manual-value");
+      if(!picker?.dataset.target||!input)return;
+      const value=input.value.trim();
+      if(!/^[A-Za-z0-9_.:*?@-]{1,253}$/.test(value)){toast("请输入有效的设备 ID 或匹配规则",true);return;}
+      addMultiPickerValue(picker,value);input.value="";return;
+    }
     if(a==="picker-select"){
       const picker=el.closest(".entity-picker");if(!picker)return;
       const id=el.dataset.id,title=el.dataset.title;
       if(picker.dataset.target){
-        const target=document.getElementById(picker.dataset.target);
-        if(!target)return;
-        const values=target.value.split(/[,，\s]+/).filter(Boolean);
-        if(!values.includes(id))values.push(id);
-        target.value=values.join(",");
-        const selected=picker.querySelector(".picker-selected");
-        selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除用户 '+esc(value)+'">用户 '+esc(value)+' ×</button>').join("");
+        addMultiPickerValue(picker,id);
         picker.querySelector(".picker-query").value="";
-        picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 位用户";
       }else{
         picker.querySelector(".picker-id").value=id;
         picker.dataset.username=el.dataset.username||"";
@@ -1948,7 +1990,7 @@
       const values=target.value.split(",").filter(v=>v&&v!==el.dataset.id);
       target.value=values.join(",");
       el.remove();
-      picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 位用户";
+      picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+(picker.dataset.picker==="device"?"设备":"用户");
       return;
     }
     if(a==="toggle-section"){
@@ -1960,13 +2002,13 @@
     if(a==="mobile-sort-dir"){
       const order=state.sort[state.page]||{};
       state.sort[state.page]={key:order.key||pages[activeKey()]?.columns?.[0]?.[0],dir:order.dir===-1?1:-1};
-      render();return;
+      state.pageNo=1;await load();return;
     }
     if(a==="sort-table"){
       const key=el.dataset.column,order=state.sort[state.page]||{};
       if(!pages[activeKey()]?.columns?.some(([column])=>column===key))return;
       state.sort[state.page]={key,dir:order.key===key&&order.dir===1?-1:1};
-      render();return;
+      state.pageNo=1;await load();return;
     }
     if(a==="setting-save"||a==="setting-reset"){
       const item=state.settings?.items?.find(x=>x.key===el.dataset.id);
@@ -2700,7 +2742,7 @@
     }
     if(el.id==="mobile-sort-column"){
       state.sort[state.page]={key:el.value,dir:1};
-      render();return;
+      state.pageNo=1;await load();return;
     }
     if(el.id==="settings-category"){state.settingsCategory=el.value;render();return;}
     if(el.id==="push-kind"){
@@ -2724,9 +2766,24 @@
     }
     if(!state.user)return;
     const viewName=hash.replace(/^#\/?/,"").split("?")[0];
-    if(available(viewName)&&state.page!==viewName){view(viewName);return;}
     const params=new URLSearchParams(hash.split("?")[1]||"");
     const type=params.get("entity"),id=params.get("value");
+    if(available(viewName)&&state.page!==viewName){
+      state.page=viewName;
+      state.pageNo=1;
+      state.query=params.get("search")||"";
+      state.sourceType="all";
+      state.sourceId="0";
+      state.mobile=false;
+      state.modal=null;
+      state.error="";
+      if(viewName==="addressbooks")state.bookTab="entries";
+      render();
+      load().then(()=>{
+        if(["device","user"].includes(type)&&id)openEntityDetail(type,id,id);
+      });
+      return;
+    }
     if(["device","user"].includes(type)&&id&&
       !(state.modal?.kind==="entity"&&state.modal.entityType===type&&state.modal.entityId===id)){
       openEntityDetail(type,id,id);

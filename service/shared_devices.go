@@ -80,7 +80,7 @@ func sharedOwnerSources(user *model.User) (map[uint][]SharedDeviceSource, error)
 	return owners, nil
 }
 
-func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filter, sourceType string, sourceId uint) (*SharedDevicePage, error) {
+func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filter, sourceType string, sourceId uint, sortArgs ...string) (*SharedDevicePage, error) {
 	if user == nil || user.Id == 0 {
 		return nil, fmt.Errorf("user is required")
 	}
@@ -108,19 +108,49 @@ func (ps *PeerService) SharedDeviceList(user *model.User, page, size uint, filte
 	ids := make([]uint, 0, len(owners))
 	for id := range owners { ids = append(ids, id) }
 	sort.Slice(ids, func(i,j int) bool { return ids[i] < ids[j] })
-	query := DB.Model(&model.Peer{}).Where("user_id IN ?", ids)
-	if search := strings.TrimSpace(filter); search != "" {
-		search = "%" + search + "%"
-		query = query.Where("(id LIKE ? OR hostname LIKE ? OR alias LIKE ?)", search, search, search)
-	}
-	if err := query.Count(&result.Total).Error; err != nil { return nil, err }
-	var peers []model.Peer
-	if err := query.Order("last_online_time DESC, row_id DESC").
-		Offset(int((page-1)*size)).Limit(int(size)).Find(&peers).Error; err != nil { return nil, err }
 	var users []model.User
 	if err := DB.Select("id, username").Where("id IN ?", ids).Find(&users).Error; err != nil { return nil, err }
 	names := make(map[uint]string, len(users))
 	for _, account := range users { names[account.Id] = account.Username }
+
+	var sortField, sortDir string
+	if len(sortArgs)>=2 { sortField=sortArgs[0];sortDir=strings.ToLower(sortArgs[1]) }
+	sortValid:=sortDir=="asc"||sortDir=="desc"
+	query := DB.Model(&model.Peer{}).Where("peers.user_id IN ?", ids)
+	if sortValid&&sortField=="owner_username" {
+		query=query.Joins("LEFT JOIN users AS owners ON owners.id = peers.user_id").Select("peers.*")
+	}
+	if search := strings.TrimSpace(filter); search != "" {
+		search = "%" + search + "%"
+		query = query.Where("(peers.id LIKE ? OR peers.hostname LIKE ? OR peers.alias LIKE ?)", search, search, search)
+	}
+	if err := query.Count(&result.Total).Error; err != nil { return nil, err }
+	ordered:=query.Order("peers.last_online_time DESC, peers.row_id DESC")
+	if sortValid&&sortField=="owner_username" {
+		ApplyComputedSort(ordered,"LOWER(owners.username)",nil,sortDir,"peers.row_id")
+	}
+	if sortValid&&sortField=="sources" {
+		var sql strings.Builder
+		sql.WriteString("CASE peers.user_id")
+		params:=make([]interface{},0,len(ids)*2)
+		for _,id:=range ids {
+			sources:=owners[id]
+			sourceLabels:=make([]string,0,len(sources))
+			for _,source:=range sources {
+				name:=source.Name
+				if source.Type=="contact" {name=names[id]}
+				sourceLabels=append(sourceLabels,source.Type+":"+name)
+			}
+			sort.Strings(sourceLabels)
+			sql.WriteString(" WHEN ? THEN ?")
+			params=append(params,id,strings.ToLower(strings.Join(sourceLabels,"、")))
+		}
+		sql.WriteString(" ELSE '' END")
+		ApplyComputedSort(ordered,sql.String(),params,sortDir,"peers.row_id")
+	}
+	var peers []model.Peer
+	if err := ordered.Scopes(SortScope(sortArgs...)).
+		Offset(int((page-1)*size)).Limit(int(size)).Find(&peers).Error; err != nil { return nil, err }
 	for _, peer := range peers {
 		sources := owners[peer.UserId]
 		for i := range sources {
@@ -161,4 +191,14 @@ func (ps *PeerService) SharedDeviceSources(user *model.User) ([]SharedDeviceSour
 		return result[i].Name < result[j].Name
 	})
 	return result,nil
+}
+
+// SharedDeviceOwnerIDs returns the account IDs whose device inventories the user may access.
+func SharedDeviceOwnerIDs(user *model.User) ([]uint,error) {
+ owners,err:=sharedOwnerSources(user)
+ if err!=nil{return nil,err}
+ ids:=make([]uint,0,len(owners))
+ for id:=range owners{ids=append(ids,id)}
+ sort.Slice(ids,func(i,j int)bool{return ids[i]<ids[j]})
+ return ids,nil
 }

@@ -149,7 +149,7 @@ func NotifyEvent(event, reference, description string) {
 	}
 }
 
-func ListNotificationDeliveries(page, size uint) ([]model.NotificationDelivery, int64, error) {
+func ListNotificationDeliveries(page, size uint,sort ...string) ([]model.NotificationDelivery, int64, error) {
 	if page == 0 { page = 1 }
 	if size == 0 { size = 20 }
 	if size > 100 { size = 100 }
@@ -157,7 +157,7 @@ func ListNotificationDeliveries(page, size uint) ([]model.NotificationDelivery, 
 	var total int64
 	if err := query.Count(&total).Error; err != nil { return nil, 0, err }
 	var rows []model.NotificationDelivery
-	err := query.Order("id DESC").Scopes(Paginate(page, size)).Find(&rows).Error
+	err := query.Order("id DESC").Scopes(Paginate(page, size),SortScope(sort...)).Find(&rows).Error
 	return rows, total, err
 }
 

@@ -96,7 +96,7 @@ func (abc *AddressBookCollection) List(c *gin.Context) {
 		if query.UserId > 0 {
 			tx.Where("user_id = ?", query.UserId)
 		}
-	})
+	},query.SortBy,query.SortDir)
 	response.Success(c, res)
 }
 

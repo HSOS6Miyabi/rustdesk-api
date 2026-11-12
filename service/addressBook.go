@@ -138,7 +138,7 @@ func (s *AddressBookService) UpdateAddressBook(abs []*model.AddressBook, userId 
 	})
 }
 
-func (s *AddressBookService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AddressBookList) {
+func (s *AddressBookService) List(page, pageSize uint, where func(tx *gorm.DB),sort ...string) (res *model.AddressBookList) {
 	res = &model.AddressBookList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -147,7 +147,7 @@ func (s *AddressBookService) List(page, pageSize uint, where func(tx *gorm.DB)) 
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.AddressBooks)
 	return
 }
@@ -221,7 +221,7 @@ func (s *AddressBookService) ListByUserIdAndCollectionId(userId, cid, page, page
 	})
 	return
 }
-func (s *AddressBookService) ListCollection(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AddressBookCollectionList) {
+func (s *AddressBookService) ListCollection(page, pageSize uint, where func(tx *gorm.DB),sort ...string) (res *model.AddressBookCollectionList) {
 	res = &model.AddressBookCollectionList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
@@ -230,7 +230,7 @@ func (s *AddressBookService) ListCollection(page, pageSize uint, where func(tx *
 		where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
+	tx.Scopes(Paginate(page,pageSize),SortScope(sort...))
 	tx.Find(&res.AddressBookCollection)
 	return
 }
@@ -450,7 +450,7 @@ func (s *AddressBookService) CreateRule(t *model.AddressBookCollectionRule) erro
 	return DB.Create(t).Error
 }
 
-func (s *AddressBookService) ListRules(page uint, size uint, f func(tx *gorm.DB)) *model.AddressBookCollectionRuleList {
+func (s *AddressBookService) ListRules(page uint, size uint, f func(tx *gorm.DB),sort ...string) *model.AddressBookCollectionRuleList {
 	res := &model.AddressBookCollectionRuleList{}
 	res.Page = int64(page)
 	res.PageSize = int64(size)
@@ -459,7 +459,7 @@ func (s *AddressBookService) ListRules(page uint, size uint, f func(tx *gorm.DB)
 		f(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, size))
+	tx.Scopes(Paginate(page,size),SortScope(sort...))
 	tx.Find(&res.AddressBookCollectionRule)
 	return res
 }

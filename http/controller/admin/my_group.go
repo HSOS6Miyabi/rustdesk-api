@@ -31,7 +31,7 @@ func (m *MyGroup) List(c *gin.Context) {
 	querySize, _ := strconv.ParseUint(c.DefaultQuery("page_size", "20"), 10, 32)
 	if querySize > 100 { querySize = 100 }
 	user := service.AllService.UserService.CurUser(c)
-	result := service.AllService.GroupService.OwnedGroups(user.Id, uint(queryPage), uint(querySize))
+	result := service.AllService.GroupService.OwnedGroups(user.Id, uint(queryPage), uint(querySize),c.Query("sort_by"),c.Query("sort_dir"))
 	response.Success(c, result)
 }
 

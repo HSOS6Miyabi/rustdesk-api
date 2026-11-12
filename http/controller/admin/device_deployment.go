@@ -34,7 +34,7 @@ func (h *DeviceDeployment) List(c *gin.Context) {
 		return
 	}
 	var rows []model.DeviceDeployment
-	if err := tx.Order("id DESC").Scopes(service.Paginate(page, size)).Find(&rows).Error; err != nil {
+	if err := tx.Order("id DESC").Scopes(service.Paginate(page, size),service.SortScope(c.Query("sort_by"),c.Query("sort_dir"))).Find(&rows).Error; err != nil {
 		response.Fail(c, 101, err.Error())
 		return
 	}

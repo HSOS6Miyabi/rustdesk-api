@@ -276,6 +276,79 @@ def verify_browser_response_shapes(client):
           "Device presence response is incompatible with the browser")
 
 
+
+def verify_management_crud(admin, account_id, device_id):
+    """Run the management forms with valid request bodies and stored records."""
+    suffix=secrets.token_hex(4)
+    def rows(endpoint):
+        return admin.success("GET",endpoint+"/list?page=1&page_size=100")["list"] or []
+    def create(endpoint,body,match="name"):
+        result=admin.success("POST",endpoint+"/create",body)
+        selected=next((item for item in rows(endpoint) if item.get(match)==body[match]),None)
+        if selected is None and isinstance(result,dict):
+            selected=next((item for item in rows(endpoint) if item.get("id")==result.get("id")),None)
+        check(selected is not None,f"Created record missing from {endpoint}")
+        return selected["id"]
+    def update(endpoint,record_id,body):
+        admin.success("POST",endpoint+"/update",{"id":record_id,**body})
+        return rows(endpoint)
+    def delete(endpoint,record_id):
+        admin.success("POST",endpoint+"/delete",{"id":record_id})
+
+    group=create("/device_group",{"name":"DeviceGroup "+suffix})
+    changed=update("/device_group",group,{"name":"RenamedDeviceGroup "+suffix})
+    check(any(x["id"]==group and x["name"]=="RenamedDeviceGroup "+suffix for x in changed),
+          "Device group edits did not persist")
+    policy=create("/device_policy",{"name":"Policy "+suffix,"status":1,
+                                    "id_whitelist":device_id})
+    changed=update("/device_policy",policy,{"name":"UpdatedPolicy "+suffix,"status":1,
+                                             "id_whitelist":device_id})
+    check(any(x["id"]==policy and x["name"]=="UpdatedPolicy "+suffix for x in changed),
+          "Device policy edits did not persist")
+    for endpoint,identity in (
+        ("/device_policy/assignment",{"device_id":device_id,"policy_id":policy}),
+        ("/device_policy/user_assignment",{"user_id":account_id,"policy_id":policy}),
+        ("/device_policy/group_assignment",{"group_id":group,"policy_id":policy}),
+    ):
+        identifier=create(endpoint,identity,list(identity)[0])
+        update(endpoint,identifier,identity)
+        delete(endpoint,identifier)
+    role=create("/admin_role",{"name":"AdminRole "+suffix,"permissions":"users.view",
+                               "scope_type":"global","enabled":True})
+    update("/admin_role",role,{"name":"UpdatedAdminRole "+suffix,"permissions":"users.view",
+                              "scope_type":"global","enabled":True})
+    assignment=create("/admin_role_assignment",{"user_id":account_id,"role_id":role},"role_id")
+    delete("/admin_role_assignment",assignment)
+    control=create("/control_role",{"name":"ControlRole "+suffix,
+                                   "keyboard":2,"clipboard":1})
+    changed=update("/control_role",control,{"name":"UpdatedControlRole "+suffix,
+                                           "keyboard":1,"clipboard":2})
+    check(any(x["id"]==control and x["keyboard"]==1 for x in changed),
+          "Control-role edits did not persist")
+    assignment=create("/control_assignment",{"target_type":"device","target_id":device_id,
+                                             "role_id":control},"target_id")
+    delete("/control_assignment",assignment)
+    access=create("/access_rule",{"name":"AccessRule "+suffix,"source_type":"all",
+                                  "source_id":0,"target_type":"device","target_id":device_id,
+                                  "effect":"allow","enabled":True})
+    update("/access_rule",access,{"name":"UpdatedAccessRule "+suffix,"source_type":"all",
+                                 "source_id":0,"target_type":"device","target_id":device_id,
+                                 "effect":"allow","enabled":True})
+    relay=create("/relay",{"name":"Relay "+suffix,
+                           "address":"relay-"+suffix+".example.test:21117",
+                           "priority":10,"enabled":True})
+    changed=update("/relay",relay,{"name":"UpdatedRelay "+suffix,
+                                   "address":"relay-"+suffix+".example.test:21117",
+                                   "priority":5,"enabled":True})
+    check(any(x["id"]==relay and x["priority"]==5 for x in changed),
+          "Relay changes did not persist")
+    for endpoint,record in (
+        ("/relay",relay),("/access_rule",access),("/control_role",control),
+        ("/admin_role",role),("/device_policy",policy),("/device_group",group),
+    ):
+        delete(endpoint,record)
+
+
 def check_real_changes(admin):
     username = "contract_" + secrets.token_hex(4)
     password = "Contract-" + secrets.token_hex(8)
@@ -422,6 +495,78 @@ def check_real_changes(admin):
         _,denied=stranger.send(method,path,payload)
         check(denied.get("code")!=0,
               f"An ordinary user could change administrator-only data at {path}")
+    # Verify searches, details and actual shared-device permissions from normal sessions.
+    user_matches=user.success("GET","/my/directory/users?keyword="+urllib.parse.quote(username[:10]))["list"]
+    check(any(record["id"]==user_id for record in user_matches),
+          "Ordinary account directory cannot find a username")
+    nickname_matches=user.success("GET","/my/directory/users?keyword=Updated")["list"]
+    check(any(record["id"]==user_id for record in nickname_matches),
+          "Ordinary account directory cannot search nicknames")
+    detail=user.success("GET","/my/directory/user?id="+urllib.parse.quote(username))
+    check(detail["id"]==user_id and "password" not in detail,
+          "Public user details must be accessible without disclosing passwords")
+    own=user.success("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(own["id"]==device_id and own["owned"] is True,
+          "Owned device details do not match the logged-in owner")
+    own_results=user.success("GET","/my/directory/devices?keyword=Personal")["list"]
+    check(any(item["id"]==device_id for item in own_results),
+          "Device search does not search aliases")
+    _,unshared=stranger.send("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(unshared.get("code")!=0,"An unrelated user could read another user's device")
+    _,unshared_search=stranger.send("GET","/my/directory/devices?keyword="+urllib.parse.quote(device_id))
+    check(unshared_search.get("code")==0 and not unshared_search["data"]["list"],
+          "An unrelated user could find another user's private devices")
+    user.success("POST","/contact/add",{"username":other_name})
+    shared=stranger.success("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(shared["id"]==device_id and shared["owned"] is False
+          and shared["owner_username"]==username,
+          "Shared device details were missing or had the wrong owner")
+    shared_search=stranger.success("GET","/my/directory/devices?keyword="+urllib.parse.quote(device_id))["list"]
+    check(any(row["id"]==device_id for row in shared_search),
+          "Shared device search does not return permitted devices")
+    stranger.success("GET","/my/directory/user?id="+urllib.parse.quote(username))
+    user.success("POST","/contact/delete",{"username":other_name})
+    _,unshared=stranger.send("GET","/my/directory/device?id="+urllib.parse.quote(device_id))
+    check(unshared.get("code")!=0,"Revoked device sharing retained access")
+
+    verify_management_crud(admin,user_id,device_id)
+
+    # Sort two or more pages in the database before applying pagination.
+    prefix="zsort_"+secrets.token_hex(3)
+    names=[prefix+"_zulu",prefix+"_alpha",prefix+"_echo",prefix+"_bravo",
+           prefix+"_delta",prefix+"_charlie",prefix+"_foxtrot",prefix+"_golf"]
+    for name in names: admin.success("POST","/group/create",{"name":name,"type":1})
+    def sorted_page(path,column,direction,per_page=3):
+        first=admin.success("GET",path+"?page=1&page_size="+str(per_page)+
+                            "&sort_by="+column+"&sort_dir="+direction)
+        all_rows=list(first["list"])
+        for page_index in range(2,(first["total"]+per_page-1)//per_page+1):
+            nxt=admin.success("GET",path+"?page="+str(page_index)+
+                              "&page_size="+str(per_page)+"&sort_by="+column+
+                              "&sort_dir="+direction)
+            all_rows.extend(nxt["list"])
+        check(len(all_rows)==first["total"],"Sorting skipped or duplicated records")
+        return all_rows
+    ascending=sorted_page("/group/list","name","asc")
+    check([row["name"] for row in ascending]==sorted(
+          [row["name"] for row in ascending],key=str.casefold),
+          "Group ordering must be consistent across pages")
+    descending=sorted_page("/group/list","name","desc")
+    check([row["name"] for row in descending]==sorted(
+          [row["name"] for row in descending],key=str.casefold,reverse=True),
+          "Descending sorting must operate over all pages")
+    users_asc=sorted_page("/user/list","username","asc",1)
+    check([x["username"] for x in users_asc]==sorted(
+          [x["username"] for x in users_asc],key=str.casefold),
+          "User sorting did not apply before pagination")
+    peers_asc=sorted_page("/peer/list","id","asc",1)
+    check([x["id"] for x in peers_asc]==sorted(
+          [x["id"] for x in peers_asc],key=str.casefold),
+          "Device sorting did not apply before pagination")
+    admin.success("GET","/user/list?page=1&page_size=5&sort_by="+
+                  urllib.parse.quote("username;DROP TABLE users")+"&sort_dir=desc")
+    check(admin.success("GET","/user/list?page=1&page_size=3")["total"]>=3,
+          "An unsupported sort column affected stored accounts")
     return user.count + stranger.count
 
 
