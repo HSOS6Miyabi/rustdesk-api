@@ -987,6 +987,12 @@
       "可选择 RustDesk 已发布的官方版本。Windows 使用包含服务器配置的安装文件名，Linux 和 macOS 提供原始安装程序与配置脚本。",
       '<button type="button" class="btn" data-action="refresh">刷新任务状态</button>')+
       '<section class="panel"><div class="panel-header"><h2 class="panel-title">客户端预设配置</h2></div>'+fields+'</section>'+
+      '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">使用本地安装文件生成</h2></div>'+
+      '<div class="tips"><p>直接选择本机 RustDesk 安装文件，浏览器会生成带服务器配置的文件。安装文件不会上传到服务器，也不会计算 SHA-256。</p>'+
+      '<div class="field"><label for="client-local-file">本地安装文件（Windows EXE、Linux DEB 或 macOS DMG）</label>'+
+      '<input type="file" id="client-local-file" accept=".exe,.deb,.dmg" aria-label="选择本地安装文件">'+
+      '<small>在上方填写服务器地址、公钥和目标平台。使用本地文件时无须选择官方版本或保存配置，原始安装文件内容保持不变。</small></div>'+
+      '<div class="head-actions"><button type="button" class="btn btn-primary" data-action="client-build-local">在浏览器生成并下载</button></div></div></section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">已保存的配置</h2></div>'+
       '<div class="tips">'+profileList+'</div></section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">历史构建任务及安装包</h2></div>'+
@@ -2248,6 +2254,31 @@
         if(state.clientEditing?.id===id)state.clientEditing=null;
         toast("客户端配置已删除");await load();
       }catch(e){toast(e.message,true);}
+      return;
+    }
+    if(a==="client-build-local"){
+      try{
+        const form=document.querySelector("#client-profile-form");
+        const input=document.querySelector("#client-local-file");
+        const file=input?.files?.[0];
+        if(!form||!file)throw Error("请先选择本地 RustDesk 安装文件");
+        const local=window.RustDeskLocalBuilder;
+        if(!local||typeof local.build!=="function")throw Error("浏览器本地安装包生成组件未加载");
+        const settings={};
+        for(const key of ["host","public_key","api_server","relay_server"]){
+          settings[key]=String(form.elements.namedItem(key)?.value||"").trim();
+        }
+        const platform=String(form.elements.namedItem("platform")?.value||"");
+        const result=await local.build(file,platform,settings);
+        const link=document.createElement("a"),url=URL.createObjectURL(result.blob);
+        link.href=url;
+        link.download=result.name;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),30000);
+        toast("安装文件已在浏览器中生成并下载");
+      }catch(error){toast(error.message,true);}
       return;
     }
     if(a==="client-build"){
