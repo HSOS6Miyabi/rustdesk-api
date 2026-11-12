@@ -294,7 +294,7 @@ func DeletePushChannel(userID, channelID uint) error {
 	return err
 }
 
-func ListPushDeliveries(userID uint, page, size uint) ([]model.PushDelivery, int64, error) {
+func ListPushDeliveries(userID uint, page, size uint,sort ...string) ([]model.PushDelivery, int64, error) {
 	if userID == 0 { return nil, 0, errors.New("请先登录") }
 	if page == 0 { page = 1 }
 	if size == 0 { size = 20 }
@@ -303,7 +303,7 @@ func ListPushDeliveries(userID uint, page, size uint) ([]model.PushDelivery, int
 	var total int64
 	if err := query.Count(&total).Error; err != nil { return nil, 0, err }
 	var rows []model.PushDelivery
-	err := query.Order("id DESC").Scopes(Paginate(page, size)).Find(&rows).Error
+	err := query.Order("id DESC").Scopes(Paginate(page, size),SortScope(sort...)).Find(&rows).Error
 	return rows, total, err
 }
 
