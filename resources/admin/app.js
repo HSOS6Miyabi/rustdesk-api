@@ -811,12 +811,7 @@
     if(state.page==="devices"&&(state.isAdmin||hasPrivilege("devices.transfer"))){
       out+='<button class="btn btn-sm" data-action="transfer-device" data-id="'+id+'">转移设备</button>';
     }
-    if(state.page==="users"&&hasPrivilege("users.edit_password")){
-      out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
-    }
-    if(state.page==="users"&&hasPrivilege("users.manage_2fa")){
-      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">清除双重认证</button>';
-    }
+
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
     if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
@@ -1162,7 +1157,7 @@
     let editor="";
     if(combined?.enable&&combined?.disable){
       const selectedValue=result?.kind==="boolean"?(result.active?"yes":"no"):"";
-      editor='<div class="field"><label for="server-policy-value">客户端连接策略</label>'+
+      editor='<div class="field"><label for="server-policy-value">'+esc(combined.title)+'</label>'+
         '<select id="server-policy-value" name="policy" aria-label="'+esc(combined.title)+'">'+
         '<option value=""'+(selectedValue===""?" selected":"")+' disabled>请选择设置</option>'+
         '<option value="yes"'+(selectedValue==="yes"?" selected":"")+'>启用</option>'+
@@ -1343,9 +1338,9 @@
       '<small>在上方填写服务器地址、公钥和目标平台。使用本地文件时无须选择官方版本或保存配置，原始安装文件内容保持不变。</small></div>'+
       '<div class="head-actions"><button type="button" class="btn btn-primary" data-action="client-build-local">在浏览器生成并下载</button></div></div></section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">已保存的配置</h2></div>'+
-      '<div class="tips">'+profileList+'</div></section>'+
+      '<div class="tips">'+profileList+'</div>'+pagination({scope:"profiles",current:state.clientProfilePageNo,total:state.clientProfilesTotal})+'</section>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2 class="panel-title">历史构建任务及安装包</h2></div>'+
-      '<div class="tips">'+history+'</div></section>'+
+      '<div class="tips">'+history+'</div>'+pagination({scope:"tasks",current:state.clientTaskPageNo,total:state.clientTasksTotal})+'</section>'+
       '<p class="subtitle" style="margin-top:12px">安装文件来自 RustDesk 官方发行版。对官方公布 SHA-256 的版本核对摘要；未公布摘要的旧版本会在下载时计算并保存 SHA-256。Linux 和 macOS 压缩包内包含原始安装文件与配置脚本，请在目标系统检查安装和连接。</p>';
   }
   function notificationsPage(){
@@ -1480,8 +1475,8 @@
       '<button class="btn btn-sm" data-action="refresh">刷新</button></div><div class="tips">'+channels+'</div></section>'+
       '<div style="margin-top:16px">'+config+'</div>'+
       '<section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">发送记录</h2>'+
-      '<p class="panel-sub">最近 20 条，共 '+esc(state.pushTotal)+' 条。发送失败时可重试。</p></div></div>'+
-      '<div class="tips">'+history+'</div></section>';
+      '<p class="panel-sub">共 '+esc(state.pushTotal)+' 条发送记录。失败后可以重试。</p></div></div>'+
+      '<div class="tips">'+history+'</div>'+pagination()+'</section>';
   }
 
   function profile(){
@@ -1909,10 +1904,8 @@
     const buttons=editable?'<button type="button" class="btn" data-action="entity-open-list">'+
       esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
     const adminUser=!device&&Number(info.id)>0&&available("users");
-    const userActions=adminUser?
-      (canPageAction("users","edit")?'<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户资料</button>':"")+
-      (hasPrivilege("users.edit_password")?'<button type="button" class="btn" data-action="reset-password" data-id="'+esc(info.id)+'">重设密码</button>':"")+
-      (hasPrivilege("users.manage_2fa")?'<button type="button" class="btn btn-danger" data-action="reset-user-mfa" data-id="'+esc(info.id)+'">清除双重认证</button>':""):"";
+    const userActions=adminUser&&canPageAction("users","edit")?
+      '<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户信息</button>':"";
     return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
       '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
@@ -1983,7 +1976,11 @@
         state.page==="accessRules"?
         '<button class="btn btn-primary" type="button" data-action="submit-access-rule">保存连接规则</button>':
         '<button class="btn btn-primary" type="submit" form="edit-form">保存</button>';
-      return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body,
+      const userManagement=state.page==="users"&&m.action==="edit"?
+        '<div class="user-edit-security"><span>账户安全操作</span>'+
+        (hasPrivilege("users.edit_password")?'<button type="button" class="btn" data-action="reset-password" data-id="'+esc(m.data.id)+'">重设密码</button>':"")+
+        (hasPrivilege("users.manage_2fa")?'<button type="button" class="btn btn-danger" data-action="reset-user-mfa" data-id="'+esc(m.data.id)+'">清除双重认证</button>':"")+'</div>':"";
+      return modal(m.action==="create"?"新建"+p.name:"编辑"+p.name,"修改完成后保存，变更会立即生效。",body+userManagement,
         '<button class="btn" data-action="close-modal">取消</button>'+saveButton);
     }
     if(m.kind==="csv"){
@@ -2366,6 +2363,10 @@
     else toast("浏览器阻止了打开新标签页，请在浏览器中允许该操作。",true);
   }
   document.addEventListener("click",async event=>{
+    if(event.target.id==="modal-overlay"){
+      state.modal=state.modal?.previous||null;render();return;
+    }
+    if(event.target.classList.contains("picker-overlay")){closePickerDialog();return;}
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
@@ -2627,7 +2628,7 @@
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){
-      if(state.modal?.kind==="entity"&&state.modal.previous){state.modal=state.modal.previous;render();return;}
+      if(state.modal?.previous){state.modal=state.modal.previous;render();return;}
       if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
     }
@@ -3021,7 +3022,7 @@
     }
     if(a==="reset-password"){
       const user=state.rows.find(r=>String(r.id)===String(el.dataset.id))||(state.modal?.kind==="entity"&&state.modal.entityType==="user"&&String(state.modal.info?.id)===String(el.dataset.id)?state.modal.info:null);
-      if(user){state.modal={kind:"reset-password",user};render();}
+      if(user){state.modal={kind:"reset-password",user,previous:state.modal};render();}
       return;
     }
     if(a==="members"||a==="anchors"){await groupMembers(el.dataset.id,a==="anchors");return;}
