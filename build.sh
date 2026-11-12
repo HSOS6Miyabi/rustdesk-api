@@ -34,6 +34,8 @@ fi
 # Compile the Go code and output it to the release directory
 go build -o release/apimain cmd/apimain.go
 
+python3 scripts/package_geoip.py
+
 # Copy resource files to the release directory
 cp -ar resources release/
 cp -ar docs release/
