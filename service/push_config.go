@@ -29,6 +29,7 @@ var pushEventCatalog = []PushEventOption{
 	{"device.offline", "设备离线"},
 	{"device.registered", "新设备登记"},
 	{"connection.started", "远程连接建立"},
+    {"connection.authenticated", "远程连接认证成功"},
 	{"connection.ended", "远程连接结束"},
 	{"audit.file", "文件传输"},
 	{"audit.alarm", "设备安全告警"},
