@@ -1550,11 +1550,24 @@
 
   function settingsPage(){
     const current=state.settings||{items:[]},items=current.items||[];
+    const groups=[
+      {key:"general",label:"常规与账户",categories:["常规与登录","令牌","LDAP"]},
+      {key:"server",label:"服务器与网络",categories:["RustDesk 服务","HTTP 服务","网络代理"]},
+      {key:"storage",label:"数据库与存储",categories:["数据库","缓存","对象存储"]},
+      {key:"runtime",label:"附加服务与日志",categories:["附加服务","日志"]},
+      {key:"overview",label:"服务概况",categories:[]},
+      {key:"all",label:"全部配置",categories:[]}
+    ];
+    const selected=groups.find(group=>group.key===state.settingsTab)||groups[0];
     const filtered=items.filter(item=>
-      (state.settingsCategory==="all"||item.category===state.settingsCategory)&&
+      (selected.key==="all"||selected.categories.includes(item.category))&&
       (!state.settingsSearch||[item.key,item.name,item.description,item.environment]
         .join(" ").toLowerCase().includes(state.settingsSearch.toLowerCase())));
-    const categories=[...new Set(items.map(item=>item.category))].sort();
+    const categories=[...new Set(filtered.map(item=>item.category))].sort();
+    const tabs='<div class="settings-tabs" role="tablist" aria-label="设置分类">'+
+      groups.map(group=>'<button type="button" class="settings-tab '+(group.key===selected.key?"active":"")+
+        '" role="tab" aria-selected="'+(group.key===selected.key)+'" data-action="settings-tab" data-tab="'+group.key+'">'+
+        esc(group.label)+'</button>').join("")+'</div>';
     const actions=[
       ["mail","SMTP 邮件服务"],["notifications","邮件通知"],["retention","日志保留期限"],
       ["policies","设备策略"],["controlRoles","控制角色"],["relayNodes","中继节点"],
@@ -1624,7 +1637,10 @@
           '</div>':'<p class="settings-item-meta">此项尚未在当前程序中使用。</p>')+
         '</div></article>';
     };
-    const show=filtered.map(itemView).join("")||'<div class="empty">没有匹配的设置项。</div>';
+    const show=categories.map(category=>'<section class="settings-category-section"><h2 class="settings-category-title">'+esc(category)+
+      ' <span>'+filtered.filter(item=>item.category===category).length+' 项</span></h2>'+
+      '<div class="settings-grid">'+filtered.filter(item=>item.category===category).map(itemView).join("")+'</div></section>').join("")||
+      '<div class="empty">没有匹配的设置项。</div>';
     const history=(state.settingsHistory||[]).map(row=>
       '<div class="status-row"><span><strong>'+esc(row.setting_key)+'</strong>'+
       '<span class="cell-sub">'+(row.enabled?"启用网页覆盖":"关闭网页覆盖")+
@@ -1637,8 +1653,14 @@
       esc(row.LastError||row.last_error||"")+'</span></span>'+
       '<button class="btn btn-sm" data-action="settings-outbox-retry" data-id="'+esc(row.Id||row.id)+
       '" data-category="'+esc(state.settingsFailedCategory)+'">重试</button></div>').join("");
-    return pageHeading("设置中心","查看每项设置的实际运行值、来源及用途，保存后按提示重新启动 API。")+
-      '<section class="panel settings-section"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
+    const catalog='<section class="panel settings-section settings-filter"><div class="settings-section-body settings-filter-body">'+
+      '<div class="field"><label for="settings-search">搜索当前分类中的设置</label>'+
+      '<input id="settings-search" value="'+esc(state.settingsSearch)+
+      '" placeholder="输入名称、用途、配置名称或环境变量"></div>'+
+      '<p class="settings-section-intro">本分类显示 '+filtered.length+' 项，共 '+items.length+
+      ' 项配置。保存网页设置后，请按提示重新启动 API。</p>'+
+      '</div></section>'+show;
+    const overview='<section class="panel settings-section"><div class="panel-header"><h2 class="panel-title">专项功能</h2></div>'+
       '<div class="settings-section-body">'+
       '<p class="settings-section-intro">邮件、策略和用户推送等设置继续使用各自的管理页面。</p>'+
       '<nav class="settings-feature-links" aria-label="专项功能">'+links+'</nav>'+
@@ -1656,20 +1678,11 @@
       '<button type="button" class="btn btn-sm '+(state.settingsFailedCategory==="notification"?"btn-primary":"")+
       '" data-action="settings-outbox-category" data-category="notification">管理员邮件的失败事件</button></div>'+
       (failure?'<div class="settings-failed-list">'+failure+'</div>':'<p class="settings-section-intro">此类别暂无处理失败的事件。</p>')+
-      '</div></section>'+
-      '<section class="panel settings-section"><div class="settings-section-body settings-filter-body">'+
-      '<div class="form-grid">'+
-      '<div class="field"><label for="settings-search">搜索设置</label><input id="settings-search" value="'+esc(state.settingsSearch)+
-      '" placeholder="搜索名称、用途、配置名称或环境变量"></div>'+
-      '<div class="field"><label for="settings-category">设置类别</label><select id="settings-category">'+
-      '<option value="all">全部类别</option>'+categories.map(name=>'<option value="'+esc(name)+'" '+
-      (name===state.settingsCategory?"selected":"")+'>'+esc(name)+'</option>').join("")+
-      '</select></div></div>'+
-      '<p class="settings-section-intro">共 '+items.length+' 项配置，当前显示 '+filtered.length+' 项。覆盖设置的值会保存在持久化目录或数据库中。</p>'+
-      '</div></section>'+
-      '<div class="settings-grid">'+show+'</div>'+
-      (history?'<section class="panel settings-section settings-history"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div><div class="settings-section-body">'+history+'</div></section>':"");
-
+      '</div></section>'
+    return pageHeading("设置中心","按类别管理各项配置，查看当前运行值、来源与修改记录。")+tabs+
+      (selected.key==="overview"?overview+
+        (history?'<section class="panel settings-section settings-history"><div class="panel-header"><h2 class="panel-title">最近设置修改记录</h2></div><div class="settings-section-body">'+history+'</div></section>':""):
+      catalog);
   }
   function renderPage(){
     if(state.page==="overview")return overview();
@@ -2400,6 +2413,11 @@
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       await querySelectedServerCommand(command);
       return;
+    }
+    if(a==="settings-tab"){
+      const key=el.dataset.tab;
+      if(!["general","server","storage","runtime","overview","all"].includes(key))return;
+      state.settingsTab=key;state.settingsSearch="";render();return;
     }
     if(a==="server-query"){await querySelectedServerCommand(serverSelectedCommand());return;}
     if(a==="server-modify"){
