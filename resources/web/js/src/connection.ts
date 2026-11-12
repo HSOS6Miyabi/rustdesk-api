@@ -36,6 +36,8 @@ export default class Connection {
   _password: Uint8Array | undefined;
   _options: any;
   _videoTestSpeed: number[];
+  _sessionMode: string;
+  _terminalAdmin: boolean;
   //_cursors: { [name: number]: any };
 
   constructor() {
@@ -43,7 +45,30 @@ export default class Connection {
     this._draw = globals.draw;
     this._id = "";
     this._videoTestSpeed = [0, 0];
+    this._sessionMode = "desktop";
+    this._terminalAdmin = false;
     //this._cursors = {};
+  }
+
+  setSessionMode(mode: string, administrator: boolean = false) {
+    if (!["desktop", "file", "camera", "terminal"].includes(mode)) throw new Error("Unknown session mode");
+    this._sessionMode = mode;
+    this._terminalAdmin = administrator;
+  }
+
+  sendTerminalAction(action: any) {
+    if (this._sessionMode !== "terminal") throw new Error("Terminal session required");
+    this._ws?.sendMessage({__terminal_action:action} as any);
+  }
+
+  readRemoteDir(path: string, includeHidden: boolean) {
+    if (this._sessionMode !== "file") throw new Error("File-transfer session required");
+    this._ws?.sendMessage({file_action:{read_dir:{path,include_hidden:includeHidden}}});
+  }
+
+  cancelFileJob(id: number) {
+    if (this._sessionMode !== "file") throw new Error("File-transfer session required");
+    this._ws?.sendMessage({file_action:{cancel:{id}}});
   }
 
   async start(id: string) {
@@ -91,7 +116,9 @@ export default class Connection {
     );
     await ws.open();
     console.log(new Date() + ": Connected to rendezvoous server");
-    const conn_type = rendezvous.ConnType.DEFAULT_CONN;
+    const conn_type = this._sessionMode==="file"
+      ? rendezvous.ConnType.FILE_TRANSFER
+      : rendezvous.ConnType.DEFAULT_CONN;
     const nat_type = rendezvous.NatType.SYMMETRIC;
     const punch_hole_request = rendezvous.PunchHoleRequest.fromPartial({
       id,
@@ -438,6 +465,25 @@ export default class Connection {
         globals.pushEvent("cursor_position", msg?.cursor_position);
       } else if (msg?.misc) {
         if (!this.handleMisc(msg?.misc)) break;
+      } else if((msg as any)?.terminal_response){
+        const response=(msg as any).terminal_response;
+        if(response.type==="data"&&response.data instanceof Uint8Array){
+          let bytes=response.data;
+          if(response.compressed){
+            const uncompressed=await decompress(bytes);
+            if(!uncompressed)continue;
+            bytes=uncompressed;
+          }
+          let encoded="";
+          for(let i=0;i<bytes.length;i+=8192)encoded+=String.fromCharCode(...bytes.subarray(i,i+8192));
+          response.data=btoa(encoded);
+        }
+        globals.pushEvent("terminal_response",response);
+      } else if(msg?.file_response){
+        const response=msg.file_response;
+        if(response.dir)globals.pushEvent("file_dir",{value:JSON.stringify(response.dir),is_local:false});
+        if(response.error)globals.pushEvent("job_error",{id:response.error.id,err:response.error.error});
+        if(response.done)globals.pushEvent("job_done",{id:response.done.id,file_num:response.done.file_num});
       } else if (msg?.audio_frame) {
         globals.playAudio(msg?.audio_frame.data);
       }
@@ -504,7 +550,12 @@ export default class Connection {
       option: this.getOptionMessage(),
       video_ack_required: true,
     });
-    this._ws?.sendMessage({ login_request });
+    if(this._sessionMode==="file"){
+      login_request.file_transfer=message.FileTransfer.fromPartial({dir:"",show_hidden:false});
+    }
+    const outgoing:any={login_request};
+    if(this._sessionMode==="camera"||this._sessionMode==="terminal")outgoing.__login_mode=this._sessionMode;
+    this._ws?.sendMessage(outgoing);
   }
 
   getOptionMessage(): message.OptionMessage | undefined {
@@ -581,7 +632,7 @@ export default class Connection {
 
   handlePeerInfo(pi: message.PeerInfo) {
     this._peerInfo = pi;
-    if (pi.displays.length == 0) {
+    if (pi.displays.length == 0 && (this._sessionMode==="desktop"||this._sessionMode==="camera")) {
       this.msgbox("error", "Remote Error", "No Display");
       return;
     }
