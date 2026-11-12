@@ -793,6 +793,20 @@ test("ARGB tag color is rendered with a browser color picker",async()=>{
   assert.match(app.root.innerHTML,/data-action="create"/);
 });
 
+
+test("address book sharing displays group names and explicit global targets",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/address_book_collection_rule/list"]={list:[
+    {id:1,collection_id:4,type:2,to_id:3,rule:1},
+    {id:2,collection_id:4,type:3,to_id:0,rule:1}
+  ],total:2};
+  app.fixtures["/group/list"]={list:[{id:3,name:"开发协作组",type:1}],total:1};
+  await app.settle();await app.settle();
+  await app.open("rules");
+  assert.match(app.root.innerHTML,/开发协作组（编号 3）/);
+  assert.match(app.root.innerHTML,/所有用户/);
+});
+
 test("device and user references display link controls with status markers",async()=>{
   const app=createConsole(true);
   app.fixtures["/peer/list"]={list:[{row_id:1,id:"office",hostname:"Office",alias:"Desk",user_id:7}],total:1};

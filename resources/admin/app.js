@@ -326,6 +326,7 @@
     if(key==="collection_id")return "collection";
     if(key==="policy_id")return "policy";
     if(key==="role_id")return state.page==="adminRoleAssignments"?"admin_role":"control_role";
+    if(key==="to_id")return Number(row.type)===2?"user_group":Number(row.type)===1?"user":"";
     if(key==="source_id")return row.source_type==="group"?"user_group":row.source_type==="user"?"user":"";
     if(key==="target_id")return row.target_type==="device_group"?"device_group":row.target_type==="user"?"user":"";
     if(key==="scope_id")return row.scope_type==="group"?"user_group":row.scope_type==="individual"?"user":"";
@@ -338,7 +339,8 @@
   }
   async function loadPageReferences(page){
     const fields=[...(page?.columns||[]).map(c=>c[0]),...(page?.fields||[]).map(c=>c[0])];
-    const kinds=[...new Set(fields.map(key=>referenceKind(key,state.rows[0]||{})).filter(Boolean))];
+    const examples=[{},...state.rows.slice(0,200)];
+    const kinds=[...new Set(fields.flatMap(key=>examples.map(row=>referenceKind(key,row))).filter(Boolean))];
     await Promise.all(kinds.filter(kind=>!state.referenceLoaded[kind]).map(async kind=>{
       const source=referenceSources[kind];if(!source)return;
       const path=kind==="user_group"&&!state.isAdmin?"/my/group/list":
@@ -358,6 +360,10 @@
     }));
   }
   function colValue(v,k,row){
+    if(k==="to_id"&&Number(row?.type)===3)return "所有用户";
+    if(k==="source_id"&&row?.source_type==="all")return "所有已登录用户";
+    if(k==="target_id"&&row?.target_type==="all")return "所有设备";
+    if(k==="scope_id"&&row?.scope_type==="global")return "全部账户";
     if(k==="auto_group_ids"){
       const ids=Array.isArray(v)?v:String(v||"").split(/[,;，\s]+/).filter(Boolean);
       return ids.length?ids.map(id=>'<span class="reference-label">'+esc(referenceText("user_group",id))+'</span>').join("、"):"—";
