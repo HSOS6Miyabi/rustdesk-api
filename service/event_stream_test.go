@@ -2,6 +2,7 @@ package service
 
 import (
     "encoding/json"
+    "sync"
     "testing"
     "time"
 
@@ -100,4 +101,42 @@ func TestSSEReceivesAnEventWithoutAnOutgoingChannel(t *testing.T) {
     if err:=DB.Model(&model.PushDelivery{}).Count(&deliveries).Error;err!=nil||deliveries!=0 {
         t.Fatalf("unexpected outgoing deliveries: %d %v", deliveries,err)
     }
+}
+
+func TestStreamConnectionLimitsAndConcurrentCleanup(t *testing.T) {
+    const owner uint = 850101
+    subscribers := make([]*StreamSubscription, 0, maxStreamsPerUser)
+    for i := 0; i < maxStreamsPerUser; i++ {
+        subscriber, err := SubscribePushEvents(owner, []string{"device.online"})
+        if err != nil { t.Fatal(err) }
+        subscribers = append(subscribers, subscriber)
+    }
+    if extra, err := SubscribePushEvents(owner, nil); err == nil {
+        UnsubscribePushEvents(extra)
+        t.Fatal("per-user connection limit was not enforced")
+    }
+    var wg sync.WaitGroup
+    for i := 0; i < 16; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for j := 0; j < 128; j++ {
+                PublishLivePushForUsers([]uint{owner}, "device.online", []byte("{}"))
+            }
+        }()
+    }
+    for _, subscriber := range subscribers {
+        wg.Add(1)
+        go func(item *StreamSubscription) {
+            defer wg.Done()
+            UnsubscribePushEvents(item)
+        }(subscriber)
+    }
+    wg.Wait()
+    if HasLivePushSubscribers("device.online") {
+        t.Fatal("concurrent cleanup left active listeners")
+    }
+    replacement, err := SubscribePushEvents(owner, nil)
+    if err != nil { t.Fatalf("connection capacity was not released: %v",err) }
+    UnsubscribePushEvents(replacement)
 }
