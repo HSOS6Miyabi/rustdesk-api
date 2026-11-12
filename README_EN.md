@@ -2,7 +2,9 @@
 
 This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
 
-The current approved API release is [v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109), using database migration version 290. It includes the Settings Center, resilient notification processing, and database query improvements.
+The current approved API release is [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110), using database migration version 290. It includes the Settings Center, resilient notification processing, and database query improvements.
+
+The client builder can use published RustDesk versions or generate a configured installer from a local EXE, DEB, or DMG entirely in the browser. Locally selected files are not uploaded to the API, and their SHA-256 is not calculated.
 
 System administrators can use **System Management → Settings Center** in `/_admin/` to inspect active configuration values, their sources, descriptions, and website overrides. Website overrides take precedence over environment variables. Restart the API after saving global settings.
 

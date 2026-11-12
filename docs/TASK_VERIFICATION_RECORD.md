@@ -2,7 +2,7 @@
 
 更新日期：2026 年 11 月 12 日。维护对象为 [rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) 的 `master` 分支及 [rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) 的 `forapi` 分支。详细实施记录见[统一实施台账](IMPLEMENTATION_LEDGER.md)。本文逐项记录 T001–T022 的检查范围、已完成工作、实际环境条件与结果。
 
-当前 API 数据库迁移版本为 **290**。已合并 [API PR #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14) 并发布 [API v3.0.0-api.109](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.109)；Server 继续使用 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。两个仓库的正式版本应分别核对。
+当前 API 数据库迁移版本为 **290**。已合并 [API PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 并发布 [API v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110)；Server 继续使用 [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。两个仓库的正式版本应分别核对。
 
 ## 状态说明与测试记录
 
@@ -119,7 +119,7 @@ Server 脚本：`scripts/test_native_stack.py`、`scripts/test_container_image.p
 
 ### T011：里程碑发布前构建预演
 
-**当前状态：API v3.0.0-api.109 已完成正式发行，Linux AMD64、Linux ARM64、Windows AMD64 安装文件及双架构 Docker 镜像均已发布。**
+**当前状态：API v3.0.0-api.110 已完成正式发行，Linux AMD64、Linux ARM64、Windows AMD64 安装文件及双架构 Docker 镜像均已发布。**
 
 Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构建配套 API 和 Server，运行普通进程及 Docker 服务检查，不创建 Release，也不推送正式镜像。
 
@@ -127,7 +127,7 @@ Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构�
 
 ### T012：正式里程碑核查与批准
 
-**当前状态：API PR #14 已合并并发布 v3.0.0-api.109，Server 维持 v1.1.17-api.21；发行文件、Docker 镜像和自动化检查均已核对。实际设备和外部服务检查继续保留。**
+**当前状态：API PR #16 已合并并发布 v3.0.0-api.110，Server 维持 v1.1.17-api.21；发行文件、Docker 镜像和自动化检查均已核对。实际设备和外部服务检查继续保留。**
 
 本次发行已经核查两个版本的源代码提交、GitHub Actions、数据库版本与发行文件。后续具备实际设备、外部邮箱和业务数据库的测试条件时，继续完成 T001–T010 中相应的实际环境检查。
 
@@ -135,7 +135,7 @@ Server 的 `.github/workflows/milestone-preflight.yml` 在 AMD64、ARM64 上构�
 
 ### T013：客户端安装文件制作
 
-**当前状态：Windows、Linux、macOS 的 x64 与 ARM64 六种官方 1.5.1 文件已完成配置、下载、校验与任务管理；真实目标系统安装待执行。**
+**当前状态：支持选择多个 RustDesk 官方正式版本，以及在浏览器本地处理 EXE、DEB、DMG；自动化检查通过，真实目标系统安装仍需执行。**
 
 文件：`service/client_build.go`、`service/client_build_worker.go`、`service/client_packages.go`、`http/controller/admin/client_builder.go`。Windows 使用官方可识别的服务器配置文件名；Linux/macOS ZIP 保留官方 DEB/DMG 并包含设置脚本，脚本会读取核对配置。下载时以 SHA-256 检查后直接发送已核对的文件内容。
 
@@ -241,3 +241,9 @@ Server 的 `src/geoip_country.rs` 支持两种格式，优先查询 MMDB，未�
 - 设置中心已通过配置优先级、密钥原文保护、重启后恢复、操作权限、失败通知重试和移动端交互检查。
 - 通知任务恢复、多个实例之间的任务认领、安装包长任务和缓存管理均已纳入自动化检查。
 - 需要真实 SMTP、远程连接、跨地区中继与生产数据库的检查项目继续保留在 T001–T022 的对应条目中。
+
+## 2026 年 11 月 12 日：多版本与浏览器本地安装包生成
+
+[PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) 已合并至 `master`，包含在 API `v3.0.0-api.110` 中。官方版本方式从 RustDesk 的正式 GitHub Release 查询可用平台与文件信息；本地方式在浏览器中处理用户选择的 EXE、DEB、DMG，文件不会上传到服务器，也不计算 SHA-256。
+
+检查内容：不同官方版本的文件信息及平台匹配、官方校验摘要、没有摘要的旧版文件、Windows 配置文件名、Linux/macOS ZIP、脚本语法、浏览器本地生成和下载行为。实际安装与连接继续依照 T010、T013 检查。
