@@ -57,7 +57,8 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
 	if err := DB.Where("user_id IN ? AND enabled = ?", unique, true).
 		Find(&channels).Error; err != nil { return err }
 	needStream := hasUserStreamSubscriber(unique, event.Code)
-    if len(channels) == 0 && !needStream { return nil }
+    needRemote := HasRemotePushSubscribers(event.Code)
+    if len(channels) == 0 && !needStream && !needRemote { return nil }
 	now := time.Now().Unix()
 	key := event.Reference
 	if key == "" { key = fmt.Sprintf("%d:%d", now, time.Now().UnixNano()) }
@@ -87,12 +88,12 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
             Payload: payload, Status: "pending", NextAttemptAt: now,
         })
     }
-    if needStream && title == "" {
+    if (needStream || needRemote) && title == "" {
         var err error
         title, body, err = formatPushMessage(event)
         if err != nil { return err }
     }
-    if needStream && encoded == nil {
+    if (needStream || needRemote) && encoded == nil {
         var err error
         encoded, err = marshalPushEventEnvelope(event, key, title, body)
         if err != nil { return err }
@@ -103,6 +104,7 @@ func QueuePushForUsers(event PushEvent, users []uint) error {
         if result.RowsAffected > 0 { wakePushDelivery() }
     }
     if needStream { PublishLivePushForUsers(unique, event.Code, encoded) }
+    if needRemote { publishRemotePushEvent(unique, event.Code, encoded) }
     return nil
 }
 
