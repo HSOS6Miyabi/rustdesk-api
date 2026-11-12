@@ -823,7 +823,7 @@
     const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
     const widths=allCols.map(([key,label])=>{
       const width=tableColumnWidth(key,label,state.page);
-      return Math.max(key==="id"&&!deviceRowPages.has(state.page)?88:90,Math.round(width*.76));
+      return Math.max(104,Math.round(width*.76));
     });
     const priorities=allCols.map(([key],index)=>{
       const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name",
