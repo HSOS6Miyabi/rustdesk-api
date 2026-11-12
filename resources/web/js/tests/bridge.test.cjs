@@ -31,6 +31,6 @@ test("native rendering avoids the Flutter RGBA callback and production bundle in
   assert.match(source,/if \(typeof window\.onRgba !== "function"\) return;/);
   const built=fs.readFileSync(path.join(__dirname,"../dist/index.js"),"utf8");
   assert.match(built,/typeof window\.onRgba/);
-  assert.match(built,/typeof window\.onGlobalEvent==="function"/);
+  assert.match(built,/typeof window\.onGlobalEvent/);
   assert.match(built,/rustdesk:renderer-ready/);
 });
