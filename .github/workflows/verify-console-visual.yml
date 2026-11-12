@@ -53,13 +53,14 @@ jobs:
             resources/admin/test-screenshots/audit \
             resources/admin/test-screenshots/contact-sheets
       - name: Save screenshots on the isolated visual review branch
-        if: success() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+        if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           WORK="$RUNNER_TEMP/rustdesk-console-review"
           mkdir -p "$WORK"
+          test -f resources/admin/test-screenshots/audit/layout-report.json
           cp -R resources/admin/test-screenshots/audit "$WORK/screenshots"
           cp -R resources/admin/test-screenshots/contact-sheets "$WORK/gallery"
           cd "$WORK"
