@@ -1054,6 +1054,39 @@
     ["relay-single-set","中继服务器","设置单连接带宽","填写单条连接的带宽上限，单位 Mb/s。","21117","single-bandwidth","number"],
     ["relay-usage","中继服务器","查看中继使用情况","查看中继服务器统计的当前使用情况。","21117","usage","none"]
   ].map(([id,section,title,description,target,cmd,mode])=>({id,section,title,description,target,cmd,mode}));
+
+  const serverCombinedFeatures={
+    "id-relay-read":{title:"中继服务器列表设置",write:"id-relay-write"},
+    "id-must-login-read":{title:"客户端登录要求设置",enable:"id-must-login-on",disable:"id-must-login-off"},
+    "id-relay-state":{title:"强制中继设置",enable:"id-relay-on",disable:"id-relay-off"},
+    "relay-threshold-read":{title:"降级阈值设置",write:"relay-threshold-set"},
+    "relay-check-read":{title:"降级检查间隔设置",write:"relay-check-set"},
+    "relay-speed-read":{title:"中继速度限制设置",write:"relay-speed-set"},
+    "relay-total-read":{title:"中继总带宽设置",write:"relay-total-set"},
+    "relay-single-read":{title:"单连接带宽设置",write:"relay-single-set"},
+    "id-block-read":{title:"IP 封禁记录",actions:["id-block-add","id-block-remove"]},
+    "id-changes-read":{title:"设备 IP 变化记录",actions:["id-changes-item","id-changes-remove"]},
+    "relay-blacklist-read":{title:"中继限速名单管理",actions:["relay-blacklist-check","relay-blacklist-add","relay-blacklist-remove"]},
+    "relay-blocklist-read":{title:"中继阻止名单管理",actions:["relay-blocklist-check","relay-blocklist-add","relay-blocklist-remove"]}
+  };
+  const serverHiddenCommands=new Set(Object.values(serverCombinedFeatures).flatMap(feature=>
+    [feature.write,feature.enable,feature.disable,...(feature.actions||[])].filter(Boolean)));
+  function serverCommandByID(id){return serverCommandCatalog.find(cmd=>cmd.id===id);}
+  function serverSelectedCommand(){
+    const section=state.serverTab==="relay"?"中继服务器":"ID 服务器";
+    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section&&!serverHiddenCommands.has(cmd.id));
+    return commands.find(cmd=>cmd.id===state.commandSelected)||commands[0];
+  }
+  async function querySelectedServerCommand(cmd){
+    if(!cmd||cmd.mode!=="none"||cmd.cmd==="reload-geo")return;
+    state.serverBusy=true;state.serverError="";render();
+    try{
+      const response=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:cmd.cmd,option:""});
+      if(!response||typeof response!=="object"||!response.kind)throw Error("服务器返回的数据格式无效");
+      if(cmd.id===state.commandSelected)state.serverResults[cmd.id]=response;
+    }catch(error){if(cmd.id===state.commandSelected)state.serverError=error.message;}
+    finally{state.serverBusy=false;render();}
+  }
   function commandInputs(command){
     const mode=command.mode;
     if(mode==="none"||mode.startsWith("fixed-"))return '<p class="server-command-help">此操作无需填写参数。</p>';
@@ -1115,31 +1148,57 @@
         icon("shield",24)+'<strong>中继服务器管理</strong><span>IP 列表、带宽限制和连接使用统计</span>'+icon("arrow",17)+'</button></div>';
     }
     const section=tab==="id"?"ID 服务器":"中继服务器";
-    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section);
+    const commands=serverCommandCatalog.filter(cmd=>cmd.section===section&&!serverHiddenCommands.has(cmd.id));
     const selected=commands.find(cmd=>cmd.id===state.commandSelected)||commands[0];
     const groups=[...new Set(commands.map(serverCommandCategory))].map(category=>
       '<section class="server-command-group"><h3>'+esc(category)+'</h3><div class="server-command-list">'+
       commands.filter(cmd=>serverCommandCategory(cmd)===category).map(cmd=>
         '<button type="button" class="server-command-item '+(cmd.id===selected.id?"selected":"")+
         '" data-action="server-select" data-id="'+esc(cmd.id)+'" aria-pressed="'+(cmd.id===selected.id)+'">'+
-        '<strong>'+esc(cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+
+        '<strong>'+esc(serverCombinedFeatures[cmd.id]?.title||cmd.title)+'</strong><small>'+esc(cmd.description)+'</small></button>').join("")+
       '</div></section>').join("");
     const result=state.serverResults[selected.id]||null;
+    const combined=serverCombinedFeatures[selected.id];
+    let editor="";
+    if(combined?.enable&&combined?.disable){
+      const selectedValue=result?.kind==="boolean"?(result.active?"yes":"no"):"";
+      editor='<div class="field"><label for="server-policy-value">客户端连接策略</label>'+
+        '<select id="server-policy-value" name="policy" aria-label="'+esc(combined.title)+'">'+
+        '<option value=""'+(selectedValue===""?" selected":"")+' disabled>请选择设置</option>'+
+        '<option value="yes"'+(selectedValue==="yes"?" selected":"")+'>启用</option>'+
+        '<option value="no"'+(selectedValue==="no"?" selected":"")+'>关闭</option></select>'+
+        '</div><div class="server-submit-row"><button type="button" class="btn btn-primary" data-action="server-policy-save"'+
+        (state.serverBusy?" disabled":"")+'>保存设置</button></div>';
+    }else if(combined?.write){
+      const action=serverCommandByID(combined.write);
+      editor=commandInputs(action)+'<div class="server-submit-row"><button type="button" class="btn btn-primary" data-action="server-modify" data-id="'+esc(action.id)+'">保存设置</button></div>';
+    }else if(combined?.actions){
+      const all=combined.actions.map(serverCommandByID);
+      const first=all[0];
+      editor=commandInputs(first)+'<div class="server-submit-row">'+
+        all.map(cmd=>'<button type="button" class="btn '+(cmd.mode.endsWith("-remove")?"btn-danger":"")+
+        '" data-action="server-modify" data-id="'+esc(cmd.id)+'">'+esc(cmd.title)+'</button>').join("")+'</div>';
+    }else if(selected.mode==="none"){
+      editor=selected.cmd==="reload-geo"?
+        '<div class="server-submit-row"><button type="submit" class="btn btn-primary">更新数据库</button></div>':
+        '<p class="server-command-help">已自动查询当前状态。选择此项或点击刷新即可重新读取。</p>'+
+        '<button type="button" class="btn" data-action="server-query">重新查询</button>';
+    }else{
+      editor=commandInputs(selected)+'<div class="server-submit-row"><button type="submit" class="btn btn-primary">查询</button></div>';
+    }
     return heading+nav+'<div class="server-management-layout">'+
       '<aside class="panel server-command-menu"><div class="panel-header"><div><h2 class="panel-title">管理功能</h2>'+
       '<p class="panel-sub">'+esc(section)+' · 选择需要查看或修改的项目</p></div></div>'+
       '<div class="server-command-menu-body">'+groups+'</div></aside>'+
       '<div class="server-management-workspace"><section class="panel server-editor" id="server-command-panel">'+
-      '<div class="panel-header"><div><h2 class="panel-title">'+esc(selected.title)+'</h2>'+
+      '<div class="panel-header"><div><h2 class="panel-title">'+esc(combined?.title||selected.title)+'</h2>'+
       '<p class="panel-sub">'+esc(selected.description)+'</p></div></div>'+
-      '<form id="command-form" class="server-editor-body">'+commandInputs(selected)+
-      '<div class="server-submit-row"><button class="btn btn-primary" type="submit">'+
-      (selected.mode==="none"||selected.mode==="identifier"||selected.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(selected.cmd)?"查询":"执行操作")+
-      '</button></div></form></section>'+
-      '<section class="panel server-result-panel"><div class="panel-header"><div><h2 class="panel-title">查询与操作结果</h2>'+
-      '<p class="panel-sub">'+esc(selected.title)+'</p></div></div>'+
+      '<form id="command-form" class="server-editor-body">'+editor+'</form></section>'+
+      '<section class="panel server-result-panel"><div class="panel-header"><div><h2 class="panel-title">当前状态与查询结果</h2>'+
+      '<p class="panel-sub">'+esc(combined?.title||selected.title)+'</p></div></div>'+
       '<div class="server-result" id="server-result" role="status">'+
-      (state.serverError?'<div class="warning">'+esc(state.serverError)+'</div>':renderServerResult(result,selected))+
+      (state.serverBusy?'<div class="loading-table"><span class="spinner"></span>正在读取服务器状态…</div>':
+        state.serverError?'<div class="warning">'+esc(state.serverError)+'</div>':renderServerResult(result,selected))+
       '</div></section></div></div>';
   }
   const cleanupKinds=[
@@ -2214,8 +2273,8 @@
     if(/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip))return ip.split(".").every(part=>Number(part)<=255);
     return /^[0-9a-fA-F:]+$/.test(ip)&&ip.includes(":")&&ip.length<=45&&!ip.includes(":::")&&ip.split(":").filter(Boolean).every(part=>part.length<=4);
   }
-  async function sendCommand(form){
-    const cmd=serverCommandCatalog.find(item=>item.id===state.commandSelected);
+  async function sendCommand(form,commandID=state.commandSelected,resultKey=state.commandSelected){
+    const cmd=serverCommandByID(commandID);
     if(!cmd)return;
     let option="",value=String(form.elements.option?.value||form.elements.device_id?.value||"").trim();
     if(cmd.mode.startsWith("fixed-"))option=cmd.mode.slice(6);
@@ -2240,7 +2299,7 @@
       }
       option=entries.join(",");
     }
-    if(cmd.mode!=="none"&&!option){toast("请填写该操作要求的参数",true);return;}
+    if(cmd.mode!=="none"&&!cmd.mode.startsWith("fixed-")&&!option){toast("请填写该操作要求的参数",true);return;}
     const isRead=cmd.mode==="none"&&cmd.cmd!=="reload-geo"||cmd.mode==="identifier"||
       cmd.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(cmd.cmd);
     if(!isRead&&!window.confirm("确认执行“"+cmd.title+"”吗？"))return;
@@ -2261,7 +2320,7 @@
           displayed=await request("/rustdesk/execute","POST",{target:cmd.target,cmd:refresh,option:""});
         }catch{displayed=response;}
       }
-      state.serverResults[cmd.id]=displayed;
+      state.serverResults[resultKey]=displayed;
       state.serverError="";
       render();
       toast(isRead?"查询完成":"操作请求已发送至服务器");
@@ -2330,7 +2389,8 @@
       if(!["overview","id","relay"].includes(tab))return;
       state.serverTab=tab;
       state.commandSelected=tab==="relay"?"relay-usage":"id-relay-read";
-      state.serverError="";render();
+      state.serverError="";state.serverBusy=false;render();
+      if(tab!=="overview")await querySelectedServerCommand(serverSelectedCommand());
       return;
     }
     if(a==="server-select"){
@@ -2338,6 +2398,21 @@
       if(!command)return;
       state.commandSelected=command.id;state.serverError="";
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
+      await querySelectedServerCommand(command);
+      return;
+    }
+    if(a==="server-query"){await querySelectedServerCommand(serverSelectedCommand());return;}
+    if(a==="server-modify"){
+      const form=document.getElementById("command-form");
+      if(form&&form.reportValidity())await sendCommand(form,el.dataset.id,state.commandSelected);
+      return;
+    }
+    if(a==="server-policy-save"){
+      const selected=document.getElementById("server-policy-value")?.value;
+      const feature=serverCombinedFeatures[state.commandSelected];
+      if(!feature||!["yes","no"].includes(selected)){toast("请选择启用或关闭",true);return;}
+      const form=document.getElementById("command-form");
+      if(form)await sendCommand(form,selected==="yes"?feature.enable:feature.disable,state.commandSelected);
       return;
     }
     if(a==="picker-open"){await openPickerDialog(el.closest(".entity-picker"));return;}
