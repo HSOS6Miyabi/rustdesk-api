@@ -116,7 +116,12 @@ test("Passkey enrollment, authenticated login, replay denial and revocation",asy
     assert.ok(dimensions.scrollWidth<=dimensions.viewport+2,"Profile overflows horizontally");
     await page.locator("#passkey-name").fill("测试设备");
     await page.locator('[data-action="passkey-register"]').click();
-    await page.getByText("Passkey 已添加").waitFor({timeout:16000});
+    try{
+      await page.getByText("Passkey 已添加").waitFor({timeout:16000});
+    }catch(err){
+      const messages=await page.locator(".toast-wrap").allTextContents();
+      throw Error("Passkey registration failed: "+JSON.stringify(messages)+"; "+err.message);
+    }
     const list=await ok("/passkey/list","GET",undefined,admin.token);
     assert.equal(list.total,1);
     assert.equal(list.list[0].name,"测试设备");
