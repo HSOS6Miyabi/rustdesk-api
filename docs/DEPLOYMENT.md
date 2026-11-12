@@ -34,6 +34,14 @@ jwt:
 
 使用配套 RustDesk Server 时，将相同的 `RUSTDESK_API_JWT_KEY` 配置给服务端，使服务器能够验证用户登录令牌。可通过 `MUST_LOGIN=Y` 要求设备连接前登录。默认 `MUST_LOGIN=N`。
 
+### 服务器管理的部署条件
+
+系统管理员可以在独立的“服务器管理”页面查询 `hbbs` 和 `hbbr` 的设置。API 通过本机回环地址访问 `hbbs` 的控制端口（默认 `127.0.0.1:21115`）和 `hbbr` 的控制端口（默认 `127.0.0.1:21117`）。端口分别由 `admin.id-server-port` 减 1 和 `admin.relay-server-port` 决定。
+
+普通服务器部署时，API 与两个 RustDesk Server 进程应共享相同的网络空间。使用 Docker 时，可以让 API、`hbbs` 和 `hbbr` 共同使用 Linux 宿主机网络。若采用宿主机网络，应删除 Compose 配置中与之冲突的 `ports` 映射。请勿将本地管理接口转发到公网。
+
+设备、用户、共享和审计记录仍通过 API 与数据库工作。服务器管理连接失败时，请检查服务进程、控制端口和容器网络。更多说明见 [控制台与服务器管理](CONSOLE_MANAGEMENT.md)。
+
 ## 3. 为 WebClient v2 配置 HTTPS 和 WebSocket
 
 在浏览器中打开 `https://api.example.com/webclient2/` 后，可以使用设备 ID 连接 RustDesk 服务。网页登录后，页面会自动读取 ID 服务器、公钥和共享设备列表。

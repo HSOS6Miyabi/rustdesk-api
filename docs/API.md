@@ -1,6 +1,6 @@
 # API 使用说明
 
-HTTP 响应中的 `code: 0` 表示操作成功。管理员接口统一以 `/api/admin` 开头。登录后，在请求头中设置 `api-token`，值为登录返回的 `data.token`。
+HTTP 响应中的 `code: 0` 表示操作成功。管理员接口统一以 `/api/admin` 开头。登录后，在请求头中设置 `api-token`，值为登录返回的 `data.token`。结构化服务器管理与个人会话接口详见 [控制台与服务器管理](CONSOLE_MANAGEMENT.md)。
 
 以下示例使用占位符 `TOKEN` 表示当前用户的令牌。
 

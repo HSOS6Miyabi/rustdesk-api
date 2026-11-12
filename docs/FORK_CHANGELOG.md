@@ -2,10 +2,14 @@
 
 本仓库基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 持续维护，保留原项目账户、地址簿、Web 客户端及 Go API 的主要结构。下表按实际使用的功能整理增加的模块，便于接手开发人员理解用途、启用条件与受影响的位置。
 
-当前正式发布为 [v3.0.0-api.111](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.111)。设备管理与 WebClient 功能见 [拉取请求 #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)，个人数据编辑与接口检查见 [拉取请求 #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)。
+当前正式发布为 [v3.0.0-api.112](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.112)。控制台布局、服务器管理和个人会话功能见 [拉取请求 #18](https://github.com/HSOS6Miyabi/rustdesk-api/pull/18)，设备远程连接与 WebClient v2 改进也已包含在主分支中。
 
 | 功能 | 管理页面或使用入口 | 主要代码 | 使用条件 |
 | --- | --- | --- | --- |
+| 自适应表格与模态对象选择 | 管理列表、编辑表单、批量操作 | `resources/admin/app.js`、`resources/admin/style.css` | 根据窗口宽度显示常用字段，选择器可搜索名称或编号 |
+| 服务器管理 | 一级导航“服务器管理” | `http/controller/admin/server_command_reply.go`、`resources/admin/app.js` | 系统管理员登录，并可访问本地服务端控制端口 |
+| 个人登录与远程连接管理 | 我的登录会话、我的活动远程连接、我的结束连接记录 | `http/controller/admin/my/session_views.go`、`service/session_personal.go` | 当前账户只能访问自己的会话及有权管理的设备连接 |
+
 | 现代管理控制台与移动端布局 | `/_admin/` | `resources/admin/`、`service/sort_query.go` | 一级分类可独立折叠，管理表格按全部分页记录排序，支持电脑与手机 |
 | 个人设备与管理员设备管理 | 我的设备、设备管理 | `http/controller/admin/my/peer.go`、`resources/admin/app.js` | 个人设备操作检查所有者，管理员设备列表检查授权范围 |
 | 设备与用户详情 | 设备列表、审计记录、搜索结果、共享设备 | `resources/admin/app.js`、`resources/web2/app.js`、`http/controller/admin/my/directory.go` | 根据当前账户权限显示设备与用户信息和管理入口 |

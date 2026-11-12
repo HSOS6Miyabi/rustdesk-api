@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 最新正式发行版为 [RustDesk API v3.0.0-api.111](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.111)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新完善多字段用户与设备搜索、跨分页排序、共享设备详情及导航折叠，并保留多个官方客户端版本与浏览器本地安装包制作功能。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.112](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.112)，数据库迁移版本为 **290**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。本次更新改善了控制台的桌面布局、表格和对象搜索，重构服务器管理，增加个人连接及登录会话管理，并改进 WebClient v2 远程连接和全屏交互。版本关系见 [兼容说明](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -32,8 +32,10 @@
 
 - **控制台**：在 `/_admin/` 登录。导航分类可以折叠，切换页面时保留侧边栏滚动位置；电脑和手机均可使用管理功能。
 - **设备与用户管理**：普通用户通过“我的设备”管理自己拥有的设备；管理员通过“设备管理”管理有权查看的设备。设备 ID、设备名称和用户名可打开详情。设备状态以绿色、红色或灰色圆点表示在线、离线或暂时无法确定。管理表格可以按列对所有分页记录进行升序和降序排列。
-- **关联对象搜索**：在分组、设备策略、地址簿共享及角色设置中按编号、名称、用户名等信息搜索并选择用户或设备。可以一次选择多个设备；搜索结果仅包含当前账户有权查看的数据。
-- **WebClient v2**：支持网页全屏和显示器全屏，均可退出。可搜索本人设备和共享设备，选择目标后建立远程连接。
+- **关联对象搜索**：在分组、设备策略、地址簿共享、角色设置和批量操作中打开统一搜索窗口，按名称、编号等信息选择对象。支持多选，关联信息会尽可能同时显示名称与编号。
+- **服务器管理**：通过独立的一级导航管理 ID 服务器和中继服务器，将查询结果显示为表格、状态或数值，并支持读取修改后的设置。
+- **个人连接与登录会话**：用户可查看名下设备的活动连接、结束连接记录以及自己的登录会话，并终止自己有权管理的连接或登录。
+- **WebClient v2**：支持从设备信息和设备列表打开远程连接，提供网页全屏、显示器全屏和紧凑的设备工具栏。
 - **地址簿**：同一个页面内管理地址簿分类及其中的设备。原有数据保留。
 - **普通组**：成员只能在 RustDesk 客户端中查看自己的账户及设备。
 - **共享组**：成员可以在 RustDesk 客户端中查看同组其他成员及其设备。
@@ -92,7 +94,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 维护与接手资料：
 
-- [设置中心](docs/SETTINGS_CENTER.md)和[完整配置参考](docs/CONFIG_REFERENCE.md)
+- [控制台与服务器管理](docs/CONSOLE_MANAGEMENT.md)、[设置中心](docs/SETTINGS_CENTER.md)和[完整配置参考](docs/CONFIG_REFERENCE.md)
 - [分支功能差异](docs/FORK_CHANGELOG.md)和[上游合并步骤](docs/UPSTREAM_SYNC.md)
 - [版本兼容性](docs/COMPATIBILITY.md)、[性能测试方法](docs/PERFORMANCE_TESTING.md)和[开发交接](docs/HANDOFF.md)
 
@@ -108,7 +110,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 构建、测试及发布
 
-GitHub Actions 包含 Go、JavaScript、浏览器交互、可执行文件编译及 Docker 镜像构建测试。日常提交与拉取请求不会自动发布版本。需要发布经过明确批准的新版本时，在 GitHub Actions 打开 [Publish approved RustDesk API milestone](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-milestone.yml)，选择 `master` 分支，勾选 `milestone_release` 后运行。工作流会创建版本标签，并启动 `Verify and release RustDesk API`；测试与编译成功后，会发布 Linux AMD64、Linux ARM64、Windows AMD64 安装包和 GHCR 多架构 Docker 镜像。
+GitHub Actions 检查 Go 后端、浏览器交互、真实 HTTP 接口、数据库兼容性和页面布局。合并代码后，维护者将 `master` 分支中的 `.release-version` 更新为批准的版本号，即可触发 [正式版本发布工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-version.yml)。发布流程会创建版本标签，重新执行测试，再生成 Linux AMD64、Linux ARM64、Windows AMD64 安装包及 GHCR 多架构 Docker 镜像。
 
 查看 [维护说明](docs/MAINTENANCE.md) 了解测试和升级过程。
 
