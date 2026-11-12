@@ -1549,7 +1549,7 @@
       '<div class="head-actions"><input id="push-stream-secret" class="form-control" readonly autocomplete="off" value="'+esc(state.pushStreamSecret)+'">'+
       '<button class="btn btn-sm" data-action="push-stream-copy" type="button">复制密钥</button></div></div>':'';
     const streamPanel='<section class="panel" style="margin-top:16px"><div class="panel-header"><div>'+
-      '<h2 class="panel-title">SSE 实时订阅</h2><p class="panel-sub">生成个人 API 密钥后，客户端使用 Authorization: Bearer 请求 /api/events/v1/stream。断开连接后可自动重连。</p>'+
+      '<h2 class="panel-title">SSE 实时订阅</h2><p class="panel-sub">生成的个人密钥仅拥有 events.read 权限。客户端使用 Authorization: Bearer 请求 /api/events/v1/stream，断开连接后可自动重连。</p>'+
       '</div></div><div class="tips">'+streamSecret+
       '<form id="push-stream-key-form" class="form-grid"><div class="field"><label>密钥名称</label>'+
       '<input name="name" required minlength="2" maxlength="100" placeholder="例如：家庭自动化" autocomplete="off"></div>'+
