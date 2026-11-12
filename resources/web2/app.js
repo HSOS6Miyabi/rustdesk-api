@@ -21,7 +21,83 @@
   el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y";
   function message(text){el("v2-message").textContent=text;}
   const stage=document.querySelector(".stage");
-  const nativeClient=el("v2-native-client");
+  const firstClient=el("v2-native-client");
+  const sessionTabs=el("v2-session-tabs");
+  const sessionPanels=el("v2-session-panels");
+  const emptySession=el("v2-empty-session");
+  const sessions=new Map();
+  let firstClientInUse=false;
+  let activeSessionKey="";
+  function showSession(key){
+    const chosen=sessions.get(key);
+    if(!chosen)return;
+    activeSessionKey=key;
+    config.id.value=chosen.id;
+    config.host.value=chosen.host;
+    state.activeName=chosen.name;
+    for(const [sessionKey,session] of sessions){
+      session.frame.classList.toggle("session-inactive",sessionKey!==key);
+    }
+    emptySession.hidden=true;
+    renderSessionTabs();
+  }
+  function closeSession(key){
+    const session=sessions.get(key);
+    if(!session)return;
+    sessions.delete(key);
+    if(session.frame===firstClient){
+      firstClient.src="about:blank";
+      firstClient.classList.add("session-inactive");
+      firstClientInUse=false;
+    }else{
+      session.frame.remove();
+    }
+    if(activeSessionKey===key){
+      activeSessionKey="";
+      const next=sessions.keys().next().value;
+      if(next)showSession(next);
+      else {emptySession.hidden=false;renderSessionTabs();}
+    }else renderSessionTabs();
+    message("已断开："+session.name);
+  }
+  function renderSessionTabs(){
+    sessionTabs.replaceChildren();
+    sessionTabs.hidden=sessions.size===0;
+    for(const [key,session] of sessions){
+      const slot=document.createElement("span");
+      slot.className="session-tab-slot";
+      const tab=document.createElement("button");
+      tab.type="button";
+      tab.className="session-tab";
+      tab.textContent=session.name;
+      tab.title=session.name+" · "+session.id;
+      tab.setAttribute("role","tab");
+      tab.setAttribute("aria-selected",String(key===activeSessionKey));
+      tab.addEventListener("click",()=>showSession(key));
+      const close=document.createElement("button");
+      close.type="button";
+      close.className="session-tab-close";
+      close.textContent="×";
+      close.title="断开此远程连接";
+      close.setAttribute("aria-label","断开 "+session.name);
+      close.addEventListener("click",()=>closeSession(key));
+      slot.append(tab,close);
+      sessionTabs.append(slot);
+    }
+  }
+  function watchClient(frame){
+    frame.addEventListener("load",()=>{
+      state.ready=true;
+      el("engine-state").textContent="RustDesk 操作界面已加载";
+      el("engine-state").classList.add("ready");
+      try{
+        frame.contentWindow.addEventListener("keydown",event=>{
+          if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
+        },true);
+      }catch{}
+    });
+  }
+  watchClient(firstClient);
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
   function syncFullscreen(){
@@ -54,16 +130,6 @@
     }catch(error){message("无法进入显示器全屏："+error.message);}
   });
   exitButton.addEventListener("click",exitFullscreen);
-  nativeClient.addEventListener("load",()=>{
-    state.ready=true;
-    el("engine-state").textContent="RustDesk 操作界面已加载";
-    el("engine-state").classList.add("ready");
-    try{
-      nativeClient.contentWindow.addEventListener("keydown",event=>{
-        if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
-      },true);
-    }catch{}
-  });
   document.addEventListener("fullscreenchange",syncFullscreen);
   document.addEventListener("keydown",event=>{
     if(event.key==="Escape"&&state.pageFullscreen){
@@ -192,7 +258,29 @@
     sessionStorage.setItem("rustdesk.webclient.webrtc",el("v2-webrtc").checked?"Y":"N");
 
     updateDeviceIdentity();
-    nativeClient.src="/webclient/?connect="+encodeURIComponent(id)+"#/?";
+    const sessionKey=host+"|"+id;
+    if(sessions.has(sessionKey)){
+      showSession(sessionKey);
+      message("已切换至："+id);
+      return;
+    }
+    let frame;
+    if(!firstClientInUse){
+      frame=firstClient;
+      firstClientInUse=true;
+    }else{
+      frame=document.createElement("iframe");
+      frame.className="native-client session-inactive";
+      frame.setAttribute("allow","fullscreen; clipboard-read; clipboard-write");
+      frame.setAttribute("allowfullscreen","");
+      watchClient(frame);
+      sessionPanels.append(frame);
+    }
+    const session={id,host,name:state.activeName||id,frame};
+    sessions.set(sessionKey,session);
+    frame.title=session.name+" · RustDesk 远程桌面";
+    frame.src="/webclient/?connect="+encodeURIComponent(id)+"#/?";
+    showSession(sessionKey);
     message("正在通过 RustDesk 连接："+id);
   }
   function attemptAutoConnect(){
@@ -202,8 +290,8 @@
   }
   el("connect-form").addEventListener("submit",e=>{e.preventDefault();state.autoConnect=false;connectToDevice();});
   el("v2-disconnect").addEventListener("click",()=>{
-    nativeClient.src="/webclient/#/?";
-    message("连接已断开");
+    if(activeSessionKey)closeSession(activeSessionKey);
+    else message("当前没有活动的远程连接。");
   });
   el("v2-refresh").addEventListener("click",loadDevices);
   let lookupSequence=0;
