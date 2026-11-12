@@ -185,7 +185,7 @@ func validEmail(value string) bool {
 
 func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, error) {
 	if userID == 0 { return PublicPushChannel{}, errors.New("请先登录") }
-	if input.Kind != "messagepusher" && input.Kind != "smtp" && input.Kind != "serverchan" {
+	if input.Kind != "messagepusher" && input.Kind != "smtp" && input.Kind != "serverchan" && input.Kind != "webhook" {
 		return PublicPushChannel{}, errors.New("不支持的推送服务类型")
 	}
 	input.Name = strings.TrimSpace(input.Name)
@@ -248,7 +248,7 @@ func SavePushChannel(userID uint, input PushChannelInput) (PublicPushChannel, er
 			record.KeyCiphertext, err = encryptPushSecret(key)
 			if err != nil { return PublicPushChannel{}, err }
 		}
-		if record.Enabled && (record.BaseURL == "" || record.KeyCiphertext == "") {
+		if record.Enabled && (record.BaseURL == "" || (input.Kind != "webhook" && record.KeyCiphertext == "")) {
 			return PublicPushChannel{}, errors.New("启用推送需要填写服务地址及发送密钥")
 		}
 	}
