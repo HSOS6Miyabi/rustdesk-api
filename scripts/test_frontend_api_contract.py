@@ -9,6 +9,7 @@ import secrets
 import shutil
 import signal
 import socket
+import threading
 import subprocess
 import sys
 import tempfile
@@ -192,15 +193,191 @@ def install(directory):
     (directory / "data").mkdir()
     (directory / "runtime").mkdir()
     (directory / "resources").symlink_to(ROOT / "resources", target_is_directory=True)
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
+    def free_port():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            return sock.getsockname()[1]
+    port = free_port()
+    id_console_port = free_port()
+    while id_console_port >= 65534 or id_console_port == port:
+        id_console_port = free_port()
+    relay_console_port = free_port()
+    while relay_console_port in (port, id_console_port, id_console_port + 1):
+        relay_console_port = free_port()
     path = directory / "conf/config.yaml"
     source = path.read_text()
     check('"0.0.0.0:21114"' in source, "Unexpected listener configuration")
-    path.write_text(source.replace('"0.0.0.0:21114"', f'"127.0.0.1:{port}"'))
-    return port
+    check("id-server-port: 21116" in source and "relay-server-port: 21117" in source,
+          "Cannot configure isolated RustDesk management ports")
+    source = source.replace('"0.0.0.0:21114"', f'"127.0.0.1:{port}"')
+    source = source.replace("id-server-port: 21116",
+                            f"id-server-port: {id_console_port + 1}")
+    source = source.replace("relay-server-port: 21117",
+                            f"relay-server-port: {relay_console_port}")
+    path.write_text(source)
+    return port, id_console_port, relay_console_port
+
+
+
+@contextlib.contextmanager
+def console_protocol_servers(id_port, relay_port):
+    """Exercise the actual HTTP-to-TCP path using controlled RustDesk console replies."""
+    closed = threading.Event()
+    ready = []
+    threads = []
+
+    def serve(listener, target):
+        while not closed.is_set():
+            try:
+                connection, _ = listener.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            with connection:
+                connection.settimeout(2)
+                try:
+                    command = connection.recv(4096).decode("utf-8", "replace").strip()
+                    name, _, option = command.partition(" ")
+                    if target == "id":
+                        replies = {
+                            "always-use-relay": "ALWAYS_USE_RELAY: true\n",
+                            "must-login": "MUST_LOGIN: false\n",
+                            "relay-servers": "relay-1.example.test:21117\nrelay-2.example.test:21117\n",
+                            "ip-blocker": "1\n192.0.2.7: 2/9s 3/12s\n",
+                            "ip-changes": "1\n123456: 11s [\"192.0.2.1\", \"192.0.2.2\"]\n",
+                            "punch-requests": "2026-11-12T01:01:01Z 192.0.2.1 -> 123456@192.0.2.2\n",
+                            "reload-geo": "GeoLite2 country data reload requested\n",
+                        }
+                    else:
+                        replies = {
+                            "usage": "192.0.2.5: 80s 12.50MB 160kb/s 40kb/s 25kb/s\n",
+                            "limit-speed": "12.5Mb/s\n",
+                            "blacklist": "192.0.2.7\n198.51.100.2\n",
+                            "blocklist": "false\n" if option else "203.0.113.4\n",
+                            "h": "usage(u)\nlimit-speed(ls) [value(Mb/s)]\n",
+                        }
+                    # RustDesk uses an empty response to acknowledge most changes.
+                    if option and name in ("always-use-relay", "must-login", "relay-servers",
+                                            "limit-speed", "blacklist-add", "blacklist-remove",
+                                            "blocklist-add", "blocklist-remove"):
+                        reply = ""
+                    else:
+                        reply = replies.get(name, "")
+                    connection.sendall(reply.encode("utf-8"))
+                except (OSError, ValueError):
+                    continue
+
+    try:
+        for port, target in ((id_port, "id"), (relay_port, "relay")):
+            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("127.0.0.1", port))
+            listener.listen(16)
+            listener.settimeout(0.2)
+            ready.append(listener)
+            thread = threading.Thread(target=serve, args=(listener, target), daemon=True)
+            thread.start()
+            threads.append(thread)
+        yield
+    finally:
+        closed.set()
+        for listener in ready:
+            listener.close()
+        for thread in threads:
+            thread.join(timeout=2)
+
+
+def verify_rustdesk_console_contract(admin, ordinary):
+    """Test authenticated HTTP requests, socket replies and typed result rendering."""
+    def execute(target, command, option=""):
+        return admin.success("POST", "/rustdesk/execute",
+                             {"target": target, "cmd": command, "option": option})
+
+    relay = execute("21115", "relay-servers")
+    check(relay.get("kind") == "list" and relay.get("count") == 2
+          and relay["rows"][0]["address"] == "relay-1.example.test:21117",
+          "ID server relay entries were not parsed")
+    for name, expected in (("always-use-relay", True), ("must-login", False)):
+        status = execute("21115", name)
+        check(status.get("kind") == "boolean" and status.get("active") is expected,
+              f"{name} did not return its current state")
+    blockers = execute("21115", "ip-blocker")
+    check(blockers.get("kind") == "table" and blockers.get("total") == 1
+          and blockers.get("rows"), "ID server IP blocking records were not parsed")
+    usage = execute("21117", "usage")
+    check(usage.get("kind") == "usage" and usage.get("count") == 1
+          and usage["rows"][0]["address"] == "192.0.2.5"
+          and usage["rows"][0]["megabytes"] == "12.50",
+          "Relay usage statistics were not parsed")
+    limit = execute("21117", "limit-speed")
+    check(limit.get("kind") == "metric" and limit.get("value") == 12.5
+          and limit.get("unit") == "Mb/s", "Relay speed setting was not parsed")
+    current = execute("21117", "blocklist", "203.0.113.4")
+    check(current.get("kind") == "boolean" and current.get("active") is False,
+          "The relay IP membership response was not parsed")
+    update = execute("21117", "limit-speed", "15")
+    check(update.get("kind") == "notice", "A successful mutation was incorrectly reported")
+    legacy = admin.success("POST", "/rustdesk/sendCmd",
+                           {"target": "21115", "cmd": "always-use-relay", "option": ""})
+    check("ALWAYS_USE_RELAY" in legacy, "The compatible server command endpoint changed behavior")
+    for path in ("/rustdesk/execute", "/rustdesk/sendCmd"):
+        _, reply = ordinary.send("POST", path,
+                                 {"target": "21115", "cmd": "always-use-relay", "option": ""})
+        check(reply.get("code") != 0,
+              f"An ordinary account could access protected server controls: {path}")
+
+
+def verify_personal_session_contract(admin, account, other, username, password, user_id, device_id):
+    """Verify account isolation and revocation against a running application and database."""
+    personal = account.success("GET", "/my/user_token/list?page=1&page_size=20")
+    check(personal["list"] and all(row.get("user_id") == user_id for row in personal["list"]),
+          "Personal login sessions are not restricted to the current account")
+    current = next((row for row in personal["list"] if row.get("current")), None)
+    check(current is not None and current.get("active"),
+          "The current login session is not marked as active")
+    check(current.get("login_ip") and current.get("client") == "webadmin"
+          and current.get("platform") == "web",
+          "The login session is missing the real login IP, client and platform")
+    check(all("token" not in row for row in personal["list"]),
+          "The login-session API disclosed an access credential")
+    admin_sessions = admin.success("GET", "/user_token/list?page=1&page_size=100")
+    check(admin_sessions["list"] and all("token" not in x for x in admin_sessions["list"]),
+          "The administrator login-session API disclosed an access credential")
+    stranger_sessions = other.success("GET", "/my/user_token/list?page=1&page_size=20")
+    check(all(row["user_id"] != user_id for row in stranger_sessions["list"]),
+          "Another user can read personal authentication records")
+    _, denied = other.send("POST", "/my/user_token/revoke", {"id": current["id"]})
+    check(denied.get("code") != 0, "Another account could revoke someone else's login")
+    check(account.success("GET", "/user/current")["username"] == username,
+          "A denied cross-account revocation destroyed the current login")
+    second = Client(account.url)
+    login = second.success("POST", "/login",
+                           {"username": username, "password": password, "platform": "web"})
+    second.token = login["token"]
+    sessions = second.success("GET", "/my/user_token/list?page=1&page_size=20")["list"]
+    current_second = next((row for row in sessions if row.get("current")), None)
+    check(current_second and current_second["id"] != current["id"],
+          "A second login is not recorded as a distinct session")
+    account.success("POST", "/my/user_token/revoke", {"id": current_second["id"]})
+    _, ended = second.send("GET", "/user/current")
+    check(ended.get("code") != 0, "The revoked session can still access the API")
+    check(account.success("GET", "/user/current")["username"] == username,
+          "Revoking a secondary session affected the current login")
+    for path in ("/my/session/list", "/my/session/disconnect/list"):
+        own = account.success("GET", path + "?page=1&page_size=10")
+        stranger = other.success("GET", path + "?page=1&page_size=10")
+        check(isinstance(own.get("list"), list) and isinstance(stranger.get("list"), list),
+              f"Personal connection records returned an invalid data structure: {path}")
+    _, denied = other.send("POST", "/my/session/disconnect",
+                           {"device_id": device_id, "conn_id": 77})
+    check(denied.get("code") != 0,
+          "An unrelated account could end an owner's remote connection")
+    _, missing = account.send("POST", "/my/session/disconnect",
+                              {"device_id": device_id, "conn_id": 77})
+    check(missing.get("code") != 0,
+          "The server accepted a disconnect request for a nonexistent connection")
+    return second.count
 
 
 def all_route_requests(client, contracts):
@@ -463,6 +640,9 @@ def check_real_changes(admin):
     stranger.token = stranger.success("POST", "/login", {
         "username": other_name, "password": other_password, "platform": "web",
     })["token"]
+    verify_rustdesk_console_contract(admin, stranger)
+    additional_requests = verify_personal_session_contract(
+        admin, user, stranger, username, password, user_id, device_id)
     _, denied = stranger.send("POST", "/my/address_book/update", {
         "row_id": entry["row_id"], "id": entry_id, "alias": "Unauthorized edit",
     })
@@ -568,7 +748,7 @@ def check_real_changes(admin):
                   urllib.parse.quote("username;DROP TABLE users")+"&sort_dir=desc")
     check(admin.success("GET","/user/list?page=1&page_size=3")["total"]>=3,
           "An unsupported sort column affected stored accounts")
-    return user.count + stranger.count
+    return user.count + stranger.count + additional_requests
 
 
 def main():
@@ -585,7 +765,7 @@ def main():
     binary = Path(sys.argv[1]).resolve()
     with tempfile.TemporaryDirectory(prefix="rustdesk-api-contract-") as temporary:
         directory = Path(temporary)
-        port = install(directory)
+        port, id_port, relay_port = install(directory)
         with live_server(binary, directory, port):
             pass
         password = "Admin-" + secrets.token_hex(9)
@@ -593,7 +773,7 @@ def main():
                                cwd=directory, stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL, timeout=45)
         check(reset.returncode == 0, "Administrator password setup failed")
-        with live_server(binary, directory, port) as client:
+        with console_protocol_servers(id_port, relay_port), live_server(binary, directory, port) as client:
             result = client.success("POST", "/login", {"username": "admin", "password": password, "platform": "web"})
             client.token = result["token"]
             headers={"Authorization":"Bearer "+client.token,"Content-Type":"application/json"}
