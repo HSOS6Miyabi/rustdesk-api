@@ -92,14 +92,15 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		if err != nil { return err }
 
 		if previous.Id == 0 {
-			row := *event
-			applyAuditConnParticipants(&row, from, to)
-			if row.Action == "" { row.Action = model.AuditActionNew }
-			if row.Action == model.AuditActionClose { row.CloseTime = time.Now().Unix() }
-			if err := tx.Create(&row).Error; err != nil { return err }
-			event.Id = row.Id
-			return nil
-		}
+            row := *event
+            applyAuditConnParticipants(&row, from, to)
+            if row.Action == "" { row.Action = model.AuditActionNew }
+            if row.Action == model.AuditActionClose { row.CloseTime = time.Now().Unix() }
+            if err := tx.Create(&row).Error; err != nil { return err }
+            event.Id = row.Id
+            event.AuthenticatedNew = event.Action == "" && event.FromPeer != "" && row.CloseTime == 0
+            return nil
+        }
 
 		changes := make(map[string]interface{})
 		if event.Action == model.AuditActionClose {
@@ -121,9 +122,21 @@ func (as *AuditService) SaveAuditConnection(event *model.AuditConn) error {
 		if previous.FromDeviceName == "" && from.DeviceName != "" { changes["from_device_name"] = from.DeviceName }
 		if previous.ToDeviceName == "" && to.DeviceName != "" { changes["to_device_name"] = to.DeviceName }
 		if len(changes) == 0 { return nil }
-		if err := tx.Model(&model.AuditConn{}).Where("id = ?", previous.Id).Updates(changes).Error; err != nil { return err }
-		if event.Action != "" { event.Id = previous.Id }
-		return nil
+        authenticated := event.Action == "" && event.FromPeer != "" &&
+            previous.FromPeer == "" && previous.CloseTime == 0
+        query := tx.Model(&model.AuditConn{}).Where("id = ?", previous.Id)
+        if authenticated {
+            query = query.Where("from_peer = ? AND close_time = 0", "")
+        }
+        result := query.Updates(changes)
+        if result.Error != nil { return result.Error }
+        if authenticated && result.RowsAffected == 1 {
+            event.AuthenticatedNew = true
+            event.Id = previous.Id
+        } else if event.Action != "" {
+            event.Id = previous.Id
+        }
+        return nil
 	})
 }
 
