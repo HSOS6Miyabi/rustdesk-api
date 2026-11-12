@@ -57,7 +57,7 @@ jobs:
             resources/admin/test-screenshots/audit \
             resources/admin/test-screenshots/contact-sheets
       - name: Save screenshots on the isolated visual review branch
-        if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+        if: always() && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
