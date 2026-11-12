@@ -1600,7 +1600,9 @@ test("responsive data tables keep columns readable across screen sizes",async()=
             regionWidth:Math.round(getWidth(region)),
             cardCount:cardItems.length,
             mobileFieldWidth:mobileField?Math.round(getWidth(mobileField)):0,
-            narrow,nonwrappingDirection:oneLine(direction),nonwrappingDevice:oneLine(device),
+            narrow,nonwrappingDirection:direction?.querySelector('.connection-direction')?
+              direction.scrollWidth<=direction.clientWidth+1:oneLine(direction),
+            nonwrappingDevice:oneLine(device),
             firstCellText:cells[0]?.textContent.trim()||"",
             hasScrollableRegion:region.scrollWidth>region.clientWidth+1
           };
@@ -2189,7 +2191,7 @@ test("full GeoIP names remain readable and connection directions use a compact a
       }
       await captureManagementScreenshot(page,"corrected-active-ip-"+label+".png");
       if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
-      await page.locator('nav.side-scroll button[data-view="connections"]').click();
+      await page.locator('nav.side-scroll button[data-view="myconnections"]').click();
       const direction=page.locator('[data-column="direction"] .connection-direction').first();
       if(width>900){
         await direction.waitFor();
