@@ -77,7 +77,7 @@ if (app) {
       document.querySelector('div#status').style.display = 'none';
       document.querySelector('div#password').style.display = 'block';
     } else if (!type) {
-      document.querySelector('div#canvas').style.display = 'block';
+      document.querySelector('div#canvas').style.display = 'flex';
       document.querySelector('div#password').style.display = 'none';
       document.querySelector('div#status').style.display = 'none';
     } else if (type == 'error') {
