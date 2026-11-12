@@ -27,7 +27,16 @@ func TestValidateRustdeskCommand(t *testing.T) {
 		{"extra args", "21117", "usage", "h", false},
 		{"newline", "21117", "blacklist-add", "192.0.2.1\nusage", false},
 		{"semicolon", "21115", "relay-servers", "good;bad", false},
-		{"empty IP", "21117", "blocklist", "", false},
+		{"read all blocklist entries", "21117", "blocklist", "", true},
+        {"read all blacklist entries", "21117", "blacklist", "", true},
+        {"must login enabled", "21115", "must-login", "y", true},
+        {"must login state", "21115", "must-login", "", true},
+        {"reload GeoIP", "21115", "reload-geo", "", true},
+        {"recent punch requests", "21115", "punch-requests", "", true},
+        {"must login invalid", "21117", "must-login", "y", false},
+        {"no argument reload", "21115", "reload-geo", "abc", false},
+        {"no argument punch", "21115", "punch-requests", "-", false},
+        {"empty IP for adding blacklist", "21117", "blacklist-add", "", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
