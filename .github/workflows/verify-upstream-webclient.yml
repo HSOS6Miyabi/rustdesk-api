@@ -56,7 +56,7 @@ jobs:
           start_deferred = ("    if (id != null) {\n"
                             "      WidgetsBinding.instance.addPostFrameCallback((_) {\n"
                             "        if (!context.mounted) return;\n"
-                            "        connect(context, id,")
+                            "        connect(context, id!,")
           finish = "        password: password);\n    }\n  }"
           finish_deferred = "        password: password);\n      });\n    }\n  }"
           if source.count(start) != 1 or source.count(finish) != 1:
