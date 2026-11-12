@@ -24,7 +24,8 @@ MessagePusher 的发送密钥、自定义 HTTP 渠道的 Bearer 密钥和 SMTP �
 | `device.registered` | 新设备登记 |
 | `device.online` | 设备上线 |
 | `device.offline` | 设备离线 |
-| `connection.started` | 远程连接建立 |
+| `connection.started` | 开始建立远程连接（尚未确认身份认证是否成功） |
+| `connection.authenticated` | 远程连接身份认证成功 |
 | `connection.ended` | 远程连接结束 |
 | `audit.file` | 文件传输 |
 | `audit.alarm` | 设备安全告警 |
@@ -193,20 +194,20 @@ export RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS=1
 - **返回类型：** `text/event-stream`
 - **事件筛选：** 可选查询参数 `events`，多个事件代码用英文逗号分隔；省略时订阅所有可用事件。
 
-例如，只订阅远程连接建立、远程连接结束：
+例如，只订阅远程连接认证成功、远程连接结束：
 
 ```bash
 curl -N --fail-with-body \
   -H "Accept: text/event-stream" \
   -H "Authorization: Bearer rdapi_替换为你的密钥" \
-  "https://desk.example.com/api/events/v1/stream?events=connection.started,connection.ended"
+  "https://desk.example.com/api/events/v1/stream?events=connection.authenticated,connection.ended"
 ```
 
 收到事件时，服务器会发送类似内容：
 
 ```text
-event: connection.started
-data: {"id":"a246f8c4...","type":"connection.started","occurred_at":"2026-11-13T02:30:00Z","device_id":"123456789","from_peer":"987654321","connection_id":4031,"title":"[RustDesk · 远程连接建立] 办公室电脑","body":"事件：远程连接建立\n设备：办公室电脑"}
+event: connection.authenticated
+data: {"id":"a246f8c4...","type":"connection.authenticated","occurred_at":"2026-11-13T02:30:00Z","device_id":"123456789","from_peer":"987654321","connection_id":4031,"title":"[RustDesk · 远程连接建立] 办公室电脑","body":"事件：远程连接建立\n设备：办公室电脑"}
 ```
 
 `data` 是一行合法 JSON。字段说明：
@@ -264,7 +265,7 @@ Content-Type: application/json
   "enabled": true,
   "base_url": "https://events.example.com/rustdesk",
   "api_key": "可选的接收方密钥",
-  "events": ["connection.started", "connection.ended", "device.offline"]
+  "events": ["connection.authenticated", "connection.ended", "device.offline"]
 }
 ```
 
