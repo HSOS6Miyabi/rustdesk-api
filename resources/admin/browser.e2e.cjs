@@ -1311,7 +1311,7 @@ test("visual audit: capture all administration pages", async()=>{
   const folder=path.join(__dirname,"test-screenshots","audit");
   fs.mkdirSync(folder,{recursive:true});
   const results=[];
-  for(const [role,width,height,asAdmin] of [["admin-desktop",1440,900,true],["admin-tablet",820,1000,true],["admin-phone",375,812,true],["user-phone",375,812,false]]){
+  for(const [role,width,height,asAdmin] of [["admin-ultrawide",2560,1080,true],["admin-wide",1920,1080,true],["admin-desktop",1440,900,true],["user-wide",1920,1080,false],["user-desktop",1440,900,false],["admin-tablet",820,1000,true],["admin-phone",375,812,true],["user-phone",375,812,false]]){
     const {context,page}=await pageForViewport(width,height,asAdmin);
     try{
       const navigation=await page.locator('nav.side-scroll button[data-view]').evaluateAll(list=>
@@ -1335,12 +1335,42 @@ test("visual audit: capture all administration pages", async()=>{
                  .slice(0,10).map(el=>el.tagName.toLowerCase()+"."+el.className),
               panelCount:document.querySelectorAll(".panel").length,
               panelHeaderPadding:panelHeaders.slice(0,4).map(el=>getComputedStyle(el).padding),
-              mainWidth:main?.scrollWidth
+              mainWidth:main?.scrollWidth,
+              unusedRight:(()=>{
+                if(!content||innerWidth<1200)return 0;
+                const frame=content.getBoundingClientRect();
+                const sections=[...content.children].filter(el=>{
+                  const rect=el.getBoundingClientRect(),computed=getComputedStyle(el);
+                  return computed.display!=="none"&&rect.height>70&&
+                    !el.classList.contains("page-head")&&!el.classList.contains("toast-wrap");
+                });
+                if(!sections.length)return 0;
+                return Math.max(0,Math.round(frame.right-Math.max(...sections.map(el=>el.getBoundingClientRect().right))));
+              })(),
+              panelWhitespace:(()=>{
+                const results=[];
+                for(const panel of document.querySelectorAll(".content .panel")){
+                  const rect=panel.getBoundingClientRect();
+                  if(rect.width<720||rect.height<170)continue;
+                  const fields=[...panel.querySelectorAll("form,.tips,.form-grid,.field,.settings-section-body")];
+                  const visible=fields.filter(el=>{
+                    const r=el.getBoundingClientRect();return r.width>0&&r.height>0;
+                  });
+                  if(!visible.length)continue;
+                  const maxRight=Math.max(...visible.map(el=>el.getBoundingClientRect().right));
+                  const gap=Math.round(rect.right-maxRight);
+                  if(gap>Math.max(200,rect.width*.28)){
+                    results.push({panel:panel.querySelector(".panel-title")?.textContent||"",
+                      width:Math.round(rect.width),unused:gap});
+                  }
+                }
+                return results.slice(0,6);
+              })()
             };
           });
           const file=role+"-"+view+".png";
           await page.screenshot({path:path.join(folder,file),fullPage:false,animations:"disabled"});
-          if(["settings","overview","notifications","mail","push","profile","clientBuilder"].includes(view)&&role==="admin-desktop")
+          if(["settings","overview","notifications","mail","push","profile","clientBuilder"].includes(view)&&(role==="admin-wide"||role==="user-wide"))
             await page.screenshot({path:path.join(folder,role+"-"+view+"-full.png"),fullPage:true,animations:"disabled"});
           results.push({role,view,...info,file});
         }catch(error){results.push({role,view,error:String(error).slice(0,220)});}
@@ -1348,7 +1378,7 @@ test("visual audit: capture all administration pages", async()=>{
     }finally{await context.close();}
   }
   fs.writeFileSync(path.join(folder,"layout-report.json"),JSON.stringify(results,null,2));
-  const defects=results.filter(item=>item.error||item.viewportOverflow||item.clipped?.length);
+  const defects=results.filter(item=>item.error||item.viewportOverflow||item.clipped?.length||(item.viewport>=1200&&item.unusedRight>Math.max(180,item.contentWidth*.18)));
   assert.equal(defects.length,0,JSON.stringify(defects.slice(0,8)));
   console.log("Captured "+results.length+" page screenshots across desktop, tablet and phone layouts.");
 });
