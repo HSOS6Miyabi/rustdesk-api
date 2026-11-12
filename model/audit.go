@@ -24,6 +24,7 @@ type AuditConn struct {
 	PrimaryAuth int `json:"primary_auth" gorm:"default:0;not null"`
 	TwoFactor int `json:"two_factor" gorm:"default:0;not null"`
 	EventNonce string `json:"-" gorm:"-"`
+    AuthenticatedNew bool `json:"-" gorm:"-"`
 	Type      int    `json:"type" gorm:"default:0;not null;"`
 	Uuid      string `json:"uuid" gorm:"default:'';not null;"`
 	CloseTime int64  `json:"close_time" gorm:"default:0;not null;"`
