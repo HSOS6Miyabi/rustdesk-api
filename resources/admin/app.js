@@ -78,7 +78,7 @@
     trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
-    server: {name:"服务器管理",icon:"terminal",section:"系统管理",admin:true},
+    server: {name:"服务器管理",icon:"network",section:"服务器管理",admin:true},
     settings: {name:"设置中心",icon:"settings",section:"系统管理",admin:true},
     myconnections: {name:"我的连接记录",icon:"link",section:"我的审计记录",endpoint:"my/audit_conn",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_device_name","连接方设备"],["from_account","连接方账户"],["from_name","设备登录用户名"],["peer_id","被连接设备 ID"],["to_device_name","被连接设备"],["to_account","被连接方账户"],["ip","来源 IP"],["primary_auth","认证方式"],["two_factor","双重认证"],["conn_audit_ref","连接关联标识"],["note","连接备注"],["created_at","时间"]]},
     mytransfers: {name:"我的文件传输",icon:"file",section:"我的审计记录",endpoint:"my/audit_file",readonly:true,columns:[["id","编号"],["direction","方向"],["from_peer","连接方设备 ID"],["from_account","连接方账户"],["peer_id","被连接设备 ID"],["to_account","被连接方账户"],["conn_id","连接编号"],["path","文件路径"],["ip","来源 IP"],["created_at","时间"]]},
@@ -307,7 +307,64 @@
     if(k==="to_id"&&Number(row?.type)===1)return String(v??"");
     return "";
   }
+
+  const referenceSources={
+    user_group:{path:"/group/list",name:"name"},
+    device_group:{path:"/device_group/list",name:"name"},
+    user:{path:"/user/list",name:"nickname",fallback:"username"},
+    collection:{path:"/address_book_collection/list",name:"name"},
+    policy:{path:"/device_policy/list",name:"name"},
+    control_role:{path:"/control_role/list",name:"name"},
+    admin_role:{path:"/admin_role/list",name:"name"}
+  };
+  function referenceKind(key,row={}){
+    if(key==="group_id"||key==="auto_group_ids")return ["devices","groupPolicyAssignments"].includes(state.page)?"device_group":"user_group";
+    if(["user_id","owner_user_id","from_user_id","to_user_id","requested_by"].includes(key))return "user";
+    if(key==="collection_id")return "collection";
+    if(key==="policy_id")return "policy";
+    if(key==="role_id")return state.page==="adminRoleAssignments"?"admin_role":"control_role";
+    if(key==="source_id")return row.source_type==="group"?"user_group":row.source_type==="user"?"user":"";
+    if(key==="target_id")return row.target_type==="device_group"?"device_group":row.target_type==="user"?"user":"";
+    if(key==="scope_id")return row.scope_type==="group"?"user_group":row.scope_type==="individual"?"user":"";
+    return "";
+  }
+  function referenceText(kind,id){
+    if(id===undefined||id===null||String(id)===""||String(id)==="0")return "未设置";
+    const name=state.referenceNames[kind]?.[String(id)];
+    return name?name+"（编号 "+id+"）":"编号 "+id;
+  }
+  async function loadPageReferences(page){
+    const fields=[...(page?.columns||[]).map(c=>c[0]),...(page?.fields||[]).map(c=>c[0])];
+    const kinds=[...new Set(fields.map(key=>referenceKind(key,state.rows[0]||{})).filter(Boolean))];
+    await Promise.all(kinds.filter(kind=>!state.referenceLoaded[kind]).map(async kind=>{
+      const source=referenceSources[kind];if(!source)return;
+      const path=kind==="user_group"&&!state.isAdmin?"/my/group/list":
+        kind==="collection"&&!state.isAdmin?"/my/address_book_collection/list":source.path;
+      state.referenceLoaded[kind]=true;
+      try{
+        const data=await request(path+"?page=1&page_size=200");
+        const rows=Array.isArray(data)?data:data?.list||[];
+        state.referenceRows[kind]=rows;
+        state.referenceNames[kind]=Object.fromEntries(rows.map(row=>[
+          String(row.id),String(row[source.name]||row[source.fallback]||row.username||row.id)
+        ]));
+      }catch{
+        state.referenceRows[kind]=[];
+        state.referenceNames[kind]={};
+      }
+    }));
+  }
   function colValue(v,k,row){
+    if(k==="auto_group_ids"){
+      const ids=Array.isArray(v)?v:String(v||"").split(/[,;，\s]+/).filter(Boolean);
+      return ids.length?ids.map(id=>'<span class="reference-label">'+esc(referenceText("user_group",id))+'</span>').join("、"):"—";
+    }
+    const refKind=referenceKind(k,row);
+    if(refKind&&v!==undefined&&v!==null&&String(v)!==""){
+      const name=referenceText(refKind,v);
+      if(refKind==="user"&&String(v)!=="0")return entityLink("user",v,name);
+      return '<span class="reference-label">'+esc(name)+'</span>';
+    }
     if(k==="id_whitelist"&&typeof v==="string"&&v.trim()){
       return v.split(/[,;\s]+/).filter(Boolean).map(id=>entityLink("device",id,id,true)).join('<span class="entity-separator">, </span>');
     }
@@ -359,7 +416,7 @@
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],server:{},commands:[],commandSelected:"id-help",commandOutput:"",modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -468,7 +525,7 @@
   }
   function shell(){
     const username=state.user&&state.user.nickname||state.user&&state.user.username||"用户";
-    const sections=["工作空间","个人管理","我的审计记录","成员管理","设备管理","审计管理","系统管理","账户","客户端"];
+    const sections=["工作空间","个人管理","我的审计记录","成员管理","设备管理","审计管理","服务器管理","系统管理","账户","客户端"];
     const items=Object.entries(pages).filter(([key])=>key!=="collections"&&available(key));
     let nav="";
     for(const section of sections){
@@ -656,6 +713,8 @@
       }
     }catch(e){state.error=e.message;state.rows=[];state.total=0;}
     if(n!==seq)return;
+    if(p?.columns||p?.fields)await loadPageReferences(p);
+    if(n!==seq)return;
     await loadGeoIPLocations();
     if(n!==seq)return;state.loading=false;render();
   }
@@ -744,36 +803,79 @@
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
-    const cols=p.columns;
+    const allCols=p.columns||[];
     const actions=rows.map(row=>rowActions(row));
-    const hasActions=actions.some(Boolean);
-    const widths=cols.map(([key,label])=>tableColumnWidth(key,label,state.page));
-    const actionWidth=hasActions?(["devices","users"].includes(state.page)?286:186):0;
-    const totalWidth=widths.reduce((sum,width)=>sum+width,actionWidth);
-    const longTextFields=new Set(["note","remark","info","description","sources","permissions","id_whitelist","ip_whitelist","last_error"]);
-    const colgroup='<colgroup>'+widths.map(width=>'<col style="width:'+width+'px">').join("")+
-      (hasActions?'<col style="width:'+actionWidth+'px">':"")+'</colgroup>';
+    const viewport=Number(window.innerWidth)||1440;
+    const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
+    const widths=allCols.map(([key,label])=>{
+      const width=tableColumnWidth(key,label,state.page);
+      return Math.max(key==="id"&&!deviceRowPages.has(state.page)?76:86,Math.round(width*.76));
+    });
+    const priorities=allCols.map(([key],index)=>{
+      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name",
+        "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
+        "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
+        "active","current","expired_at","login_ip"]);
+      return (index===0?1000:important.has(key)?120:40)-(index*.1);
+    });
+    const ordered=allCols.map((_,i)=>i).sort((a,b)=>priorities[b]-priorities[a]);
+    const selected=new Set(),actionWidth=158;
+    let needed=actionWidth;
+    if(state.showAllColumns[state.page]){
+      allCols.forEach((_,i)=>selected.add(i));
+    }else{
+      for(const i of ordered){
+        if(selected.size>0&&needed+widths[i]>availableWidth)continue;
+        selected.add(i);needed+=widths[i];
+      }
+      if(!selected.size)selected.add(0);
+    }
+    const visible=allCols.filter((_,i)=>selected.has(i));
+    const hidden=allCols.filter((_,i)=>!selected.has(i));
+    const hasActions=actions.some(Boolean)||hidden.length>0;
+    const actionSize=hasActions?actionWidth:0;
+    const tableMinWidth=visible.reduce((sum,col)=>sum+widths[allCols.indexOf(col)],actionSize);
     const order=state.sort[state.page]||{};
-    const th=cols.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+(order.key===key?(order.dir===1?"ascending":"descending"):"none")+'" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+esc(label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button></th>').join("");
-    const trs=rows.map((row,index)=>'<tr>'+cols.map(([key],i)=>{
-      const longText=longTextFields.has(key);
-      const title=txt(row[key]);
-      return '<td data-column="'+esc(key)+'" class="'+(longText?"cell-multiline ":"")+
-        (i===0?"cell-primary":"")+'" title="'+esc(title)+'"><span class="'+
-        (i===0?"cell-title":"")+'">'+colValue(row[key],key,row)+'</span></td>';
-    }).join("")+(hasActions?'<td class="cell-actions"><div class="cell-action-list">'+actions[index]+'</div></td>':"")+'</tr>').join("");
+    const colgroup='<colgroup>'+visible.map(col=>'<col style="width:'+widths[allCols.indexOf(col)]+'px">').join("")+
+      (hasActions?'<col style="width:'+actionSize+'px">':"")+'</colgroup>';
+    const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
+      (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
+      '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+
+      esc(label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button></th>').join("");
+    const multiline=new Set(["os","platform","note","remark","info","description","sources","permissions",
+      "id_whitelist","ip_whitelist","last_error","last_online_ip","ip","source_ip","client_ip","login_ip",
+      "email","hostname","issuer","path","device_uuid","from_account","to_account"]);
+    const trs=rows.map((row,index)=>{
+      const cells=visible.map(([key])=>{
+        const first=key===allCols[0][0];
+        return '<td data-column="'+esc(key)+'" class="'+(multiline.has(key)?"cell-multiline ":"")+
+          (first?"cell-primary":"")+'" title="'+esc(txt(row[key]))+'"><span class="'+(first?"cell-title":"")+
+          '">'+colValue(row[key],key,row)+'</span></td>';
+      }).join("");
+      const detail=hidden.length?'<button type="button" class="btn btn-sm" data-action="table-details" data-row="'+index+'" aria-expanded="false">查看详情</button>':"";
+      const main='<tr>'+cells+(hasActions?'<td class="cell-actions"><div class="cell-action-list">'+actions[index]+detail+'</div></td>':"")+'</tr>';
+      const expanded=hidden.length?'<tr class="table-detail-row" data-details-row="'+index+'" hidden><td colspan="'+
+        (visible.length+(hasActions?1:0))+'"><dl class="table-detail-grid">'+hidden.map(([key,label])=>
+          '<div><dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd></div>').join("")+'</dl></td></tr>':"";
+      return main+expanded;
+    }).join("");
     const mobile=rows.map((row,index)=>'<article class="mobile-item"><div class="mobile-title">'+
-      colValue(row[cols[0][0]],cols[0][0],row)+'</div><dl>'+cols.slice(1).map(([key,label])=>
+      colValue(row[allCols[0][0]],allCols[0][0],row)+'</div><dl>'+allCols.slice(1).map(([key,label])=>
       '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
       '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
       '</article>').join("");
     const mobileSort='<div class="mobile-sort"><label for="mobile-sort-column">按列排序</label><select id="mobile-sort-column" aria-label="排序字段">'+
-      cols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||cols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
+      allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||allCols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
       '</select><button type="button" class="btn btn-sm" data-action="mobile-sort-dir">'+(state.sort[state.page]?.dir===-1?"降序 ▼":"升序 ▲")+'</button></div>';
-    const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对所有分页记录排序。</p>';
+    const expandedActions=hidden.length?'<button type="button" class="btn btn-sm" data-action="table-columns">'+
+      (state.showAllColumns[state.page]?"按窗口宽度显示":"显示全部列")+'</button>':state.showAllColumns[state.page]?
+      '<button type="button" class="btn btn-sm" data-action="table-columns">按窗口宽度显示</button>':"";
+    const sortSelect=hidden.length?'<label class="table-sort-label">排序字段 <select id="table-sort-column" aria-label="排序字段">'+
+      allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+(order.key===key?"selected":"")+'>'+esc(label)+'</option>').join("")+'</select></label>':"";
+    const hint='<div class="table-scroll-hint"><span>点击列标题排序；隐藏的字段可通过查看详情读取。</span>'+sortSelect+expandedActions+'</div>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
-      '表格，可左右滚动查看" tabindex="0"><table class="data-table" style="--table-min-width:'+
-      totalWidth+'px">'+colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
+      '数据表" tabindex="0"><table class="data-table" style="--table-min-width:'+tableMinWidth+'px">'+
+      colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
       '</tr></thead><tbody>'+trs+'</tbody></table></div>'+hint+
       mobileSort+'<div class="mobile-list">'+mobile+'</div>';
   }
@@ -1467,7 +1569,7 @@
       ["用户编号",info.id||(/^[0-9]+$/.test(id)?id:"")],
       ["用户名",info.username||(/^[0-9]+$/.test(id)?"":id)],
       ["昵称",info.nickname],["邮箱",info.email],
-      ["主要分组 ID",info.group_id],["备注",info.remark]
+      ["主要分组",referenceText("user_group",info.group_id)],["备注",info.remark]
     ];
     const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
     const owned=Boolean(info.owned||info.user_id&&Number(info.user_id)===Number(state.user?.id));
@@ -1759,6 +1861,7 @@
         return;
       }
       state.modal=null;
+      if(["groups","mygroups","devicegroups","users","policies","collections","adminRoles","controlRoles"].includes(state.page))state.referenceLoaded={};
       await load();
       toast(p.endpoint==="invite"?"邀请邮件已发送":"保存成功");
     }catch(e){toast(e.message,true);}
@@ -2004,6 +2107,12 @@
       state.sort[state.page]={key:order.key||pages[activeKey()]?.columns?.[0]?.[0],dir:order.dir===-1?1:-1};
       state.pageNo=1;await load();return;
     }
+    if(a==="table-details"){
+      const row=document.querySelector('.table-detail-row[data-details-row="'+el.dataset.row+'"]');
+      if(row){row.hidden=!row.hidden;el.setAttribute("aria-expanded",String(!row.hidden));el.textContent=row.hidden?"查看详情":"收起详情";}
+      return;
+    }
+    if(a==="table-columns"){state.showAllColumns[state.page]=!state.showAllColumns[state.page];render();return;}
     if(a==="sort-table"){
       const key=el.dataset.column,order=state.sort[state.page]||{};
       if(!pages[activeKey()]?.columns?.some(([column])=>column===key))return;
@@ -2740,6 +2849,7 @@
         picker.querySelector(".picker-selection").textContent=kind==="all"?"适用于全部对象":"请搜索并选择"+(lookupLabels[kind]||"对象");
       });
     }
+    if(el.id==="table-sort-column"){state.sort[state.page]={key:el.value,dir:1};state.pageNo=1;await load();return;}
     if(el.id==="mobile-sort-column"){
       state.sort[state.page]={key:el.value,dir:1};
       state.pageNo=1;await load();return;
