@@ -78,6 +78,7 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/geoip/lookup": {locations:{"10.0.0.5":"局域网地址","127.0.0.1":"本地回环地址","192.0.2.1":"位置未知"},device_status:{"office":true,"home-remote":false,"123456":true,"654321":false,"helpdesk":true,"managed-desk":false,"support-123456":true,"deployed-10002":false},database_ready:false},
     "/push/events": [{code:"device.online",name:"设备上线"},{code:"device.offline",name:"设备离线"},{code:"connection.started",name:"远程连接建立"}],
     "/push/channels": {list:[{id:11,kind:"messagepusher",name:"我的通知",enabled:true,events:["device.online","connection.started"],base_url:"https://push.example.test",api_key_configured:true}]},
+    "/push/stream-keys": {list:[{id:13,name:"自动化订阅",prefix:"rdapi_example",permissions:"events.read",expires_at:0,revoked_at:0}]},
     "/push/history": {list:[{id:21,channel_id:11,title:"[RustDesk · 设备上线] 办公室电脑",event_type:"device.online",attempts:1,status:"sent",created_at:1710000000}],total:1},
     "/client_builder/profiles": {list:[{
       id:2,name:"Office installer",platform:"windows-x64",version:"1.5.1",
@@ -624,7 +625,7 @@ test("visual client builder shows official Windows configurations, tasks and dow
 });
 
 
-test("personal users can configure MessagePusher, SMTP and Server酱 notifications",async()=>{
+test("personal users can configure push channels, HTTP JSON and SSE credentials",async()=>{
   const app=createConsole();
   await app.settle();
   await app.settle();
@@ -633,6 +634,11 @@ test("personal users can configure MessagePusher, SMTP and Server酱 notificatio
   assert.ok(app.calls.some(x=>x.endpoint==="/push/channels"));
   assert.ok(app.calls.some(x=>x.endpoint==="/push/events"));
   assert.ok(app.calls.some(x=>x.endpoint==="/push/history"));
+  assert.ok(app.calls.some(x=>x.endpoint==="/push/stream-keys"));
+  assert.match(app.root.innerHTML,/HTTP JSON/);
+  assert.match(app.root.innerHTML,/SSE 实时订阅/);
+  assert.match(app.root.innerHTML,/自动化订阅/);
+  assert.match(app.root.innerHTML,/events.read/);
   assert.match(app.root.innerHTML,/MessagePusher/);
   assert.match(app.root.innerHTML,/SMTP 邮件/);
   assert.match(app.root.innerHTML,/Server酱 Turbo/);
