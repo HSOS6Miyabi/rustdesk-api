@@ -162,3 +162,13 @@ func (ps *PeerService) SharedDeviceSources(user *model.User) ([]SharedDeviceSour
 	})
 	return result,nil
 }
+
+// SharedDeviceOwnerIDs returns the account IDs whose device inventories the user may access.
+func SharedDeviceOwnerIDs(user *model.User) ([]uint,error) {
+ owners,err:=sharedOwnerSources(user)
+ if err!=nil{return nil,err}
+ ids:=make([]uint,0,len(owners))
+ for id:=range owners{ids=append(ids,id)}
+ sort.Slice(ids,func(i,j int)bool{return ids[i]<ids[j]})
+ return ids,nil
+}

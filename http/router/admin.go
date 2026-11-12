@@ -347,6 +347,13 @@ func MyBind(rg *gin.RouterGroup) {
 		rg.POST("/my/address_book_collection_rule/batch", (&admin.AddressBookCollectionRule{}).BatchPersonalShares)
 	}
 	{
+		cont := &my.Directory{}
+		rg.GET("/my/directory/users", cont.Users)
+		rg.GET("/my/directory/user", cont.User)
+		rg.GET("/my/directory/devices", cont.Devices)
+		rg.GET("/my/directory/device", cont.Device)
+	}
+	{
 		cont := &my.Peer{}
 		rg.GET("/my/peer/list", cont.List)
 		rg.POST("/my/peer/update", cont.Update)
