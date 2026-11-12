@@ -5,15 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#10243a">
 <meta name="description" content="RustDesk 自托管远程桌面客户端">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: blob: data:; img-src 'self' data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
 <title>WebClient v2 · RustDesk</title>
 <link rel="icon" href="/_admin/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/webclient2/style.css">
 <script src="/webclient-config/index.js"></script>
-<script src="/webclient/ogvjs-1.8.6/ogv.js"></script>
-<script src="/webclient/yuv-canvas-1.2.6.js"></script>
-<link rel="modulepreload" href="/webclient/js/dist/vendor.js">
-<script type="module" src="/webclient/js/dist/index.js"></script>
 <script src="/webclient2/app.js" defer></script>
 </head>
 <body>
@@ -33,6 +29,8 @@
    <label class="rtc-toggle" for="v2-webrtc"><input id="v2-webrtc" name="webrtc" type="checkbox"><span>优先通过 WebRTC 直接连接</span></label>
    <p class="helper rtc-help">适用于 RustDesk 1.5.x 客户端。若无法建立直接连接，将自动尝试原有的 WebSocket 中继连接。</p>
    <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
+   <div class="credential-preferences"><span>在 RustDesk 密码窗口勾选“记住密码”，下次连接时可自动登录。</span><button type="button" class="text-button" id="v2-clear-password">清除已保存密码</button></div>
+   <div class="display-actions"><button class="secondary" type="button" id="v2-page-fullscreen" aria-pressed="false">网页全屏</button><button class="secondary" type="button" id="v2-screen-fullscreen" aria-pressed="false">显示器全屏</button></div>
   </form>
   <p id="v2-message" class="connection-notice" role="status" aria-live="polite">准备连接</p>
   <div class="webclient-device-search">
@@ -61,12 +59,22 @@
   </div>
   <div id="shared-items" class="device-list"></div>
  </aside>
- <section class="stage" aria-label="远程桌面画面">
-  <div class="stage-toolbar" role="toolbar" aria-label="远程桌面显示设置">
-    <div class="stage-device"><strong id="v2-active-device-name">未选择设备</strong><span id="v2-active-device-id"></span></div>
-    <div class="stage-controls"><button type="button" class="secondary" id="v2-page-fullscreen" aria-pressed="false" title="使用当前页面显示远程桌面">网页全屏</button><button type="button" class="secondary" id="v2-screen-fullscreen" aria-pressed="false" title="使用整个显示器显示远程桌面">显示器全屏</button></div>
+ <section class="stage" aria-label="RustDesk 远程桌面">
+  <div class="workspace-switcher">
+   <nav class="mode-tabs" role="tablist" aria-label="远程连接功能">
+    <button type="button" id="v2-mode-desktop" role="tab" aria-selected="true">桌面</button>
+    <button type="button" id="v2-mode-file" role="tab" aria-selected="false">文件</button>
+    <button type="button" id="v2-mode-camera" role="tab" aria-selected="false">摄像</button>
+    <button type="button" id="v2-mode-terminal" role="tab" aria-selected="false">终端</button>
+    <button type="button" id="v2-mode-adminTerminal" role="tab" aria-selected="false">管理员终端</button>
+   </nav>
+   <nav id="v2-session-tabs" class="session-tabs" role="tablist" aria-label="远程连接会话" hidden></nav>
+   <button id="v2-fullscreen-exit" type="button" class="fullscreen-exit" aria-label="退出全屏" title="退出全屏（Esc）" hidden>退出全屏</button>
   </div>
-  <div id="app" class="engine"><div class="placeholder"><div class="screen-icon">▣</div><h3>等待连接设备</h3><p>在左侧输入设备 ID，然后选择“发起连接”。</p></div></div>
+  <div id="v2-session-panels" class="session-panels">
+   <div id="v2-empty-session" class="session-placeholder">选择设备并连接，远程会话将在这里显示。</div>
+   <iframe id="v2-native-client" class="native-client session-inactive" src="about:blank" title="RustDesk 远程桌面" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
+  </div>
  </section>
 </main>
 </body>

@@ -60,6 +60,10 @@ jobs:
         run: |
           npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
           resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Build current WebClient connection engine
+        run: |
+          npm ci --prefix resources/web/js --no-audit --no-fund
+          npm run build --prefix resources/web/js
       - name: Test personal push settings and IP location display
         run: node --test resources/admin/browser.e2e.cjs
       - name: Store interface screenshots

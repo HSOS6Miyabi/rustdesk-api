@@ -1,0 +1,46 @@
+name: Build RustDesk WebClient protocol bridge
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/build-webclient-bridge.yml'
+      - 'resources/web/js/src/**'
+      - 'resources/web/js/tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rustdesk-webclient-bridge-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-bridge:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and verify the browser network protocol
+        working-directory: resources/web/js
+        run: |
+          npm ci
+          npm run build
+          node --test tests/*.test.cjs
+      - name: Save the verified JavaScript bundle
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add resources/web/js/dist
+          if ! git diff --cached --quiet; then
+            git commit -m '更新 RustDesk 1.5.3 WebClient JavaScript 连接组件'
+            git push origin HEAD:refs/heads/${{ github.event.pull_request.head.ref || github.ref_name }}
+          fi

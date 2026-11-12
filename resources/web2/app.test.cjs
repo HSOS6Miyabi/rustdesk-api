@@ -20,11 +20,12 @@ function storage(initial = {}) {
 function createElement(id = "") {
   const listeners = {};
   return {
-    id, listeners, value: "", textContent: "", hidden: false, children: [],
+    id, listeners, value: "", textContent: "", hidden: false, children: [], src: "", title: "",
     className: "", disabled: false, attributes:{}, classList: { add() {},toggle() {} },
     setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
+    remove() { this.removed = true; },
     replaceChildren(...items) { this.children = items; },
     focus() {}, scrollIntoView() {},
     querySelector() { return createElement(); }
@@ -36,13 +37,20 @@ function fixture(options = {}) {
     "v2-host", "v2-key", "v2-id", "v2-message",
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
-    "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc", "app",
-    "host", "key", "v2-page-fullscreen", "v2-screen-fullscreen", "v2-device-query", "v2-search-device", "v2-device-results", "v2-active-device-name", "v2-active-device-id"
+    "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
+    "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-clear-password",
+    "v2-session-tabs", "v2-session-panels", "v2-empty-session",
+    "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
   const docEvents={};
-  elements.set("native-id", createElement("native-id"));
+  const frameEvents={};
+  const bridgeCommands=[];
+  elements.get("v2-native-client").contentWindow={
+    addEventListener(type,listener){frameEvents[type]=listener;},
+    setByName(name,value){bridgeCommands.push([name,value]);}
+  };
   const server = {
     id_server: "desk.example.com:21116",
     key: "test-server-public-key"
@@ -64,13 +72,8 @@ function fixture(options = {}) {
   const localStorage = storage({access_token:"stale-persistent-token"});
   const sessionStorage = storage(options.token ? {"rustdesk.console.token":options.token} : {});
   const assigned = [];
-  const winEvents = {};
-  let connectionCount = 0;
   const window = {
-    rustdeskRendererReady:options.rendererReady??true,
-    addEventListener(type,handler){winEvents[type]=handler;},
-    connect(){connectionCount++;},
-    cancel(){},
+    addEventListener(){},
     scrollTo(){},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
   };
@@ -82,8 +85,6 @@ function fixture(options = {}) {
     getElementById(id) {return elements.get(id) || null;},
     querySelector(selector) {
       if(selector===".stage")return stage;
-      if(selector==="#app #connect")return createElement();
-      if(selector==="#app #id")return elements.get("native-id");
       return null;
     },
     createElement(type){return createElement(type);},
@@ -108,8 +109,7 @@ function fixture(options = {}) {
     console
   }, {filename:"resources/web2/app.js"});
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
-  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,winEvents,window,
-    settle,connectCount:()=>connectionCount};
+  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,frameEvents,bridgeCommands,window,settle};
 }
 
 test("WebClient v2 loads its own server settings and shared device list",async()=>{
@@ -130,16 +130,17 @@ test("WebClient v2 loads its own server settings and shared device list",async()
   assert.equal(app.elements.get("v2-id").value,"123456789");
 });
 
-test("WebClient v2 initiates a connection without storing access tokens permanently",async()=>{
+test("WebClient v2 launches the original RustDesk client with the selected device",async()=>{
   const app=fixture({token:"session-token"});
   await app.settle();
   app.elements.get("v2-id").value="123456789";
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
-  assert.equal(app.connectCount(),1);
-  assert.equal(app.elements.get("native-id").value,"123456789");
-  assert.equal(app.elements.get("host").value,"desk.example.com:21116");
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/123456789");
+  assert.equal(app.localStorage.getItem("custom-rendezvous-server"),"desk.example.com:21116");
   assert.equal(app.sessionStorage.getItem("rustdesk.console.token"),"session-token");
   assert.equal(app.localStorage.getItem("access_token"),null);
+  app.elements.get("v2-disconnect").listeners.click();
+  assert.equal(app.elements.get("v2-native-client").src,"about:blank");
 });
 
 test("WebClient v2 offers SSO when password login is disabled",async()=>{
@@ -184,22 +185,28 @@ test("WebClient v2 displays offline devices in red without periodic requests",as
   assert.equal(app.apiCalls.filter(path=>path==="/geoip/lookup").length,1);
 });
 
-test("WebClient v2 supports both page and display fullscreen with exit controls",async()=>{
+test("Fullscreen uses a compact exit button beside the native toolbar",async()=>{
   const app=fixture({token:"session-token"});
   await app.settle();
   const page=app.elements.get("v2-page-fullscreen");
   const screen=app.elements.get("v2-screen-fullscreen");
+  const exit=app.elements.get("v2-fullscreen-exit");
+  assert.equal(exit.hidden,true);
   await page.listeners.click();
   assert.equal(page.attributes["aria-pressed"],"true");
-  assert.equal(page.textContent,"退出全屏");
+  assert.equal(exit.hidden,false);
   app.docEvents.keydown({key:"Escape"});
-  assert.equal(page.attributes["aria-pressed"],"false");
+  assert.equal(exit.hidden,true);
   await screen.listeners.click();
   assert.equal(app.document.fullscreenElement,app.stage);
-  assert.equal(screen.attributes["aria-pressed"],"true");
-  await screen.listeners.click();
+  assert.equal(exit.hidden,false);
+  await exit.listeners.click();
   assert.equal(app.document.fullscreenElement,null);
-  assert.equal(screen.attributes["aria-pressed"],"false");
+  assert.equal(exit.hidden,true);
+  await page.listeners.click();
+  app.elements.get("v2-native-client").listeners.load();
+  app.frameEvents.keydown({key:"Escape"});
+  assert.equal(exit.hidden,true);
 });
 
 test("Shared device names and owner names link to the corresponding control-console details",async()=>{
@@ -230,38 +237,117 @@ test("WebClient v2 searches owned and shared devices by their details",async()=>
   assert.equal(app.elements.get("v2-id").value,"owned-01");
 });
 
-test("WebClient v2 opens a linked device after renderer initialization",async()=>{
-  const app=fixture({token:"session-token",rendererReady:false,search:"?id=owned-01&name=Office%20desktop"});
+test("Linked devices start the existing RustDesk client using the original toolbar",async()=>{
+  const app=fixture({token:"session-token",search:"?id=owned-01&name=Office%20desktop"});
   await app.settle();
   assert.equal(app.elements.get("v2-id").value,"owned-01");
-  assert.equal(app.elements.get("v2-active-device-id").textContent,"ID owned-01");
-  assert.equal(app.elements.get("v2-active-device-name").textContent,"Office desktop");
-  assert.equal(app.connectCount(),0);
-  app.window.rustdeskRendererReady=true;
-  app.winEvents["rustdesk:renderer-ready"]();
-  assert.equal(app.connectCount(),1);
-  assert.equal(app.elements.get("native-id").value,"owned-01");
-  app.winEvents["rustdesk:renderer-ready"]();
-  assert.equal(app.connectCount(),1);
+  assert.equal(app.elements.get("v2-native-client").title,"Office desktop · 桌面 · RustDesk");
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/owned-01");
+  app.elements.get("v2-native-client").listeners.load();
+  assert.match(app.elements.get("engine-state").textContent,/RustDesk 操作界面/);
 });
-test("Selecting a shared device updates the compact remote-desktop information bar",async()=>{
+test("Selecting a shared device keeps its name as the iframe accessibility title",async()=>{
   const app=fixture({token:"session-token"});
   await app.settle();
   const item=app.elements.get("shared-items").children[0];
   item.children[1].listeners.click();
-  assert.equal(app.elements.get("v2-active-device-name").textContent,"Remote Workstation");
-  assert.equal(app.elements.get("v2-active-device-id").textContent,"ID 123456789");
+  assert.equal(app.elements.get("v2-native-client").title,"Remote Workstation");
+  assert.equal(app.elements.get("v2-id").value,"123456789");
   app.elements.get("v2-id").value="manual-02";
   app.elements.get("v2-id").listeners.input();
-  assert.equal(app.elements.get("v2-active-device-id").textContent,"ID manual-02");
-  assert.equal(app.elements.get("v2-active-device-name").textContent,"设备名称未设置");
+  assert.equal(app.elements.get("v2-native-client").title,"RustDesk 远程桌面");
 });
-test("Remote desktop has an overlay toolbar and no redundant header or footer",()=>{
+test("The original Flutter client renders the operation bar without an additional toolbar",()=>{
   const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
   const css=fs.readFileSync(path.join(__dirname,"style.css"),"utf8");
-  assert.match(html,/class="stage-toolbar"/);
-  assert.doesNotMatch(html,/class="stage-header"|class="stage-footer"/);
-  assert.match(html,/id="v2-active-device-name"/);
-  assert.match(css,/\.stage-toolbar\{position:absolute/);
+  const original=fs.readFileSync(path.join(__dirname,"../web/index.html"),"utf8");
+  assert.match(html,/<iframe id="v2-native-client"/);
+  assert.match(html,/id="v2-session-tabs"/);
+  assert.match(html,/id="v2-session-panels"/);
+  assert.match(html,/id="v2-fullscreen-exit"/);
+  assert.doesNotMatch(html,/class="stage-toolbar"|id="v2-active-device-id"|id="app"/);
+  assert.match(original,/flutter_bootstrap\.js/);
+  assert.match(css,/\.native-client\{/);
   assert.match(css,/\.stage:fullscreen/);
+});
+
+test("Switching remote-session tabs preserves existing iframe connections",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const id=app.elements.get("v2-id");
+  const connect=app.elements.get("connect-form").listeners.submit;
+  const first=app.elements.get("v2-native-client");
+  id.value="first-device";
+  connect({preventDefault(){}});
+  const firstAddress=first.src;
+  assert.equal(app.elements.get("v2-session-tabs").children.length,1);
+  id.value="second-device";
+  id.listeners.input();
+  connect({preventDefault(){}});
+  const tabs=app.elements.get("v2-session-tabs");
+  const panels=app.elements.get("v2-session-panels");
+  assert.equal(tabs.children.length,2);
+  assert.equal(panels.children.length,1);
+  const second=panels.children[0];
+  assert.equal(first.src,firstAddress);
+  assert.equal(second.src,"/webclient/#/connect/second-device");
+  assert.equal(tabs.children[1].children[0].attributes["aria-selected"],"true");
+  tabs.children[0].children[0].listeners.click();
+  assert.equal(first.src,firstAddress);
+  assert.equal(second.src,"/webclient/#/connect/second-device");
+  assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
+  assert.equal(app.elements.get("v2-id").value,"first-device");
+  app.elements.get("v2-disconnect").listeners.click();
+  assert.equal(first.src,"about:blank");
+  assert.equal(second.removed,undefined);
+  assert.equal(tabs.children.length,1);
+  assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
+});
+
+test("Function tabs keep the remote desktop mounted while opening new RustDesk modes",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="desk-01";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const desktop=app.elements.get("v2-native-client");
+  const address=desktop.src;
+  assert.equal(app.elements.get("v2-mode-desktop").attributes["aria-selected"],"true");
+  app.elements.get("v2-mode-file").listeners.click();
+  assert.equal(app.elements.get("v2-mode-file").attributes["aria-selected"],"true");
+  assert.equal(app.elements.get("v2-session-panels").children[0].src,"/webclient/#/file-transfer/desk-01");
+  assert.equal(desktop.src,address);
+  app.elements.get("v2-mode-desktop").listeners.click();
+  assert.equal(desktop.src,address);
+  assert.equal(app.elements.get("v2-session-panels").children.length,1);
+  assert.equal(app.elements.get("v2-mode-desktop").attributes["aria-selected"],"true");
+  app.elements.get("v2-mode-camera").listeners.click();
+  assert.equal(app.elements.get("v2-session-panels").children[1].src,"/webclient/#/view-camera/desk-01");
+  app.elements.get("v2-mode-terminal").listeners.click();
+  assert.equal(app.elements.get("v2-session-panels").children[2].src,"/webclient/#/terminal/desk-01");
+  app.elements.get("v2-mode-adminTerminal").listeners.click();
+  assert.equal(app.elements.get("v2-session-panels").children[3].src,"/webclient/#/terminal-admin/desk-01");
+  assert.equal(desktop.src,address);
+});
+
+test("Remembered password deletion is scoped to one server and device without closing its session",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const firstId="desk-01",otherId="desk-02",host="desk.example.com:21116";
+  const savedKey="rustdesk.webclient.credentials.v1:"+JSON.stringify([host,firstId]);
+  const otherKey="rustdesk.webclient.credentials.v1:"+JSON.stringify([host,otherId]);
+  app.localStorage.setItem(savedKey,"[1,2,3]");
+  app.localStorage.setItem(otherKey,"[4,5,6]");
+  app.localStorage.setItem("peers",JSON.stringify({[firstId]:{remember:true,password:"legacy"}}));
+  app.elements.get("v2-id").value=firstId;
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const frame=app.elements.get("v2-native-client"),existing=frame.src;
+  app.elements.get("v2-clear-password").listeners.click();
+  assert.equal(app.localStorage.getItem(savedKey),null);
+  assert.equal(app.localStorage.getItem(otherKey),"[4,5,6]");
+  assert.equal(JSON.parse(app.localStorage.getItem("peers"))[firstId].remember,false);
+  assert.equal(JSON.parse(app.localStorage.getItem("peers"))[firstId].password,undefined);
+  assert.deepEqual(app.bridgeCommands.map(command=>command[0]),["forget_password"]);
+  assert.equal(frame.src,existing);
+  assert.equal(app.elements.get("v2-session-tabs").children.length,1);
+  assert.match(app.elements.get("v2-message").textContent,/已清除/);
 });

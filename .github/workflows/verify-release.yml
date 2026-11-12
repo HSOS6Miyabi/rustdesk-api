@@ -39,7 +39,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Verify city lookup for IPv4 and IPv6
-        run: go test ./service -run TestBundledGeoIPCityDatabase -count=1 -v
+        run: go test ./service -run 'TestBundledGeoIPCityDatabase|TestBundledGeoIPChineseXiAn' -count=1 -v
       - uses: actions/upload-artifact@v4
         with:
           name: bundled-geoip-city-mmdb
@@ -89,7 +89,7 @@ jobs:
           npm run build
       - name: WebRTC protocol and data-channel tests
         working-directory: resources/web/js
-        run: node --test tests/webrtc.test.cjs tests/websock.test.cjs
+        run: node --test tests/webrtc.test.cjs tests/websock.test.cjs tests/bridge.test.cjs tests/flutter-native.test.cjs tests/modern-protocol.test.cjs tests/remember-password.test.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: webclient-js-bundle
@@ -131,8 +131,10 @@ jobs:
         run: |
           npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
           resources/admin/node_modules/.bin/playwright install --with-deps chromium
-      - name: Install WebRTC client dependencies
-        run: npm ci --prefix resources/web/js --no-audit --no-fund
+      - name: Build current WebClient connection engine
+        run: |
+          npm ci --prefix resources/web/js --no-audit --no-fund
+          npm run build --prefix resources/web/js
       - name: Test desktop, tablet and mobile layouts
         run: node --test resources/admin/browser.e2e.cjs
       - name: Retain UI screenshots for review

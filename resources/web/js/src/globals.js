@@ -77,7 +77,7 @@ export function draw(frame) {
         for (let i = 0; i < size; i += row) {
             flipPixels.set(pixels.subarray(i, i + row), end - i);
         }
-        window.onRgba(flipPixels);
+        window.onRgba(0, flipPixels);
         testSpeed[1] += new Date().getTime() - tm0;
         testSpeed[0] += 1;
         if (testSpeed[0] > 30) {
@@ -182,8 +182,92 @@ export function decrypt(signed, nonce, key) {
 }
 
 window.setByName = (name, value) => {
-    myconsole('setByName', name, value);
     switch (name) {
+        case 'session_add_sync': {
+            const options = JSON.parse(value || '{}');
+            if (!options.id || typeof options.id !== 'string') return 'Invalid remote device';
+            window.__rustdeskSessionOptions = options;
+            return '';
+        }
+        case 'session_start': {
+            const request = JSON.parse(value || '{}');
+            const id = String(request.id || '').trim();
+            if (!id) return '';
+            const conn = newConn();
+            const mode = window.__rustdeskSessionOptions || {};
+            conn.setSessionMode(mode.isFileTransfer ? "file" : mode.isViewCamera ? "camera" : mode.isTerminal ? "terminal" : "desktop",
+                !!window.__rustdeskTerminalAdmin && !!mode.isTerminal);
+            window.__rustdeskTerminalAdmin = false;
+            window.__rustdeskNativeSessionSeen = id;
+            window.dispatchEvent(new CustomEvent('rustdesk:native-session-open', {detail:{id}}));
+            conn.start(id);
+            return '';
+        }
+        case 'session_login': {
+            const request = JSON.parse(value || '{}');
+            const conn = getConn();
+            if (!conn) return '';
+            conn.setRemember(request.remember === true || request.remember === 'true');
+            conn.login(String(request.password || ''),
+                String(request.os_username||''),String(request.os_password||''));
+            return '';
+        }
+        case 'session_close':
+            close();
+            return '';
+        case 'forget_password':
+            getConn()?.setRemember(false);
+            return '';
+        case 'envvar': {
+            const setting=JSON.parse(value||'{}');
+            if(setting.name==='IS_TERMINAL_ADMIN')window.__rustdeskTerminalAdmin=setting.value==='Y';
+            return '';
+        }
+        case 'read_remote_dir': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.readRemoteDir(String(request.path||''),!!request.include_hidden);
+            return '';
+        }
+        case 'cancel_job':
+            getConn()?.cancelFileJob(Number(value||0));
+            return '';
+        case 'open_terminal': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({open:{terminal_id:Number(request.terminal_id||0),
+                rows:Number(request.rows||24),cols:Number(request.cols||80)}});
+            return '';
+        }
+        case 'send_terminal_input': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({data:{terminal_id:Number(request.terminal_id||0),
+                data:String(request.data||'')}});
+            return '';
+        }
+        case 'resize_terminal': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({resize:{terminal_id:Number(request.terminal_id||0),
+                rows:Number(request.rows||24),cols:Number(request.cols||80)}});
+            return '';
+        }
+        case 'close_terminal': {
+            const request=JSON.parse(value||'{}');
+            getConn()?.sendTerminalAction({close:{terminal_id:Number(request.terminal_id||0)}});
+            return '';
+        }
+        case 'option:toggle':
+            getConn()?.toggleOption(value);
+            return '';
+        case 'option:session': {
+            const sessionOption = typeof value === 'string' && value.startsWith('{') ? JSON.parse(value) : null;
+            if (sessionOption?.name) localStorage.setItem('rustdesk.session.' + sessionOption.name, sessionOption.value);
+            return '';
+        }
+        case 'option:flutter:peer':
+        case 'option:flutter:local': {
+            const option = JSON.parse(value || '{}');
+            if (option.name) localStorage.setItem('rustdesk.flutter.' + option.name, option.value);
+            return '';
+        }
         case 'remote_id':
             localStorage.setItem('remote-id', value);
             break;
@@ -191,11 +275,15 @@ window.setByName = (name, value) => {
             newConn();
             startConn(value);
             break;
-        case 'login':
-            value = JSON.parse(value);
-            curConn.setRemember(value.remember == 'true');
-            curConn.login(value.password);
-            break;
+        case 'login': {
+            const request = JSON.parse(value || '{}');
+            const conn = getConn();
+            if (!conn) return '';
+            conn.setRemember(request.remember === true || request.remember === 'true');
+            conn.login(String(request.password || ''),
+                String(request.os_username || ''),String(request.os_password || ''));
+            return '';
+        }
         case 'close':
             close();
             break;
@@ -279,7 +367,6 @@ window.setByName = (name, value) => {
 
 window.getByName = (name, arg) => {
     let v = _getByName(name, arg);
-    myconsole('getByName', name, arg, v);
     if (typeof v == 'string' || v instanceof String) return v;
     if (v == undefined || v == null) return '';
     return JSON.stringify(v);
@@ -304,9 +391,26 @@ function _getByName(name, arg) {
         case 'remote_id':
             return localStorage.getItem('remote-id');
         case 'remember':
-            return curConn.getRemember();
+            return getConn()?.getRemember() || false;
         case 'toggle_option':
-            return curConn.getOption(arg) || false;
+        case 'option:toggle':
+            return getConn()?.getOption(arg) || false;
+        case 'option:session':
+            return localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+        case 'option:flutter:peer':
+        case 'option:flutter:local':
+            return localStorage.getItem('rustdesk.flutter.' + arg) || '';
+        case 'option:local':
+            return localStorage.getItem(arg) || '';
+        case 'login_method':
+        case 'conn_session_id':
+            return '';
+        case 'api_server':
+            return localStorage.getItem('api-server') || '';
+        case 'platform':
+            return getConn()?._peerInfo?.platform || '';
+        case 'envvar':
+            return '';
         case 'option':
             const v = localStorage.getItem(arg);
             if (arg === 'access_token' && v) {
@@ -314,7 +418,7 @@ function _getByName(name, arg) {
             }
             return v;
         case 'image_quality':
-            return curConn.getImageQuality();
+            return getConn()?.getImageQuality() || 'balanced';
         case 'translate':
             arg = JSON.parse(arg);
             return translate(arg.locale, arg.text);
@@ -340,10 +444,14 @@ export function playAudio(packet) {
     opusWorker.postMessage(packet, [packet.buffer]);
 }
 
+window.reloadShortcuts = () => {
+    // Browser keyboard input is handled by Flutter's active remote session.
+};
+
 window.init = async () => {
     if (yuvWorker) {
         yuvWorker.onmessage = (e) => {
-            if (typeof window.onRgba === "function") window.onRgba(e.data);
+            if (typeof window.onRgba === "function") window.onRgba(0, e.data);
         }
     }
     opusWorker.onmessage = (e) => {
@@ -353,6 +461,11 @@ window.init = async () => {
     });
     await initZstd();
     console.log('init done');
+    if (typeof window.onInitFinished === "function") {
+        const notify = window.onInitFinished;
+        window.onInitFinished = undefined;
+        notify();
+    }
 }
 
 export function getPeers() {

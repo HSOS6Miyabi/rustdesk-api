@@ -40,6 +40,10 @@ jobs:
         run: |
           npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
           resources/admin/node_modules/.bin/playwright install --with-deps chromium
+      - name: Build current WebClient connection engine
+        run: |
+          npm ci --prefix resources/web/js --no-audit --no-fund
+          npm run build --prefix resources/web/js
       - name: Check responsive screens, forms, and data tables
         env:
           RUSTDESK_VISUAL_AUDIT: '1'
@@ -53,7 +57,7 @@ jobs:
             resources/admin/test-screenshots/audit \
             resources/admin/test-screenshots/contact-sheets
       - name: Save screenshots on the isolated visual review branch
-        if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+        if: always() && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

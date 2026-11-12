@@ -1,4 +1,5 @@
 import * as message from "./message.js";
+import {addSessionMode,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
 import * as rendezvous from "./rendezvous.js";
 import * as globals from "./globals";
 import {decodeRendezvous,encodeOffer,encodeICE,IceCandidate} from "./webrtc_protocol";
@@ -45,9 +46,12 @@ export default class Websock {
   }
 
   sendMessage(json: message.DeepPartial<message.Message>) {
-    let data = message.Message.encode(
-      message.Message.fromPartial(json)
-    ).finish();
+    const extension=json as any;
+    let data = extension.__terminal_action
+      ? encodeTerminalMessage(extension.__terminal_action)
+      : message.Message.encode(message.Message.fromPartial(json)).finish();
+    if(extension.__login_mode||extension.__os_login)
+      data=addSessionMode(data,extension.__login_mode,extension.__os_login);
     let k = this._secretKey;
     if (k) {
       k[1] += 1;
@@ -73,7 +77,10 @@ export default class Websock {
   }
 
   parseMessage(data: Uint8Array) {
-    return message.Message.decode(data);
+    const decoded=message.Message.decode(data);
+    const terminal=decodeTerminalMessage(data);
+    if(terminal)(decoded as any).terminal_response=terminal;
+    return decoded;
   }
 
   parseRendezvous(data: Uint8Array) {
