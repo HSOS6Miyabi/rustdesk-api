@@ -50,9 +50,11 @@ func initGeoIP() {
 
 type geoIPRecord struct {
 	Country struct {
+		ISOCode string `maxminddb:"iso_code"`
 		Names map[string]string `maxminddb:"names"`
 	} `maxminddb:"country"`
 	Subdivisions []struct {
+		ISOCode string `maxminddb:"iso_code"`
 		Names map[string]string `maxminddb:"names"`
 	} `maxminddb:"subdivisions"`
 	City struct {
@@ -78,11 +80,12 @@ func localPushGeoIP(ipValue string) string {
 	if geoIPDB == nil { return "" }
 	var location geoIPRecord
 	if err := geoIPDB.Lookup(ip, &location); err != nil { return "" }
+	if chineseName := chinaGeoIPDescription(location); chineseName != "" {
+		return chineseName
+	}
 	names := make([]string, 0, 3)
 	add := func(m map[string]string) {
-		value := m["zh-CN"]
-		if value == "" { value = m["en"] }
-		value = pushShort(value, 60)
+		value := geoIPPreferredName(m)
 		if value == "" { return }
 		if len(names) == 0 || names[len(names)-1] != value {
 			names = append(names, value)
