@@ -342,6 +342,10 @@ function serve(req, res) {
     if(route==="/audit_operation/list")return answer(res,{list:[
       {id:6,account:"admin",method:"POST",path:"/api/admin/group/create",client_ip:"192.0.2.1",success:true}
     ],total:1});
+    if(route==="/audit/cleanup/preview")return answer(res,{
+      items:[{kind:"connection",name:"远程连接记录",eligible:2,retention_days:90}],total:2
+    });
+    if(route==="/audit/cleanup")return answer(res,{items:[],deleted:2});
     if(route==="/audit/retention")return answer(res,{
       connection_days:90,file_days:30,alarm_days:180,login_days:90,operation_days:180
     });
