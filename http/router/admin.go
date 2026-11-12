@@ -30,6 +30,7 @@ func Init(g *gin.Engine) {
 	//FileBind(adg)
 	UserBind(adg)
 	TOTPBind(adg)
+    PasskeyBind(adg)
 	EmailVerificationBind(adg)
 	RelayNodesBind(adg)
 	ControlRolesBind(adg)
@@ -95,6 +96,8 @@ func LoginBind(rg *gin.RouterGroup) {
 	rg.POST("/invite/accept", (&admin.Invitation{}).Accept)
 	rg.GET("/captcha", cont.Captcha)
 	rg.GET("/login-options", cont.LoginOptions)
+	rg.POST("/passkey/login/begin", (&admin.Passkey{}).LoginBegin)
+	rg.POST("/passkey/login/finish", (&admin.Passkey{}).LoginFinish)
 	rg.POST("/oidc/auth", cont.OidcAuth)
 	rg.GET("/oidc/auth-query", cont.OidcAuthQuery)
 }
@@ -490,6 +493,15 @@ func InvitationBind(rg *gin.RouterGroup){
 	r.GET("/list",controller.List)
 	r.POST("/create",controller.Create)
 	r.POST("/revoke",controller.Revoke)
+}
+
+func PasskeyBind(rg *gin.RouterGroup){
+    controller:=&admin.Passkey{}
+    r:=rg.Group("/passkey")
+    r.GET("/list",controller.List)
+    r.POST("/register/begin",controller.RegisterBegin)
+    r.POST("/register/finish",controller.RegisterFinish)
+    r.POST("/revoke",controller.Revoke)
 }
 
 func TOTPBind(rg *gin.RouterGroup){

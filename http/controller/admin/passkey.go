@@ -84,9 +84,6 @@ func (h *Passkey) LoginFinish(c *gin.Context){
     user,err:=service.FinishPasskeyLogin(
         c.GetHeader("Origin"),c.Request.Host,form.SessionID,c.ClientIP(),form.Credential)
     if err!=nil{
-        if globalLimiter:=service.AllService;globalLimiter!=nil {
-            // Invalid assertions never issue an access token.
-        }
         response.Fail(c,101,"Passkey 验证失败，请重新尝试");return
     }
     session:=service.AllService.UserService.Login(user,&model.LoginLog{

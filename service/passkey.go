@@ -64,7 +64,7 @@ func PasskeyOrigin(origin,host string)(string,string,error){
     if parsed.Scheme!="https" && !(parsed.Scheme=="http"&&local){
         return "","",errors.New("Passkey 需要 HTTPS 或本机 localhost")
     }
-    if len(hostname)>253||strings.ContainsAny(hostname,":/\\"){
+    if len(hostname)>253||(hostname!="::1"&&strings.ContainsAny(hostname,":/\\")){
         return "","",errors.New("Passkey 域名无效")
     }
     return parsed.Scheme+"://"+parsed.Host,hostname,nil
