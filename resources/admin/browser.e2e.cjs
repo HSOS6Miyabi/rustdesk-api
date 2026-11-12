@@ -2313,11 +2313,13 @@ test("desktop connection list stacks device names above IDs without clipping",as
       return cells.map(cell=>{
         const name=cell.querySelector('.entity-link-name'),id=cell.querySelector('.entity-link-id');
         return {name:name?.textContent,id:id?.textContent,
-          stacked:!!(name&&id&&id.getBoundingClientRect().top>name.getBoundingClientRect().top),
+          stacked:!!(name&&id&&id.getBoundingClientRect().top>=name.getBoundingClientRect().bottom+1),
+          columnLayout:!!(name&&getComputedStyle(name.parentElement).display==="flex"&&
+            getComputedStyle(name.parentElement).flexDirection==="column"),
           clipped:cell.scrollWidth>cell.clientWidth+2};
       });
     });
-    assert.ok(check.some(item=>item.stacked),"device name and ID should occupy separate rows");
+    assert.ok(check.some(item=>item.stacked&&item.columnLayout),"device name and ID should occupy distinct rows with a vertical flex layout");
     assert.ok(check.every(item=>!item.clipped),"device ID column must not overflow");
     const bounds=await page.evaluate(()=>({width:document.documentElement.scrollWidth,screen:innerWidth}));
     assert.ok(bounds.width<=bounds.screen+2,"desktop content must fit the viewport");
