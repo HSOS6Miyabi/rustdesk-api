@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.116](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.116)，数据库迁移版本为 **291**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。控制台已改善宽屏和手机布局，管理员可以协助用户修改资料、重设密码与清除双重认证，个人账户可以注册、使用和移除 Passkey。日志保存期限、日志归档和手动清理也可以在后台管理。参见 [Passkey 与账户管理](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)、[日志保留与清理](docs/LOG_RETENTION.md) 及 [版本兼容性](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.118](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.118)，数据库迁移版本为 **291**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。控制台已改善宽屏和手机布局，管理员可以协助用户修改资料、重设密码与清除双重认证，个人账户可以注册、使用和移除 Passkey。日志保存期限、日志归档和手动清理也可以在后台管理。参见 [Passkey 与账户管理](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)、[日志保留与清理](docs/LOG_RETENTION.md) 及 [版本兼容性](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
