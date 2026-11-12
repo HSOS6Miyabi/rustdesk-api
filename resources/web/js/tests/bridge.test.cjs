@@ -38,3 +38,24 @@ test("native rendering avoids the Flutter RGBA callback and production bundle in
 test("RustDesk 1.5.3 Web startup has a registered shortcut reload hook",()=>{
   assert.match(source,/window\.reloadShortcuts\s*=\s*\(\)\s*=>/);
 });
+
+
+test("RustDesk mouse, keyboard and display commands use the native connection API",()=>{
+  const begin=source.indexOf("window.setByName = (name, value) => {");
+  const finish=source.indexOf("window.getByName = (name, arg) => {",begin);
+  assert.ok(begin>=0&&finish>begin);
+  const calls=[];
+  const conn={
+    inputMouse(...args){calls.push(["mouse",...args]);},
+    inputKey(...args){calls.push(["key",...args]);},
+    switchDisplay(display){calls.push(["display",display]);}
+  };
+  const context={window:{},curConn:conn,getConn:()=>conn,console};
+  vm.runInNewContext(source.slice(begin,finish),context);
+  context.window.setByName("send_mouse",JSON.stringify({type:"down",buttons:"left",x:"320",y:"200",shift:"true"}));
+  context.window.setByName("input_key",JSON.stringify({name:"VK_RETURN",down:"true",press:"false",ctrl:"true"}));
+  context.window.setByName("switch_display","2");
+  assert.deepEqual(calls[0],["mouse",9,320,200,false,false,true,false]);
+  assert.deepEqual(calls[1],["key","VK_RETURN",true,false,false,true,false,false]);
+  assert.deepEqual(calls[2],["display","2"]);
+});
