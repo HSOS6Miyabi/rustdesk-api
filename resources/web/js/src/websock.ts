@@ -50,7 +50,8 @@ export default class Websock {
     let data = extension.__terminal_action
       ? encodeTerminalMessage(extension.__terminal_action)
       : message.Message.encode(message.Message.fromPartial(json)).finish();
-    if(extension.__login_mode)data=addSessionMode(data,extension.__login_mode);
+    if(extension.__login_mode||extension.__os_login)
+      data=addSessionMode(data,extension.__login_mode,extension.__os_login);
     let k = this._secretKey;
     if (k) {
       k[1] += 1;

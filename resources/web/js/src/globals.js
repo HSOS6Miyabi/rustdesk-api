@@ -206,7 +206,8 @@ window.setByName = (name, value) => {
         }
         case 'session_login': {
             const request = JSON.parse(value || '{}');
-            getConn()?.login(String(request.password || ''));
+            getConn()?.login(String(request.password || ''),
+                String(request.os_username||''),String(request.os_password||''));
             return '';
         }
         case 'session_close':
@@ -272,7 +273,7 @@ window.setByName = (name, value) => {
         case 'login':
             value = JSON.parse(value);
             curConn.setRemember(value.remember == 'true');
-            curConn.login(value.password);
+            curConn.login(value.password,value.os_username||'',value.os_password||'');
             break;
         case 'close':
             close();

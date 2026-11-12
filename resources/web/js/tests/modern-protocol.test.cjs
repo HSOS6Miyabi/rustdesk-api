@@ -41,3 +41,13 @@ test("Invalid protocol payloads are rejected before they can be processed",()=>{
   assert.throws(()=>lib.decodeTerminalMessage(Uint8Array.from([130,2,255])));
   assert.throws(()=>lib.encodeTerminalMessage({open:{terminal_id:-1,rows:30,cols:120}}));
 });
+
+test("Administrator terminal login includes temporary OS credentials on the wire",()=>{
+  const login=Uint8Array.from([58,2,10,0]);
+  const encoded=lib.addSessionMode(login,"terminal",{username:"admin",password:"temporary"});
+  assert.ok(encoded.includes(98)); // LoginRequest field 12: OSLogin
+  assert.ok(encoded.includes(130)); // LoginRequest field 16: Terminal
+  const asText=Array.from(encoded).map(x=>String.fromCharCode(x)).join("");
+  assert.ok(asText.includes("admin"));
+  assert.ok(asText.includes("temporary"));
+});

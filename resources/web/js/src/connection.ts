@@ -38,6 +38,8 @@ export default class Connection {
   _videoTestSpeed: number[];
   _sessionMode: string;
   _terminalAdmin: boolean;
+  _osUsername: string;
+  _osPassword: string;
   //_cursors: { [name: number]: any };
 
   constructor() {
@@ -47,6 +49,8 @@ export default class Connection {
     this._videoTestSpeed = [0, 0];
     this._sessionMode = "desktop";
     this._terminalAdmin = false;
+    this._osUsername = "";
+    this._osPassword = "";
     //this._cursors = {};
   }
 
@@ -390,6 +394,10 @@ export default class Connection {
           this._password = Uint8Array.from(JSON.parse("[" + tmp + "]"));
           this.setOption('tmppwd', '')
         }
+        if(this._sessionMode==="terminal"&&this._terminalAdmin){
+          this.msgbox("terminal-admin-login-password","","");
+          continue;
+        }
         if (!this._password)
           this.msgbox("input-password", "Password Required", "");
         this.login();
@@ -517,7 +525,11 @@ export default class Connection {
     this._draw = callback;
   }
 
-  login(password: string | undefined = undefined) {
+  login(password: string | undefined = undefined, osUsername: string = "", osPassword: string = "") {
+    if (this._sessionMode==="terminal") {
+      this._osUsername=osUsername;
+      this._osPassword=osPassword;
+    }
     if (password) {
       const salt = this._hash?.salt;
       let p = hash([password, salt!]);
@@ -555,6 +567,7 @@ export default class Connection {
     }
     const outgoing:any={login_request};
     if(this._sessionMode==="camera"||this._sessionMode==="terminal")outgoing.__login_mode=this._sessionMode;
+    if(this._sessionMode==="terminal")outgoing.__os_login={username:this._osUsername,password:this._osPassword};
     this._ws?.sendMessage(outgoing);
   }
 

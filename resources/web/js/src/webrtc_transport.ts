@@ -67,7 +67,8 @@ export default class WebRTCTransport {
     let bytes=extension.__terminal_action
       ? encodeTerminalMessage(extension.__terminal_action)
       : message.Message.encode(message.Message.fromPartial(data)).finish();
-    if(extension.__login_mode)bytes=addSessionMode(bytes,extension.__login_mode);
+    if(extension.__login_mode||extension.__os_login)
+      bytes=addSessionMode(bytes,extension.__login_mode,extension.__os_login);
     if(bytes.length > MAX_LOGICAL_MESSAGE) throw new Error("WebRTC message exceeds size limit");
     // A failed send must close the transport to avoid leaving the recipient's
     // fragment accumulator in a partially sent state.

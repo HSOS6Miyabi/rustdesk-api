@@ -92,9 +92,16 @@ function readText(value) {
   return value instanceof Uint8Array ? text.decode(value) : "";
 }
 
-export function addSessionMode(encoded, mode) {
-  if (mode !== "camera" && mode !== "terminal" && mode !== "adminTerminal") return encoded;
-  const extra = mode === "camera" ? payload(15, new Uint8Array()) : payload(16, new Uint8Array());
+export function addSessionMode(encoded, mode, osLogin) {
+  if (mode !== "camera" && mode !== "terminal" && mode !== "adminTerminal" && !osLogin) return encoded;
+  const additions = [];
+  if (osLogin) {
+    const user=String(osLogin.username||""), password=String(osLogin.password||"");
+    additions.push(payload(12, concat(payload(1,user),payload(2,password))));
+  }
+  if(mode==="camera")additions.push(payload(15, new Uint8Array()));
+  if(mode==="terminal"||mode==="adminTerminal")additions.push(payload(16, new Uint8Array()));
+  const extra=concat(...additions);
   const output = [];
   let updated = false;
   for (const item of fields(encoded)) {
