@@ -1,0 +1,108 @@
+name: Verify PostgreSQL conversion
+
+on:
+  push:
+    branches:
+      - master
+      - feature/postgresql-converter
+    paths:
+      - 'scripts/convert_to_postgres.py'
+      - 'tests/test_convert_to_postgres.py'
+      - '.github/workflows/verify-postgres-converter.yml'
+  pull_request:
+    paths:
+      - 'scripts/convert_to_postgres.py'
+      - 'tests/test_convert_to_postgres.py'
+      - '.github/workflows/verify-postgres-converter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: converter_test
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: converter_mysql
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U converter_test -d converter_mysql"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: converter_test
+      PGPASSWORD: test-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify conversion behavior
+        run: python3 -m unittest discover -s tests -p 'test_convert_to_postgres.py' -v
+      - name: Create sample MySQL export
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/source-mysql.sql" <<'SQL'
+          SET NAMES utf8mb4;
+          SET FOREIGN_KEY_CHECKS = 0;
+          CREATE TABLE `sample_users` (
+            `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+            `name` varchar(100) NOT NULL,
+            `active` tinyint(1) NOT NULL DEFAULT 0,
+            `data` blob,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `idx_sample_users_name` (`name`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          CREATE TABLE `sample_devices` (
+            `id` bigint NOT NULL AUTO_INCREMENT,
+            `owner_id` bigint unsigned NOT NULL,
+            PRIMARY KEY (`id`),
+            CONSTRAINT `fk_owner` FOREIGN KEY (`owner_id`) REFERENCES `sample_users` (`id`)
+          ) ENGINE=InnoDB;
+          INSERT INTO `sample_users` VALUES (7,'示例用户',1,0x0001ff);
+          INSERT INTO `sample_devices` VALUES (12,7);
+          SET FOREIGN_KEY_CHECKS = 1;
+          SQL
+      - name: Convert and import MySQL export into PostgreSQL
+        run: |
+          python3 scripts/convert_to_postgres.py --source mysql \
+            --input "$RUNNER_TEMP/source-mysql.sql" \
+            --output "$RUNNER_TEMP/from-mysql.sql"
+          psql --dbname=converter_mysql -v ON_ERROR_STOP=1 \
+            --file="$RUNNER_TEMP/from-mysql.sql"
+          test "$(psql --dbname=converter_mysql -tA -c "SELECT name FROM sample_users WHERE id=7 AND active=TRUE;")" = '示例用户'
+          test "$(psql --dbname=converter_mysql -tA -c "SELECT COUNT(*) FROM sample_devices WHERE owner_id=7;")" = '1'
+          test "$(psql --dbname=converter_mysql -tA -c "SELECT encode(data, 'hex') FROM sample_users WHERE id=7;")" = '0001ff'
+          test "$(psql --dbname=converter_mysql -tA -c "SELECT nextval(pg_get_serial_sequence('sample_users','id'));")" = '8'
+      - name: Create sample SQLite database
+        run: |
+          python3 - <<'PY'
+          import os, sqlite3
+          from pathlib import Path
+          db=sqlite3.connect(Path(os.environ['RUNNER_TEMP'])/'source-sqlite.db')
+          db.execute('CREATE TABLE sample_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, active BOOLEAN, data BLOB)')
+          db.execute('INSERT INTO sample_users (id, name, active, data) VALUES (?, ?, ?, ?)', (17, 'SQLite 用户', 1, b'\x01\xfe'))
+          db.commit()
+          db.close()
+          PY
+      - name: Convert and import SQLite database into PostgreSQL
+        run: |
+          createdb converter_sqlite
+          python3 scripts/convert_to_postgres.py --source sqlite \
+            --input "$RUNNER_TEMP/source-sqlite.db" \
+            --output "$RUNNER_TEMP/from-sqlite.sql"
+          psql --dbname=converter_sqlite -v ON_ERROR_STOP=1 \
+            --file="$RUNNER_TEMP/from-sqlite.sql"
+          test "$(psql --dbname=converter_sqlite -tA -c "SELECT name FROM sample_users WHERE id=17 AND active=TRUE;")" = 'SQLite 用户'
+          test "$(psql --dbname=converter_sqlite -tA -c "SELECT encode(data, 'hex') FROM sample_users WHERE id=17;")" = '01fe'
+          test "$(psql --dbname=converter_sqlite -tA -c "SELECT nextval(pg_get_serial_sequence('sample_users','id'));")" = '18'
