@@ -42,7 +42,8 @@ jobs:
           path = Path("lib/mobile/pages/home_page.dart")
           source = path.read_text(encoding="utf-8")
           before = "    if (webInitialLink.isEmpty) {\n      return;\n    }"
-          after = ("    if (webInitialLink.isEmpty) {\n"
+          after = ("    if (isWeb && _initialLinkHandled) return;\n"
+                   "    if (webInitialLink.isEmpty) {\n"
                    "      if (isWeb) {\n"
                    "        webInitialLink = Uri.base.toString();\n"
                    "      } else {\n"
@@ -52,6 +53,14 @@ jobs:
           if source.count(before) != 1:
               raise SystemExit("Unsupported upstream WebHomePage source")
           source = source.replace(before, after)
+          marker = "class WebHomePage extends StatelessWidget {"
+          if source.count(marker) != 1:
+              raise SystemExit("Unexpected upstream WebHomePage declaration")
+          source = source.replace(marker, marker + "\n  static bool _initialLinkHandled = false;")
+          handled = "    final link = webInitialLink;\n    webInitialLink = '';"
+          if source.count(handled) != 1:
+              raise SystemExit("Unexpected upstream WebHomePage link handler")
+          source = source.replace(handled, handled + "\n    if (isWeb) _initialLinkHandled = true;")
           start = "    if (id != null) {\n      connect(context, id,"
           start_deferred = ("    if (id != null) {\n"
                             "      WidgetsBinding.instance.addPostFrameCallback((_) {\n"
