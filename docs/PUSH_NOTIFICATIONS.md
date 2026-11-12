@@ -9,10 +9,11 @@ RustDesk API 支持每个用户自行设置消息推送渠道、订阅设备事�
 | MessagePusher | 服务地址、发送密钥 | 调用 MessagePusher 的 `POST /v1/send`。由 MessagePusher 将消息转发到用户在其平台中配置的 Telegram、邮件等渠道。 |
 | SMTP 邮件 | SMTP 主机、端口、TLS/STARTTLS（可信内网还可选择不加密）、用户名、密码、发件邮箱、收件邮箱 | 用户可以使用自己的邮箱服务器。 |
 | Server酱 Turbo | SendKey，必要时填写自建 API 地址 | 调用 `POST /{SendKey}.send`。默认使用官方的 `https://sctapi.ftqq.com`。 |
+| 自定义 HTTP JSON | 完整 HTTPS 接收地址；可选 Bearer 密钥 | 直接向指定地址发送 `POST` 请求，请求正文为 JSON，接收方返回 2xx 视为成功。 |
 
-登录控制台后打开 **账户 → 消息推送**，添加渠道并填写设置。一个用户可以添加多个渠道，例如同时向个人 Telegram 和邮箱发送设备离线通知。
+登录控制台后打开 **账户 → 消息推送**，添加渠道并填写设置。一个用户可以添加多个渠道，例如同时向个人 Telegram、邮箱和自己的 HTTP 接口发送设备离线通知。
 
-MessagePusher 的发送密钥和 SMTP 密码经过 AES-GCM 加密后保存。设置页面仅显示凭据是否已配置。重新编辑渠道时，密码留空即可沿用原来的值。
+MessagePusher 的发送密钥、自定义 HTTP 渠道的 Bearer 密钥和 SMTP 密码经过 AES-GCM 加密后保存。设置页面仅显示凭据是否已配置。重新编辑渠道时，密码留空即可沿用原来的值。
 
 ## 2. 订阅事件
 
@@ -176,3 +177,111 @@ export RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS=1
 ```
 
 返回的 `locations` 对象以原始 IP 地址为键，值为地理位置或地址类型；`device_status` 对象以设备 ID 为键，`true` 表示在线，`false` 表示离线或无权查询。
+
+
+## 8. SSE 实时事件接口
+
+登录控制台，打开 **账户 → 消息推送 → SSE 实时订阅**，输入用途名称，设置有效期并生成密钥。密钥只会显示一次，请复制保存。普通用户可以为自己的账户创建密钥，无需管理员权限。
+
+新生成的密钥以 `rdapi_` 开头，拥有 `events.read` 权限，只能接收与密钥所属账户有关的事件。服务端仅保存密钥的 SHA-256 摘要。可以随时在同一页面撤销密钥。
+
+### 连接接口
+
+- **方法：** `GET`
+- **地址：** `/api/events/v1/stream`
+- **认证：** `Authorization: Bearer <API_KEY>`
+- **返回类型：** `text/event-stream`
+- **事件筛选：** 可选查询参数 `events`，多个事件代码用英文逗号分隔；省略时订阅所有可用事件。
+
+例如，只订阅远程连接建立、远程连接结束：
+
+```bash
+curl -N --fail-with-body \
+  -H "Accept: text/event-stream" \
+  -H "Authorization: Bearer rdapi_替换为你的密钥" \
+  "https://desk.example.com/api/events/v1/stream?events=connection.started,connection.ended"
+```
+
+收到事件时，服务器会发送类似内容：
+
+```text
+event: connection.started
+data: {"id":"a246f8c4...","type":"connection.started","occurred_at":"2026-11-13T02:30:00Z","device_id":"123456789","from_peer":"987654321","connection_id":4031,"title":"[RustDesk · 远程连接建立] 办公室电脑","body":"事件：远程连接建立\n设备：办公室电脑"}
+```
+
+`data` 是一行合法 JSON。字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 事件标识，同一事件在推送重试时保持一致，客户端可据此去除重复消息 |
+| `type` | 事件代码，与 `event:` 行一致 |
+| `occurred_at` | 事件发生时间，采用 UTC ISO 8601 格式 |
+| `device_id` / `from_peer` | 目标设备 ID、连接方设备 ID；无对应信息时省略 |
+| `source_ip` | 来源 IP；无对应信息时省略 |
+| `connection_id` | 连接编号；没有连接编号时省略 |
+| `detail` | 补充说明；没有说明时省略 |
+| `title` / `body` | 与其他通知渠道一致的标题和详细正文 |
+
+连接建立事件使用现有的 `connection.started`。RustDesk 客户端向 `/api/audit/conn` 上报连接建立记录，服务器保存成功后触发通知；无须另行订阅同义事件。
+
+### 连接管理与性能
+
+SSE 请求会保持 HTTP 连接，不需要客户端反复请求事件列表。服务器每 20 秒发送一条以冒号开头的心跳注释，用于维持空闲连接。客户端应在连接断开后重新建立连接，并继续携带相同的 Authorization 请求头。
+
+每个账户最多同时建立 **5 条** SSE 连接，单个服务器进程最多 **2048 条**。每条连接最多缓冲 64 条尚未发送的事件。客户端读取过慢且缓冲区耗尽时，服务器会关闭该连接，让客户端重新连接；请求取消、断线或服务停止后会清理对应的订阅记录。服务端每隔约一分钟重新检查密钥权限，撤销的密钥无法继续建立新连接，原有连接会在重新检查时关闭。
+
+**SSE 传送当前在线收到的实时事件**。服务器重启、客户端离线及网络中断期间的消息不会补发。如果业务要求失败后自动重试并保留发送记录，请使用下文的自定义 HTTP JSON 渠道。
+
+API Key 必须放在 Authorization 请求头中，不要放在 URL 查询参数中。浏览器原生 `EventSource` 不能设置 Authorization 头；可以使用支持流式读取的 `fetch` 接口或带请求头的 SSE 客户端库。反向代理需要允许长时间 HTTP 连接，并关闭该接口的响应缓冲。服务端已经设置 `X-Accel-Buffering: no`。
+
+### 多实例部署
+
+如果多个 API 服务器进程共同提供服务，可以为各进程配置同一个 Redis 服务：
+
+```yaml
+redis:
+  addr: "redis.example.internal:6379"
+  password: "填写 Redis 密码"
+  db: 0
+```
+
+配置 Redis 后，各 API 进程会通过 Redis Pub/Sub 转发事件，并记录当前进程正在订阅的事件类型。订阅记录设置了过期时间，进程异常退出后也会自动清理。未配置 Redis 时，SSE 只接收当前 API 进程处理的事件。多实例部署建议配置 Redis，以免连接到其他实例的用户错过事件。
+
+## 9. 自定义 HTTP JSON 推送
+
+打开 **账户 → 消息推送**，选择 **HTTP JSON**，填写接收地址、订阅事件，以及接收服务器需要的可选 Bearer 密钥。
+
+也可以使用管理 API 创建渠道：
+
+```http
+POST /api/admin/push/channels
+api-token: <已登录账户的会话令牌>
+Content-Type: application/json
+
+{
+  "kind": "webhook",
+  "name": "自动化事件接收",
+  "enabled": true,
+  "base_url": "https://events.example.com/rustdesk",
+  "api_key": "可选的接收方密钥",
+  "events": ["connection.started", "connection.ended", "device.offline"]
+}
+```
+
+服务器会向 `base_url` 指定的**完整地址**直接发送 `POST` 请求，不会拼接额外的路径。请求头包含 `Content-Type: application/json`；配置密钥后，另含 `Authorization: Bearer <密钥>`。请求正文使用上文的 JSON 事件字段。手动测试通知的 `type` 为 `test.manual`。
+
+接收服务器只需返回任意 **2xx** 状态码，即可确认已接收事件。发送失败、超时或返回其他状态码时，任务保留在数据库中，最多发送 5 次，之后可在控制台手动重试。同一个事件的 `id` 在重试期间保持不变，接收方应据此避免重复处理。
+
+推送地址默认必须使用 HTTPS。服务器会检查解析后的目标 IP，拒绝发送到回环、局域网以及其他受限地址。若确实需要访问可信内网，可由服务器管理员设置 `RUSTDESK_API_PUSH_ALLOW_PRIVATE_URLS=1`，并限制接收服务器的访问权限。服务端不会跟随 HTTP 重定向，也不会将接收方返回的敏感正文写入发送日志。
+
+## 10. SSE 密钥管理 API
+
+以下接口位于 `/api/admin` 下，需要使用用户登录时取得的 `api-token` 请求头：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/push/stream-keys` | 查看本人创建的 SSE 密钥，包括名称、前缀、过期时间和撤销状态 |
+| POST | `/push/stream-keys` | 创建个人 SSE 密钥，请求体为 `{"name":"家庭自动化","expires_in_days":365}` |
+| POST | `/push/stream-keys/revoke` | 撤销本人创建的 SSE 密钥，请求体为 `{"id":123}` |
+
+创建接口返回 `token` 原文，仅这一次可见。长期有效的密钥可将 `expires_in_days` 设为 0，允许范围为 0 到 3650 天。
