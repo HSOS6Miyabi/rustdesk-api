@@ -74,7 +74,7 @@
     users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"keyword",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
     deployed: {name:"设备部署记录",icon:"monitor",section:"设备管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
     devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
-    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的分组 ID（逗号分隔）"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
+    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
@@ -1424,7 +1424,7 @@
     if(name==="scope_id")return ({global:"all",group:"user_group",individual:"user"})[document.querySelector('#edit-form [name="scope_type"]')?.value||row.scope_type||"global"]||"all";
     if(["user_id","owner_user_id","from_user_id","to_user_id","requested_by"].includes(name))return "user";
     if(["device_id","peer_id","from_peer"].includes(name))return "device";
-    if(name==="group_id")return ["devices","groupPolicyAssignments"].includes(state.page)?"device_group":"user_group";
+    if(name==="group_id"||name==="auto_group_ids")return ["devices","groupPolicyAssignments"].includes(state.page)?"device_group":"user_group";
     if(name==="collection_id")return "collection";
     if(name==="policy_id")return "policy";
     if(name==="role_id")return state.page==="adminRoleAssignments"?"admin_role":"control_role";
@@ -1433,34 +1433,59 @@
   const lookupLabels={user:"用户",device:"设备",user_group:"用户分组",device_group:"设备组",collection:"地址簿",policy:"安全策略",control_role:"控制角色",admin_role:"管理角色"};
   function pickerField(name,value,required,row,inputID=""){
     const kind=lookupKind(name,row),selected=String(value??"");
-    const all=kind==="all",display=selected&&selected!=="0"?"当前编号："+selected:"";
+    const all=kind==="all",display=selected&&selected!=="0"?referenceText(kind,selected):"";
     const dep={to_id:"type",source_id:"source_type",target_id:"target_type",scope_id:"scope_type"}[name]||"";
     const empty=all?name==="target_id"?"":"0":selected;
     return '<div class="entity-picker" data-picker="'+esc(kind)+'" data-picker-dep="'+esc(dep)+'" data-picker-field="'+esc(name)+'">'+
-      '<div class="picker-control"><input type="search" class="picker-query" aria-label="搜索'+esc(lookupLabels[kind]||"选择对象")+'" placeholder="'+esc(all?"适用于全部对象":"搜索编号、名称及其他信息")+'" value="'+esc(all?"":display)+'" autocomplete="off" '+(all?"disabled":"")+'>'+
+      '<div class="picker-control"><button type="button" class="picker-trigger" data-action="picker-open" '+
+      (all?"disabled":"")+' aria-label="选择'+esc(lookupLabels[kind]||"对象")+'">'+
+      '<span class="picker-trigger-label">'+esc(all?"适用于全部对象":display||"点击选择"+(lookupLabels[kind]||"对象"))+'</span>'+icon("search",17)+'</button>'+
       '<input type="hidden" class="picker-id" name="'+esc(name)+'" id="'+esc(inputID)+'" value="'+esc(empty)+'">'+
-      '<button type="button" class="btn btn-sm" data-action="picker-search" '+(all?"disabled":"")+'>搜索</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear" '+(all?"disabled":"")+'>清除</button></div>'+
-      '<div class="picker-results" role="listbox" hidden></div>'+
-      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" maxlength="253" aria-label="手动填写设备 ID" placeholder="输入尚未登记的外部设备 ID">'+
+      '<div class="picker-results" hidden></div>'+
+      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" maxlength="253" aria-label="手动填写设备 ID" placeholder="外部设备 ID">'+
       '<button class="btn btn-sm" type="button" data-action="picker-manual-single">使用此设备 ID</button></div>':"")+
-      '<small class="picker-selection">'+esc(all?"适用于全部对象":selected&&selected!=="0"?"当前选择："+selected:"选择搜索结果后将自动填写编号")+'</small></div>';
+      '<small class="picker-selection">'+esc(all?"适用于全部对象":display?"当前选择："+display:"请选择需要关联的对象")+'</small></div>';
   }
   function multiPicker(id,kind="user",initial=""){
     const ids=[...new Set(String(initial||"").split(/[,;，\s]+/).map(x=>x.trim()).filter(Boolean))];
-    const object=kind==="device"?"设备":"用户";
+    const object=kind==="device"?"设备":kind==="user_group"?"用户分组":"用户";
     return '<div class="entity-picker entity-picker-multi" data-picker="'+esc(kind)+'" data-target="'+esc(id)+'">'+
-      '<div class="picker-control"><input class="picker-query" type="search" autocomplete="off" placeholder="'+(kind==="device"?"搜索设备 ID、备注、主机名、系统或用户名":"搜索用户名、昵称、邮箱或编号")+'" aria-label="搜索'+object+'">'+
-      '<button type="button" class="btn btn-sm" data-action="picker-search">搜索</button>'+
+      '<div class="picker-control"><button type="button" class="picker-trigger" data-action="picker-open" aria-label="选择'+object+'">'+
+      '<span class="picker-trigger-label">点击搜索并选择'+object+'</span>'+icon("search",17)+'</button>'+
       '<button type="button" class="btn btn-sm" data-action="picker-clear">全部清除</button></div>'+
       '<input type="hidden" id="'+esc(id)+'" name="'+esc(id)+'" value="'+esc(ids.join(","))+'">'+
-      '<div class="picker-results" role="listbox" hidden></div>'+
-      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" aria-label="手动填写设备 ID 或匹配规则" placeholder="可填写外部设备 ID 或 desk-* 等匹配规则" maxlength="253">'+
+      '<div class="picker-results" hidden></div>'+
+      (kind==="device"?'<div class="picker-manual"><input type="text" class="picker-manual-value" aria-label="填写外部设备 ID 或匹配规则" placeholder="外部设备 ID 或 desk-* 等匹配规则" maxlength="253">'+
       '<button type="button" class="btn btn-sm" data-action="picker-manual-add">添加设备 ID</button></div>':"")+
       '<div class="picker-selected" aria-live="polite">'+
-      ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+object+' '+esc(value)+' ×</button>').join("")+'</div>'+
+      ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+
+        (kind==="device"?deviceStatusDot(value):"")+esc(kind==="user_group"?referenceText(kind,value):object+" "+value)+' ×</button>').join("")+'</div>'+
       '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:
-        kind==="device"?"搜索并选择设备，留空表示适用于所有设备":"搜索并选择用户")+'</small></div>';
+        kind==="device"?"选择设备或填写外部设备 ID，留空表示适用于所有设备":"请选择"+object)+'</small></div>';
+  }
+  function closePickerDialog(){
+    root.querySelector(".picker-overlay")?.remove();
+    state.pickerDialog=null;
+  }
+  async function openPickerDialog(picker){
+    if(!picker||picker.dataset.picker==="all")return;
+    closePickerDialog();
+    const kind=picker.dataset.picker,object=lookupLabels[kind]||"对象";
+    const overlay='<div class="picker-overlay" role="presentation">'+
+      '<section class="picker-dialog" data-picker="'+esc(kind)+'" role="dialog" aria-modal="true" aria-label="选择'+esc(object)+'">'+
+      '<header class="picker-dialog-head"><div><h2>选择'+esc(object)+'</h2><p>可根据名称、编号或其他信息搜索。选择后自动填写对应编号。</p></div>'+
+      '<button type="button" class="icon-btn" data-action="picker-close" aria-label="关闭搜索">'+icon("close")+'</button></header>'+
+      '<div class="picker-dialog-body"><div class="picker-dialog-toolbar"><input type="search" class="picker-query" aria-label="搜索'+esc(object)+'" placeholder="输入名称、编号或关键词" autocomplete="off">'+
+      '<button type="button" class="btn btn-primary" data-action="picker-search">搜索</button></div>'+
+      '<div class="picker-results" role="listbox"><div class="loading-table">正在读取可选择的'+esc(object)+'…</div></div></div>'+
+      '<footer class="picker-dialog-footer"><span>选择结果后将显示名称和编号</span>'+
+      '<button type="button" class="btn" data-action="picker-close">完成</button></footer></section></div>';
+    root.insertAdjacentHTML("beforeend",overlay);
+    const dialog=root.querySelector(".picker-dialog");
+    state.pickerDialog={picker,dialog};
+    dialog.querySelector(".picker-query")?.focus();
+    await lookupPicker(dialog);
   }
   async function lookupPicker(picker){
     if(!picker||picker.dataset.picker==="all")return;
@@ -1469,7 +1494,6 @@
     if(!results)return;
     const sequence=(Number(picker.dataset.sequence)||0)+1;
     picker.dataset.sequence=String(sequence);
-    if(!q){results.hidden=true;return;}
     results.hidden=false;results.textContent="正在搜索…";
     try{
       let rows=[];
@@ -1486,7 +1510,7 @@
         const path=paths[kind];
         if(!path){results.textContent="无法查询此类对象";return;}
         const filter=(kind==="user"||kind==="device")?"&keyword="+encodeURIComponent(q):"";
-        const data=await request(path+"?page=1&page_size=100"+filter);
+        const data=await request(path+"?page=1&page_size=200"+filter);
         rows=Array.isArray(data)?data:data?.list||[];
         if(kind==="device"&&rows.length){
           const ids=[...new Set(rows.map(row=>String(row.id||"")).filter(Boolean))].slice(0,100);
@@ -1538,6 +1562,7 @@
         esc(label)+'</option>').join("")+'</select>';
     }
     else if(name==="id_whitelist")input=multiPicker(name,"device",value);
+    else if(name==="auto_group_ids")input=multiPicker(name,"user_group",value);
     else if(type==="textarea")input='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
     else if(type==="color"){
       const color=Number(value===0||value==="0"?0:value||0xff5b9bd5)>>>0;
@@ -2040,8 +2065,10 @@
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       return;
     }
+    if(a==="picker-open"){await openPickerDialog(el.closest(".entity-picker"));return;}
+    if(a==="picker-close"){closePickerDialog();return;}
     if(a==="picker-search"){
-      const picker=el.closest(".entity-picker");
+      const picker=el.closest(".picker-dialog")||el.closest(".entity-picker");
       if(!picker)return;
       clearTimeout(picker.searchTimer);
       await lookupPicker(picker);
@@ -2057,7 +2084,7 @@
         if(target)target.value="";
         picker.querySelector(".picker-selected").replaceChildren();
       }else picker.querySelector(".picker-id").value="";
-      picker.querySelector(".picker-query").value="";
+      picker.querySelector(".picker-trigger-label").textContent="点击选择"+(lookupLabels[picker.dataset.picker]||"对象");
       picker.querySelector(".picker-results").hidden=true;
       picker.querySelector(".picker-selection").textContent="尚未选择";
       return;
@@ -2068,7 +2095,7 @@
       const value=input.value.trim();
       if(!/^[A-Za-z0-9_.:*?@-]{1,253}$/.test(value)){toast("请输入有效的设备 ID",true);return;}
       picker.querySelector(".picker-id").value=value;
-      picker.querySelector(".picker-query").value=value;
+      picker.querySelector(".picker-trigger-label").textContent=value;
       picker.querySelector(".picker-results").hidden=true;
       picker.querySelector(".picker-selection").textContent="已填写设备 ID："+value;
       input.value="";return;
@@ -2081,18 +2108,25 @@
       addMultiPickerValue(picker,value);input.value="";return;
     }
     if(a==="picker-select"){
-      const picker=el.closest(".entity-picker");if(!picker)return;
+      const fromDialog=!!el.closest(".picker-dialog");
+      const picker=fromDialog?state.pickerDialog?.picker:el.closest(".entity-picker");
+      if(!picker)return;
       const id=el.dataset.id,title=el.dataset.title;
       if(picker.dataset.target){
         addMultiPickerValue(picker,id);
-        picker.querySelector(".picker-query").value="";
+        if(fromDialog){
+          const q=state.pickerDialog?.dialog?.querySelector(".picker-query");
+          if(q){q.value="";q.focus();}
+        }
       }else{
         picker.querySelector(".picker-id").value=id;
         picker.dataset.username=el.dataset.username||"";
-        picker.querySelector(".picker-query").value=title?title+" · "+id:id;
-        picker.querySelector(".picker-selection").textContent="已选择："+(title||id)+"（"+id+"）";
+        const label=(title||referenceText(picker.dataset.picker,id));
+        picker.querySelector(".picker-trigger-label").textContent=label+"（编号 "+id+"）";
+        picker.querySelector(".picker-selection").textContent="已选择："+label+"（"+id+"）";
       }
       picker.querySelector(".picker-results").hidden=true;
+      if(fromDialog&&!picker.dataset.target)closePickerDialog();
       return;
     }
     if(a==="picker-remove"){
@@ -2820,14 +2854,10 @@
   });
   document.addEventListener("input",event=>{
     const el=event.target;
-    if(el.classList.contains("picker-query")){
-      const picker=el.closest(".entity-picker");
-      if(picker){
-        if(!picker.dataset.target)picker.querySelector(".picker-id").value="";
-        picker.querySelector(".picker-selection").textContent=picker.dataset.target?"继续搜索并添加用户":"请从搜索结果中选择";
-        clearTimeout(picker.searchTimer);
-        picker.searchTimer=setTimeout(()=>lookupPicker(picker),250);
-      }
+    if(el.classList.contains("picker-query")&&el.closest(".picker-dialog")){
+      const dialog=el.closest(".picker-dialog");
+      clearTimeout(dialog.searchTimer);
+      dialog.searchTimer=setTimeout(()=>lookupPicker(dialog),250);
     }
     if(el.id==="settings-search"){state.settingsSearch=el.value;
       document.querySelectorAll("[data-setting-item]").forEach(node=>{
@@ -2860,10 +2890,8 @@
         const kind=lookupKind(picker.dataset.pickerField,current);
         picker.dataset.picker=kind;
         picker.querySelector(".picker-id").value=kind==="all"?(picker.dataset.pickerField==="target_id"?"":"0"):"";
-        const search=picker.querySelector(".picker-query");
-        search.disabled=kind==="all";search.value="";
-        search.placeholder=kind==="all"?"适用于全部对象":"搜索编号、名称及其他信息";
-        picker.querySelectorAll('[data-action="picker-search"],[data-action="picker-clear"]').forEach(btn=>btn.disabled=kind==="all");
+        picker.querySelector(".picker-trigger-label").textContent=kind==="all"?"适用于全部对象":"点击选择"+(lookupLabels[kind]||"对象");
+        picker.querySelectorAll('[data-action="picker-open"],[data-action="picker-clear"]').forEach(btn=>btn.disabled=kind==="all");
         picker.querySelector(".picker-results").hidden=true;
         picker.querySelector(".picker-selection").textContent=kind==="all"?"适用于全部对象":"请搜索并选择"+(lookupLabels[kind]||"对象");
       });
