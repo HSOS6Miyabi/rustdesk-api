@@ -236,7 +236,7 @@ test("Linked devices start the existing RustDesk client using the original toolb
   const app=fixture({token:"session-token",search:"?id=owned-01&name=Office%20desktop"});
   await app.settle();
   assert.equal(app.elements.get("v2-id").value,"owned-01");
-  assert.equal(app.elements.get("v2-native-client").title,"Office desktop");
+  assert.equal(app.elements.get("v2-native-client").title,"Office desktop · RustDesk 远程桌面");
   assert.equal(app.elements.get("v2-native-client").src,"/webclient/?connect=owned-01#/?");
   app.elements.get("v2-native-client").listeners.load();
   assert.match(app.elements.get("engine-state").textContent,/RustDesk 操作界面/);

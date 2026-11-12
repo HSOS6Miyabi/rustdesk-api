@@ -2059,10 +2059,11 @@ test("device connection opens the original RustDesk remote controls and supports
     assert.equal(loaded.opened,"office");
     const normal=await popup.evaluate(()=>{
       const stage=document.querySelector(".stage").getBoundingClientRect();
+      const content=document.querySelector(".session-panels").getBoundingClientRect();
       const frame=document.querySelector("#v2-native-client").getBoundingClientRect();
-      return {stageHeight:stage.height,frameHeight:frame.height};
+      return {stageHeight:stage.height,contentHeight:content.height,frameHeight:frame.height};
     });
-    assert.ok(normal.frameHeight>=normal.stageHeight-20,"RustDesk's native controls should fill the stage");
+    assert.ok(normal.frameHeight>=normal.contentHeight-2,"RustDesk's native controls should fill the available remote-desktop area");
     const screenshotDirectory=path.join(assetRoot,"test-screenshots");
     fs.mkdirSync(screenshotDirectory,{recursive:true});
     await popup.screenshot({path:path.join(screenshotDirectory,"webclient-v2-native-normal.png")});
