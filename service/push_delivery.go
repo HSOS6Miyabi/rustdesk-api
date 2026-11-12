@@ -356,6 +356,7 @@ var pushWorkerOnce sync.Once
 
 func StartPushWorker() {
 	pushWorkerOnce.Do(func() {
+        startPushStreamRedisBridge()
 		startPersonalDeliverySchedulers()
 		startPushEventWorker()
 		launchServiceWorker(func(ctx context.Context) {
