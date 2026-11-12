@@ -2,6 +2,7 @@ package service
 
 import (
     "bytes"
+    "encoding/json"
     "errors"
     "fmt"
     "io"
@@ -18,10 +19,11 @@ func sendPushWebhook(channel *model.PushChannel, delivery *model.PushDelivery) e
     if err != nil { return err }
     data := []byte(delivery.Payload)
     if len(data) == 0 {
-        data, err = io.ReadAll(bytes.NewBufferString(fmt.Sprintf(
-            "{\"type\":%q,\"title\":%q,\"body\":%q}",
-            delivery.EventType, delivery.Title, delivery.Body,
-        )))
+        data, err = json.Marshal(map[string]string{
+            "type": delivery.EventType,
+            "title": delivery.Title,
+            "body": delivery.Body,
+        })
         if err != nil { return err }
     }
     req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(data))
