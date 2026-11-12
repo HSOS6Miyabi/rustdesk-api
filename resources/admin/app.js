@@ -1111,6 +1111,7 @@
     if(result.kind==="value")return summary+'<div class="server-value">'+esc(result.value||"—")+'</div>';
     if(["list","table","usage"].includes(result.kind)){
       const rows=Array.isArray(result.rows)?result.rows:[];
+      const visibleRows=rows.slice((state.serverResultPage-1)*state.pageSize,state.serverResultPage*state.pageSize);
       if(!rows.length)return summary+'<p class="server-result-empty">没有符合条件的记录。</p>';
       const candidates=result.kind==="usage"?[["address","连接 IP"],["seconds","连接时长（秒）"],["megabytes","流量（MB）"],
         ["peak_kbps","最高速率（kb/s）"],["average_kbps","平均速率（kb/s）"],["current_kbps","当前速率（kb/s）"],["detail","其他信息"]]:
@@ -1119,8 +1120,8 @@
       const columns=candidates.filter(([key])=>rows.some(item=>item[key]!==undefined&&item[key]!==""));
       return summary+'<div class="server-result-table-scroll"><table class="server-result-table"><thead><tr>'+
         columns.map(([,label])=>'<th>'+esc(label)+'</th>').join("")+'</tr></thead><tbody>'+
-        rows.map(row=>'<tr>'+columns.map(([key])=>'<td>'+esc(row[key]||"—")+'</td>').join("")+'</tr>').join("")+
-        '</tbody></table></div>';
+        visibleRows.map(row=>'<tr>'+columns.map(([key])=>'<td>'+esc(row[key]||"—")+'</td>').join("")+'</tr>').join("")+
+        '</tbody></table></div>'+(rows.length>state.pageSize?pagination({scope:"server",current:state.serverResultPage,total:rows.length}):"");
     }
     return summary;
   }
@@ -2366,7 +2367,7 @@
     if(event.target.id==="modal-overlay"){
       state.modal=state.modal?.previous||null;render();return;
     }
-    if(event.target.classList.contains("picker-overlay")){closePickerDialog();return;}
+    if(event.target.classList?.contains("picker-overlay")){closePickerDialog();return;}
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
@@ -2410,7 +2411,7 @@
     if(a==="server-select"){
       const command=serverCommandCatalog.find(item=>item.id===el.dataset.id);
       if(!command)return;
-      state.commandSelected=command.id;state.serverError="";
+      state.commandSelected=command.id;state.serverResultPage=1;state.serverError="";
       render();document.getElementById("server-command-panel")?.scrollIntoView({block:"nearest"});
       await querySelectedServerCommand(command);
       return;
@@ -3050,12 +3051,13 @@
     if(a==="contact-devices"){state.page="shared";state.sourceType="contact";state.sourceId=el.dataset.id;location.hash="#/shared";render();await load();return;}
     if(a==="page-index") {
       const next=Number(el.dataset.page),scope=el.dataset.scope;
-      const total=scope==="profiles"?state.clientProfilesTotal:scope==="tasks"?state.clientTasksTotal:state.total;
-      const current=scope==="profiles"?state.clientProfilePageNo:scope==="tasks"?state.clientTaskPageNo:state.pageNo;
+      const total=scope==="profiles"?state.clientProfilesTotal:scope==="tasks"?state.clientTasksTotal:scope==="server"?(state.serverResults[state.commandSelected]?.rows?.length||0):state.total;
+      const current=scope==="profiles"?state.clientProfilePageNo:scope==="tasks"?state.clientTaskPageNo:scope==="server"?state.serverResultPage:state.pageNo;
       const max=Math.max(1,Math.ceil(total/state.pageSize));
       if(!Number.isSafeInteger(next)||next<1||next>max||next===current)return;
       if(scope==="profiles")state.clientProfilePageNo=next;
       else if(scope==="tasks")state.clientTaskPageNo=next;
+      else if(scope==="server"){state.serverResultPage=next;render();return;}
       else state.pageNo=next;
       await load();return;
     }
@@ -3314,7 +3316,8 @@
       const size=Number(el.value);
       if(![20,50,100].includes(size)||size===state.pageSize)return;
       state.pageSize=size;localStorage.setItem("rustdesk.console.page-size",String(size));
-      state.pageNo=1;state.clientProfilePageNo=1;state.clientTaskPageNo=1;
+      state.pageNo=1;state.clientProfilePageNo=1;state.clientTaskPageNo=1;state.serverResultPage=1;
+      if(state.page==="server"){render();return;}
       await load();return;
     }
     if(el.id==="table-sort-column"){state.sort[state.page]={key:el.value,dir:1};state.pageNo=1;await load();return;}
