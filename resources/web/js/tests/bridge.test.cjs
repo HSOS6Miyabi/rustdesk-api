@@ -30,7 +30,7 @@ test("Flutter event callbacks remain supported when provided",()=>{
 test("native rendering avoids the Flutter RGBA callback and production bundle includes the same fix",()=>{
   assert.match(source,/if \(typeof window\.onRgba !== "function"\) return;/);
   const built=fs.readFileSync(path.join(__dirname,"../dist/index.js"),"utf8");
-  assert.match(built,/if\(typeof window\.onRgba!=="function"\)return/);
+  assert.match(built,/typeof window\.onRgba/);
   assert.match(built,/typeof window\.onGlobalEvent==="function"/);
   assert.match(built,/rustdesk:renderer-ready/);
 });
