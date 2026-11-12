@@ -90,7 +90,7 @@ func runPushStreamRedisBridge(ctx context.Context) error {
             if err := writeLocalStreamInterests(ctx, &lastAdvertised); err != nil { return err }
             if err := loadRemoteStreamInterests(ctx); err != nil { return err }
         case <-renew.C:
-            if err := writeLocalStreamInterests(ctx); err != nil { return err }
+            if err := writeLocalStreamInterests(ctx, &lastAdvertised); err != nil { return err }
             if err := loadRemoteStreamInterests(ctx); err != nil { return err }
         case msg, ok := <-incoming:
             if !ok { return context.Canceled }
