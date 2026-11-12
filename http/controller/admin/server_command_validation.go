@@ -46,10 +46,16 @@ func validateRustdeskCommand(target, command, option string) error {
 	}
 	requireNumber := func(input string) error {
 		number, err := strconv.ParseFloat(input, 64)
-		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 || number > 1000000000 {
-			return errors.New("数值应介于 0 与 1000000000 之间")
-		}
-		return nil
+		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) || number <= 0 || number > 1000000000 {
+            return errors.New("请填写大于 0 且不超过 1000000000 的数值")
+        }
+        if command == "downgrade-threshold" && number > 1 {
+            return errors.New("降级阈值必须大于 0 且不超过 1")
+        }
+        if command == "downgrade-start-check" && number != math.Trunc(number) {
+            return errors.New("降级检查间隔必须是整数秒数")
+        }
+        return nil
 	}
 	noArguments := func() error {
 		if option != "" { return errors.New("该操作不需要参数") }

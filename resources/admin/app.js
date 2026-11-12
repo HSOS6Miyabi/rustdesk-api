@@ -974,18 +974,18 @@
     ["id-relay-off","ID 服务器","关闭强制中继","允许服务器按正常条件选择直接连接或中继。","21115","always-use-relay","fixed-n"],
     ["id-geo","ID 服务器","测试地址所属地区","分别填写两个 IP 地址，查看服务器地区识别结果。","21115","test-geo","ip-pair"],
     ["relay-help","中继服务器","查看服务器帮助","查看中继服务器支持的管理功能。","21117","h","none"],
-    ["relay-blacklist-read","中继服务器","查看全部黑名单 IP","查看中继服务器当前黑名单中的全部 IP 地址。","21117","blacklist","none"],
-    ["relay-blacklist-check","中继服务器","查询黑名单","填写 IP 地址，检查该地址是否在黑名单中。","21117","blacklist","ip"],
-    ["relay-blacklist-add","中继服务器","添加黑名单","将指定 IP 地址加入中继服务器黑名单。","21117","blacklist-add","ip"],
-    ["relay-blacklist-remove","中继服务器","移除黑名单","将指定 IP 地址移出中继服务器黑名单。","21117","blacklist-remove","ip"],
+    ["relay-blacklist-read","中继服务器","查看全部限速名单 IP","查看中继服务器当前限速名单中的全部 IP 地址。","21117","blacklist","none"],
+    ["relay-blacklist-check","中继服务器","查询限速名单","填写 IP 地址，检查该地址是否在限速名单中。","21117","blacklist","ip"],
+    ["relay-blacklist-add","中继服务器","添加限速名单","把指定 IP 加入限速名单，超过阈值时会对其传输速度进行限制。","21117","blacklist-add","ip"],
+    ["relay-blacklist-remove","中继服务器","移除限速名单","将指定 IP 地址移出中继服务器限速名单。","21117","blacklist-remove","ip"],
     ["relay-blocklist-read","中继服务器","查看全部阻止列表 IP","查看中继服务器当前阻止列表中的全部 IP 地址。","21117","blocklist","none"],
     ["relay-blocklist-check","中继服务器","查询阻止列表","填写 IP 地址，检查该地址是否在阻止列表中。","21117","blocklist","ip"],
     ["relay-blocklist-add","中继服务器","添加阻止列表","把指定 IP 地址加入阻止列表。","21117","blocklist-add","ip"],
     ["relay-blocklist-remove","中继服务器","移除阻止列表","从阻止列表移除指定 IP 地址。","21117","blocklist-remove","ip"],
     ["relay-threshold-read","中继服务器","查询降级阈值","查看当前中继降级阈值。","21117","downgrade-threshold","none"],
-    ["relay-threshold-set","中继服务器","设置降级阈值","填写服务器使用的降级阈值，单位与服务端命令保持一致。","21117","downgrade-threshold","number"],
+    ["relay-threshold-set","中继服务器","设置降级阈值","填写 0 到 1 之间的比例，例如 0.66。超过此比例后，服务器会按条件检查是否需要限制连接速度。","21117","downgrade-threshold","number"],
     ["relay-check-read","中继服务器","查询降级检查间隔","查看启动降级检查的时间间隔。","21117","downgrade-start-check","none"],
-    ["relay-check-set","中继服务器","设置降级检查间隔","填写间隔秒数，须为非负数。","21117","downgrade-start-check","number"],
+    ["relay-check-set","中继服务器","设置降级检查间隔","填写大于 0 的整数秒数。","21117","downgrade-start-check","number"],
     ["relay-speed-read","中继服务器","查询速度限制","查看当前中继传输速度限制。","21117","limit-speed","none"],
     ["relay-speed-set","中继服务器","设置速度限制","填写传输速度上限，单位 Mb/s。","21117","limit-speed","number"],
     ["relay-total-read","中继服务器","查询总带宽","查看当前中继服务器的总带宽设置。","21117","total-bandwidth","none"],
@@ -1000,9 +1000,9 @@
     const ip='例如：192.0.2.10 或 2001:db8::1';
     if(mode==="ip-pair")return '<div class="form-grid"><div class="field"><label for="command-ip1">第一个 IP 地址</label><input id="command-ip1" name="ip1" type="text" placeholder="'+ip+'" spellcheck="false" required></div><div class="field"><label for="command-ip2">第二个 IP 地址</label><input id="command-ip2" name="ip2" type="text" placeholder="'+ip+'" spellcheck="false" required></div></div>';
     const title=mode==="servers"?"中继服务器地址（逗号分隔）":mode==="number"?"数值":mode==="identifier"?"设备 ID":"IP 地址";
-    const placeholder=mode==="servers"?"例如：relay.example.com:21117,relay2.example.com:21117":mode==="number"?"填写 0 或正数":mode==="identifier"?"例如：123456789":ip;
+    const placeholder=mode==="servers"?"例如：relay.example.com:21117,relay2.example.com:21117":mode==="number"?(command.cmd==="downgrade-threshold"?"例如：0.66":"填写大于 0 的数值"):mode==="identifier"?"例如：123456789":ip;
     if(mode==="identifier"||mode==="identifier-remove")return '<div class="field"><label>选择设备</label>'+pickerField("device_id","",true,{},"command-option")+'</div>';
-    const attr=mode==="number"?'type="number" min="0" max="1000000000" step="any"':'type="text" spellcheck="false"';
+    const attr=mode==="number"?(command.cmd==="downgrade-threshold"?'type="number" min="0.0001" max="1" step="any"':command.cmd==="downgrade-start-check"?'type="number" min="1" max="1000000000" step="1"':'type="number" min="0.0001" max="1000000000" step="any"'):'type="text" spellcheck="false"';
     return '<div class="field"><label for="command-option">'+title+'</label><input id="command-option" name="option" '+attr+' placeholder="'+placeholder+'" required maxlength="1800"></div>';
   }
   function serverCommandCategory(command){
@@ -2088,7 +2088,7 @@
       option=value+(cmd.mode==="identifier-remove"?" -":"");
     }else if(cmd.mode==="number"){
       const num=Number(value);
-      if(!value||!Number.isFinite(num)||num<0||num>1e9){toast("数值必须介于 0 与 1000000000 之间",true);return;}
+      if(!value||!Number.isFinite(num)||num<=0||num>1e9||cmd.cmd==="downgrade-threshold"&&num>1||cmd.cmd==="downgrade-start-check"&&!Number.isInteger(num)){toast("请填写符合当前设置范围的正数",true);return;}
       option=String(num);
     }else if(cmd.mode==="servers"){
       const entries=value.split(",").map(x=>x.trim()).filter(Boolean);
