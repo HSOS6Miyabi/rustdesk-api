@@ -76,7 +76,8 @@ def browser_routes():
             pages[match.group(1)] = match.group(2)
     readonly = {"deployed", "trash", "myconnections", "mytransfers", "myalarms",
                 "alarms", "operations", "myloginlogs", "loginlogs", "connections",
-                "transfers", "notifications", "activeSessions", "disconnectHistory", "sessions"}
+                "transfers", "notifications", "activeSessions", "disconnectHistory", "sessions",
+                "mysessions", "myactiveSessions", "myDisconnectHistory"}
     for page, endpoint in pages.items():
         uri = PREFIX + "/" + endpoint
         routes.add(("GET", uri + "/list"))

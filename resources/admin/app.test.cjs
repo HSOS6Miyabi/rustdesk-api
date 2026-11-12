@@ -95,6 +95,13 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/mfa/status": {enabled:false,pending:false,remaining_recovery_codes:0},
     "/mfa/email/status": {enabled:false,email:"owner@example.test",mail_configured:true},
     "/my/login_log/list": { list: [], total: 0 },
+    "/my/session/list": {list:[{id:10,device_id:"desk-owned",conn_id:501,last_seen_at:1794400000}],total:1},
+    "/my/session/disconnect/list": {list:[{id:4,device_id:"desk-owned",conn_id:400,status:"completed"}],total:1},
+    "/my/user_token/list": {list:[{id:50,device_id:"desk-owned",device_uuid:"uuid-owned",login_ip:"192.0.2.1",client:"webadmin",platform:"windows",username:"demo-user",active:true,current:false}],total:1},
+    "/my/user_token/revoke": {},
+    "/my/session/disconnect": {status:"pending"},
+    "/user_token/list": {list:[{id:51,username:"demo-user",device_id:"desk-owned",device_uuid:"uuid-owned",active:true,current:false}],total:1},
+    "/user_token/delete": {},
     "/user/list": { list: [], total: 0 },
     "/peer/list": { list: [], total: 0 },
     "/my/peer/list": { list: [], total: 0 },
@@ -102,6 +109,8 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/contact/list": { outgoing: [], incoming: [] },
     "/shared_devices/list": { list: [], total: 0 },
     "/shared_devices/sources": { sources: [] },
+    "/config/server":{id_server:"desk.example.test:21116",relay_server:"desk.example.test:21117",api_server:"https://api.example.test"},
+    "/rustdesk/execute": {kind:"metric",summary:"服务器当前设置",value:10,unit:"Mb/s"},
     "/group/members": { user_ids: [], users: [] },
     "/my/group/members": { user_ids: [12], users: [{ id: 12, username: "demo-user" }] }
   };
@@ -232,18 +241,31 @@ test("administrators can manage user and device-group policies", async () => {
   assert.ok(admin.calls.some(call => call.endpoint === "/device_policy/group_assignment/list"));
 });
 
-test("active session actions appear only in administrator console", async () => {
-  const owner = createConsole();
-  await owner.settle();
-  await owner.settle();
-  assert.doesNotMatch(owner.root.innerHTML, /活动远程连接/);
-  const admin = createConsole(true);
-  await admin.settle();
-  await admin.settle();
-  assert.match(admin.root.innerHTML, /活动远程连接/);
-  assert.match(admin.root.innerHTML, /结束连接记录/);
+test("personal and administrator session records use separate API routes",async()=>{
+  const owner=createConsole(false);
+  await owner.settle();await owner.settle();
+  assert.match(owner.root.innerHTML,/我的活动远程连接/);
+  assert.match(owner.root.innerHTML,/我的结束连接记录/);
+  assert.match(owner.root.innerHTML,/我的登录会话/);
+  assert.doesNotMatch(owner.root.innerHTML,/全部登录会话/);
+  await owner.open("myactiveSessions");
+  assert.ok(owner.calls.some(x=>x.endpoint==="/my/session/list"));
+  assert.match(owner.root.innerHTML,/data-action="session-disconnect"/);
+  await owner.open("myDisconnectHistory");
+  assert.ok(owner.calls.some(x=>x.endpoint==="/my/session/disconnect/list"));
+  await owner.open("mysessions");
+  assert.match(owner.root.innerHTML,/结束登录/);
+  assert.match(owner.root.innerHTML,/当前会话/);
+  await owner.action("session-revoke",50);
+  assert.ok(owner.calls.some(x=>x.endpoint==="/my/user_token/revoke"&&x.method==="POST"));
+  const admin=createConsole(true);
+  await admin.settle();await admin.settle();
+  assert.match(admin.root.innerHTML,/全部登录会话/);
   await admin.open("activeSessions");
-  assert.ok(admin.calls.some(call => call.endpoint === "/session/list"));
+  assert.ok(admin.calls.some(x=>x.endpoint==="/session/list"));
+  await admin.open("sessions");
+  assert.match(admin.root.innerHTML,/登录账户/);
+  assert.ok(admin.calls.some(x=>x.endpoint==="/user_token/list"));
 });
 
 test("API management tokens are only shown to administrators", async () => {
@@ -731,17 +753,35 @@ test("all data table columns have sorting controls and proper action gaps",async
   assert.match(app.root.innerHTML,/data-action="edit"/);
 });
 
-test("server administration shows named operations and specific inputs",async()=>{
+test("server administration uses navigation and structured results",async()=>{
   const app=createConsole(true);
-  app.fixtures["/config/server"]={id_server:"desk.example.test:21116",relay_server:"desk.example.test:21117",api_server:"https://api.example.test"};
   await app.settle();await app.settle();
   await app.open("server");
+  assert.match(app.root.innerHTML,/服务器概况/);
+  assert.match(app.root.innerHTML,/data-action="server-tab"/);
+  assert.match(app.root.innerHTML,/desk.example.test/);
+  await app.events.click({target:{closest:()=>({dataset:{action:"server-tab",tab:"id"}})}});
   assert.match(app.root.innerHTML,/设置中继服务器列表/);
-  assert.match(app.root.innerHTML,/查看中继使用情况/);
   assert.match(app.root.innerHTML,/data-action="server-select"/);
-  assert.doesNotMatch(app.root.innerHTML,/name="command"/);
+  await app.events.click({target:{closest:()=>({dataset:{action:"server-tab",tab:"relay"}})}});
+  assert.match(app.root.innerHTML,/查看中继使用情况/);
+  assert.match(app.root.innerHTML,/server-result/);
   assert.ok(app.calls.some(call=>call.endpoint==="/config/server"));
   assert.ok(!app.calls.some(call=>call.endpoint==="/rustdesk/cmdList"));
+});
+
+test("reference names and modal choices replace isolated numeric IDs",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/group/list"]={list:[{id:3,name:"研究人员组",type:1}],total:1};
+  app.fixtures["/user/list"]={list:[{id:9,username:"learner",group_id:3}],total:1};
+  await app.settle();await app.settle();
+  await app.open("users");
+  assert.match(app.root.innerHTML,/研究人员组（编号 3）/);
+  await app.action("edit",9);
+  assert.match(app.root.innerHTML,/data-action="picker-open"/);
+  await app.open("oauth");
+  await app.action("create");
+  assert.match(app.root.innerHTML,/data-picker="user_group" data-target="auto_group_ids"/);
 });
 
 test("ARGB tag color is rendered with a browser color picker",async()=>{
