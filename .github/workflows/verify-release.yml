@@ -39,7 +39,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Verify city lookup for IPv4 and IPv6
-        run: go test ./service -run TestBundledGeoIPCityDatabase -count=1 -v
+        run: go test ./service -run 'TestBundledGeoIPCityDatabase|TestBundledGeoIPChineseXiAn' -count=1 -v
       - uses: actions/upload-artifact@v4
         with:
           name: bundled-geoip-city-mmdb

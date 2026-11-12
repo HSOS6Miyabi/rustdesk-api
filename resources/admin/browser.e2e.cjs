@@ -197,7 +197,7 @@ function serve(req, res) {
     if(route==="/notification/retry")return answer(res,{});
     if(route==="/geoip/lookup")return answer(res,{
       locations:{"10.0.0.5":"局域网地址","192.0.2.1":"位置未知","127.0.0.1":"本地回环地址",
-        "221.11.67.245":"中国 · Shaanxi · Xi’an · 雁塔区 · 详细地理位置名称"},
+        "221.11.67.245":"中国 · 陕西 · 西安 · 雁塔区"},
       device_status:{"office":true,"home-remote":false,"654321":true,"123456":false,
         "managed-desk":false,"helpdesk":true,"desk-001":true,"support-123456":true},
       database_ready:false
@@ -2169,7 +2169,7 @@ test("full GeoIP names remain readable and connection directions use a compact a
     try{
       if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
       await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
-      await page.waitForFunction(()=>document.querySelector('.ip-location')?.textContent.includes("Shaanxi"));
+      await page.waitForFunction(()=>document.querySelector('.ip-location')?.textContent.includes("陕西"));
       if(width>900&&await page.locator('.data-table td[data-column="ip"]').count()===0){
         await page.locator('[data-action="table-columns"]').click();
       }
@@ -2188,7 +2188,7 @@ test("full GeoIP names remain readable and connection directions use a compact a
           height:field?.getBoundingClientRect().height,scrollHeight:field?.scrollHeight};
       });
       assert.ok(checks.width<=checks.screen+2,"IP table overflows "+label+": "+JSON.stringify(checks));
-      assert.match(checks.location||"",/详细地理位置名称/);
+      assert.match(checks.location||"",/中国 · 陕西 · 西安 · 雁塔区/);
       if(width>900){
         assert.equal(checks.clamp,"none","IP location must not use two-line clamping");
         assert.ok(checks.scrollHeight<=checks.height+3,"IP location is clipped: "+JSON.stringify(checks));
