@@ -21,7 +21,7 @@ import (
 
 func validClientProfile() *model.ClientBuildProfile {
 	return &model.ClientBuildProfile{
-		Name:"Office support",Platform:"windows-x64",Version:currentClientVersion,
+		Name:"Office support",Platform:"windows-x64",Version:"1.5.1",
 		Host:"desk.example.com:21116",
 		PublicKey:base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7},32)),
 		APIServer:"https://desk.example.com",RelayServer:"relay.example.com:21117",
@@ -91,16 +91,20 @@ func TestClientBuildRejectsUnsupportedAndMaliciousSettings(t *testing.T) {
 		}
 	}
 	for _,platform:=range []string{"windows-x64","windows-arm64","linux-x64","linux-arm64","macos-x64","macos-arm64"}{
-		source,err:=officialClientBuildSource(platform,currentClientVersion)
+		name,err:=officialClientAssetName(platform,"1.5.3")
 		if err!=nil{t.Fatal(err)}
-		if source.Size<=0 || len(source.SHA256)!=64 {
-			t.Fatalf("official installer metadata is incomplete for %s: %+v",platform,source)
-		}
-		if bytes,err:=hex.DecodeString(source.SHA256);err!=nil||len(bytes)!=32 {
-			t.Fatalf("official installer checksum is invalid for %s: %v",platform,err)
+		source,err:=officialSourceFromRelease(platform,"1.5.3",officialRustDeskRelease{
+			TagName:"1.5.3",
+			Assets:[]officialRustDeskAsset{{
+				Name:name,Size:256, Digest:"sha256:"+strings.Repeat("a",64),
+				BrowserDownloadURL:"https://github.com/rustdesk/rustdesk/releases/download/1.5.3/"+name,
+			}},
+		})
+		if err!=nil||source.Size!=256||source.SHA256!=strings.Repeat("a",64){
+			t.Fatalf("official installer metadata is invalid for %s: %+v %v",platform,source,err)
 		}
 	}
-	if _,err:=officialClientBuildSource("android",currentClientVersion);err==nil{
+	if _,err:=officialClientAssetName("android","1.5.3");err==nil{
 		t.Fatal("unsupported installer platform was accepted")
 	}
 }

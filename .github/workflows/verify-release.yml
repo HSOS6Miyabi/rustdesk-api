@@ -51,6 +51,7 @@ jobs:
           test -s resources/admin/app.js
           test -s resources/web2/index.html
           node --check resources/admin/app.js
+          node --check resources/admin/client-local.js
           node --check resources/web2/app.js
       - uses: actions/setup-node@v4
         with:
@@ -81,7 +82,7 @@ jobs:
             git push
           fi
       - name: Frontend interaction tests
-        run: node --test resources/admin/app.test.cjs resources/web2/app.test.cjs
+        run: node --test resources/admin/app.test.cjs resources/admin/client-local.test.cjs resources/web2/app.test.cjs
       - name: Go tests
         run: go test ./... -count=1
       - name: Race checks for concurrent caches and device events
@@ -125,6 +126,7 @@ jobs:
             resources/admin/index.html
             resources/admin/style.css
             resources/admin/app.js
+            resources/admin/client-local.js
             resources/admin/favicon.svg
             resources/admin/browser.e2e.cjs
           retention-days: 3

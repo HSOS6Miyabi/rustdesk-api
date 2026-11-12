@@ -556,6 +556,7 @@ func ClientBuilderBind(rg *gin.RouterGroup) {
 	handler := &admin.ClientBuilder{}
 	r := rg.Group("/client_builder").Use(middleware.AdminPrivilege())
 	r.GET("/profiles", handler.Profiles)
+    r.GET("/versions", handler.Versions)
 	r.POST("/profiles", handler.SaveProfile)
 	r.POST("/profiles/delete", handler.DeleteProfile)
 	r.GET("/tasks", handler.Tasks)

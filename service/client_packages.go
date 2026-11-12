@@ -99,7 +99,7 @@ func prepareClientArchive(task *model.ClientBuildTask,source clientBuildSource,i
 	}
 	scriptName,script,readme,err:=clientShellScript(task.Platform,filename,settings)
 	if err!=nil{return "",0,err}
-	readme+="\n官方安装文件来源："+source.URL+"\n官方文件 SHA-256："+source.SHA256+"\n"+
+	readme+="\n官方安装文件来源："+source.URL+"\n下载文件 SHA-256："+source.SHA256+"\n"+
 		"本压缩包内安装文件内容保持原样。安装前请核查文件与所用操作系统。\n"
 	tmp,err:=os.CreateTemp(folder,".client-package-*.tmp")
 	if err!=nil{return "",0,err}

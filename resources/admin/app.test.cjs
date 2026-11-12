@@ -580,11 +580,12 @@ test("visual client builder shows official Windows configurations, tasks and dow
   await admin.open("clientBuilder");
   for(const label of ["客户端预设配置","Office installer","Windows x64","Windows ARM64",
     "Linux x64","Linux ARM64","macOS x64","macOS ARM64",
-    "服务器公钥","创建安装包任务","安装包已准备好","下载安装程序","重新处理"]){
+    "服务器公钥","RustDesk 官方版本","创建安装包任务","安装包已准备好","下载安装程序","重新处理"]){
     assert.match(admin.root.innerHTML,new RegExp(label));
   }
   assert.ok(admin.calls.some(x=>x.endpoint==="/client_builder/profiles"));
   assert.ok(admin.calls.some(x=>x.endpoint==="/client_builder/tasks"));
+  assert.ok(admin.calls.some(x=>x.endpoint==="/client_builder/versions"));
   await admin.action("client-edit",2);
   assert.match(admin.root.innerHTML,/desk.example.com:21116/);
   await admin.action("client-new");
