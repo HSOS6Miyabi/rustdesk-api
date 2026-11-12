@@ -2164,6 +2164,12 @@ test("full GeoIP names remain readable and connection directions use a compact a
       if(width<=800)await page.locator('button[data-action="mobile-open"]').click();
       await page.locator('nav.side-scroll button[data-view="activeSessions"]').click();
       await page.waitForFunction(()=>document.querySelector('.ip-location')?.textContent.includes("Shaanxi"));
+      if(width>900&&await page.locator('.data-table td[data-column="ip"]').count()===0){
+        await page.locator('[data-action="table-columns"]').click();
+      }
+      if(width>900){
+        await page.locator('.data-table tbody td[data-column="ip"]').first().scrollIntoViewIfNeeded();
+      }
       const checks=await page.evaluate(()=>{
         const region=document.querySelector('.data-table td[data-column="ip"]');
         const field=region?.querySelector(':scope > span');
