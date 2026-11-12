@@ -182,7 +182,6 @@ export function decrypt(signed, nonce, key) {
 }
 
 window.setByName = (name, value) => {
-    myconsole('setByName', name, value);
     switch (name) {
         case 'session_add_sync': {
             const options = JSON.parse(value || '{}');
@@ -206,7 +205,10 @@ window.setByName = (name, value) => {
         }
         case 'session_login': {
             const request = JSON.parse(value || '{}');
-            getConn()?.login(String(request.password || ''),
+            const conn = getConn();
+            if (!conn) return '';
+            conn.setRemember(request.remember === true || request.remember === 'true');
+            conn.login(String(request.password || ''),
                 String(request.os_username||''),String(request.os_password||''));
             return '';
         }
@@ -270,11 +272,15 @@ window.setByName = (name, value) => {
             newConn();
             startConn(value);
             break;
-        case 'login':
-            value = JSON.parse(value);
-            curConn.setRemember(value.remember == 'true');
-            curConn.login(value.password,value.os_username||'',value.os_password||'');
-            break;
+        case 'login': {
+            const request = JSON.parse(value || '{}');
+            const conn = getConn();
+            if (!conn) return '';
+            conn.setRemember(request.remember === true || request.remember === 'true');
+            conn.login(String(request.password || ''),
+                String(request.os_username || ''),String(request.os_password || ''));
+            return '';
+        }
         case 'close':
             close();
             break;
@@ -358,7 +364,6 @@ window.setByName = (name, value) => {
 
 window.getByName = (name, arg) => {
     let v = _getByName(name, arg);
-    myconsole('getByName', name, arg, v);
     if (typeof v == 'string' || v instanceof String) return v;
     if (v == undefined || v == null) return '';
     return JSON.stringify(v);
