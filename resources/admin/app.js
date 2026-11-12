@@ -288,7 +288,7 @@
     if(id===undefined||id===null||String(id).trim()==="")return esc(txt(text));
     const label=String(text??id);
     return '<button type="button" class="entity-link" data-action="entity-detail" data-entity-type="'+esc(kind)+
-      '" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(label)+'" title="查看'+({device:"设备",user:"用户",group:"用户分组"}[kind]||"对象")+'信息">'+
+      '" data-entity-id="'+esc(id)+'" data-entity-label="'+esc(label)+'" title="查看'+({device:"设备",user:"用户",group:"用户分组",device_group:"设备分组"}[kind]||"对象")+'信息">'+
       (showStatus?deviceStatusDot(id):"")+(secondary?
         '<span class="entity-link-text"><span class="entity-link-name">'+esc(label)+'</span><span class="entity-link-id">'+esc(secondary)+'</span></span>':
         '<span>'+esc(label)+'</span>')+'</button>';
@@ -1943,12 +1943,12 @@
     return '<div class="entity-data-row"><dt>'+esc(label)+'</dt><dd>'+(html?value:esc(value))+'</dd></div>';
   }
   function entityPanel(m){
-    const info=m.info||{},id=String(m.entityId),device=m.entityType==="device",group=m.entityType==="group";
+    const info=m.info||{},id=String(m.entityId),device=m.entityType==="device",group=["group","device_group"].includes(m.entityType);
     const status=state.devicePresence[id],relations=m.relations||{};
     const groupName=group?String(info.name||m.label||id):"";
     const groupType={1:"普通组",2:"共享组",3:"公共锚点组"};
     const sections=group?[
-      ["分组编号",info.id||id],["分组名称",groupName],["分组类型",groupType[Number(info.type)]||"—"],
+      ["分组编号",info.id||id],["分组名称",groupName],["分组类型",m.entityType==="device_group"?"设备分组":groupType[Number(info.type)]||"—"],
       ["创建者",info.owner_user_id?entityLink("user",info.owner_user_id,referenceText("user",info.owner_user_id)): "",true],
       ["创建时间",info.created_at?date(info.created_at):""],["修改时间",info.updated_at?date(info.updated_at):""]
     ]:device?[
@@ -1958,7 +1958,7 @@
       ["内存",info.memory],
       ["最后在线时间",info.last_online_time?date(info.last_online_time):""],
       ["最近上线 IP",info.last_online_ip?showIP(info.last_online_ip):"",true],
-      ["设备分组",info.group_id?entityLink("group",info.group_id,referenceText("device_group",info.group_id)):"",true],
+      ["设备分组",info.group_id?entityLink("device_group",info.group_id,referenceText("device_group",info.group_id)):"",true],
       ["设备备注",info.note],
       ["所有者",info.owner_username?entityLink("user",info.user_id||info.owner_username,info.owner_username):info.user_id?entityLink("user",info.user_id,referenceText("user",info.user_id)):"",true],
       ["创建时间",info.created_at?date(info.created_at):""],
@@ -1969,7 +1969,7 @@
       ["昵称",info.nickname],["邮箱",info.email],
       ["账户类型",info.is_admin===undefined?"":info.is_admin?"管理员":"普通用户"],
       ["账户状态",info.status===undefined?"":Number(info.status)===1?"已启用":"已停用"],
-      ["主要分组",info.group_id?entityLink("group",info.group_id,referenceText("user_group",info.group_id)):"",true],
+      ["主要分组",info.group_id?entityLink("group",info.group_id,relations.groups?.find(item=>Number(item.id)===Number(info.group_id))?.name||referenceText("user_group",info.group_id)):"",true],
       ["备注",info.remark],["创建时间",info.created_at?date(info.created_at):""],
       ["修改时间",info.updated_at?date(info.updated_at):""]
     ];
@@ -1991,7 +1991,7 @@
         '<p class="entity-related-empty">当前没有设备。</p>')+
       (Number(relations.device_total)>devices.length?'<p class="entity-related-empty">此处展示最近 '+devices.length+' 台设备，其余设备可在设备管理页面查看。</p>':"")+
       '</section>':"";
-    const memberCards=group&&Array.isArray(m.members)?
+    const memberCards=m.entityType==="group"&&Array.isArray(m.members)?
       '<section class="entity-related-section"><h3>分组成员 <span>'+m.members.length+' 人</span></h3>'+
       (m.members.length?'<div class="entity-related-list">'+m.members.map(item=>
         '<div class="entity-related-item">'+entityLink("user",item.id,item.nickname||item.username||item.id)+
@@ -2000,7 +2000,7 @@
     const owned=Boolean(info.owned||state.page==="mydevices"&&state.rows.some(row=>String(row.id)===id)||info.user_id&&Number(info.user_id)===Number(state.user?.id));
     const editable=device?
       !m.found?"":owned?"mydevices":available("devices")?"devices":available("shared")?"shared":"":
-      group?available("groups")?"groups":"":
+      group?m.entityType==="device_group"&&available("devicegroups")?"devicegroups":available("groups")?"groups":"":
       available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
     m.destination=editable;
     const summary='<div class="entity-summary">'+(device?'<div class="entity-presence">'+deviceStatusDot(id)+'<strong>'+esc(m.label||id)+'</strong></div>':
@@ -2011,16 +2011,16 @@
     const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
     const buttons=editable&&editable!=="users"?'<button type="button" class="btn" data-action="entity-open-list">'+
       esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":
-      editable==="groups"?"在用户分组中查看":"打开个人设置")+'</button>':"";
+      editable==="groups"?"在用户分组中查看":editable==="devicegroups"?"在设备分组中查看":"打开个人设置")+'</button>':"";
     const adminUser=!device&&!group&&Number(info.id)>0&&available("users");
     const userActions=adminUser&&canPageAction("users","edit")?
       '<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户信息</button>':"";
-    return modal(device?"设备信息":group?"用户组信息":"用户信息",
-      device?"设备 ID："+id:group?"用户组："+groupName:"用户："+(m.label||id),summary,
+    return modal(device?"设备信息":group?m.entityType==="device_group"?"设备组信息":"用户组信息":"用户信息",
+      device?"设备 ID："+id:group?(m.entityType==="device_group"?"设备组：":"用户组：")+groupName:"用户："+(m.label||id),summary,
       '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
   async function openEntityDetail(type,id,label){
-    if(!["device","user","group"].includes(type)||!String(id||"").trim())return;
+    if(!["device","user","group","device_group"].includes(type)||!String(id||"").trim())return;
     const m={kind:"entity",entityType:type,entityId:String(id),label:label||String(id),
       previous:state.modal,loading:true,found:false,info:{},relations:{}};
     state.modal=m;render();
@@ -2044,13 +2044,19 @@
             state.devicePresence[id]=Object.prototype.hasOwnProperty.call(presence.device_status||{},id)?presence.device_status[id]===true:null;
           }catch{state.devicePresence[id]=null;}
         }
-      }else if(type==="group"){
-        if(!available("groups"))return;
-        data=await request("/group/detail/"+encodeURIComponent(id));
-        try{
-          const members=await request("/group/members?group_id="+encodeURIComponent(id));
-          m.members=Array.isArray(members?.users)?members.users:[];
-        }catch{m.members=[];}
+      }else if(type==="group"||type==="device_group"){
+        const canView=type==="group"?available("groups"):available("devicegroups");
+        if(canView){
+          data=await request((type==="group"?"/group/detail/":"/device_group/detail/")+encodeURIComponent(id));
+          if(type==="group"){
+            try{
+              const members=await request("/group/members?group_id="+encodeURIComponent(id));
+              m.members=Array.isArray(members?.users)?members.users:[];
+            }catch{m.members=[];}
+          }
+        }else{
+          data={id,name:m.label};
+        }
       }else{
         data=state.page==="users"?state.rows.find(row=>String(row.id)===String(id)||row.username===String(id)):null;
         if(!data&&(state.isAdmin||hasPrivilege("users.view"))){
