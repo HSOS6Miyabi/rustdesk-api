@@ -1470,7 +1470,7 @@
       ["主要分组 ID",info.group_id],["备注",info.remark]
     ];
     const rows=sections.map(([label,value,html])=>entityDataRow(label,value,html)).join("");
-    const owned=Boolean(info.owned||info.user_id&&Number(info.user_id)===Number(state.user?.id));
+    const owned=Boolean(info.owned||state.page==="mydevices"&&state.rows.some(row=>String(row.id)===id)||info.user_id&&Number(info.user_id)===Number(state.user?.id));
     const editable=device?
       !m.found?"":owned?"mydevices":available("devices")?"devices":available("shared")?"shared":"":
       available("users")?"users":(String(state.user?.id)===id||String(state.user?.username)===id)?"profile":"";
