@@ -37,3 +37,11 @@ func ApplyColumnSort(tx *gorm.DB, key, direction string) *gorm.DB {
  stmt.Clauses["ORDER BY"]=clause.Clause{Name:"ORDER BY",Expression:clause.OrderBy{Columns:sortColumns}}
  return tx
 }
+
+// SortScope safely installs the requested column ordering after any default order.
+func SortScope(sort ...string) func(*gorm.DB)*gorm.DB {
+ return func(tx *gorm.DB)*gorm.DB {
+  if len(sort)>=2 {return ApplyColumnSort(tx,sort[0],sort[1])}
+  return tx
+ }
+}
