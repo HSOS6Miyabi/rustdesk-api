@@ -29,7 +29,7 @@ func parseRustdeskReply(target, command, option, output string) map[string]inter
 		}
 	}
 	write := option != "" &&
-		(command == "relay-servers" || command == "always-use-relay" ||
+		(command == "relay-servers" || command == "always-use-relay" || command == "must-login" ||
 			command == "blacklist-add" || command == "blacklist-remove" ||
 			command == "blocklist-add" || command == "blocklist-remove" ||
 			command == "downgrade-threshold" || command == "downgrade-start-check" ||
@@ -42,15 +42,17 @@ func parseRustdeskReply(target, command, option, output string) map[string]inter
 		return result
 	}
 	switch command {
-	case "always-use-relay":
-		value := strings.TrimSpace(strings.TrimPrefix(output, "ALWAYS_USE_RELAY:"))
+	case "always-use-relay", "must-login":
+		label := "ALWAYS_USE_RELAY:"
+        if command == "must-login" { label = "MUST_LOGIN:" }
+		value := strings.TrimSpace(strings.TrimPrefix(output, label))
 		if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
 			result["kind"] = "boolean"
 			result["active"] = strings.EqualFold(value, "true")
 			if result["active"] == true {
-				result["summary"] = "当前要求通过中继服务器建立连接"
+				result["summary"] = "当前设置已启用"
 			} else {
-				result["summary"] = "当前允许优先尝试直接连接"
+				result["summary"] = "当前设置已关闭"
 			}
 			return result
 		}
@@ -120,6 +122,16 @@ func parseRustdeskReply(target, command, option, output string) map[string]inter
 				return result
 			}
 		}
+	case "punch-requests":
+        entries:=make([]map[string]string,0,len(lines))
+        for _,line:=range lines {
+            parts:=strings.SplitN(line," ",3)
+            if len(parts)==3 {
+                entries=append(entries,map[string]string{"time":parts[0],"address":parts[1],"detail":parts[2]})
+            }else{entries=append(entries,map[string]string{"detail":line})}
+        }
+        list(entries,"没有最近的连接尝试记录")
+        return result
 	case "usage":
 		entries := make([]map[string]string, 0, len(lines))
 		for _, line := range lines {

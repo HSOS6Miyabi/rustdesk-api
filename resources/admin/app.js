@@ -1000,7 +1000,7 @@
     const id=command.id;
     if(id.includes("help")||id.includes("usage")||id.includes("punch")||id.includes("geo"))return "查看信息";
     if(id.includes("block")||id.includes("blacklist")||id.includes("changes"))return "访问与网络记录";
-    if(id.includes("relay")||id.includes("login"))return "连接策略";
+    if(command.cmd==="relay-servers"||command.cmd==="always-use-relay"||command.cmd==="must-login")return "连接策略";
     return "性能与带宽";
   }
   function renderServerResult(result,command){
@@ -1018,7 +1018,7 @@
       const candidates=result.kind==="usage"?[["address","连接 IP"],["seconds","连接时长（秒）"],["megabytes","流量（MB）"],
         ["peak_kbps","最高速率（kb/s）"],["average_kbps","平均速率（kb/s）"],["current_kbps","当前速率（kb/s）"],["detail","其他信息"]]:
         result.kind==="table"?[["name","设备或 IP"],["detail","记录详情"]]:
-        [["name","功能名称"],["address","服务器或 IP 地址"],["command","对应命令"],["detail","内容"]];
+        [["name","功能名称"],["time","记录时间"],["address","服务器或 IP 地址"],["command","对应命令"],["detail","内容"]];
       const columns=candidates.filter(([key])=>rows.some(item=>item[key]!==undefined&&item[key]!==""));
       return summary+'<div class="server-result-table-scroll"><table class="server-result-table"><thead><tr>'+
         columns.map(([,label])=>'<th>'+esc(label)+'</th>').join("")+'</tr></thead><tbody>'+
@@ -2082,7 +2082,7 @@
       option=entries.join(",");
     }
     if(cmd.mode!=="none"&&!option){toast("请填写该操作要求的参数",true);return;}
-    const isRead=cmd.mode==="none"||cmd.mode==="identifier"||
+    const isRead=cmd.mode==="none"&&cmd.cmd!=="reload-geo"||cmd.mode==="identifier"||
       cmd.mode==="ip"&&["blacklist","blocklist","ip-blocker"].includes(cmd.cmd);
     if(!isRead&&!window.confirm("确认执行“"+cmd.title+"”吗？"))return;
     try{

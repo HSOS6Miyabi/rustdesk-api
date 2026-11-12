@@ -56,7 +56,7 @@ func validateRustdeskCommand(target, command, option string) error {
 		return nil
 	}
 	switch command {
-	case "h", "usage":
+	case "h", "usage", "reload-geo", "punch-requests":
 		return noArguments()
 	case "relay-servers":
 		if option == "" { return nil }
@@ -84,7 +84,7 @@ func validateRustdeskCommand(target, command, option string) error {
 			!serverCommandDeviceID.MatchString(parts[0]) {
 			return errors.New("请输入有效的设备 ID，可在末尾填写 - 清除记录")
 		}
-	case "always-use-relay":
+	case "always-use-relay", "must-login":
 		if option != "" && option != "y" && option != "n" {
 			return errors.New("此设置只接受 y 或 n")
 		}
