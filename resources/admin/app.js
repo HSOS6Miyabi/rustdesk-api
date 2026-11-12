@@ -1547,10 +1547,10 @@
   function settingsPage(){
     const current=state.settings||{items:[]},items=current.items||[];
     const groups=[
-      {key:"general",label:"常规与账户",categories:["常规与登录","令牌","LDAP"]},
+      {key:"general",label:"常规与账户",categories:["常规与登录","账户与安全","令牌","LDAP"]},
       {key:"server",label:"服务器与网络",categories:["RustDesk 服务","HTTP 服务","网络代理"]},
       {key:"storage",label:"数据库与存储",categories:["数据库","缓存","对象存储"]},
-      {key:"runtime",label:"附加服务与日志",categories:["附加服务","日志"]},
+      {key:"runtime",label:"附加服务与日志",categories:["附加服务","日志","其他"]},
       {key:"overview",label:"服务概况",categories:[]},
       {key:"all",label:"全部配置",categories:[]}
     ];
