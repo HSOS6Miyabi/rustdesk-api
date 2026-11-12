@@ -475,7 +475,7 @@
       const links=items.filter(([,p])=>p.section===section);
       if(section==="客户端")links.push(["webclient",{name:"WebClient v2",icon:"monitor"}]);
       if(!links.length)continue;
-      const collapsed=!!state.navCollapsed[section] && !links.some(([key])=>key===state.page);
+      const collapsed=!!state.navCollapsed[section];
       nav+='<button type="button" class="side-section-toggle" data-action="toggle-section" data-section="'+esc(section)+'" aria-expanded="'+(!collapsed)+'">'+
         '<span>'+esc(section)+'</span>'+icon("chevron",16)+'</button><div class="side-section-links" '+(collapsed?"hidden":"")+'>';
       for(const [key,p] of links){
@@ -600,6 +600,7 @@
         state.contacts=await request("/contact/list");
       }else if(k==="shared"){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize,search:state.query,source_type:state.sourceType,source_id:state.sourceId});
+        const order=state.sort[k];if(order?.key){q.set("sort_by",order.key);q.set("sort_dir",order.dir===-1?"desc":"asc");}
         const result=await request("/shared_devices/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
         if(!state.groups.length){try{state.groups=(await request("/shared_devices/sources")).sources||[];}catch{state.groups=[];}}
@@ -628,7 +629,8 @@
       }else if(k==="notifications"){
         const [config,history]=await Promise.all([
           request("/notification/settings"),
-          request("/notification/list?page="+state.pageNo+"&page_size="+state.pageSize)
+          request("/notification/list?"+new URLSearchParams({page:state.pageNo,page_size:state.pageSize,
+            ...(state.sort[k]?.key?{sort_by:state.sort[k].key,sort_dir:state.sort[k].dir===-1?"desc":"asc"}:{})}).toString())
         ]);
         state.notifications=config;
         state.rows=history.list||[];state.total=history.total||0;
@@ -646,6 +648,7 @@
       }else if(p.endpoint){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize});
         if(p.search&&state.query)q.set(p.search,state.query);
+        const order=state.sort[k];if(order?.key){q.set("sort_by",order.key);q.set("sort_dir",order.dir===-1?"desc":"asc");}
         const result=await request(endpoint(activeKey())+"/list?"+q.toString());
         state.rows=result.list||[];state.total=result.total||0;
       }
@@ -779,7 +782,7 @@
     const mobileSort='<div class="mobile-sort"><label for="mobile-sort-column">按列排序</label><select id="mobile-sort-column" aria-label="排序字段">'+
       cols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||cols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
       '</select><button type="button" class="btn btn-sm" data-action="mobile-sort-dir">'+(state.sort[state.page]?.dir===-1?"降序 ▼":"升序 ▲")+'</button></div>';
-    const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对当前页记录排序。</p>';
+    const hint='<p class="table-scroll-hint">'+(totalWidth>1000?"表格内容较多，可左右滚动查看其他列。 ":"")+'点击列标题可对所有分页记录排序。</p>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
       '表格，可左右滚动查看" tabindex="0"><table class="data-table" style="--table-min-width:'+
       totalWidth+'px">'+colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
@@ -1941,13 +1944,13 @@
     if(a==="mobile-sort-dir"){
       const order=state.sort[state.page]||{};
       state.sort[state.page]={key:order.key||pages[activeKey()]?.columns?.[0]?.[0],dir:order.dir===-1?1:-1};
-      render();return;
+      state.pageNo=1;await load();return;
     }
     if(a==="sort-table"){
       const key=el.dataset.column,order=state.sort[state.page]||{};
       if(!pages[activeKey()]?.columns?.some(([column])=>column===key))return;
       state.sort[state.page]={key,dir:order.key===key&&order.dir===1?-1:1};
-      render();return;
+      state.pageNo=1;await load();return;
     }
     if(a==="setting-save"||a==="setting-reset"){
       const item=state.settings?.items?.find(x=>x.key===el.dataset.id);
@@ -2657,7 +2660,7 @@
     }
     if(el.id==="mobile-sort-column"){
       state.sort[state.page]={key:el.value,dir:1};
-      render();return;
+      state.pageNo=1;await load();return;
     }
     if(el.id==="settings-category"){state.settingsCategory=el.value;render();return;}
     if(el.id==="push-kind"){
