@@ -10,6 +10,7 @@ COPY docker-bin/apimain /app/apimain
 COPY conf /app/conf
 COPY docs /app/docs
 COPY resources /app/resources
+RUN test -s /app/resources/geoip/dbip-city-lite.mmdb
 RUN mkdir -p /app/data /app/runtime && chmod 755 /app/apimain
 
 VOLUME /app/data
