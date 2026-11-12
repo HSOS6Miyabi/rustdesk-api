@@ -248,7 +248,41 @@ function serve(req, res) {
       {id:4,device_id:"support-123456",conn_id:41,last_seen_at:1710000000}
     ],total:1});
     if(route==="/session/disconnect")return answer(res, {status:"pending"});
-    if(route==="/session/disconnect/list")return answer(res, {list:[],total:0});
+    if(route==="/session/disconnect/list")return answer(res, {list:[
+      {id:3,device_id:"support-123456",conn_id:40,requested_by:3,status:"completed",created_at:1710000000}
+    ],total:1});
+    if(route==="/my/session/list")return answer(res,{list:[
+      {id:51,device_id:"office",conn_id:301,last_seen_at:1794455000}
+    ],total:1});
+    if(route==="/my/session/disconnect/list")return answer(res,{list:[
+      {id:52,device_id:"office",conn_id:299,status:"completed",created_at:1794400000}
+    ],total:1});
+    if(route==="/my/session/disconnect")return answer(res,{status:"pending"});
+    if(route==="/my/user_token/list")return answer(res,{list:[
+      {id:61,user_id:3,username:"owner",client:"webadmin",platform:"windows",login_ip:"192.0.2.1",
+        device_id:"office",device_uuid:"owner-uuid",active:true,current:false,created_at:"2026-11-12 13:00:00",expired_at:1920000000}
+    ],total:1});
+    if(route==="/user_token/list")return answer(res,{list:[
+      {id:61,user_id:3,username:"owner",client:"webadmin",platform:"windows",login_ip:"192.0.2.1",
+        device_id:"office",device_uuid:"owner-uuid",active:true,current:false,created_at:"2026-11-12 13:00:00",expired_at:1920000000}
+    ],total:1});
+    if(route==="/my/user_token/revoke"||route==="/user_token/delete")return answer(res,{});
+    if(route==="/rustdesk/execute"){
+      let payload="";
+      req.on("data",chunk=>payload+=chunk.toString());
+      req.on("end",()=>{
+        const action=JSON.parse(payload||"{}");
+        const data=action.cmd==="usage"?{kind:"usage",summary:"共 1 条记录",count:1,
+          rows:[{address:"192.0.2.5",seconds:"80",megabytes:"12.5",peak_kbps:"160",
+            average_kbps:"40",current_kbps:"25"}]}:
+          action.cmd==="always-use-relay"?{kind:"boolean",summary:"当前设置已启用",active:true}:
+          action.cmd==="limit-speed"?{kind:"metric",summary:"服务器当前设置",value:12.5,unit:"Mb/s"}:
+          {kind:"list",summary:"共 2 条记录",count:2,rows:[
+            {address:"relay-1.example.test:21117"},{address:"relay-2.example.test:21117"}]};
+        answer(res,data);
+      });
+      return;
+    }
     if(route==="/my/address_book/import"||route==="/address_book/import")return answer(res,{created:1,updated:0});
     if(route==="/my/address_book/export"||route==="/address_book/export"){
       res.writeHead(200,{"Content-Type":"text/csv; charset=utf-8",
@@ -1591,6 +1625,49 @@ test("administrator group editing sends update endpoint and table headings sort"
     await page.locator('[type="submit"][form="edit-form"]').click();
     await page.waitForTimeout(300);
     assert.equal(requestPath,"/api/admin/group/update");
+  }finally{await context.close();}
+});
+
+test("personal session screens load account-owned records and submit session actions",async()=>{
+  const {context,page}=await pageForViewport(1360,900,false);
+  try{
+    await page.locator('nav.side-scroll button[data-view="myactiveSessions"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的活动远程连接");
+    assert.match(await page.locator(".content").innerText(),/office/);
+    page.on("dialog",dialog=>dialog.accept());
+    const disconnection=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/session/disconnect")&&req.method()==="POST");
+    await page.locator('.table-scroll [data-action="session-disconnect"]').click();
+    const disconnectPayload=(await disconnection).postDataJSON();
+    assert.equal(disconnectPayload.device_id,"office");
+    assert.equal(disconnectPayload.conn_id,301);
+    await page.locator('nav.side-scroll button[data-view="myDisconnectHistory"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的结束连接记录");
+    assert.match(await page.locator(".content").innerText(),/office/);
+    await page.locator('nav.side-scroll button[data-view="mysessions"]').click();
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的登录会话");
+    assert.match(await page.locator(".content").innerText(),/192.0.2.1/);
+    const revoked=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/user_token/revoke")&&req.method()==="POST");
+    await page.locator('.table-scroll [data-action="session-revoke"]').first().click();
+    assert.equal((await revoked).postDataJSON().id,61);
+  }finally{await context.close();}
+});
+
+test("server management renders categorized API replies as metrics and tables",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav button[data-view="server"]').click();
+    await page.locator('button[data-action="server-tab"][data-tab="relay"]').click();
+    const request=page.waitForRequest(req=>req.url().endsWith("/api/admin/rustdesk/execute")&&req.method()==="POST");
+    await page.locator("#command-form button[type=submit]").click();
+    const params=(await request).postDataJSON();
+    assert.equal(params.target,"21117");
+    assert.equal(params.cmd,"usage");
+    await page.locator(".server-result-table tbody tr").waitFor();
+    assert.match(await page.locator(".server-result").innerText(),/192.0.2.5/);
+    await page.locator('button[data-id="relay-speed-read"]').click();
+    await page.locator("#command-form button[type=submit]").click();
+    await page.getByText("12.5",{exact:false}).first().waitFor();
+    assert.match(await page.locator(".server-result").innerText(),/Mb\/s/);
   }finally{await context.close();}
 });
 
