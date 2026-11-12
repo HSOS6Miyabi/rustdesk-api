@@ -132,7 +132,10 @@
     apiTokens: {name:"API 管理令牌",icon:"key",section:"系统管理",admin:true,endpoint:"api_token",columns:[["id","编号"],["name","用途"],["prefix","令牌前缀"],["user_id","所属账户 ID"],["permissions","允许的操作"],["expires_at","过期时间"],["revoked_at","撤销时间"],["last_used_at","最近使用"]],fields:[["name","令牌名称","text",true],["user_id","所属账户 ID（留空为自己）","number"],["permissions","允许的操作（以逗号分隔，例如 devices.read）","text"],["expires_in_days","有效天数（0 表示长期有效）","number"]]},
     activeSessions: {name:"活动远程连接",icon:"link",section:"设备管理",admin:true,readonly:true,endpoint:"session",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最后一次心跳"]]},
     disconnectHistory: {name:"结束连接记录",icon:"clock",section:"设备管理",admin:true,readonly:true,endpoint:"session/disconnect",columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["requested_by","操作账户 ID"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]},
-    sessions: {name:"登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["device_uuid","设备 UUID"],["created_at","时间"]]},
+    sessions: {name:"全部登录会话",icon:"lock",section:"系统管理",endpoint:"user_token",admin:true,noCreate:true,columns:[["id","会话编号"],["username","登录账户"],["device_id","设备 ID"],["device_uuid","终端标识"],["login_ip","登录 IP"],["client","客户端"],["platform","系统"],["created_at","登录时间"],["expired_at","有效期截止"],["active","状态"],["current","当前会话"]]},
+    mysessions: {name:"我的登录会话",icon:"lock",section:"个人管理",endpoint:"my/user_token",readonly:true,columns:[["id","会话编号"],["device_id","设备 ID"],["device_uuid","终端标识"],["login_ip","登录 IP"],["client","客户端"],["platform","系统"],["created_at","登录时间"],["expired_at","有效期截止"],["active","状态"],["current","当前会话"]]},
+    myactiveSessions: {name:"我的活动远程连接",icon:"link",section:"我的审计记录",endpoint:"my/session",readonly:true,columns:[["device_id","设备 ID"],["conn_id","连接编号"],["last_seen_at","最近活动时间"]]},
+    myDisconnectHistory: {name:"我的结束连接记录",icon:"clock",section:"我的审计记录",endpoint:"my/session/disconnect",readonly:true,columns:[["device_id","设备 ID"],["conn_id","连接编号"],["status","处理状态"],["created_at","请求时间"],["delivered_at","通知时间"],["completed_at","结束时间"]]}
     push: {name:"消息推送",icon:"bell",section:"账户"},
     profile: {name:"个人设置",icon:"settings",section:"账户"}
   };
@@ -401,13 +404,17 @@
       const alpha=(argb>>>24).toString(16).padStart(2,"0");
       return '<span class="color-label"><span class="color-swatch" style="background:'+rgb+alpha+'"></span>'+esc("#"+argb.toString(16).padStart(8,"0").toUpperCase())+'</span>';
     }
+    if(k==="active")return v?'<span class="pill good">有效</span>':'<span class="pill muted">已过期</span>';
+    if(k==="current")return v?'<span class="pill good">当前登录</span>':"—";
+    if(k==="login_ip")return v?showIP(v):"未记录";
+    if(k==="device_uuid"&&!v)return "未提供终端标识";
     if(k==="status"&&typeof v==="string")return esc({
       approved:"已登记",revoked:"已撤销",pending:"等待处理",
       delivered:"已通知客户端",completed:"连接已结束",expired:"已过期",
       sending:"正在发送",retry:"等待重试",sent:"发送成功",failed:"发送失败"
     }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(["sent_at","created_at","last_online_time","expire","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
+    if(["sent_at","created_at","last_online_time","expire","expired_at","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -749,7 +756,8 @@
       return row.revoked_at?'<span class="pill muted">已撤销</span>':
         '<button type="button" class="btn btn-sm btn-danger" data-action="revoke-api-token" data-id="'+esc(row.id)+'">撤销令牌</button>';
     }
-    if(state.page==="activeSessions")return '<button type="button" class="btn btn-sm btn-danger" data-action="session-disconnect" data-id="'+esc(row.conn_id)+'" data-device="'+esc(row.device_id)+'">结束连接</button>';
+    if(["activeSessions","myactiveSessions"].includes(state.page))return '<button type="button" class="btn btn-sm btn-danger" data-action="session-disconnect" data-id="'+esc(row.conn_id)+'" data-device="'+esc(row.device_id)+'">结束连接</button>';
+    if(["sessions","mysessions"].includes(state.page))return '<button type="button" class="btn btn-sm btn-danger" data-action="session-revoke" data-id="'+esc(row.id)+'">结束登录</button>';
     if(state.page==="deployed")return '<button type="button" class="btn btn-sm" data-action="deployment-toggle" data-id="'+esc(row.id)+'">'+(row.status==="approved"?"撤销部署":"恢复部署")+"</button>";
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
@@ -2472,12 +2480,23 @@
       catch(e){toast(e.message,true);}
       return;
     }
+    if(a==="session-revoke"){
+      const session=state.rows.find(item=>String(item.id)===String(el.dataset.id));
+      if(!session)return;
+      if(!window.confirm(session.current?"结束当前登录后，需要重新登录。确定继续吗？":"确定结束选中的登录会话吗？"))return;
+      try{
+        await request(state.page==="mysessions"?"/my/user_token/revoke":"/user_token/delete","POST",{id:Number(session.id)});
+        if(session.current){await logout();return;}
+        toast("登录会话已结束");await load();
+      }catch(err){toast(err.message,true);}
+      return;
+    }
     if(a==="session-disconnect"){
       const deviceId=el.dataset.device, connId=Number(el.dataset.id);
       if(!deviceId||!connId)return;
       if(!window.confirm("确定请求结束设备 "+deviceId+" 的连接 "+connId+" 吗？"))return;
       try{
-        await request("/session/disconnect","POST",{device_id:deviceId,conn_id:connId});
+        await request(state.page==="myactiveSessions"?"/my/session/disconnect":"/session/disconnect","POST",{device_id:deviceId,conn_id:connId});
         toast("结束连接请求已提交，客户端下次发送心跳时会收到通知");
         await load();
       }catch(err){toast(err.message,true);}
