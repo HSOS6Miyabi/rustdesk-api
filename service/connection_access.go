@@ -107,12 +107,12 @@ func DeleteAccessRule(id uint)error{
 	return nil
 }
 
-func ListAccessRules(page,size uint)([]model.AccessRule,int64,error){
+func ListAccessRules(page,size uint,sort ...string)([]model.AccessRule,int64,error){
 	var count int64
 	var rows []model.AccessRule
 	query:=DB.Model(&model.AccessRule{})
 	if err:=query.Count(&count).Error;err!=nil{return nil,0,err}
-	err:=query.Order("id DESC").Scopes(Paginate(page,size)).Find(&rows).Error
+	err:=query.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&rows).Error
 	return rows,count,err
 }
 

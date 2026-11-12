@@ -151,21 +151,21 @@ func DeleteAdminRoleAssignment(rowID uint)error {
 	return nil
 }
 
-func ListAdminRoles(page,size uint)([]model.AdminRole,int64,error){
+func ListAdminRoles(page,size uint,sort ...string)([]model.AdminRole,int64,error){
 	var roles []model.AdminRole
 	var count int64
 	q:=DB.Model(&model.AdminRole{})
 	if err:=q.Count(&count).Error;err!=nil{return nil,0,err}
-	err:=q.Order("id DESC").Scopes(Paginate(page,size)).Find(&roles).Error
+	err:=q.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&roles).Error
 	return roles,count,err
 }
 
-func ListAdminRoleAssignments(page,size uint)([]model.AdminRoleAssignment,int64,error){
+func ListAdminRoleAssignments(page,size uint,sort ...string)([]model.AdminRoleAssignment,int64,error){
 	var roles []model.AdminRoleAssignment
 	var count int64
 	q:=DB.Model(&model.AdminRoleAssignment{})
 	if err:=q.Count(&count).Error;err!=nil{return nil,0,err}
-	err:=q.Order("id DESC").Scopes(Paginate(page,size)).Find(&roles).Error
+	err:=q.Order("id DESC").Scopes(Paginate(page,size),SortScope(sort...)).Find(&roles).Error
 	return roles,count,err
 }
 
