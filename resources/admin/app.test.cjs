@@ -957,3 +957,23 @@ test("clicking the empty overlay closes the user editor",async()=>{
   await app.events.click({target:{id:"modal-overlay",classList:{contains:()=>false},closest:()=>null}});
   assert.doesNotMatch(app.root.innerHTML,/id="modal-overlay"/);
 });
+
+test("connection direction uses icons with accessible labels",async()=>{
+  const app=createConsole(false);
+  await app.settle();await app.settle();await app.open("myconnections");
+  assert.match(app.root.innerHTML,/class="connection-direction"/);
+  assert.match(app.root.innerHTML,/aria-label="我发起的连接"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-column="direction"[^>]*>[^<]*我发起的连接/);
+});
+
+test("admin user details do not duplicate editing and security actions",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user/list"]={list:[{id:17,username:"helper",status:1,group_id:1}],total:1};
+  await app.settle();await app.open("users");
+  await app.events.click({target:{closest:()=>({dataset:{action:"entity-detail",entityType:"user",entityId:"17",entityLabel:"helper"}})}});
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/data-action="entity-admin-edit"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="entity-open-list"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="reset-password"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-action="reset-user-mfa"/);
+});

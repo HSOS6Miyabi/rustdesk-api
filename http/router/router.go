@@ -5,6 +5,7 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/controller/web"
 	"net/http"
+"path/filepath"
 )
 
 func WebInit(g *gin.Engine) {
@@ -19,5 +20,7 @@ func WebInit(g *gin.Engine) {
 		g.StaticFS("/webclient", http.Dir(global.Config.Gin.ResourcesPath+"/web"))
 		g.StaticFS("/webclient2", http.Dir(global.Config.Gin.ResourcesPath+"/web2"))
 	}
-	g.StaticFS("/_admin", http.Dir(global.Config.Gin.ResourcesPath+"/admin"))
+	console := consoleResourceHandler(filepath.Join(global.Config.Gin.ResourcesPath,"admin"))
+ g.GET("/_admin/*filepath",console)
+ g.HEAD("/_admin/*filepath",console)
 }

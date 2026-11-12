@@ -425,3 +425,34 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
  .settings-tab{flex:1 1 126px;padding:9px 7px;font-size:12px}
  .user-edit-security .btn{flex:1 1 140px}
 }
+
+
+/* The complete location is shown on every row, including narrow tables. */
+.data-table td:is([data-column="ip"],[data-column="login_ip"],[data-column="client_ip"],
+ [data-column="source_ip"],[data-column="last_online_ip"],[data-column="remote_ip"],
+ [data-column="public_ip"],[data-column="private_ip"],[data-column="device_ip"])>span{
+  display:block;
+  -webkit-line-clamp:unset;
+  line-clamp:unset;
+  overflow:visible;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  max-height:none;
+}
+.data-table td:is([data-column="ip"],[data-column="login_ip"],[data-column="client_ip"],
+ [data-column="source_ip"],[data-column="last_online_ip"],[data-column="remote_ip"],
+ [data-column="public_ip"],[data-column="private_ip"],[data-column="device_ip"]) .ip-location{
+  display:block;
+  white-space:normal;
+  overflow:visible;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.connection-direction{
+  display:inline-flex;align-items:center;justify-content:center;min-height:28px;
+  width:32px;color:var(--main);vertical-align:middle;
+}
+.data-table td[data-column="direction"]{text-align:center}
+.data-table td[data-column="direction"]>span{display:flex;justify-content:center;overflow:visible;line-height:28px}
+.data-table th[data-column="direction"]{text-align:center}
+.mobile-item .connection-direction{justify-content:flex-start}

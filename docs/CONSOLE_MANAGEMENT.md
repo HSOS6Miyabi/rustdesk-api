@@ -1,6 +1,6 @@
 # 控制台与服务器管理
 
-本说明适用于 RustDesk API v3.0.0-api.115。登录 `/_admin/`，即可使用设备管理、对象搜索、服务器管理和个人连接记录。
+本说明适用于 RustDesk API v3.0.0-api.116。登录 `/_admin/`，即可使用设备管理、对象搜索、服务器管理和个人连接记录。
 
 ## 桌面页面与表格
 
@@ -91,3 +91,22 @@ API 通过本机回环地址向服务端发送管理命令。直接部署时，A
 ## 测试和升级
 
 项目自动检查 Go 后端、浏览器交互、前后端 HTTP 请求、模拟 RustDesk 控制端口回复，以及 SQLite、MySQL、PostgreSQL 的数据库升级过程。正式升级前，应备份数据库、RustDesk Server 身份密钥、API 配置和加密密钥。具体操作见 [部署与配置](DEPLOYMENT.md)。
+
+## 页面资源更新与浏览器缓存
+
+控制台的脚本和样式文件使用根据内容生成的资源地址。文件内容发生变化后，资源地址会随之改变，浏览器和 CDN 会自动获取新的文件。未变化的文件继续使用现有缓存。入口网页会向服务器核对缓存是否需要更新。
+
+页面底部的“控制台资源版本”可用于检查浏览器是否已经获取当前服务上的页面。服务器的 `/_admin/` 响应头也包含 `X-RustDesk-Console-Revision`，可用以下命令检查：
+
+```bash
+curl -I https://你的服务器域名/_admin/
+```
+
+使用仓库提供的 Docker Compose 文件更新软件时，执行：
+
+```bash
+docker compose pull rustdesk-api
+docker compose up -d --force-recreate rustdesk-api
+```
+
+Compose 文件指定已发布的版本，并在启动时检查该镜像。升级完成后，可在浏览器中重新进入控制台，核对底部显示的资源版本。如果 CDN 对入口网页设置了额外的缓存规则，应让 `/_admin/` 及 `/_admin/index.html` 遵循服务器的缓存响应头。
