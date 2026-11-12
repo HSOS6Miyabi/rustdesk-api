@@ -2316,6 +2316,13 @@ test("desktop connection list stacks device names above IDs without clipping",as
           stacked:!!(name&&id&&id.getBoundingClientRect().top>=name.getBoundingClientRect().bottom+1),
           columnLayout:!!(name&&getComputedStyle(name.parentElement).display==="flex"&&
             getComputedStyle(name.parentElement).flexDirection==="column"),
+          style:name?{display:getComputedStyle(name.parentElement).display,
+            flexDirection:getComputedStyle(name.parentElement).flexDirection,
+            matching:name.parentElement.matches('.data-table td.cell-device-stack .entity-link>.entity-link-text'),
+            media:matchMedia('(min-width:901px)').matches,
+            css:[...document.styleSheets].map(s=>s.href),
+            rules:[...document.styleSheets].some(sheet=>[...sheet.cssRules].some(rule=>
+              rule.cssText.includes('td.cell-device-stack .entity-link')))}:null,
           clipped:cell.scrollWidth>cell.clientWidth+2};
       });
     });
