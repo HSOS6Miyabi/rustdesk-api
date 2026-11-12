@@ -42,6 +42,18 @@ func ListLoginSessions(userID uint, all bool, currentToken string, page, size ui
     }
     names:=map[uint]string{}
     for _, user:=range users { names[user.Id]=user.Username }
+    tokenIDs:=make([]uint,0,len(tokens))
+    for _,token:=range tokens {tokenIDs=append(tokenIDs,token.Id)}
+    logsByID:=map[uint]model.LoginLog{}
+    if len(tokenIDs)>0 {
+        logs:=[]model.LoginLog{}
+        if err:=DB.Where("user_token_id IN ?",tokenIDs).Order("id DESC").Find(&logs).Error;err!=nil {
+            return nil,0,err
+        }
+        for _,log:=range logs {
+            if _,ok:=logsByID[log.UserTokenId];!ok { logsByID[log.UserTokenId]=log }
+        }
+    }
     rows:=make([]LoginSessionView,0,len(tokens))
     for _, token:=range tokens {
         entry:=LoginSessionView{
@@ -50,21 +62,23 @@ func ListLoginSessions(userID uint, all bool, currentToken string, page, size ui
             CreatedAt:token.CreatedAt, ExpiredAt:token.ExpiredAt,
             Active:token.ExpiredAt>time.Now().Unix(),Current:token.Token!=""&&token.Token==currentToken,
         }
-        // Client-provided device identifiers are the only reliable way to associate
-        // an authentication session with a historical login location.
-        if token.DeviceUuid!="" || token.DeviceId!="" {
-            var log model.LoginLog
+        // Prefer the login record linked to this credential. For older
+        // records, match the last login from the same registered device.
+        log,found:=logsByID[token.Id]
+        if found && log.UserId!=token.UserId { found=false }
+        if !found && (token.DeviceUuid!="" || token.DeviceId!="") {
             match:=DB.Where("user_id = ?",token.UserId)
             if token.DeviceUuid!="" {
                 match=match.Where("uuid = ?",token.DeviceUuid)
             } else {
                 match=match.Where("device_id = ?",token.DeviceId)
             }
-            if err:=match.Order("id DESC").First(&log).Error;err==nil {
-                entry.LoginIP=log.Ip
-                entry.Client=log.Client
-                entry.Platform=log.Platform
-            }
+            if err:=match.Order("id DESC").First(&log).Error;err==nil {found=true}
+        }
+        if found {
+            entry.LoginIP=log.Ip
+            entry.Client=log.Client
+            entry.Platform=log.Platform
         }
         rows=append(rows,entry)
     }

@@ -22,6 +22,9 @@ const (
 
 var SysIdServerCmds = []*ServerCmd{
 	{Cmd: "h", Option: "", Explain: "show help", Target: ServerCmdTargetIdServer},
+	{Cmd: "reload-geo", Alias: "rg", Explain: "reload geographic IP data", Target: ServerCmdTargetIdServer},
+	{Cmd: "punch-requests", Alias: "pr", Explain: "view recent connection attempts", Target: ServerCmdTargetIdServer},
+	{Cmd: "must-login", Alias: "ml", Option: "[Y|N]", Explain: "require registered clients to log in", Target: ServerCmdTargetIdServer},
 	{Cmd: "relay-servers", Alias: "rs", Option: "<separated by ,>", Explain: "set or show relay servers", Target: ServerCmdTargetIdServer},
 	{Cmd: "ip-blocker", Alias: "ib", Option: "[<ip>|<number>] [-]", Explain: "block or unblock ip or show blocked ip", Target: ServerCmdTargetIdServer},
 	{Cmd: "ip-changes", Alias: "ic", Option: "[<id>|<number>] [-]", Explain: "ip-changes(ic) [<id>|<number>] [-]", Target: ServerCmdTargetIdServer},
