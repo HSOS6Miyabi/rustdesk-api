@@ -220,7 +220,7 @@ func auditPersonalScope(tx *gorm.DB, userId uint) *gorm.DB {
 	)
 }
 
-func (as *AuditService,sort ...string) OwnConnections(userId uint, page, pageSize uint) (*model.AuditConnList, error) {
+func (as *AuditService) OwnConnections(userId uint, page, pageSize uint,sort ...string) (*model.AuditConnList, error) {
 	res := &model.AuditConnList{}
 	if userId == 0 { return res, errors.New("user not found") }
 	if page == 0 { page = 1 }
@@ -234,7 +234,7 @@ func (as *AuditService,sort ...string) OwnConnections(userId uint, page, pageSiz
 	return res, nil
 }
 
-func (as *AuditService,sort ...string) OwnFiles(userId uint, page, pageSize uint) (*model.AuditFileList, error) {
+func (as *AuditService) OwnFiles(userId uint, page, pageSize uint,sort ...string) (*model.AuditFileList, error) {
 	res := &model.AuditFileList{}
 	if userId == 0 { return res, errors.New("user not found") }
 	if page == 0 { page = 1 }

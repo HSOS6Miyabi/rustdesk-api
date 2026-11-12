@@ -60,7 +60,7 @@ func (as *AuditService) SaveAuditAlarm(event *model.AuditAlarm,nonce,sourceIP st
 	})
 }
 
-func (as *AuditService,sort ...string) OwnAlarms(userId uint,page,pageSize uint) ([]model.AuditAlarm,int64,error) {
+func (as *AuditService) OwnAlarms(userId uint,page,pageSize uint,sort ...string) ([]model.AuditAlarm,int64,error) {
 	if userId==0{return nil,0,errors.New("invalid account ID")}
 	if page==0{page=1}
 	if pageSize==0{pageSize=20}

@@ -18,7 +18,7 @@ func normalizeAuditPage(page,size uint) (uint,uint) {
 	return page,size
 }
 
-func (as *AuditService,sort ...string) AllAlarms(page,size uint,peer string,alarmType *int) ([]model.AuditAlarm,int64,error){
+func (as *AuditService) AllAlarms(page,size uint,peer string,alarmType *int,sort ...string) ([]model.AuditAlarm,int64,error){
 	page,size=normalizeAuditPage(page,size)
 	tx:=DB.Model(&model.AuditAlarm{})
 	if peer!=""{tx=tx.Where("peer_id = ?",peer)}
@@ -30,7 +30,7 @@ func (as *AuditService,sort ...string) AllAlarms(page,size uint,peer string,alar
 	return rows,total,err
 }
 
-func (as *AuditService,sort ...string) AllOperations(page,size uint,userId uint,method string) ([]model.AuditOperation,int64,error){
+func (as *AuditService) AllOperations(page,size uint,userId uint,method string,sort ...string) ([]model.AuditOperation,int64,error){
 	page,size=normalizeAuditPage(page,size)
 	tx:=DB.Model(&model.AuditOperation{})
 	if userId!=0{tx=tx.Where("user_id = ?",userId)}
