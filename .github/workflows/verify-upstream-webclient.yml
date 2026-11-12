@@ -116,7 +116,7 @@ jobs:
           path: rustdesk-1.5.3/flutter/build/web
           retention-days: 7
       - name: Integrate official browser client and keep the existing network transport
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
