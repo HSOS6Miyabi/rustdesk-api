@@ -209,7 +209,7 @@ func chinaGeoIPDescription(record geoIPRecord) string {
 		geoIPPreferredName(subdivision.Names), subdivision.ISOCode)
 	if !found {
 		parts = appendGeoIPName(parts, geoIPPreferredName(subdivision.Names))
-		return appendGeoIPName(parts, geoIPPreferredName(record.City.Names))
+		return strings.Join(appendGeoIPName(parts, geoIPPreferredName(record.City.Names)), " · ")
 	}
 	parts = append(parts, province.Name)
 	cityName := geoIPPreferredName(record.City.Names)
