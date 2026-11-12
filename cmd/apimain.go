@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 290
+const DatabaseVersion = 291
 
 // @title 管理系统API
 // @version 1.0
@@ -366,6 +366,9 @@ func Migrate(version uint) error {
 		&model.TOTPLoginChallenge{},
 		&model.EmailLoginSetting{},
 		&model.EmailCodeChallenge{},
+        &model.UserPasskey{},
+        &model.UserPasskeyHandle{},
+        &model.UserPasskeyChallenge{},
 		&model.RelayNode{},
 		&model.ControlRole{},
 		&model.ControlRoleAssignment{},

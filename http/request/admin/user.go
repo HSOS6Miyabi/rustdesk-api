@@ -58,12 +58,12 @@ type UserQuery struct {
 }
 type UserPasswordForm struct {
 	Id       uint   `json:"id" validate:"required"`
-	Password string `json:"password" validate:"required,gte=4,lte=32"`
+	Password string `json:"password" validate:"required,gte=8,lte=72"`
 }
 
 type ChangeCurPasswordForm struct {
 	OldPassword string `json:"old_password" validate:"required,gte=4,lte=32"`
-	NewPassword string `json:"new_password" validate:"required,gte=4,lte=32"`
+	NewPassword string `json:"new_password" validate:"required,gte=8,lte=72"`
 }
 type GroupUsersQuery struct {
 	IsMy   int  `json:"is_my"`

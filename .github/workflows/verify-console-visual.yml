@@ -1,7 +1,15 @@
 name: Verify console visual layouts
 
 on:
+  push:
+    branches:
+      - 'feature/**'
+    paths:
+      - 'resources/admin/**'
+      - 'scripts/create_visual_review_gallery.py'
+      - '.github/workflows/verify-console-visual.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'resources/admin/**'
       - 'resources/web2/**'
@@ -9,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   visual-audit:
@@ -37,6 +45,34 @@ jobs:
           RUSTDESK_VISUAL_AUDIT: '1'
           RUSTDESK_REQUIRE_CJK_FONT: '1'
         run: node --test resources/admin/browser.e2e.cjs
+      - name: Create contact sheets for every audited page
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 scripts/create_visual_review_gallery.py \
+            resources/admin/test-screenshots/audit \
+            resources/admin/test-screenshots/contact-sheets
+      - name: Save screenshots on the isolated visual review branch
+        if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/rustdesk-console-review"
+          mkdir -p "$WORK"
+          test -f resources/admin/test-screenshots/audit/layout-report.json
+          cp -R resources/admin/test-screenshots/audit "$WORK/screenshots"
+          cp -R resources/admin/test-screenshots/contact-sheets "$WORK/gallery"
+          cd "$WORK"
+          git init -b visual-review
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add screenshots gallery
+          git commit -m "管理和个人页面视觉审核图集"
+          AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+            push --force "https://github.com/$GITHUB_REPOSITORY.git" \
+            HEAD:refs/heads/audit/console-visual-review
       - name: Upload inspection reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4

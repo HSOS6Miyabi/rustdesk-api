@@ -2,7 +2,7 @@
 
 This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
 
-The current API release is [v3.0.0-api.112](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.112), using database migration version 290. It includes responsive full-width pages, unified searchable selectors, structured RustDesk server management, personal remote connection and login session controls, and improvements to WebClient v2.
+The current API release is [v3.0.0-api.114](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.114), using database migration version 291. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
 
 The console supports persistent collapsible navigation, database-wide sortable tables, multi-field user and device search, and details for devices shared with the current account. The client builder can use published RustDesk versions or generate a configured installer from a local EXE, DEB, or DMG entirely in the browser. Locally selected files are not uploaded to the API, and their SHA-256 is not calculated.
 
@@ -14,6 +14,8 @@ Documentation for maintained fork features:
 
 - [Deployment](docs/DEPLOYMENT.md) and [global configuration reference](docs/CONFIG_REFERENCE.md)
 - [Console and server management](docs/CONSOLE_MANAGEMENT.md)
+- [Passkeys and account management](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)
+- [Log retention and cleanup](docs/LOG_RETENTION.md)
 - [Settings Center](docs/SETTINGS_CENTER.md)
 - [Fork changes](docs/FORK_CHANGELOG.md) and [upstream integration](docs/UPSTREAM_SYNC.md)
 - [API guide](docs/API.md), [testing](docs/TESTING.md), and [version compatibility](docs/COMPATIBILITY.md)

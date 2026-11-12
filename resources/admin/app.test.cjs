@@ -98,6 +98,8 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/admin_role_assignment/list": {list:[{id:4,user_id:15,role_id:12}],total:1},
     "/mfa/status": {enabled:false,pending:false,remaining_recovery_codes:0},
     "/mfa/email/status": {enabled:false,email:"owner@example.test",mail_configured:true},
+    "/passkey/list": {list:[],total:0},
+    "/passkey/revoke": {},
     "/my/login_log/list": { list: [], total: 0 },
     "/my/session/list": {list:[{id:10,device_id:"desk-owned",conn_id:501,last_seen_at:1794400000}],total:1},
     "/my/session/disconnect/list": {list:[{id:4,device_id:"desk-owned",conn_id:400,status:"completed"}],total:1},
@@ -810,6 +812,36 @@ test("address book sharing displays group names and explicit global targets",asy
   await app.open("rules");
   assert.match(app.root.innerHTML,/开发协作组（编号 3）/);
   assert.match(app.root.innerHTML,/所有用户/);
+});
+
+
+test("account profile uses all desktop space with Passkey management",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/passkey/list"]={list:[{id:19,name:"Work laptop",created_at:"2026-11-12 09:00:00",last_used_at:1794477600}],total:1};
+  await app.settle();
+  await app.open("profile");
+  assert.match(app.root.innerHTML,/profile-grid/);
+  assert.match(app.root.innerHTML,/profile-summary/);
+  assert.match(app.root.innerHTML,/Passkey 通行密钥/);
+  assert.match(app.root.innerHTML,/Work laptop/);
+  assert.match(app.root.innerHTML,/data-action="passkey-register"/);
+  assert.doesNotMatch(app.root.innerHTML,/max-width:650px/);
+});
+
+test("administrator user detail offers profile editing, password reset and MFA clearing",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user/list"]={list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1};
+  await app.settle();
+  await app.open("users");
+  assert.match(app.root.innerHTML,/data-action="reset-password"/);
+  assert.match(app.root.innerHTML,/data-action="reset-user-mfa"/);
+  await app.action("reset-password",3);
+  assert.match(app.root.innerHTML,/重设用户密码/);
+  assert.match(app.root.innerHTML,/minlength="8"/);
+  const personal=createConsole(false);
+  await personal.settle();
+  assert.doesNotMatch(personal.root.innerHTML,/重设密码/);
+  assert.doesNotMatch(personal.root.innerHTML,/清除双重认证/);
 });
 
 test("device and user references display link controls with status markers",async()=>{

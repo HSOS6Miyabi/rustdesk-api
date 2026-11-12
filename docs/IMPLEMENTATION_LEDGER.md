@@ -2,6 +2,12 @@
 
 ## 接手总览（更新于 2026 年 11 月 12 日）
 
+### Passkey、个人资料和管理员账户维护
+
+API v3.0.0-api.114 将数据库迁移版本更新为 **291**。个人设置支持注册、查看与撤销 Passkey，登录页面支持 WebAuthn 验证。管理员可以根据已有权限编辑用户资料、重设密码和清除 TOTP 或邮箱双重认证；重设密码或清除双重认证后，用户现有登录会话会失效。管理控制台已检查管理员 51 个页面、普通用户 18 个页面，涵盖超宽屏、桌面、平板和手机。
+
+相关代码：`service/passkey.go`、`http/controller/admin/passkey.go`、`resources/admin/passkey.js`、`resources/admin/app.js`。Go 测试、真实 HTTP 接口测试、Chromium 虚拟认证器联调及逐页截图检查见 [测试说明](TESTING.md)，操作方法见 [Passkey 与账户管理](PASSKEY_AND_ACCOUNT_MANAGEMENT.md)。前一个版本 v3.0.0-api.113 的日志保存期限和手动清理功能继续保留，说明见 [日志保留与清理](LOG_RETENTION.md)。
+
 ### 管理控制台搜索、排序与共享设备详情
 
 [API PR #15](https://github.com/HSOS6Miyabi/rustdesk-api/pull/15) 完善了主要管理表格的排序：用户点击列标题后，API 根据已校验的字段在数据库查询中排序，再按页返回结果。排序支持升序和降序，电脑与手机使用相同的查询结果。
@@ -59,15 +65,15 @@
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 正式版本标签 | [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.114](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.114) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)、[PR #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)、[PR #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)、[PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 正式发行工作流 | [#43157085657：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
-| 正式 Release | [v3.0.0-api.110](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.110) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式 Release | [v3.0.0-api.114](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.114) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
-正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.110`。
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.114`。
 
-当前 API 数据库迁移版本：**290**。正式发行提交为 [`d2a82e9`](https://github.com/HSOS6Miyabi/rustdesk-api/commit/d2a82e923dde17971e5b48a980ba73b718222780)。[发行工作流 #43157085657](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) 的九项任务全部通过；Linux AMD64、Linux ARM64、Windows AMD64 安装文件以及 AMD64/ARM64 Docker 镜像均已发布。
+当前 API 数据库迁移版本：**291**。版本内容及对应发行测试见 [v3.0.0-api.114](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.114) 和 [正式发行工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml)。程序启动时会创建 Passkey 凭证、账户句柄和一次性认证请求的数据表，已有用户、设备、审计记录及日志清理配置保持不变。
 
 CI 已实际通过的内容：
 
@@ -113,7 +119,7 @@ CI 已实际通过的内容：
 | T003 | P0 | 待执行 | 使用两台真实设备验证远程控制角色：键盘、剪贴板、文件传输、音频、终端、录制、隐私模式、USB 等适用权限 | 禁止和允许设置在目标客户端实际生效，且未分配角色时行为保持不变 |
 | T004 | P0 | 实际 API 与 hbbs 的 JWT、连接规则、设备撤销后拒绝新连接、控制角色、WebRTC SDP/ICE 和中继信令在 AMD64、ARM64 通过；实际远程会话与公网连接待检查 | 在同一环境组合验证设备严格登记、`MUST_LOGIN=Y`、集中连接授权、中继连接、WebSocket 和 WebRTC | 合法连接成功，无权限连接被拒绝；API 不可用时严格模式按现有设计处理 |
 | T005 | P0 | 待执行 | 实际配置公网和跨地区的多中继服务器，使用真正 GeoLite2 Country CSV 检查地区选择、节点失效及 `reload-geo` | 真实客户端能够选择可达节点，节点失效后改用其他中继 |
-| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上升级至数据库版本 290，备份并恢复历史记录，检查账户、设备、策略、审计、设置记录、通知任务及客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
+| T006 | P0 | 三种数据库模拟升级、备份和恢复通过；正式数据恢复演练待执行 | 在 SQLite、MySQL、PostgreSQL 上升级至数据库版本 291，备份并恢复历史记录，检查账户、设备、策略、审计、设置记录、通知任务及客户端构建任务 | 三种数据库迁移与回退演练成功，旧数据保持可读取 |
 | T007 | P0 | 待执行 | 使用真实 SMTP 服务验证 STARTTLS/TLS、邀请、密码恢复和邮箱验证码；检查链接公开地址 | 收件人能完成整个流程，密码和原有账户资料保持正常 |
 | T008 | P0 | 普通进程与 Docker 自动化部署及重启检查通过；正式环境待检查 | 使用常规进程和 Docker 部署两套完整系统，核对端口、内部 HTTP 服务名称、WebClient、数据目录和 GeoLite2 挂载 | 两种部署都可以运行、重启并恢复数据 |
 | T009 | P0 | Chromium 桌面、平板和手机交互及截图检查通过；手机导航布局已检查；实际环境管理员操作待执行 | 浏览器人工查看桌面、平板、移动端页面；操作新功能，并记录截图；检查中文文本及错误提示 | 管理页面可独立完成主要管理操作，无阻碍使用的问题 |

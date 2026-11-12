@@ -2,7 +2,7 @@
 
 本仓库基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 持续维护，保留原项目账户、地址簿、Web 客户端及 Go API 的主要结构。下表按实际使用的功能整理增加的模块，便于接手开发人员理解用途、启用条件与受影响的位置。
 
-当前正式发布为 [v3.0.0-api.112](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.112)。控制台布局、服务器管理和个人会话功能见 [拉取请求 #18](https://github.com/HSOS6Miyabi/rustdesk-api/pull/18)，设备远程连接与 WebClient v2 改进也已包含在主分支中。
+当前正式发布为 [v3.0.0-api.114](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.114)，数据库迁移版本为 **291**。本次更新包括 Passkey 登录、管理员协助维护账户、桌面和移动端页面布局，以及 v3.0.0-api.113 的日志归档、保存期限和手动清理功能。详细操作见 [账户管理说明](PASSKEY_AND_ACCOUNT_MANAGEMENT.md) 和 [日志清理说明](LOG_RETENTION.md)。
 
 | 功能 | 管理页面或使用入口 | 主要代码 | 使用条件 |
 | --- | --- | --- | --- |
@@ -26,10 +26,12 @@
 | 管理员委派权限 | 管理员角色、角色分配 | `service/admin_role.go`、`http/middleware/admin_privilege.go` | 管理员创建角色并指定作用范围 |
 | SMTP、账户恢复、邮箱邀请 | SMTP 邮件服务、成员邀请 | `service/mail.go`、`service/password_recovery.go`、`service/user_invitation.go` | SMTP 可用；保存密码需长期保留加密密钥 |
 | TOTP 与邮箱验证码 | 个人设置 | `service/totp.go`、`service/email_login.go` | 用户自行启用；邮件验证码还需要 SMTP |
+| Passkey 注册、登录和撤销 | 登录界面、个人设置 | `service/passkey.go`、`http/controller/admin/passkey.go`、`resources/admin/passkey.js` | 通过 HTTPS 使用 WebAuthn；本机 localhost 可使用 HTTP |
+| 管理员协助维护用户资料和认证 | 用户账户、用户详情 | `http/controller/admin/user.go`、`http/controller/admin/user_mfa_reset.go` | 根据管理员权限编辑资料、重设密码或清除双重认证；结束目标用户现有会话 |
 | 通知与发送失败重试 | 邮件事件通知、消息推送 | `service/notification.go`、`service/push_delivery.go`、`service/event_outbox.go` | 管理员或用户启用订阅后处理事件 |
 | 多中继和地理位置 | 中继节点管理 | `service/relay_node.go`、`service/geoip.go` | 需要多个中继时启用；国家识别还需本地 GeoLite2 数据 |
 | 安装包生成与下载 | 客户端安装包构建 | `service/client_build.go`、`service/client_release.go`、`resources/admin/client-local.js` | 可按官方版本下载，也可在浏览器直接处理本地 EXE、DEB、DMG |
-| 审计记录与保留期限 | 日志记录、日志保留设置 | `service/audit_management.go`、`model/audit_management.go` | 日志保留天数可分别配置 |
+| 审计、运行日志归档与清理 | 日志记录、日志保留设置 | `service/audit_management.go`、`service/log_retention.go`、`lib/logger/rotating_file.go` | 按类别保存日志期限；支持查看待清理数量、手动清理和自动归档 |
 | 设置中心与启动配置覆盖 | 设置中心 | `config/settings.go`、`service/settings.go`、`http/controller/admin/settings.go` | 仅系统管理员；覆盖值优先于环境变量，修改后重新启动 API |
 
 ## 主要数据库变化

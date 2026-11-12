@@ -80,7 +80,7 @@ python3 - "$test_dir/data/rustdeskapi.db" <<'PY'
 import sqlite3,sys,datetime
 with sqlite3.connect(sys.argv[1]) as connection:
     version=connection.execute("SELECT MAX(version) FROM versions").fetchone()[0]
-    assert version==290, f"Unexpected database schema version {version}"
+    assert version==291, f"Unexpected database schema version {version}"
     connection.execute(
         "INSERT INTO system_setting_overrides (key,enabled,value,updated_at) VALUES (?,?,?,?)",
         ("admin.title",1,"Stored webpage title",datetime.datetime.now().isoformat())

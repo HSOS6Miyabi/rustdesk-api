@@ -429,7 +429,7 @@
     page:"overview",bookTab:"entries",pageNo:1,pageSize:20,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverResults:{},serverError:"",commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsCategory:"all",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -483,7 +483,8 @@
     const cap=options.need_captcha?'<div class="login-field"><label for="captcha">验证码</label><div style="display:flex;gap:10px"><input name="captcha" id="captcha" required placeholder="输入验证码"><button class="btn" type="button" data-action="captcha">刷新</button></div><input type="hidden" name="captcha_id" value="'+esc(state.captcha&&state.captcha.id||"")+'">'+(state.captcha&&state.captcha.b64?'<img alt="验证码" style="max-height:72px;max-width:220px;margin-top:10px" src="'+esc(state.captcha.b64.startsWith("data:")?state.captcha.b64:"data:image/png;base64,"+state.captcha.b64)+'">':"")+"</div>":"";
     const passwordForm=options.disable_pwd?'<p class="warning">当前服务已关闭密码登录，请选择下方的单点登录服务。</p>':'<form id="login-form"><div class="login-field"><label for="username">用户名</label><input id="username" autocomplete="username" name="username" placeholder="输入用户名" required></div><div class="login-field"><label for="password">密码</label><input type="password" id="password" name="password" autocomplete="current-password" placeholder="输入密码" required></div>'+cap+'<button type="submit" class="btn btn-primary login-submit">登录控制台 '+icon("arrow",17)+'</button></form><button type="button" class="btn" data-action="forgot-password">忘记密码</button>';
     const ops=(options.ops||[]).map(op=>{const n=typeof op==="string"?op:op.op||op.name;return n?'<button type="button" class="btn" data-action="oidc" data-id="'+esc(n)+'">使用 '+esc(n)+' 登录 '+icon("arrow",14)+'</button>':"";}).join("");
-    root.innerHTML='<div class="login-shell"><section class="login-art"><div class="brand-row">'+brand()+'</div><div><p class="eyebrow" style="color:#83e7d4">PRIVATE INFRASTRUCTURE</p><h1>远程设备管理，<br><em>一切尽在掌握。</em></h1><p>统一管理远程设备、联系人、共享群组与用户账户。界面可适应电脑、平板和手机。</p></div><div class="login-foot">RustDesk Self-hosted Control Center</div></section><section class="login-right"><div class="login-card"><p class="eyebrow">WELCOME BACK</p><h2>登录控制台</h2><p class="login-intro">'+esc(state.config.title||"请使用 RustDesk API 账户登录")+'</p>'+passwordForm+'<div class="login-options">'+ops+'</div><p class="login-help">首次安装的管理员密码可在服务端启动日志中查看。请通过 HTTPS 连接管理页面。</p></div></section></div>';
+    const passkeyEntry='<button type="button" class="btn passkey-login-button" data-action="passkey-login">'+icon("lock",17)+' 使用 Passkey 登录</button>';
+    root.innerHTML='<div class="login-shell"><section class="login-art"><div class="brand-row">'+brand()+'</div><div><p class="eyebrow" style="color:#83e7d4">PRIVATE INFRASTRUCTURE</p><h1>远程设备管理，<br><em>一切尽在掌握。</em></h1><p>统一管理远程设备、联系人、共享群组与用户账户。界面可适应电脑、平板和手机。</p></div><div class="login-foot">RustDesk Self-hosted Control Center</div></section><section class="login-right"><div class="login-card"><p class="eyebrow">WELCOME BACK</p><h2>登录控制台</h2><p class="login-intro">'+esc(state.config.title||"请使用 RustDesk API 账户登录")+'</p>'+passwordForm+'<div class="login-options">'+passkeyEntry+ops+'</div><p class="login-help">首次安装的管理员密码可在服务端启动日志中查看。请通过 HTTPS 连接管理页面。</p></div></section></div>';
     root.innerHTML+=loginRecoveryModal();
   }
   function loginRecoveryModal(){
@@ -642,6 +643,37 @@
     }catch(e){toast(e.message,true);await getOptions();render();}
     finally{submit.disabled=false;}
   }
+  async function passkeyLogin(){
+    if(!window.RustDeskPasskeys?.supported()){toast("请使用支持 Passkey 的 HTTPS 浏览器",true);return;}
+    try{
+      const session=await request("/passkey/login/begin","POST",{});
+      const credential=await window.RustDeskPasskeys.get(session.options);
+      const result=await request("/passkey/login/finish","POST",{
+        session_id:session.session_id,credential
+      });
+      if(!result?.token)throw Error("服务器没有返回登录令牌");
+      state.token=result.token;sessionStorage.setItem("rustdesk.console.token",result.token);
+      state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
+      if(returnToWebClient())return;
+      state.page="overview";state.modal=null;location.hash="#/overview";
+      render();await load();toast("Passkey 登录成功");
+    }catch(err){toast(err.name==="NotAllowedError"?"已取消 Passkey 验证":err.message,true);}
+  }
+  async function passkeyRegister(){
+    if(!window.RustDeskPasskeys?.supported()){toast("请通过 HTTPS 或 localhost 访问并使用支持 Passkey 的浏览器",true);return;}
+    const name=String(document.getElementById("passkey-name")?.value||"我的设备").trim();
+    if(!name||name.length>80){toast("Passkey 名称须在 1 至 80 个字符之间",true);return;}
+    try{
+      const session=await request("/passkey/register/begin","POST",{});
+      const credential=await window.RustDeskPasskeys.create(session.options);
+      await request("/passkey/register/finish","POST",{
+        session_id:session.session_id,name,credential
+      });
+      const result=await request("/passkey/list");
+      state.passkeys=result.list||[];state.passkeysError="";
+      render();toast("Passkey 已添加");
+    }catch(err){toast(err.name==="NotAllowedError"?"已取消 Passkey 添加":err.message,true);}
+  }
   async function oidc(op){
     try{
       const result=await request("/oidc/auth","POST",{op,deviceInfo:{os:"web"},id:"webadmin",uuid:""});
@@ -687,6 +719,10 @@
         const results=await Promise.all([request("/mfa/status"),request("/mfa/email/status")]);
         state.mfa=results[0];
         state.emailVerification=results[1];
+        try{
+          const passkeys=await request("/passkey/list");
+          state.passkeys=passkeys.list||[];state.passkeysError="";
+        }catch(err){state.passkeys=[];state.passkeysError=err.message;}
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
       }else if(k==="clientBuilder"){
@@ -777,7 +813,7 @@
       out+='<button class="btn btn-sm" data-action="reset-password" data-id="'+id+'">重设密码</button>';
     }
     if(state.page==="users"&&hasPrivilege("users.manage_2fa")){
-      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">重置双重认证</button>';
+      out+='<button class="btn btn-sm" data-action="reset-user-mfa" data-id="'+id+'">清除双重认证</button>';
     }
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
@@ -1120,7 +1156,7 @@
     return pageHeading("日志保留设置","为各类历史记录设置自动清理期限，也可以按类别手动清理。")+
       '<div class="retention-layout"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">自动清理期限</h2>'+
       '<p class="panel-sub">服务启动后及此后每 24 小时检查一次。设置保存后立即生效，无须重新启动。</p></div></div>'+
-      '<form id="retention-form" class="tips"><div class="form-grid">'+inputs+'</div>'+
+      '<form id="retention-form" class="tips"><div class="retention-fields">'+inputs+'</div>'+
       '<button type="submit" class="btn btn-primary" style="margin-top:18px">保存设置</button></form></section>'+
       '<section class="panel"><div class="panel-header"><div><h2 class="panel-title">手动清理历史记录</h2>'+
       '<p class="panel-sub">可先查看符合条件的记录数量，再确认永久删除。</p></div></div>'+
@@ -1278,13 +1314,13 @@
       textField("sender_name","发件人名称",m.sender_name)+
       textField("base_url","用户访问控制台的公开地址",m.base_url,"url");
     return pageHeading("SMTP 邮件服务","配置邮件发送后，可以向团队成员发送测试邮件并用于账户恢复。")+
-      '<section class="panel" style="max-width:960px"><div class="panel-header"><div><h2 class="panel-title">发送邮件设置</h2>'+
+      '<div class="mail-page-grid"><section class="panel mail-settings-card"><div class="panel-header"><div><h2 class="panel-title">发送邮件设置</h2>'+
       '<p class="panel-sub">SMTP 配置保存在数据库中。密码经过加密保存，不会再次显示原文。</p></div></div>'+
       '<form id="mail-settings-form" class="tips"><div class="form-grid">'+inputs+'</div>'+
       '<button class="btn btn-primary" type="submit" style="margin-top:16px">保存邮件设置</button></form></section>'+
-      '<section class="panel" style="max-width:960px;margin-top:16px"><div class="panel-header"><h2 class="panel-title">发送测试邮件</h2></div>'+
+      '<section class="panel mail-test-card"><div class="panel-header"><div><h2 class="panel-title">发送测试邮件</h2><p class="panel-sub">先保存 SMTP 配置，再向指定邮箱发送测试邮件。</p></div></div>'+
       '<form id="mail-test-form" class="tips"><div class="form-grid">'+textField("to","收件邮箱","","email")+
-      '</div><button type="submit" class="btn btn-primary" style="margin-top:16px">发送测试邮件</button></form></section>';
+      '</div><button type="submit" class="btn btn-primary" style="margin-top:16px">发送测试邮件</button></form></section></div>';
   }
 
 
@@ -1382,11 +1418,33 @@
       '<button type="button" class="btn btn-danger" data-action="email-verification-disable">关闭邮箱登录验证</button>':
       '<button type="button" class="btn btn-primary" data-action="email-verification-setup" '+
       (!email.mail_configured||!email.email?'disabled':'')+'>发送邮箱验证码并启用</button>';
-    return pageHeading("个人设置","管理自己的登录密码与可选双重认证。")+
-      '<section class="panel" style="max-width:650px"><div class="panel-header"><h2 class="panel-title">'+esc(state.user.username)+'</h2></div><form id="password-form" class="tips" style="display:grid;gap:15px"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="4" required></div><button class="btn btn-primary" type="submit">修改密码</button></form></section>'+
-      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips" style="display:flex;gap:10px;flex-wrap:wrap">'+mfaActions+'</div></section>'+
-      '<section class="panel" style="max-width:650px;margin-top:16px"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div><div class="tips" style="display:grid;gap:10px"><p>启用后将通过邮件接收登录验证码。已启用 TOTP 的账户优先使用身份验证器。</p>'+
+    const account=state.user||{};
+    const passkeys=Array.isArray(state.passkeys)?state.passkeys:[];
+    const passkeyRows=passkeys.length?passkeys.map(item=>
+      '<div class="passkey-item"><div class="passkey-item-info"><strong>'+esc(item.name||"Passkey")+'</strong>'+
+      '<span>添加于 '+date(item.created_at)+(item.last_used_at?' · 最近使用：'+date(item.last_used_at):" · 尚未使用")+'</span></div>'+
+      '<button type="button" class="btn btn-sm btn-danger" data-action="passkey-revoke" data-id="'+esc(item.id)+'">移除</button></div>').join(""):
+      '<p class="passkey-empty">您还没有添加 Passkey。</p>';
+    const passkeyCard='<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">Passkey 通行密钥</h2>'+
+      '<p class="panel-sub">使用指纹、面容或屏幕锁验证后登录。</p></div></div>'+
+      '<div class="profile-card-body"><p>Passkey 与当前访问域名绑定。添加后可直接使用 Passkey 登录。</p>'+
+      '<div class="passkey-register-row"><div class="field"><label for="passkey-name">Passkey 名称</label>'+
+      '<input id="passkey-name" maxlength="80" placeholder="例如：工作电脑或手机" value="我的设备"></div>'+
+      '<button class="btn btn-primary" type="button" data-action="passkey-register">添加 Passkey</button></div>'+
+      (state.passkeysError?'<p class="warning">'+esc(state.passkeysError)+'</p>':"")+
+      '<div class="passkey-list">'+passkeyRows+'</div></div></section>';
+    const securityCards=passkeyCard+
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">修改登录密码</h2><p class="panel-sub">更新后其他设备需要重新登录。</p></div></div>'+
+      '<form id="password-form" class="tips profile-card-body"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="72" required></div><button class="btn btn-primary" type="submit">保存新密码</button></form></section>'+
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips profile-card-body">'+mfaActions+'</div></section>'+
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div>'+
+      '<div class="tips profile-card-body"><p>启用后通过邮件接收登录验证码。已启用 TOTP 时优先使用身份验证器。</p>'+
       emailButton+(!email.mail_configured?'<p>管理员尚未启用 SMTP 邮件服务。</p>':'')+'</div></section>';
+    return pageHeading("个人设置","查看个人资料并管理账户登录与身份认证方式。")+
+      '<section class="panel profile-summary"><div class="profile-summary-id"><span class="profile-avatar">'+esc((account.nickname||account.username||"U").slice(0,1)).toUpperCase()+'</span>'+
+      '<div><h2>'+esc(account.nickname||account.username||"当前账户")+'</h2><p>@'+esc(account.username||"")+'</p></div></div>'+
+      '<div class="profile-summary-meta"><span>电子邮箱 <strong>'+esc(account.email||"未设置")+'</strong></span><span>身份 <strong>'+(state.isAdmin?"系统管理员":"普通用户")+'</strong></span></div></section>'+
+      '<div class="profile-grid">'+securityCards+'</div>';
   }
   function riskNotice(key){
       if(key==="jwt.key"||key==="app.internal-key"){
@@ -1754,8 +1812,13 @@
     const connectButton=device?'<button type="button" class="btn btn-primary" data-action="device-connect" data-device-id="'+esc(id)+'" data-device-name="'+esc(info.alias||info.hostname||(m.label!==id?m.label:""))+'">连接设备</button>':"";
     const buttons=editable?'<button type="button" class="btn" data-action="entity-open-list">'+
       esc(editable==="devices"?"在设备管理中查看":editable==="mydevices"?"查看设备":editable==="shared"?"在共享设备中查看":editable==="users"?"在用户管理中查看":"打开个人设置")+'</button>':"";
+    const adminUser=!device&&Number(info.id)>0&&available("users");
+    const userActions=adminUser?
+      (canPageAction("users","edit")?'<button type="button" class="btn btn-primary" data-action="entity-admin-edit" data-id="'+esc(info.id)+'">编辑用户资料</button>':"")+
+      (hasPrivilege("users.edit_password")?'<button type="button" class="btn" data-action="reset-password" data-id="'+esc(info.id)+'">重设密码</button>':"")+
+      (hasPrivilege("users.manage_2fa")?'<button type="button" class="btn btn-danger" data-action="reset-user-mfa" data-id="'+esc(info.id)+'">清除双重认证</button>':""):"";
     return modal(device?"设备信息":"用户信息",device?"设备 ID："+id:"用户："+(m.label||id),summary,
-      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+buttons);
+      '<button type="button" class="btn" data-action="entity-back">'+(m.previous?"返回":"关闭")+'</button>'+connectButton+userActions+buttons);
   }
   async function openEntityDetail(type,id,label){
     if(!["device","user"].includes(type)||!String(id||"").trim())return;
@@ -2222,6 +2285,16 @@
     if(a==="entity-back"){
       state.modal=state.modal?.previous||null;render();return;
     }
+    if(a==="entity-admin-edit"){
+      const m=state.modal,record=m?.kind==="entity"&&m.entityType==="user"?m.info:null;
+      if(!record?.id||!canPageAction("users","edit"))return;
+      state.page="users";state.query=record.username||"";state.pageNo=1;
+      location.hash="#/users?search="+encodeURIComponent(state.query);
+      state.modal=null;render();await load();
+      const row=state.rows.find(item=>String(item.id)===String(record.id));
+      if(row)await openEditor(String(row.id),"edit");
+      return;
+    }
     if(a==="entity-open-list"){
       const m=state.modal;if(m?.kind!=="entity"||!m.destination)return;
       view(m.destination,m.destination==="profile"?"":m.entityType==="user"?String(m.info.username||m.entityId):m.entityId);
@@ -2440,6 +2513,18 @@
       if(state.modal?.kind==="entity"&&state.modal.previous){state.modal=state.modal.previous;render();return;}
       if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
+    }
+    if(a==="passkey-login"){await passkeyLogin();return;}
+    if(a==="passkey-register"){await passkeyRegister();return;}
+    if(a==="passkey-revoke"){
+      const found=state.passkeys.find(item=>String(item.id)===String(el.dataset.id));
+      if(!found||!window.confirm("确定移除 Passkey “"+found.name+"”吗？"))return;
+      try{
+        await request("/passkey/revoke","POST",{id:Number(found.id)});
+        state.passkeys=state.passkeys.filter(item=>String(item.id)!==String(found.id));
+        render();toast("Passkey 已移除");
+      }catch(err){toast(err.message,true);}
+      return;
     }
     if(a==="forgot-password"){state.modal={kind:"forgot-password"};render();return;}
     if(a==="logout"){await logout();return;}
@@ -2808,17 +2893,17 @@
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
     if(a==="delete"){await deleteEntry(el.dataset.id);return;}
     if(a==="reset-user-mfa"){
-      const member=state.rows.find(r=>String(r.id)===String(el.dataset.id));
-      if(!member||!window.confirm("确认重置用户 "+member.username+" 的 TOTP 和邮箱登录验证吗？"))return;
+      const member=state.rows.find(r=>String(r.id)===String(el.dataset.id))||(state.modal?.kind==="entity"&&state.modal.entityType==="user"&&String(state.modal.info?.id)===String(el.dataset.id)?state.modal.info:null);
+      if(!member||!window.confirm("确认清除用户 "+member.username+" 的 TOTP 和邮箱登录验证吗？此操作将结束该用户现有的登录会话。"))return;
       try{
         await request("/user/mfa/reset","POST",{id:Number(member.id)});
-        toast("用户双重认证已重置");
+        state.modal=null;toast("用户双重认证已清除，现有登录会话已结束");
         await load();
       }catch(err){toast(err.message,true);}
       return;
     }
     if(a==="reset-password"){
-      const user=state.rows.find(r=>String(r.id)===String(el.dataset.id));
+      const user=state.rows.find(r=>String(r.id)===String(el.dataset.id))||(state.modal?.kind==="entity"&&state.modal.entityType==="user"&&String(state.modal.info?.id)===String(el.dataset.id)?state.modal.info:null);
       if(user){state.modal={kind:"reset-password",user};render();}
       return;
     }
