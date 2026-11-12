@@ -2021,7 +2021,7 @@ test("device connection opens the original RustDesk remote controls and supports
     await page.locator('.table-scroll [data-action="device-connect"]').first().click();
     const popup=await opening;
     popup.on("pageerror",err=>nativeErrors.push("pageerror: "+err.message));
-    popup.on("console",entry=>{if(entry.type()==="error"||entry.type()==="warning")nativeErrors.push(entry.type()+": "+entry.text());});
+    popup.on("console",entry=>{if(entry.type()==="error"||entry.type()==="warning")nativeErrors.push(entry.type()+": "+entry.text().slice(0,600));});
     await popup.waitForLoadState("load");
     const location=new URL(popup.url());
     assert.equal(location.pathname,"/webclient2/");
