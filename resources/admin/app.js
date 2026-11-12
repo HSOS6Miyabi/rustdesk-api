@@ -643,6 +643,37 @@
     }catch(e){toast(e.message,true);await getOptions();render();}
     finally{submit.disabled=false;}
   }
+  async function passkeyLogin(){
+    if(!window.RustDeskPasskeys?.supported()){toast("请使用支持 Passkey 的 HTTPS 浏览器",true);return;}
+    try{
+      const session=await request("/passkey/login/begin","POST",{});
+      const credential=await window.RustDeskPasskeys.get(session.options);
+      const result=await request("/passkey/login/finish","POST",{
+        session_id:session.session_id,credential
+      });
+      if(!result?.token)throw Error("服务器没有返回登录令牌");
+      state.token=result.token;sessionStorage.setItem("rustdesk.console.token",result.token);
+      state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
+      if(returnToWebClient())return;
+      state.page="overview";state.modal=null;location.hash="#/overview";
+      render();await load();toast("Passkey 登录成功");
+    }catch(err){toast(err.name==="NotAllowedError"?"已取消 Passkey 验证":err.message,true);}
+  }
+  async function passkeyRegister(){
+    if(!window.RustDeskPasskeys?.supported()){toast("请通过 HTTPS 或 localhost 访问并使用支持 Passkey 的浏览器",true);return;}
+    const name=String(document.getElementById("passkey-name")?.value||"我的设备").trim();
+    if(!name||name.length>80){toast("Passkey 名称须在 1 至 80 个字符之间",true);return;}
+    try{
+      const session=await request("/passkey/register/begin","POST",{});
+      const credential=await window.RustDeskPasskeys.create(session.options);
+      await request("/passkey/register/finish","POST",{
+        session_id:session.session_id,name,credential
+      });
+      const result=await request("/passkey/list");
+      state.passkeys=result.list||[];state.passkeysError="";
+      render();toast("Passkey 已添加");
+    }catch(err){toast(err.name==="NotAllowedError"?"已取消 Passkey 添加":err.message,true);}
+  }
   async function oidc(op){
     try{
       const result=await request("/oidc/auth","POST",{op,deviceInfo:{os:"web"},id:"webadmin",uuid:""});
@@ -2403,6 +2434,18 @@
       if(state.modal?.kind==="entity"&&state.modal.previous){state.modal=state.modal.previous;render();return;}
       if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
+    }
+    if(a==="passkey-login"){await passkeyLogin();return;}
+    if(a==="passkey-register"){await passkeyRegister();return;}
+    if(a==="passkey-revoke"){
+      const found=state.passkeys.find(item=>String(item.id)===String(el.dataset.id));
+      if(!found||!window.confirm("确定移除 Passkey “"+found.name+"”吗？"))return;
+      try{
+        await request("/passkey/revoke","POST",{id:Number(found.id)});
+        state.passkeys=state.passkeys.filter(item=>String(item.id)!==String(found.id));
+        render();toast("Passkey 已移除");
+      }catch(err){toast(err.message,true);}
+      return;
     }
     if(a==="forgot-password"){state.modal={kind:"forgot-password"};render();return;}
     if(a==="logout"){await logout();return;}
