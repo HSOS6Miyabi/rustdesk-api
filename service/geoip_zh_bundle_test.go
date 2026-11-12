@@ -28,6 +28,9 @@ func TestBundledGeoIPChineseXiAn(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := chinaGeoIPDescription(location)
+	if strings.Contains(got, "·") {
+		t.Fatalf("bundled GeoIP uses unexpected middle dots: %q", got)
+	}
 	for _, name := range []string{"中国", "陕西", "西安", "雁塔区"} {
 		if !strings.Contains(got, name) {
 			t.Fatalf("bundled GeoIP location %q is missing %q", got, name)

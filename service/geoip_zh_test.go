@@ -38,20 +38,22 @@ func TestGeoIPChineseAdministrativeDivisions(t *testing.T) {
 		city         string
 		want         string
 	}{
-		{"Shaanxi district", "SN", "Shaanxi", "Xi'an (Yanta Qu)", "中国 · 陕西 · 西安 · 雁塔区"},
-		{"Shaanxi district by English suffix", "", "Shaanxi", "Xi'an (Yanta District)", "中国 · 陕西 · 西安 · 雁塔区"},
-		{"Shaanxi district without city", "SN", "Shaanxi", "Yanta Qu", "中国 · 陕西 · 西安 · 雁塔区"},
-		{"Shanxi is distinct from Shaanxi", "SX", "Shanxi", "Taiyuan (Xiaodian Qu)", "中国 · 山西 · 太原 · 小店区"},
-		{"Zhejiang district", "ZJ", "Zhejiang", "Hangzhou (Xihu Qu)", "中国 · 浙江 · 杭州 · 西湖区"},
-		{"Municipality district", "BJ", "Beijing", "Beijing (Chaoyang Qu)", "中国 · 北京 · 朝阳区"},
-		{"English place remains when unrecognized", "SN", "Shaanxi", "Unknown locality", "中国 · 陕西 · Unknown locality"},
-		{"Province without city", "SN", "Shaanxi", "", "中国 · 陕西"},
+		{"Shaanxi district", "SN", "Shaanxi", "Xi'an (Yanta Qu)", "中国 陕西 西安 雁塔区"},
+		{"Shaanxi district by English suffix", "", "Shaanxi", "Xi'an (Yanta District)", "中国 陕西 西安 雁塔区"},
+		{"Shaanxi district without city", "SN", "Shaanxi", "Yanta Qu", "中国 陕西 西安 雁塔区"},
+		{"Shanxi is distinct from Shaanxi", "SX", "Shanxi", "Taiyuan (Xiaodian Qu)", "中国 山西 太原 小店区"},
+		{"Zhejiang district", "ZJ", "Zhejiang", "Hangzhou (Xihu Qu)", "中国 浙江 杭州 西湖区"},
+		{"Municipality district", "BJ", "Beijing", "Beijing (Chaoyang Qu)", "中国 北京 朝阳区"},
+		{"English place remains when unrecognized", "SN", "Shaanxi", "Unknown locality", "中国 陕西 Unknown locality"},
+		{"Province without city", "SN", "Shaanxi", "", "中国 陕西"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			record := chineseGeoIPRecordForTest(t, tt.provinceISO, tt.provinceName, tt.city)
 			if got := chinaGeoIPDescription(record); got != tt.want {
 				t.Fatalf("translated address = %q, want %q", got, tt.want)
+			} else if strings.Contains(got, "·") {
+				t.Fatalf("Chinese location must use spaces: %q", got)
 			}
 		})
 	}

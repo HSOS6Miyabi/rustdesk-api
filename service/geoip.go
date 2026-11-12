@@ -94,7 +94,7 @@ func localPushGeoIP(ipValue string) string {
 	add(location.Country.Names)
 	if len(location.Subdivisions) > 0 { add(location.Subdivisions[0].Names) }
 	add(location.City.Names)
-	return strings.Join(names, " · ")
+	return strings.Join(names, " ")
 }
 
 // GeoIPDescription returns display-only geolocation text. Unknown public

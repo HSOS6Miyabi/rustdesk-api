@@ -202,19 +202,19 @@ func chinaGeoIPDescription(record geoIPRecord) string {
 	}
 	parts := []string{"中国"}
 	if len(record.Subdivisions) == 0 {
-		return strings.Join(appendGeoIPName(parts, geoIPPreferredName(record.City.Names)), " · ")
+		return strings.Join(appendGeoIPName(parts, geoIPPreferredName(record.City.Names)), " ")
 	}
 	subdivision := record.Subdivisions[0]
 	province, found := chineseLocationIndex().province(
 		geoIPPreferredName(subdivision.Names), subdivision.ISOCode)
 	if !found {
 		parts = appendGeoIPName(parts, geoIPPreferredName(subdivision.Names))
-		return strings.Join(appendGeoIPName(parts, geoIPPreferredName(record.City.Names)), " · ")
+		return strings.Join(appendGeoIPName(parts, geoIPPreferredName(record.City.Names)), " ")
 	}
 	parts = append(parts, province.Name)
 	cityName := geoIPPreferredName(record.City.Names)
 	if cityName == "" {
-		return strings.Join(parts, " · ")
+		return strings.Join(parts, " ")
 	}
 	cityText, districtText := splitChineseGeoIPCity(cityName)
 	index := chineseLocationIndex()
@@ -222,9 +222,9 @@ func chinaGeoIPDescription(record geoIPRecord) string {
 	if !found {
 		if district, parent, ok := index.districtInProvince(province.Code, cityText); ok {
 			parts = appendGeoIPName(parts, parent.Name)
-			return strings.Join(appendGeoIPName(parts, district.FullName), " · ")
+			return strings.Join(appendGeoIPName(parts, district.FullName), " ")
 		}
-		return strings.Join(appendGeoIPName(parts, cityName), " · ")
+		return strings.Join(appendGeoIPName(parts, cityName), " ")
 	}
 	parts = appendGeoIPName(parts, city.Name)
 	if districtText != "" {
@@ -234,7 +234,7 @@ func chinaGeoIPDescription(record geoIPRecord) string {
 			parts = appendGeoIPName(parts, districtText)
 		}
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, " ")
 }
 
 func appendGeoIPName(parts []string, name string) []string {
