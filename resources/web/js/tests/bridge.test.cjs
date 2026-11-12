@@ -34,3 +34,7 @@ test("native rendering avoids the Flutter RGBA callback and production bundle in
   assert.match(built,/typeof window\.onGlobalEvent/);
   assert.match(built,/rustdesk:renderer-ready/);
 });
+
+test("RustDesk 1.5.3 Web startup has a registered shortcut reload hook",()=>{
+  assert.match(source,/window\.reloadShortcuts\s*=\s*\(\)\s*=>/);
+});

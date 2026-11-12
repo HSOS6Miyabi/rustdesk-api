@@ -396,6 +396,10 @@ export function playAudio(packet) {
     opusWorker.postMessage(packet, [packet.buffer]);
 }
 
+window.reloadShortcuts = () => {
+    // Browser keyboard input is handled by Flutter's active remote session.
+};
+
 window.init = async () => {
     if (yuvWorker) {
         yuvWorker.onmessage = (e) => {
