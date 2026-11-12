@@ -885,3 +885,12 @@ Content-Type: application/json
 保存接口需要提交 `bootstrap_version`、`database_version` 和 `changes`。每个 `changes` 项包含 `key`、`enabled`，启用新覆盖时填写字符串形式的 `value`。每次最多修改 50 项；同一请求仅能修改一种保存位置的设置。旧配置版本会收到冲突提示，需要重新读取后保存。
 
 完整请求示例、设置来源和权限说明见 [设置中心使用说明](SETTINGS_CENTER.md)。
+
+
+## 事件通知接口：SSE 与 HTTP JSON
+
+事件通知可以通过 `GET /api/events/v1/stream` 持续接收。普通用户在控制台的 **账户 → 消息推送 → SSE 实时订阅** 中生成带 `events.read` 权限的个人 API Key，并在 `Authorization: Bearer <API_KEY>` 请求头中发送。可通过 `events` 参数筛选事件，例如 `?events=connection.started,connection.ended`。
+
+用户也可以添加 `kind: "webhook"` 推送渠道，服务器将事件转换为 JSON，使用 `POST` 发送到用户配置的 HTTPS 地址；可选 Bearer 密钥，并保留失败重试和发送记录。远程连接建立事件已使用 `connection.started`。
+
+完整的事件代码、JSON 字段、密钥管理 API、curl 示例、发送重试、安全设置和多实例部署说明，请阅读 [消息推送与实时事件接口](PUSH_NOTIFICATIONS.md)。
