@@ -202,7 +202,7 @@ func chinaGeoIPDescription(record geoIPRecord) string {
 	}
 	parts := []string{"中国"}
 	if len(record.Subdivisions) == 0 {
-		return appendGeoIPName(parts, geoIPPreferredName(record.City.Names))
+		return strings.Join(appendGeoIPName(parts, geoIPPreferredName(record.City.Names)), " · ")
 	}
 	subdivision := record.Subdivisions[0]
 	province, found := chineseLocationIndex().province(
