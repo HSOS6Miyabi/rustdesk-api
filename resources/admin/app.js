@@ -3845,6 +3845,28 @@
     if(el.id==="shared-source-type"){state.sourceType=el.value;state.sourceId="0";state.pageNo=1;await load();}
     if(el.id==="shared-source-id"){if(el.value==="0"){state.sourceId="0";}else{const parts=el.value.split(":");state.sourceType=parts[0];state.sourceId=parts[1];}state.pageNo=1;await load();}
   });
+  let syncingExternalSession=false;
+  async function receiveLoginFromOtherTab(){
+    const token=localStorage.getItem(consoleTokenKey)||"";
+    if(!token||token===state.token||syncingExternalSession)return;
+    syncingExternalSession=true;
+    state.token=token;state.user=null;state.ssoError="";
+    sessionStorage.removeItem("rustdesk.console.oidc");
+    try{await bootstrap();}
+    catch(error){state.ssoError="无法恢复登录会话："+error.message;render();}
+    finally{syncingExternalSession=false;}
+  }
+  window.addEventListener("storage",event=>{
+    if(event.key!==consoleTokenKey)return;
+    if(!event.newValue){
+      state.token="";state.user=null;state.isAdmin=false;
+      sessionStorage.removeItem(consoleTokenKey);render();
+      return;
+    }
+    receiveLoginFromOtherTab();
+  });
+  window.addEventListener("focus",receiveLoginFromOtherTab);
+  window.addEventListener("pageshow",receiveLoginFromOtherTab);
   window.addEventListener("hashchange",()=>{
     const hash=location.hash||"";
     for(const [prefix,kind] of [["#/password-reset?","public-reset-password"],["#/invite?","accept-invitation"]]){
