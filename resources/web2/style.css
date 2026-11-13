@@ -86,3 +86,19 @@ body.webclient-page-fullscreen{overflow:hidden}
 @media(max-width:1200px){.top-console-link{display:none}}
 @media(max-width:760px){.top{height:62px;padding:0 10px;gap:5px}.brand{display:none}.toplinks{flex:1;justify-content:space-between;gap:4px}.top-remote-actions{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.1fr);width:100%;gap:5px}.top-action{font-size:clamp(10px,2.7vw,12px);padding:6px 4px;white-space:normal;min-height:37px;text-align:center;line-height:1.18}.layout{min-height:calc(100dvh - 62px);display:flex;flex-direction:column}.stage{order:-1;min-height:calc(100dvh - 62px);height:calc(100dvh - 62px);padding:6px;flex:0 0 auto}.aside{order:2;max-height:none;overflow:visible}.native-client{min-height:0}.workspace-switcher{flex:0 0 auto}.webclient-page-fullscreen .stage,.stage:fullscreen{height:100dvh;min-height:0;order:0}}
 @media(max-width:350px){.top-action{font-size:10px}.top-remote-actions{gap:3px}}
+
+/* Keep clipboard downloads observable without interrupting the active remote session. */
+.clipboard-progress-panel{position:fixed;right:16px;bottom:16px;z-index:950;width:min(340px,calc(100vw - 24px));padding:13px 15px;background:#fff;border:1px solid #b5cee9;border-radius:14px;box-shadow:0 12px 42px rgba(17,40,65,.22);color:#193954;font-size:12px;pointer-events:auto}
+.clipboard-progress-panel[hidden]{display:none}
+.clipboard-progress-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.clipboard-progress-head strong{font-weight:750;font-size:13px}
+.clipboard-progress-icon{border:0;background:transparent;color:#2864b5;font-weight:700;padding:4px 5px;font-size:12px;border-radius:6px;flex:0 0 auto}
+.clipboard-progress-icon:hover{background:#eef5fc}
+.clipboard-progress-details{display:grid;gap:7px;margin-top:8px}
+.clipboard-progress-panel[data-collapsed="true"] .clipboard-progress-details{display:none}
+.clipboard-progress-file{margin:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#365b78}
+.clipboard-progress-panel progress{display:block;width:100%;height:10px;accent-color:#2877d9;border-radius:9px}
+.clipboard-progress-stats{margin:0;line-height:1.6;color:#5a7083}
+.clipboard-progress-cancel{justify-self:end;border:1px solid #cadae9;background:#f5f8fb;color:#305775;padding:6px 10px;border-radius:8px;min-height:30px;font-size:12px;font-weight:700}
+.clipboard-progress-cancel:hover{background:#e8f2ff}
+@media(max-width:760px){.clipboard-progress-panel{right:8px;bottom:8px;padding:11px 12px;max-width:calc(100vw - 16px)}.clipboard-progress-panel[data-collapsed="true"]{width:auto;min-width:165px}}
