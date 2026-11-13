@@ -1263,6 +1263,23 @@ test("transfer selection starts empty with existing owner shown separately",asyn
   assert.doesNotMatch(app.root.innerHTML,/picker-trigger-label">编号 5/);
 });
 
+test("WebClient2 return intent survives opening the login page in a separate tab",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/login?return=webclient2"
+  });
+  await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.return"),"/webclient2/");
+  assert.match(app.root.innerHTML,/登录控制台/);
+});
+
+test("SSO return intent from the login URL is limited to WebClient2",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/login?return=https%3A%2F%2Fexample.invalid"
+  });
+  await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.return"),null);
+});
+
 test("mobile OIDC callback restores session after losing the original tab's storage",async()=>{
   const app=createConsole(false,{"rustdesk.console.token":""},{},{
     initialHash:"#/oidc/complete?code=MobileSSOState12345",

@@ -723,6 +723,10 @@
   }
   async function bootstrap(){
     const recoveryHash=location.hash||"";
+    if(recoveryHash.startsWith("#/login?")){
+      const destination=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("return");
+      if(destination==="webclient2")sessionStorage.setItem("rustdesk.console.return","/webclient2/");
+    }
     if(recoveryHash.startsWith("#/invite?")){
       const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
       if(token){
