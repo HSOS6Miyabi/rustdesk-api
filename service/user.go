@@ -104,11 +104,23 @@ func (us *UserService) InfoByAccessToken(token string) (*model.User, *model.User
 	if ut.ExpiredAt <= time.Now().Unix() {
 		return u, ut
 	}
+	// Match hbbs verification for JWT sessions, including expiration.
+	if strings.Count(token, ".") == 2 {
+		if Jwt == nil || len(Jwt.Key) == 0 { return u, ut }
+		id, err := Jwt.ParseToken(token)
+		if err != nil || id != row.User.Id { return u, ut }
+	}
 	return &row.User, ut
 }
 
 // GenerateToken 生成token
 func (us *UserService) GenerateToken(u *model.User) string {
+	if Jwt != nil && len(Jwt.Key) > 0 {
+		// hbbs verifies signed access tokens when MUST_LOGIN is enabled.
+		signer := *Jwt
+		signer.TokenExpireDuration = loginSessionDuration()
+		return signer.GenerateToken(u.Id)
+	}
 	secret := make([]byte, 32)
 	if _, err := crand.Read(secret); err != nil {
 		panic("cannot create secure access token: " + err.Error())
@@ -646,6 +658,8 @@ func (us *UserService) RefreshAccessToken(ut *model.UserToken) {
 
 func (us *UserService) AutoRefreshAccessToken(ut *model.UserToken) {
 	if ut == nil || ut.Id == 0 { return }
+	// A signed JWT cannot be extended without replacing the client's token.
+	if strings.Count(ut.Token, ".") == 2 { return }
 	remaining := time.Until(time.Unix(ut.ExpiredAt, 0))
 	if remaining > 0 && remaining <= loginSessionDuration()/3 {
 		us.RefreshAccessToken(ut)

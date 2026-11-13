@@ -28,7 +28,12 @@ func TestStartupRepairsSchemaWithoutDuplicateVersions(t *testing.T) {
     defer conn.Close()
     conn.SetMaxOpenConns(1)
 
-    if err := db.AutoMigrate(&model.Version{}, &oauthBeforeDisplayName{}); err != nil { t.Fatal(err) }
+    models := make([]interface{},0,len(databaseMigrationModels))
+    for _, item := range databaseMigrationModels {
+        if _, isOAuth := item.(*model.Oauth); !isOAuth { models=append(models,item) }
+    }
+    if err := db.AutoMigrate(models...); err != nil { t.Fatal(err) }
+    if err := db.AutoMigrate(&oauthBeforeDisplayName{}); err != nil { t.Fatal(err) }
     prior := &oauthBeforeDisplayName{Op:"github", OauthType:"github", ClientId:"historical-client"}
     if err := db.Create(prior).Error; err != nil { t.Fatal(err) }
     if err := db.Create(&model.Version{Version: DatabaseVersion}).Error; err != nil { t.Fatal(err) }
