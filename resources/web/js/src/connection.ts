@@ -739,7 +739,10 @@ export default class Connection {
         transport:this._ws instanceof WebRTCTransport?"WebRTC":"WebSocket"
       });
     }
-    this._performanceStats=  handleVideoFrame(vf: message.VideoFrame) {
+    this._performanceStats={start:now,frames:0,decode:0,paint:0,bytes:0};
+  }
+
+  handleVideoFrame(vf: message.VideoFrame) {
     if(!this._firstFrame){
       this.msgbox("","","");
       this._firstFrame=true;
@@ -753,15 +756,10 @@ export default class Connection {
     decodeVp9Frames(frames,decoder,
       ()=>this.sendVideoReceived(),
       (frame:any,decodeMs:number,bytes:number)=>{
-        const start=Date.now();
+        const started=Date.now();
         this.draw(frame);
-        this.reportVideoPerformance(decodeMs,Date.now()-start,bytes);
+        this.reportVideoPerformance(decodeMs,Date.now()-started,bytes);
       });
-  }
-
-ted,Date.now()-decoded,bytes);
-      });
-    }
   }
 
   handlePeerInfo(pi: message.PeerInfo) {
