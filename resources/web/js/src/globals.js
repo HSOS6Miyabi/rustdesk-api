@@ -209,6 +209,11 @@ window.addEventListener("paste",event=>{
         }
         return;
     }
+    if(Array.from(data?.types||[]).includes("Files")&&!files.length){
+        pendingRemotePaste=false;
+        msgbox("error","File Clipboard","浏览器无法读取资源管理器中的文件，请改用文件传输标签上传。");
+        return;
+    }
     const text=data?.getData("text/plain");
     if(text)clipboardSync.sendLocal(text);
     if(pendingRemotePaste){
