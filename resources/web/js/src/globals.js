@@ -6,7 +6,7 @@ import {initZstd, decompress, translate} from "./common";
 import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
 import {BrowserClipboardSync} from "./browser_clipboard.mjs";
 import {BrowserFileClipboard} from "./browser_clipboard_files.mjs";
-import {installRemoteShortcutCapture} from "./remote_shortcuts.mjs";
+import {installRemoteShortcutCapture,isBrowserEditable} from "./remote_shortcuts.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -146,6 +146,7 @@ export function receiveRemoteClipboard(text){
 let currentFileClipboard;
 window.__rustdeskClipboardAccess={
     enable(initialText){
+        getConn()?.setBrowserClipboardEnabled?.(true);
         const result=clipboardSync.setEnabled(true,initialText);
         currentFileClipboard?.enable();
         return result;
@@ -153,9 +154,16 @@ window.__rustdeskClipboardAccess={
     disable(){
         clipboardSync.setEnabled(false);
         currentFileClipboard?.disable();
+        getConn()?.setBrowserClipboardEnabled?.(false);
     },
     suspendText(){clipboardSync.setEnabled(false);},
     sendLocal(text){return clipboardSync.sendLocal(text);},
+    pasteText(text){
+        if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop")return false;
+        clipboardSync.sendLocal(text);
+        setTimeout(pasteIntoRemoteExplorer,90);
+        return true;
+    },
     async downloadRemoteFiles(){
         if(!currentFileClipboard)throw Error("尚未建立远程桌面连接");
         return currentFileClipboard.download();
@@ -245,7 +253,19 @@ installRemoteShortcutCapture({
             return;
         }
         pendingRemotePaste=true;
-        requestBrowserClipboard();
+        try{
+            const readFromParent=window.parent!==window&&window.parent.__rustdeskReadHostClipboard;
+            if(typeof readFromParent==="function"){
+                Promise.resolve(readFromParent(window)).then(result=>{
+                    if(!pendingRemotePaste)return;
+                    if(result?.available&&result.text){
+                        acceptClipboardText(result.text);
+                        return;
+                    }
+                    requestBrowserClipboard();
+                }).catch(()=>requestBrowserClipboard());
+            }else requestBrowserClipboard();
+        }catch{requestBrowserClipboard();}
         setTimeout(()=>{
             if(!pendingRemotePaste)return;
             pendingRemotePaste=false;
@@ -256,7 +276,7 @@ installRemoteShortcutCapture({
 window.addEventListener("paste",event=>{
     if(!clipboardSync.enabled)return;
     const target=event.target;
-    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+    if(isBrowserEditable(target))return;
     const data=event.clipboardData;
     const files=Array.from(data?.files||[]);
     if(!files.length){
