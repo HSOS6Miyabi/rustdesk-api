@@ -51,7 +51,8 @@ export function parseClipboardDescriptors(bytes) {
   if(!(bytes instanceof Uint8Array)||bytes.byteLength<4)throw new Error("Missing clipboard file descriptors");
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
   const count=view.getUint32(0,true);
-  if(!count||count>MAX_FILES||bytes.byteLength!==4+count*DESCRIPTOR_LENGTH)
+  const expected=4+count*DESCRIPTOR_LENGTH;
+  if(!count||count>MAX_FILES||bytes.byteLength<expected||bytes.byteLength>expected+65536)
     throw new Error("Invalid clipboard file descriptor count");
   const list=[],found=new Set();
   let total=0;
@@ -280,7 +281,10 @@ export class BrowserFileClipboard {
       const entries=[];
       for(const file of files){
         if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
-        if(file.directory)continue;
+        if(file.directory){
+          entries.push({name:file.name,directory:true,chunks:[]});
+          continue;
+        }
         const chunks=[];
         for(let start=0;start<file.size;start+=MAX_PART_BYTES){
           if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
@@ -291,7 +295,7 @@ export class BrowserFileClipboard {
         entries.push({name:file.name,chunks});
       }
       if(!entries.length)throw new Error("远程剪贴板中没有可下载的文件");
-      const simple=entries.length===1&&!entries[0].name.includes("/");
+      const simple=entries.length===1&&!entries[0].directory&&!entries[0].name.includes("/");
       const blob=simple?new Blob(entries[0].chunks,{type:"application/octet-stream"}):packageZip(entries);
       const name=simple?entries[0].name:"rustdesk-clipboard-files.zip";
       await this.save(blob,name);
