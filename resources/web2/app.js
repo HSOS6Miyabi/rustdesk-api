@@ -297,7 +297,8 @@
     performanceStatus.title="接收 "+received.toFixed(1)+" 帧/秒；解码完成 "+
       decoded.toFixed(1)+" 帧/秒；实际显示 "+fps.toFixed(1)+
       " 帧/秒；解码排队 "+queue+" 帧；跳过绘制 "+dropped+
-      " 帧；视频接收速率 "+Number(stats?.encoded_kbps||0)+" kbit/s。";
+      " 帧；视频接收速率 "+Number(stats?.encoded_kbps||0)+" kbit/s。"+
+      (directVideoFrame?" 提交时间不包括 Flutter 内部的图像导入与绘制。":"");
   };
 
   function currentClipboardBridge(){
