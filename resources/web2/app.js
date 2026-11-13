@@ -122,7 +122,7 @@
       el("engine-state").classList.add("ready");
       try{
         frame.contentWindow.addEventListener("keydown",event=>{
-          if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
+          if(event.key==="Escape"&&(state.pageFullscreen||nativeFullscreen))exitFullscreen();
         },true);
       }catch{}
       try{
@@ -148,6 +148,10 @@
     if(!isFileDrag(event))return;
     event.preventDefault();
     if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+    const session=sessions.get(activeSessionKey);
+    stageDropMask.textContent=session?.mode==="desktop"&&clipboardEnabled
+      ?"将文件放到这里，通过剪贴板粘贴到远程设备"
+      :"将文件放到这里，上传至远程设备";
     stageDropMask.hidden=false;
   });
   stage.addEventListener("dragleave",event=>{
@@ -158,8 +162,18 @@
     event.preventDefault();
     stageDropMask.hidden=true;
     const session=sessions.get(activeSessionKey);
+    if(session?.mode==="desktop"&&clipboardEnabled){
+      try{
+        const accepted=session.frame.contentWindow?.__rustdeskClipboardAccess?.offerFiles?.(
+          [...event.dataTransfer.files],true);
+        if(accepted){
+          message("已将文件交给远程剪贴板，等待远程设备确认。");
+          return;
+        }
+      }catch(error){message("通过剪贴板发送文件失败："+error.message);return;}
+    }
     if(!session||session.mode!=="file"){
-      message("请先连接文件传输标签，再拖入文件上传。");
+      message("远程文件剪贴板尚未准备好，可切换到文件传输标签上传。");
       return;
     }
     try{
@@ -172,6 +186,8 @@
     }catch(error){message("上传文件失败："+error.message);}
   });
   const clipboardButton=el("v2-clipboard-toggle");
+  const clipboardFileButton=el("v2-clipboard-select-files");
+  const clipboardFileInput=el("v2-clipboard-input");
   const clipboardCopyButton=el("v2-clipboard-copy");
   const clipboardDownloadButton=el("v2-download-clipboard");
   const clipboardStatus=el("v2-clipboard-status");
@@ -183,8 +199,27 @@
   const progressStats=el("v2-clipboard-progress-stats");
   const progressCancel=el("v2-clipboard-progress-cancel");
   const progressMinimize=el("v2-clipboard-progress-minimize");
+  const progressClose=el("v2-clipboard-progress-close");
   let clipboardTransfer=null;
-  let clipboardEnabled=false,clipboardReadGranted=false,pendingRemoteText=null;
+  let clipboardEnabled=true,clipboardReadGranted=false,pendingRemoteText=null;
+  let progressDismissed=false,progressTimer=null;
+  function clearProgressTimer(){
+    if(progressTimer!==null)window.clearTimeout?.(progressTimer);
+    progressTimer=null;
+  }
+  function dismissProgress(){
+    clearProgressTimer();
+    progressDismissed=true;
+    progressPanel.hidden=true;
+  }
+  function scheduleProgressDismiss(){
+    clearProgressTimer();
+    progressTimer=window.setTimeout?.(()=>{
+      if(!clipboardTransfer?.busy)progressPanel.hidden=true;
+      progressTimer=null;
+    },5500);
+  }
+  progressClose.addEventListener("click",dismissProgress);
   const formatBytes=value=>{
     const bytes=Math.max(0,Number(value)||0);
     if(bytes<1024)return bytes+" B";
@@ -192,7 +227,7 @@
     return (bytes/divisor).toFixed(1)+" "+unit;
   };
   function updateDownloadProgress({title,file,received,total,stats,complete=false}){
-    progressPanel.hidden=false;
+    if(!progressDismissed)progressPanel.hidden=false;
     if(title)progressTitle.textContent=title;
     if(file)progressFile.textContent=file;
     if(typeof received==="number"&&typeof total==="number"){
@@ -211,6 +246,7 @@
     progressCancel.hidden=true;
     updateDownloadProgress({title:"剪贴板下载已取消",stats:text||"已取消下载，远程桌面可以继续使用。"});
     clipboardDownloadButton.disabled=false;
+    scheduleProgressDismiss();
   }
   progressCancel.addEventListener("click",()=>cancelClipboardDownload());
   progressMinimize.addEventListener("click",()=>{
@@ -239,8 +275,30 @@
     }
     clipboardButton.setAttribute("aria-pressed",String(clipboardEnabled));
     clipboardButton.textContent=clipboardEnabled?"关闭剪贴板共享":"启用剪贴板共享";
+    clipboardFileButton.disabled=!active||active.mode!=="desktop"||!clipboardEnabled;
     if(!clipboardEnabled)clipboardCopyButton.hidden=true;
   }
+  window.__rustdeskClipboardReady=source=>{
+    const session=[...sessions.values()].find(item=>item.frame.contentWindow===source);
+    if(session)syncClipboardSession();
+  };
+  clipboardFileButton.addEventListener("click",()=>{
+    if(!clipboardEnabled||!clipboardSession())return;
+    clipboardFileInput.click();
+  });
+  clipboardFileInput.addEventListener("change",()=>{
+    const current=clipboardSession();
+    const files=Array.from(clipboardFileInput.files||[]);
+    if(files.length&&current){
+      try{
+        const supported=current.frame.contentWindow?.__rustdeskClipboardAccess?.offerFiles?.(files,true);
+        setClipboardStatus(supported
+          ?"已选择 "+files.length+" 个文件，正在发送至远程剪贴板。"
+          :"远程文件剪贴板尚未准备好，请连接成功后重试。");
+      }catch(error){setClipboardStatus("无法传输文件："+error.message);}
+    }
+    clipboardFileInput.value="";
+  });
   async function enableClipboard(){
     clipboardEnabled=true;
     const api=clipboardAPI();
@@ -331,6 +389,7 @@
     const current=clipboardSession();
     if(!current){message("请先连接远程桌面或摄像会话。");return;}
     if(clipboardTransfer?.busy){
+      progressDismissed=false;
       progressPanel.hidden=false;
       progressPanel.dataset.collapsed="false";
       progressMinimize.textContent="收起";
@@ -345,6 +404,8 @@
     }
     const task={source,busy:true,total:0};
     clipboardTransfer=task;
+    clearProgressTimer();
+    progressDismissed=false;
     clipboardDownloadButton.disabled=true;
     progressCancel.hidden=false;
     progressPanel.dataset.collapsed="false";
@@ -359,17 +420,26 @@
           stats:"已保存 "+result.count+" 个文件。",complete:true});
         progressCancel.hidden=true;
         message("已下载远程剪贴板文件："+result.name);
+        scheduleProgressDismiss();
       }
     }catch(error){
       if(clipboardTransfer===task&&task.busy){
-        updateDownloadProgress({title:"剪贴板文件下载失败",stats:String(error?.message||error)});
+        const detail=String(error?.message||error);
+        if(detail.includes("远程剪贴板中暂无文件")){
+          dismissProgress();
+          setClipboardStatus(detail);
+        }else{
+          updateDownloadProgress({title:"剪贴板文件下载失败",stats:detail});
+          scheduleProgressDismiss();
+        }
         progressCancel.hidden=true;
-        message("下载剪贴板文件失败："+error.message);
+        message("下载剪贴板文件失败："+detail);
       }
     }finally{
       if(clipboardTransfer===task){
         task.busy=false;
         clipboardDownloadButton.disabled=false;
+        if(!progressPanel.hidden)scheduleProgressDismiss();
         syncClipboardSession();
       }
     }
@@ -393,13 +463,16 @@
   };
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
+  let nativeFullscreen=false;
   function syncFullscreen(){
     const monitorFullscreen=document.fullscreenElement===stage;
     if(monitorFullscreen)state.pageFullscreen=false;
+    else nativeFullscreen=false;
+    stage.classList.toggle("webclient-native-fullscreen",nativeFullscreen&&monitorFullscreen);
     document.body.classList.toggle("webclient-page-fullscreen",state.pageFullscreen&&!monitorFullscreen);
     pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen));
     screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
-    exitButton.hidden=!(state.pageFullscreen||monitorFullscreen);
+    exitButton.hidden=nativeFullscreen||!(state.pageFullscreen||monitorFullscreen);
     try{
       const frame=clipboardSession()?.frame||sessions.get(activeSessionKey)?.frame;
       frame?.contentWindow?.onFullscreenChanged?.(state.pageFullscreen||monitorFullscreen);
@@ -412,7 +485,13 @@
       return Promise.reject(Error("该会话当前未显示"));
     if(wanted){
       if(typeof stage.requestFullscreen!=="function")return Promise.reject(Error("浏览器不支持全屏"));
-      return Promise.resolve(stage.requestFullscreen({navigationUI:"hide"})).then(()=>syncFullscreen());
+      nativeFullscreen=true;
+      return Promise.resolve(stage.requestFullscreen({navigationUI:"hide"}))
+        .then(()=>syncFullscreen()).catch(error=>{
+          nativeFullscreen=false;
+          syncFullscreen();
+          throw error;
+        });
     }
     return exitFullscreen();
   };
@@ -421,10 +500,12 @@
       try{await document.exitFullscreen();}catch(error){message("退出全屏失败："+error.message);}
     }
     state.pageFullscreen=false;
+    nativeFullscreen=false;
     syncFullscreen();
   }
   pageFullscreenButton.addEventListener("click",async()=>{
     if(document.fullscreenElement===stage){await exitFullscreen();return;}
+    nativeFullscreen=false;
     state.pageFullscreen=!state.pageFullscreen;
     syncFullscreen();
   });
@@ -432,6 +513,7 @@
     if(document.fullscreenElement===stage){await exitFullscreen();return;}
     try{
       if(!stage.requestFullscreen)throw Error("当前浏览器不支持此功能");
+      nativeFullscreen=false;
       await stage.requestFullscreen({navigationUI:"hide"});
       state.pageFullscreen=false;
       syncFullscreen();
@@ -440,8 +522,8 @@
   exitButton.addEventListener("click",exitFullscreen);
   document.addEventListener("fullscreenchange",syncFullscreen);
   document.addEventListener("keydown",event=>{
-    if(event.key==="Escape"&&state.pageFullscreen){
-      state.pageFullscreen=false;syncFullscreen();
+    if(event.key==="Escape"&&(state.pageFullscreen||nativeFullscreen)){
+      exitFullscreen();
     }
   });
   syncFullscreen();

@@ -166,3 +166,37 @@ test("cancelling a pending clipboard download ends the transfer and clears its r
   assert.equal(clipboard.pendingFormat.size,0);
   clipboard.close();
 });
+
+test("file clipboard can wait for a new remote file copy before downloading",async()=>{
+  const {BrowserFileClipboard}=await lib();
+  const packets=[],saved=[];
+  let sender,receiver;
+  sender=new BrowserFileClipboard({send:message=>{
+    packets.push(["sender",message.cliprdr]);
+    queueMicrotask(()=>receiver.handle(message.cliprdr));
+  }});
+  receiver=new BrowserFileClipboard({send:message=>{
+    packets.push(["receiver",message.cliprdr]);
+    queueMicrotask(()=>sender.handle(message.cliprdr));
+  },save:async(blob,name)=>saved.push({blob,name})});
+  sender.enable();receiver.enable();
+  const pending=receiver.download();
+  await new Promise(resolve=>setTimeout(resolve,10));
+  sender.offerFiles([new File(["transferred"],"from-remote.txt")]);
+  const result=await pending;
+  assert.equal(result.name,"from-remote.txt");
+  assert.equal(await saved[0].blob.text(),"transferred");
+  const contentRequest=packets.find(([,message])=>message.file_contents_request)?.[1].file_contents_request;
+  assert.equal(contentRequest.have_clip_data_id,false);
+  sender.close();receiver.close();
+});
+
+test("waiting for a remote file list is cancelled immediately when sharing is disabled",async()=>{
+  const {BrowserFileClipboard}=await lib();
+  const {clipboard}=mock(BrowserFileClipboard);
+  clipboard.enable();
+  const waiting=clipboard.waitForRemoteFiles(5000);
+  clipboard.disable();
+  assert.equal(await waiting,false);
+  clipboard.close();
+});

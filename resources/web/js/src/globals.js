@@ -6,6 +6,7 @@ import {initZstd, decompress, translate} from "./common";
 import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
 import {BrowserClipboardSync} from "./browser_clipboard.mjs";
 import {BrowserFileClipboard} from "./browser_clipboard_files.mjs";
+import {installRemoteShortcutCapture} from "./remote_shortcuts.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -160,29 +161,98 @@ window.__rustdeskClipboardAccess={
         return currentFileClipboard.download();
     },
     cancelRemoteFiles(){return currentFileClipboard?.cancelDownload()??false;},
-    offerFiles(files){return currentFileClipboard?.offerFiles(files)??false;}
+    offerFiles(files,paste=false){
+        return currentFileClipboard?.offerFiles(files,paste?pasteIntoRemoteExplorer:undefined)??false;
+    },
+    hasRemoteFiles(){return currentFileClipboard?.hasRemoteFiles()??false;}
 };
+function announceClipboardReady(){
+    try{
+        if(window.parent!==window &&
+           typeof window.parent.__rustdeskClipboardReady==="function")
+            window.parent.__rustdeskClipboardReady(window);
+    }catch{}
+}
 let pendingRemotePaste=false;
 function pasteIntoRemoteExplorer(){
     const conn=getConn();
-    if(!clipboardSync.enabled||conn?._sessionMode!=="desktop")return;
+    if(conn?._sessionMode!=="desktop")return;
     conn.inputKey("v",true,false,false,true,false,false);
     conn.inputKey("v",false,false,false,true,false,false);
 }
-window.addEventListener("keydown",event=>{
-    if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop")return;
-    if(!((event.ctrlKey||event.metaKey)&&String(event.key).toLowerCase()==="v")||
-       event.altKey||event.isComposing)return;
-    const target=event.target;
-    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
-    pendingRemotePaste=true;
-    event.stopImmediatePropagation?.();
-    setTimeout(()=>{
-        if(!pendingRemotePaste)return;
-        pendingRemotePaste=false;
-        pasteIntoRemoteExplorer();
-    },600);
-},true);
+const clipboardPasteTimeout=900;
+function acceptClipboardFiles(files){
+    if(!files.length||!currentFileClipboard)return false;
+    const wantsPaste=pendingRemotePaste;
+    pendingRemotePaste=false;
+    try{
+        return currentFileClipboard.offerFiles(
+            files,wantsPaste?pasteIntoRemoteExplorer:undefined);
+    }catch(error){
+        msgbox("error","文件剪贴板",String(error?.message||error));
+        return false;
+    }
+}
+function acceptClipboardText(text){
+    if(!pendingRemotePaste)return;
+    pendingRemotePaste=false;
+    if(text)clipboardSync.sendLocal(text);
+    // Wait for the clipboard message to reach the peer before Ctrl+V.
+    setTimeout(pasteIntoRemoteExplorer,80);
+}
+function requestBrowserClipboard(){
+    if(!clipboardSync.enabled)return;
+    const api=navigator.clipboard;
+    if(!api)return;
+    try{
+        if(typeof api.read==="function"){
+            Promise.resolve(api.read()).then(async items=>{
+                if(!pendingRemotePaste)return;
+                const files=[];
+                let text="";
+                for(const item of items||[]){
+                    const types=Array.from(item.types||[]);
+                    if(types.includes("text/plain")){
+                        const blob=await item.getType("text/plain");
+                        text=await blob.text();
+                    }
+                    for(const type of types){
+                        if(!type.startsWith("image/"))continue;
+                        const blob=await item.getType(type);
+                        const extension=type==="image/png"?"png":type==="image/jpeg"?"jpg":"bin";
+                        files.push(new File([blob],"clipboard-image."+extension,{type}));
+                    }
+                }
+                if(!pendingRemotePaste)return;
+                if(files.length)acceptClipboardFiles(files);
+                else acceptClipboardText(text);
+            }).catch(()=>{});
+        }else if(typeof api.readText==="function"){
+            Promise.resolve(api.readText()).then(text=>acceptClipboardText(text)).catch(()=>{});
+        }
+    }catch{}
+}
+installRemoteShortcutCapture({
+    target:window,
+    isActive:()=>getConn()?._sessionMode==="desktop"&&
+        Boolean(getConn()?._peerInfo)&&document.visibilityState!=="hidden"&&
+        !window.frameElement?.classList?.contains("session-inactive"),
+    send:(name,down,event)=>getConn()?.inputKey(name,down,false,
+        event.altKey,event.ctrlKey,event.shiftKey,event.metaKey),
+    paste:()=>{
+        if(!clipboardSync.enabled){
+            pasteIntoRemoteExplorer();
+            return;
+        }
+        pendingRemotePaste=true;
+        requestBrowserClipboard();
+        setTimeout(()=>{
+            if(!pendingRemotePaste)return;
+            pendingRemotePaste=false;
+            pasteIntoRemoteExplorer();
+        },clipboardPasteTimeout);
+    }
+});
 window.addEventListener("paste",event=>{
     if(!clipboardSync.enabled)return;
     const target=event.target;
@@ -198,16 +268,9 @@ window.addEventListener("paste",event=>{
         }
     }
     if(files.length&&currentFileClipboard){
-        const wantsRemotePaste=pendingRemotePaste;
-        pendingRemotePaste=false;
-        try{
-            currentFileClipboard.offerFiles(files,wantsRemotePaste?pasteIntoRemoteExplorer:undefined);
-            if(wantsRemotePaste){
-                event.preventDefault?.();
-                event.stopImmediatePropagation?.();
-            }
-        }catch(error){
-            msgbox("error","File Clipboard",String(error?.message||error));
+        if(acceptClipboardFiles(files)){
+            event.preventDefault?.();
+            event.stopImmediatePropagation?.();
         }
         return;
     }
@@ -217,11 +280,11 @@ window.addEventListener("paste",event=>{
         return;
     }
     const text=data?.getData("text/plain");
-    if(text)clipboardSync.sendLocal(text);
     if(pendingRemotePaste){
-        pendingRemotePaste=false;
-        setTimeout(pasteIntoRemoteExplorer,50);
-    }
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        acceptClipboardText(text);
+    }else if(text)clipboardSync.sendLocal(text);
 },true);
 document.addEventListener("fullscreenchange",()=>{
     if(typeof window.onFullscreenChanged==="function" && window.parent===window)
@@ -293,6 +356,7 @@ export function newConn() {
         notify:reportFileClipboardStatus
     });
     conn.setFileClipboard(currentFileClipboard);
+    announceClipboardReady();
     return conn;
 }
 
@@ -362,12 +426,18 @@ function installFileDrop(){
     document.body.append(overlay);
     let depth=0;
     const fileDrag=event=>[...(event.dataTransfer?.types||[])].includes("Files");
+    const fileDropAllowed=()=>getConn()?._sessionMode==="file"||
+        getConn()?._sessionMode==="desktop"&&clipboardSync.enabled&&Boolean(currentFileClipboard);
     window.addEventListener("dragenter",event=>{
-        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
-        event.preventDefault(); depth++; overlay.hidden=false;
+        if(!fileDrag(event)||!fileDropAllowed())return;
+        event.preventDefault();
+        overlay.textContent=getConn()?._sessionMode==="desktop"
+          ?"松开鼠标，通过剪贴板粘贴到远程设备"
+          :"松开鼠标，上传文件至远程设备";
+        depth++; overlay.hidden=false;
     },true);
     window.addEventListener("dragover",event=>{
-        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        if(!fileDrag(event)||!fileDropAllowed())return;
         event.preventDefault();
         if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
     },true);
@@ -377,14 +447,21 @@ function installFileDrop(){
         if(depth===0)overlay.hidden=true;
     },true);
     window.addEventListener("drop",async event=>{
-        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        if(!fileDrag(event)||!fileDropAllowed())return;
         event.preventDefault();
         event.stopPropagation();
         overlay.hidden=true;depth=0;
         try{
             const selected=await collectDroppedFiles(event.dataTransfer);
-            window.__rustdeskReceiveFiles(selected.files,selected.directory);
-        }catch(error){fileTransferError({},error);}
+            if(getConn()?._sessionMode==="desktop"){
+                if(!currentFileClipboard?.offerFiles(selected.files,pasteIntoRemoteExplorer))
+                    throw Error("远程文件剪贴板尚未准备好");
+            }else window.__rustdeskReceiveFiles(selected.files,selected.directory);
+        }catch(error){
+            if(getConn()?._sessionMode==="desktop")
+                msgbox("error","文件剪贴板",String(error?.message||error));
+            else fileTransferError({},error);
+        }
     },true);
 }
 if(typeof window.addEventListener==="function"&&typeof document.body?.append==="function"){

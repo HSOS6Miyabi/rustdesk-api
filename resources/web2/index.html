@@ -39,9 +39,11 @@
    <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
    <div class="credential-preferences"><span>在 RustDesk 密码窗口勾选“记住密码”，下次连接时可自动登录。</span><button type="button" class="text-button" id="v2-clear-password">清除已保存密码</button></div>
    <div class="clipboard-actions">
-      <button type="button" class="secondary" id="v2-clipboard-toggle" aria-pressed="false">启用剪贴板共享</button>
+      <button type="button" class="secondary" id="v2-clipboard-toggle" aria-pressed="true">关闭剪贴板共享</button>
       <button type="button" class="secondary" id="v2-clipboard-copy" hidden>复制远程文本</button>
-      <p id="v2-clipboard-status" role="status" aria-live="polite">点击启用后，浏览器会请求读取剪贴板权限。支持文本、文件复制以及远程文件下载。</p>
+      <button type="button" class="secondary" id="v2-clipboard-select-files">选择文件并粘贴到远程</button>
+      <input type="file" id="v2-clipboard-input" multiple hidden aria-label="选择需要粘贴到远程设备的文件">
+      <p id="v2-clipboard-status" role="status" aria-live="polite">剪贴板共享已开启。远程桌面中可用 Ctrl+C / Ctrl+V 复制文本；选择文件可粘贴到远程资源管理器，远程文件可下载到本机。</p>
     </div>
   </form>
   <p id="v2-message" class="connection-notice" role="status" aria-live="polite">准备连接</p>
@@ -92,7 +94,10 @@
 <section id="v2-clipboard-progress-panel" class="clipboard-progress-panel" role="region" aria-label="剪贴板文件下载" hidden>
  <div class="clipboard-progress-head">
   <strong id="v2-clipboard-progress-title">剪贴板文件下载</strong>
-  <button type="button" id="v2-clipboard-progress-minimize" class="clipboard-progress-icon" aria-expanded="true" aria-label="收起下载进度">收起</button>
+  <div class="clipboard-progress-controls">
+    <button type="button" id="v2-clipboard-progress-minimize" class="clipboard-progress-icon" aria-expanded="true" aria-label="收起下载进度">收起</button>
+    <button type="button" id="v2-clipboard-progress-close" class="clipboard-progress-icon clipboard-progress-close" aria-label="关闭下载提示" title="关闭下载提示">×</button>
+   </div>
  </div>
  <div class="clipboard-progress-details" id="v2-clipboard-progress-details">
   <p id="v2-clipboard-progress-file" class="clipboard-progress-file">正在准备下载</p>
