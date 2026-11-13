@@ -1,0 +1,527 @@
+[
+  {
+    "role": "admin-desktop",
+    "name": "admin-desktop-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "admin-desktop",
+    "name": "admin-desktop-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "groups",
+      "users"
+    ]
+  },
+  {
+    "role": "admin-desktop",
+    "name": "admin-desktop-03.png",
+    "pages": [
+      "invitations",
+      "adminRoles",
+      "adminRoleAssignments",
+      "devices",
+      "deployed",
+      "devicegroups",
+      "policies",
+      "policyAssignments",
+      "userPolicyAssignments"
+    ]
+  },
+  {
+    "role": "admin-desktop",
+    "name": "admin-desktop-04.png",
+    "pages": [
+      "groupPolicyAssignments",
+      "accessRules",
+      "controlRoles",
+      "controlAssignments",
+      "activeSessions",
+      "disconnectHistory",
+      "alarms",
+      "operations",
+      "retention"
+    ]
+  },
+  {
+    "role": "admin-desktop",
+    "name": "admin-desktop-05.png",
+    "pages": [
+      "loginlogs",
+      "connections",
+      "transfers",
+      "server",
+      "settings",
+      "oauth",
+      "rules",
+      "relayNodes",
+      "mail"
+    ]
+  },
+  {
+    "role": "admin-desktop",
+    "name": "admin-desktop-06.png",
+    "pages": [
+      "clientBuilder",
+      "notifications",
+      "apiTokens",
+      "sessions",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "admin-phone",
+    "name": "admin-phone-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "admin-phone",
+    "name": "admin-phone-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "groups",
+      "users"
+    ]
+  },
+  {
+    "role": "admin-phone",
+    "name": "admin-phone-03.png",
+    "pages": [
+      "invitations",
+      "adminRoles",
+      "adminRoleAssignments",
+      "devices",
+      "deployed",
+      "devicegroups",
+      "policies",
+      "policyAssignments",
+      "userPolicyAssignments"
+    ]
+  },
+  {
+    "role": "admin-phone",
+    "name": "admin-phone-04.png",
+    "pages": [
+      "groupPolicyAssignments",
+      "accessRules",
+      "controlRoles",
+      "controlAssignments",
+      "activeSessions",
+      "disconnectHistory",
+      "alarms",
+      "operations",
+      "retention"
+    ]
+  },
+  {
+    "role": "admin-phone",
+    "name": "admin-phone-05.png",
+    "pages": [
+      "loginlogs",
+      "connections",
+      "transfers",
+      "server",
+      "settings",
+      "oauth",
+      "rules",
+      "relayNodes",
+      "mail"
+    ]
+  },
+  {
+    "role": "admin-phone",
+    "name": "admin-phone-06.png",
+    "pages": [
+      "clientBuilder",
+      "notifications",
+      "apiTokens",
+      "sessions",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "admin-tablet",
+    "name": "admin-tablet-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "admin-tablet",
+    "name": "admin-tablet-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "groups",
+      "users"
+    ]
+  },
+  {
+    "role": "admin-tablet",
+    "name": "admin-tablet-03.png",
+    "pages": [
+      "invitations",
+      "adminRoles",
+      "adminRoleAssignments",
+      "devices",
+      "deployed",
+      "devicegroups",
+      "policies",
+      "policyAssignments",
+      "userPolicyAssignments"
+    ]
+  },
+  {
+    "role": "admin-tablet",
+    "name": "admin-tablet-04.png",
+    "pages": [
+      "groupPolicyAssignments",
+      "accessRules",
+      "controlRoles",
+      "controlAssignments",
+      "activeSessions",
+      "disconnectHistory",
+      "alarms",
+      "operations",
+      "retention"
+    ]
+  },
+  {
+    "role": "admin-tablet",
+    "name": "admin-tablet-05.png",
+    "pages": [
+      "loginlogs",
+      "connections",
+      "transfers",
+      "server",
+      "settings",
+      "oauth",
+      "rules",
+      "relayNodes",
+      "mail"
+    ]
+  },
+  {
+    "role": "admin-tablet",
+    "name": "admin-tablet-06.png",
+    "pages": [
+      "clientBuilder",
+      "notifications",
+      "apiTokens",
+      "sessions",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "admin-ultrawide",
+    "name": "admin-ultrawide-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "admin-ultrawide",
+    "name": "admin-ultrawide-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "groups",
+      "users"
+    ]
+  },
+  {
+    "role": "admin-ultrawide",
+    "name": "admin-ultrawide-03.png",
+    "pages": [
+      "invitations",
+      "adminRoles",
+      "adminRoleAssignments",
+      "devices",
+      "deployed",
+      "devicegroups",
+      "policies",
+      "policyAssignments",
+      "userPolicyAssignments"
+    ]
+  },
+  {
+    "role": "admin-ultrawide",
+    "name": "admin-ultrawide-04.png",
+    "pages": [
+      "groupPolicyAssignments",
+      "accessRules",
+      "controlRoles",
+      "controlAssignments",
+      "activeSessions",
+      "disconnectHistory",
+      "alarms",
+      "operations",
+      "retention"
+    ]
+  },
+  {
+    "role": "admin-ultrawide",
+    "name": "admin-ultrawide-05.png",
+    "pages": [
+      "loginlogs",
+      "connections",
+      "transfers",
+      "server",
+      "settings",
+      "oauth",
+      "rules",
+      "relayNodes",
+      "mail"
+    ]
+  },
+  {
+    "role": "admin-ultrawide",
+    "name": "admin-ultrawide-06.png",
+    "pages": [
+      "clientBuilder",
+      "notifications",
+      "apiTokens",
+      "sessions",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "admin-wide",
+    "name": "admin-wide-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "admin-wide",
+    "name": "admin-wide-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "groups",
+      "users"
+    ]
+  },
+  {
+    "role": "admin-wide",
+    "name": "admin-wide-03.png",
+    "pages": [
+      "invitations",
+      "adminRoles",
+      "adminRoleAssignments",
+      "devices",
+      "deployed",
+      "devicegroups",
+      "policies",
+      "policyAssignments",
+      "userPolicyAssignments"
+    ]
+  },
+  {
+    "role": "admin-wide",
+    "name": "admin-wide-04.png",
+    "pages": [
+      "groupPolicyAssignments",
+      "accessRules",
+      "controlRoles",
+      "controlAssignments",
+      "activeSessions",
+      "disconnectHistory",
+      "alarms",
+      "operations",
+      "retention"
+    ]
+  },
+  {
+    "role": "admin-wide",
+    "name": "admin-wide-05.png",
+    "pages": [
+      "loginlogs",
+      "connections",
+      "transfers",
+      "server",
+      "settings",
+      "oauth",
+      "rules",
+      "relayNodes",
+      "mail"
+    ]
+  },
+  {
+    "role": "admin-wide",
+    "name": "admin-wide-06.png",
+    "pages": [
+      "clientBuilder",
+      "notifications",
+      "apiTokens",
+      "sessions",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "user-desktop",
+    "name": "user-desktop-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "user-desktop",
+    "name": "user-desktop-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "user-phone",
+    "name": "user-phone-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "user-phone",
+    "name": "user-phone-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "push",
+      "profile"
+    ]
+  },
+  {
+    "role": "user-wide",
+    "name": "user-wide-01.png",
+    "pages": [
+      "overview",
+      "mydevices",
+      "shared",
+      "contacts",
+      "addressbooks",
+      "tags",
+      "mygroups",
+      "trash",
+      "myRules"
+    ]
+  },
+  {
+    "role": "user-wide",
+    "name": "user-wide-02.png",
+    "pages": [
+      "mysessions",
+      "myconnections",
+      "mytransfers",
+      "myalarms",
+      "myloginlogs",
+      "myactiveSessions",
+      "myDisconnectHistory",
+      "push",
+      "profile"
+    ]
+  }
+]
