@@ -62,7 +62,7 @@ type UserPasswordForm struct {
 }
 
 type ChangeCurPasswordForm struct {
-	OldPassword string `json:"old_password" validate:"required,gte=4,lte=32"`
+	OldPassword string `json:"old_password" validate:"omitempty,gte=4,lte=72"`
 	NewPassword string `json:"new_password" validate:"required,gte=8,lte=72"`
 }
 type GroupUsersQuery struct {

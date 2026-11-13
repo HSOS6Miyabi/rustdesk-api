@@ -11,6 +11,7 @@ type LoginPayload struct {
 	Token      string   `json:"token"`
 	RouteNames []string `json:"route_names"`
 	Nickname   string   `json:"nickname"`
+	HasLocalPassword bool `json:"has_local_password"`
 }
 
 func (lp *LoginPayload) FromUser(user *model.User) {
@@ -20,6 +21,7 @@ func (lp *LoginPayload) FromUser(user *model.User) {
 	lp.Email = user.Email
 	lp.Avatar = user.Avatar
 	lp.Nickname = user.Nickname
+	lp.HasLocalPassword = user.Password != ""
 }
 
 type UserOauthItem struct {

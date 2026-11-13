@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
@@ -8,7 +9,6 @@ import (
 	adResp "github.com/lejianwen/rustdesk-api/v2/http/response/admin"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/service"
-	"github.com/lejianwen/rustdesk-api/v2/utils"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -298,15 +298,19 @@ func (ct *User) ChangeCurPwd(c *gin.Context) {
 		return
 	}
 	u := service.AllService.UserService.CurUser(c)
-	// Verify the old password only when the account already has one set
-	if !service.AllService.UserService.IsPasswordEmptyByUser(u) {
-		ok, _, err := utils.VerifyPassword(u.Password, f.OldPassword)
-		if err != nil || !ok {
-			response.Fail(c, 101, response.TranslateMsg(c, "OldPasswordError"))
-			return
-		}
+	if u == nil || u.Id == 0 {
+		response.Fail(c, 403, "请先登录")
+		return
 	}
-	err := service.AllService.UserService.UpdatePassword(u, f.NewPassword)
+	err := service.AllService.UserService.ChangeOwnPassword(u.Id, f.OldPassword, f.NewPassword)
+	if errors.Is(err, service.ErrCurrentPasswordIncorrect) {
+		response.Fail(c, 101, response.TranslateMsg(c, "OldPasswordError"))
+		return
+	}
+	if errors.Is(err, service.ErrCurrentPasswordChanged) {
+		response.Fail(c, 101, "账户密码已发生变化，请重新登录后再试")
+		return
+	}
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return

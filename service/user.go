@@ -46,30 +46,28 @@ func (us *UserService) InfoByOpenid(openid string) *model.User {
 	return u
 }
 
-// InfoByUsernamePassword 根据用户名密码取用户信息
+// InfoByUsernamePassword authenticates a configured local password first.
+// A local credential remains available when LDAP cannot be reached.
 func (us *UserService) InfoByUsernamePassword(username, password string) *model.User {
-	if Config.Ldap.Enable {
-		u, err := AllService.LdapService.Authenticate(username, password)
-		if err == nil {
+	u := &model.User{}
+	if err := DB.Where("username = ?", username).First(u).Error; err == nil && u.Id != 0 && u.Password != "" {
+		ok, newHash, verifyErr := utils.VerifyPassword(u.Password, password)
+		if verifyErr == nil && ok {
+			if newHash != "" {
+				DB.Model(u).Update("password", newHash)
+				u.Password = newHash
+			}
 			return u
 		}
-		Logger.Errorf("LDAP authentication failed, %v", err)
-		Logger.Warn("Fallback to local database")
 	}
-	u := &model.User{}
-	DB.Where("username = ?", username).First(u)
-	if u.Id == 0 {
-		return u
+	if Config.Ldap.Enable {
+		ldapUser, err := AllService.LdapService.Authenticate(username, password)
+		if err == nil {
+			return ldapUser
+		}
+		Logger.WithError(err).Warn("LDAP authentication failed; local password did not match")
 	}
-	ok, newHash, err := utils.VerifyPassword(u.Password, password)
-	if err != nil || !ok {
-		return &model.User{}
-	}
-	if newHash != "" {
-		DB.Model(u).Update("password", newHash)
-		u.Password = newHash
-	}
-	return u
+	return &model.User{}
 }
 
 // InfoByAccessToken retrieves the active token and account in one SQL query.
@@ -379,6 +377,46 @@ func (us *UserService) UpdatePassword(u *model.User, password string) error {
 	}
 	err = us.FlushToken(u)
 	return err
+}
+
+var ErrCurrentPasswordIncorrect = errors.New("current password is incorrect")
+var ErrCurrentPasswordChanged = errors.New("account password changed during the update")
+
+// ChangeOwnPassword creates a local password for an externally authenticated
+// account or changes an existing one, then revokes existing login sessions.
+func (us *UserService) ChangeOwnPassword(userID uint, oldPassword, newPassword string) error {
+	if userID == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	if len([]rune(newPassword)) < 8 || len(newPassword) > 72 {
+		return errors.New("new password must have 8 to 72 characters and fit within 72 bytes")
+	}
+	u := us.InfoById(userID)
+	if u.Id == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	if u.Password != "" {
+		ok, _, err := utils.VerifyPassword(u.Password, oldPassword)
+		if err != nil || !ok {
+			return ErrCurrentPasswordIncorrect
+		}
+	}
+	hashed, err := utils.EncryptPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		updated := tx.Model(&model.User{}).
+			Where("id = ? AND password = ?", userID, u.Password).
+			Update("password", hashed)
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected != 1 {
+			return ErrCurrentPasswordChanged
+		}
+		return tx.Where("user_id = ?", userID).Delete(&model.UserToken{}).Error
+	})
 }
 
 // IsAdmin 是否管理员
