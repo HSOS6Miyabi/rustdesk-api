@@ -1088,3 +1088,20 @@ test("desktop table headings expose accessible resizing and automatic width cont
   assert.match(app.root.innerHTML,/data-action="table-autofit"/);
   assert.match(app.root.innerHTML,/<col data-column="id" style="width:\d+px">/);
 });
+
+test("login sessions link registered RustDesk devices and leave browser clients as text",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/user_token/list"]={list:[
+    {id:51,device_id:"office",device_uuid:"owned-uuid",client:"rustdesk",active:true},
+    {id:52,device_id:"webadmin",device_uuid:"",client:"webadmin",active:true},
+    {id:53,device_id:"home-remote",device_uuid:"shared-uuid",client:"rustdesk",active:true}
+  ],total:3};
+  await app.settle();await app.settle();await app.open("sessions");
+  assert.match(app.root.innerHTML,/data-entity-type="device" data-entity-id="office"/);
+  assert.match(app.root.innerHTML,/data-entity-type="device" data-entity-id="home-remote"/);
+  assert.match(app.root.innerHTML,/class="entity-link-name">Office<\\/span><span class="entity-link-id">office<\\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot online/);
+  assert.match(app.root.innerHTML,/device-status-dot offline/);
+  assert.doesNotMatch(app.root.innerHTML,/data-entity-type="device" data-entity-id="webadmin"/);
+  assert.match(app.root.innerHTML,/class="device-reference-name">浏览器客户端<\\/span><span class="device-reference-id">webadmin<\\/span>/);
+});
