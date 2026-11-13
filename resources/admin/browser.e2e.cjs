@@ -2852,6 +2852,11 @@ test("mobile SSO callback finishes login when the original browser storage is un
     }));
     assert.deepEqual(current,{session:"mobile-sso-token",local:"mobile-sso-token",pending:null});
     await captureManagementScreenshot(page,"mobile-sso-login-success.png");
+    await loginTab.bringToFront();
+    await loginTab.locator("main.content").waitFor({timeout:15000});
+    assert.equal(await loginTab.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"mobile-sso-token");
+    assert.equal(await loginTab.locator(".login-shell").count(),0);
+    await captureManagementScreenshot(loginTab,"mobile-sso-original-tab-restored.png");
     await page.reload({waitUntil:"networkidle"});
     await page.locator("main.content").waitFor();
     assert.equal(requests.length,1,"reloading the dashboard must not redeem the OAuth code twice");
