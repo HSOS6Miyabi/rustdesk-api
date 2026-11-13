@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/lejianwen/rustdesk-api/v2/config"
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http"
@@ -180,33 +179,7 @@ func InitGlobal() error {
 	if err := DatabaseAutoUpdate(); err != nil { return fmt.Errorf("database startup migration: %w", err) }
 	service.DB = global.DB
 	if err := service.LoadConfiguredSettings(&global.Config); err != nil { return fmt.Errorf("load application settings: %w", err) }
-	//redis
-	global.Redis = redis.NewClient(&redis.Options{
-		Addr:     global.Config.Redis.Addr,
-		Password: global.Config.Redis.Password,
-		DB:       global.Config.Redis.Db,
-	})
-
-	//cache
-	if global.Config.Cache.Type == cache.TypeFile {
-		fc := cache.NewFileCache()
-		if global.Config.Cache.FileDir == "" {
-            global.Config.Cache.FileDir = "./data/cache"
-        }
-        if err:=os.MkdirAll(global.Config.Cache.FileDir,0700);err!=nil{
-            return fmt.Errorf("prepare file cache directory: %w",err)
-        }
-        fc.SetDir(global.Config.Cache.FileDir)
-        global.Cache=fc
-	} else if global.Config.Cache.Type == cache.TypeMem {
-		global.Cache = cache.NewMemoryCache(32 * 1024 * 1024)
-	} else if global.Config.Cache.Type == cache.TypeRedis {
-		global.Cache = cache.NewRedis(&redis.Options{
-			Addr:     global.Config.Cache.RedisAddr,
-			Password: global.Config.Cache.RedisPwd,
-			DB:       global.Config.Cache.RedisDb,
-		})
-	}
+	if err := initOptionalCache(); err != nil { return err }
 	//validator
 	global.ApiInitValidator()
 
