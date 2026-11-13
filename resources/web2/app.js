@@ -188,6 +188,9 @@
   const clipboardButton=el("v2-clipboard-toggle");
   const clipboardFileButton=el("v2-clipboard-select-files");
   const clipboardFileInput=el("v2-clipboard-input");
+  const clipboardPasteButton=el("v2-clipboard-paste-text");
+  const clipboardTextInput=el("v2-clipboard-text-input");
+  const clipboardTextSendButton=el("v2-clipboard-text-send");
   const clipboardCopyButton=el("v2-clipboard-copy");
   const clipboardDownloadButton=el("v2-download-clipboard");
   const clipboardStatus=el("v2-clipboard-status");
@@ -261,6 +264,67 @@
     return session&&["desktop","camera"].includes(session.mode)?session:null;
   }
   function setClipboardStatus(text){clipboardStatus.textContent=text;}
+  function currentClipboardBridge(){
+    return clipboardSession()?.frame.contentWindow?.__rustdeskClipboardAccess;
+  }
+  function showManualClipboardInput(){
+    clipboardTextInput.hidden=false;
+    clipboardTextSendButton.hidden=false;
+    clipboardTextInput.focus();
+  }
+  function sendTextToRemote(text){
+    const value=String(text||"");
+    if(!value){setClipboardStatus("本机剪贴板没有文本，请先复制文本。");return false;}
+    if(value.length>1024*1024){setClipboardStatus("粘贴的文本过长，最多允许 1 MiB。");return false;}
+    const bridge=currentClipboardBridge();
+    if(!clipboardEnabled||typeof bridge?.pasteText!=="function"){
+      setClipboardStatus("请先连接远程桌面并开启剪贴板共享。");
+      return false;
+    }
+    if(bridge.pasteText(value)!==true){
+      setClipboardStatus("远程桌面尚未允许发送剪贴板文本。");
+      return false;
+    }
+    setClipboardStatus("已将本机文本发送至远程设备，并执行粘贴。");
+    clipboardTextInput.value="";
+    clipboardTextInput.hidden=true;
+    clipboardTextSendButton.hidden=true;
+    return true;
+  }
+  window.__rustdeskReadHostClipboard=async source=>{
+    const current=clipboardSession();
+    if(!clipboardEnabled||!current||current.frame.contentWindow!==source)
+      return {available:false};
+    const api=clipboardAPI();
+    if(typeof api?.readText!=="function")return {available:false};
+    try{
+      const text=await api.readText();
+      clipboardReadGranted=true;
+      return {available:true,text:String(text||"")};
+    }catch{
+      clipboardReadGranted=false;
+      setClipboardStatus("浏览器没有授予剪贴板读取权限。可点击“粘贴本机文本”重试，或使用下方输入框。");
+      return {available:false};
+    }
+  };
+  clipboardPasteButton.addEventListener("click",async()=>{
+    if(!clipboardEnabled||!clipboardSession()){
+      setClipboardStatus("请先连接远程桌面并开启剪贴板共享。");
+      return;
+    }
+    const result=await window.__rustdeskReadHostClipboard(clipboardSession().frame.contentWindow);
+    if(result.available&&result.text){
+      sendTextToRemote(result.text);
+    }else{
+      showManualClipboardInput();
+      setClipboardStatus(result.available
+        ?"本机剪贴板没有文本。可在输入框中粘贴或输入需要发送的内容。"
+        :"请在输入框中粘贴本机文本，再点击“发送并粘贴”。");
+    }
+  });
+  clipboardTextSendButton.addEventListener("click",()=>{
+    sendTextToRemote(clipboardTextInput.value);
+  });
   function syncClipboardSession(initialText){
     const active=clipboardSession();
     for(const [key,session] of sessions){
@@ -276,6 +340,7 @@
     clipboardButton.setAttribute("aria-pressed",String(clipboardEnabled));
     clipboardButton.textContent=clipboardEnabled?"关闭剪贴板共享":"启用剪贴板共享";
     clipboardFileButton.disabled=!active||active.mode!=="desktop"||!clipboardEnabled;
+    clipboardPasteButton.disabled=!active||active.mode!=="desktop"||!clipboardEnabled;
     if(!clipboardEnabled)clipboardCopyButton.hidden=true;
   }
   window.__rustdeskClipboardReady=source=>{
