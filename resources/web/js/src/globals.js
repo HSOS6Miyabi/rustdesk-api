@@ -208,7 +208,7 @@ window.setByName = (name, value) => {
             window.__rustdeskTerminalAdmin = false;
             window.__rustdeskNativeSessionSeen = id;
             window.dispatchEvent(new CustomEvent('rustdesk:native-session-open', {detail:{id}}));
-            conn.start(id);
+            conn.start(id).catch(error=>msgbox("error","Connection Error",String(error)));
             return '';
         }
         case 'session_login': {
@@ -465,8 +465,8 @@ window.init = async () => {
     opusWorker.onmessage = (e) => {
         pcmPlayer.feed(e.data);
     }
-    loadVp9(() => {
-    });
+    const warming=loadVp9(decoder=>decoder.close?.());
+    if(warming?.catch)warming.catch(error=>console.warn("VP9 preloading failed",error));
     await initZstd();
     console.log('init done');
     if (typeof window.onInitFinished === "function") {
