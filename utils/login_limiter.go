@@ -77,7 +77,6 @@ func NewLoginLimiter(policy SecurityPolicy) *LoginLimiter {
 	return ll
 }
 
-// 注册验证码提供者
 // UseRedis shares login security state between API instances when Redis is configured.
 func (ll *LoginLimiter) UseRedis(client *redis.Client) {
     ll.redis = client
@@ -90,6 +89,7 @@ func (ll *LoginLimiter) Close() {
     }
 }
 
+// RegisterProvider configures the CAPTCHA generator and renderer.
 func (ll *LoginLimiter) RegisterProvider(p CaptchaProvider) {
 	ll.mu.Lock()
 	defer ll.mu.Unlock()
@@ -139,6 +139,12 @@ func (ll *LoginLimiter) RecordFailedAttempt(ip string) {
 
 	// 记录新尝试
 	validAttempts = append(validAttempts, now)
+    maxAttempts := ll.policy.BanThreshold
+    if ll.policy.CaptchaThreshold > maxAttempts { maxAttempts = ll.policy.CaptchaThreshold }
+    if maxAttempts < 32 { maxAttempts = 32 }
+    if len(validAttempts) > maxAttempts {
+        validAttempts = validAttempts[len(validAttempts)-maxAttempts:]
+    }
 	ll.attempts[ip] = validAttempts
 
 	// 检查封禁条件

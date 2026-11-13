@@ -50,7 +50,7 @@ func HasRemotePushSubscribers(eventType string) bool {
 // connected to other instances. Each instance advertises current interests in
 // an expiring key; stale entries disappear after an unclean shutdown.
 func startPushStreamRedisBridge() {
-    if global.Redis == nil || strings.TrimSpace(global.Config.Redis.Addr) == "" { return }
+    if global.Redis == nil { return }
     launchServiceWorker(func(ctx context.Context) {
         for ctx.Err() == nil {
             if err := runPushStreamRedisBridge(ctx); err != nil && ctx.Err() == nil && Logger != nil {

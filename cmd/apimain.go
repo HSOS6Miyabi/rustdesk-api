@@ -118,6 +118,7 @@ func main() {
 			}
 		}
 	}
+	if global.LoginLimiter!=nil {global.LoginLimiter.Close()}
 	if closer,ok:=global.Cache.(interface{Close() error});ok {_=closer.Close()}
 	if global.Redis!=nil {_=global.Redis.Close()}
 	if err!=nil {
@@ -211,6 +212,11 @@ func InitGlobal() error {
 		BanDuration:      30 * time.Minute,
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
+    if redisCache, ok := global.Cache.(*cache.RedisCache); ok {
+        global.LoginLimiter.UseRedis(redisCache.Client())
+    } else if global.Redis != nil {
+        global.LoginLimiter.UseRedis(global.Redis)
+    }
 	service.StartAuditMaintenance()
 	service.StartSessionMaintenance()
 	service.StartNotificationWorker()

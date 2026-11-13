@@ -5,7 +5,6 @@ import (
     "crypto/sha256"
     "encoding/hex"
     "log"
-    "strconv"
     "sync/atomic"
     "time"
 
@@ -137,11 +136,9 @@ func (ll *LoginLimiter) redisStoreCaptcha(meta CaptchaMeta) {
     digest := sha256.Sum256([]byte(meta.Answer))
     ctx,cancel := redisAuthContext()
     defer cancel()
-    success, err := ll.redis.SetNX(ctx,authRedisCaptchaKey(meta.Id),
-        hex.EncodeToString(digest[:]),ttl).Result()
-    if err != nil { logRedisAuthError(err) }
-    if err == nil && !success {
-        logRedisAuthError(redis.NewCmdResult(nil, nil).Err())
+    if _, err := ll.redis.SetNX(ctx,authRedisCaptchaKey(meta.Id),
+        hex.EncodeToString(digest[:]),ttl).Result(); err != nil {
+        logRedisAuthError(err)
     }
 }
 
@@ -159,6 +156,3 @@ func (ll *LoginLimiter) redisVerifyCaptcha(id, answer string) (bool, bool) {
     if err != nil { logRedisAuthError(err); return false,false }
     return result == 1,true
 }
-
-// Kept here for stable formatting of byte-sized Redis keys in diagnostic tools.
-var _ = strconv.IntSize
