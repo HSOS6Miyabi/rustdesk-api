@@ -17,6 +17,7 @@ type UnBindOauthForm struct {
 type OauthForm struct {
 	Id           uint   `json:"id"`
 	Op           string `json:"op" validate:"omitempty"`
+	DisplayName  string `json:"display_name"`
 	OauthType    string `json:"oauth_type" validate:"required"`
 	Issuer       string `json:"issuer" validate:"omitempty,url"`
 	Scopes       string `json:"scopes" validate:"omitempty"`
@@ -31,6 +32,7 @@ type OauthForm struct {
 func (of *OauthForm) ToOauth() *model.Oauth {
 	oa := &model.Oauth{
 		Op:           of.Op,
+		DisplayName:  of.DisplayName,
 		OauthType:    of.OauthType,
 		ClientId:     of.ClientId,
 		ClientSecret: of.ClientSecret,
