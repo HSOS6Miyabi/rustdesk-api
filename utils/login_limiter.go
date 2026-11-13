@@ -111,11 +111,11 @@ func (ll *LoginLimiter) IsIPBanned(ip string) bool {
 	if !ll.BanEnabled() {
 		return false
 	}
-	if blocked, ok := ll.redisIsIPBanned(ip); ok { return blocked }
-	ll.mu.Lock()
-	defer ll.mu.Unlock()
-	blocked, _ := ll.isBanned(ip)
-	return blocked
+	redisBlocked, _ := ll.redisIsIPBanned(ip)
+    ll.mu.Lock()
+    defer ll.mu.Unlock()
+    localBlocked, _ := ll.isBanned(ip)
+    return redisBlocked || localBlocked
 }
 
 // 记录登录失败尝试
@@ -225,24 +225,14 @@ func (ll *LoginLimiter) CheckSecurityStatus(ip string) (banned bool, captchaRequ
 	if ll.isDisabled() {
 		return
 	}
-    if redisBanned, redisCaptcha, handled := ll.redisSecurityStatus(ip); handled {
-        return redisBanned, redisCaptcha
-    }
-	ll.mu.Lock()
-	defer ll.mu.Unlock()
-
-	// 检查封禁状态
-	if banned, _ = ll.isBanned(ip); banned {
-		return
-	}
-
-	// 清理过期数据
-	ll.pruneAttempts(ip, time.Now().Add(-ll.policy.AttemptsWindow))
-
-	// 检查验证码要求
-	captchaRequired = len(ll.attempts[ip]) >= ll.policy.CaptchaThreshold
-
-	return
+    redisBanned, redisCaptcha, _ := ll.redisSecurityStatus(ip)
+    ll.mu.Lock()
+    defer ll.mu.Unlock()
+    localBanned, _ := ll.isBanned(ip)
+    if redisBanned || localBanned { return true, false }
+    ll.pruneAttempts(ip, time.Now().Add(-ll.policy.AttemptsWindow))
+    localCaptcha := len(ll.attempts[ip]) >= ll.policy.CaptchaThreshold
+    return false, redisCaptcha || localCaptcha
 }
 
 // 后台清理任务
