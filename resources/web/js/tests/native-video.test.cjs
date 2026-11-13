@@ -45,8 +45,8 @@ test("advertises only codecs supported by the browser decoder",async()=>{
   const {Decoder,Chunk}=createDecoder();
   const codecs=await discoverNativeVideoCodecs(Decoder,Chunk);
   assert.deepEqual(Object.keys(codecs),["vp9","h264","vp8"]);
-  assert.equal(codecs.h264.avc.format,"annexb");
-  assert.deepEqual(await discoverNativeVideoCodecs(undefined,undefined).then(x=>Object.keys(x)).catch(()=>[]),[]);
+  assert.equal(codecs.h264.codec,"avc1.42001E");
+  assert.deepEqual(await discoverNativeVideoCodecs({},Chunk),{});
 });
 
 test("acknowledges decoded batches before painting and keeps the newest completed image",async()=>{
