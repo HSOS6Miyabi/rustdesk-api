@@ -1,5 +1,5 @@
 import * as message from "./message.js";
-import {addSessionMode,advertiseVP9Decoder,extractStandalonePeerInfo,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
+import {addSessionMode,advertiseVideoDecoders,extractStandalonePeerInfo,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
 import * as rendezvous from "./rendezvous.js";
 import * as globals from "./globals";
 import {decodeRendezvous,encodeOffer,encodeICE,IceCandidate} from "./webrtc_protocol";
@@ -52,9 +52,10 @@ export default class Websock {
       : message.Message.encode(message.Message.fromPartial(json)).finish();
     if(extension.__login_mode||extension.__os_login)
       data=addSessionMode(data,extension.__login_mode,extension.__os_login);
-    if(extension.login_request && !extension.login_request.file_transfer &&
-       !["terminal","adminTerminal"].includes(extension.__login_mode))
-      data=advertiseVP9Decoder(data);
+    if((extension.login_request && !extension.login_request.file_transfer &&
+        !["terminal","adminTerminal"].includes(extension.__login_mode)) ||
+       (extension.__video_codecs && extension.misc?.option))
+      data=advertiseVideoDecoders(data,extension.__video_codecs);
     let k = this._secretKey;
     if (k) {
       k[1] += 1;
