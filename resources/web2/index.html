@@ -31,6 +31,11 @@
    <div class="actions"><button class="primary" type="submit" id="v2-connect">发起连接</button><button class="secondary" type="button" id="v2-disconnect">断开连接</button></div>
    <div class="credential-preferences"><span>在 RustDesk 密码窗口勾选“记住密码”，下次连接时可自动登录。</span><button type="button" class="text-button" id="v2-clear-password">清除已保存密码</button></div>
    <div class="display-actions"><button class="secondary" type="button" id="v2-page-fullscreen" aria-pressed="false">网页全屏</button><button class="secondary" type="button" id="v2-screen-fullscreen" aria-pressed="false">显示器全屏</button></div>
+    <div class="clipboard-actions">
+      <button type="button" class="secondary" id="v2-clipboard-toggle" aria-pressed="false">启用剪贴板共享</button>
+      <button type="button" class="secondary" id="v2-clipboard-copy" hidden>复制远程文本</button>
+      <p id="v2-clipboard-status" role="status" aria-live="polite">点击启用后，浏览器会请求读取剪贴板的权限。仅同步文本。</p>
+    </div>
   </form>
   <p id="v2-message" class="connection-notice" role="status" aria-live="polite">准备连接</p>
   <div class="webclient-device-search">
