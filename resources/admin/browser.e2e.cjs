@@ -200,6 +200,8 @@ function serve(req, res) {
         "221.11.67.245":"中国 · 陕西 · 西安 · 雁塔区"},
       device_status:{"office":true,"home-remote":false,"654321":true,"123456":false,
         "managed-desk":false,"helpdesk":true,"desk-001":true,"support-123456":true},
+      device_names:{"office":"Office","home-remote":"Home PC","654321":"家庭电脑","123456":"办公电脑",
+        "managed-desk":"Managed desk","helpdesk":"Helpdesk","desk-001":"Desk 001","support-123456":"Remote support PC"},
       database_ready:false
     });
     if(route==="/push/events")return answer(res,[
@@ -2366,5 +2368,44 @@ test("object picker stays on one line and nested server tabs stay usable on desk
     await page.locator('[data-action="server-category"][data-category="访问与网络记录"]').click();
     assert.equal(await page.locator('[data-action="server-category"][data-category="访问与网络记录"]').getAttribute("aria-selected"),"true");
     await captureManagementScreenshot(page,"desktop-server-secondary-tabs.png");
+  }finally{await context.close();}
+});
+
+test("desktop table columns can be dragged, fitted to content and saved",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="devices"]').click();
+    const handle=page.locator('.data-table th[data-column="id"] .column-resize-handle');
+    await handle.waitFor();
+    const first=page.locator('.data-table col[data-column="id"]');
+    const initial=await first.evaluate(col=>parseFloat(col.style.width));
+    const rect=await handle.boundingBox();
+    assert.ok(rect);
+    await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
+    await page.mouse.down();
+    await page.mouse.move(rect.x+rect.width/2+84,rect.y+rect.height/2,{steps:8});
+    await page.mouse.up();
+    const resized=await first.evaluate(col=>parseFloat(col.style.width));
+    assert.ok(resized>=initial+70,"manual adjustment must increase the column width");
+    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem("rustdesk.console.table-widths")));
+    assert.equal(saved.devices.id,resized);
+    await handle.dblclick();
+    const fitted=await first.evaluate(col=>parseFloat(col.style.width));
+    assert.ok(fitted>=84&&fitted<=720,"double-click must fit the selected column");
+    await page.locator('[data-action="table-autofit"]').click();
+    const next=await first.evaluate(col=>parseFloat(col.style.width));
+    assert.ok(next>=84&&next<=720);
+  }finally{await context.close();}
+});
+
+test("browser client origins and login identifiers have no physical-device status indicator",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.locator('nav.side-scroll button[data-view="sessions"]').click();
+    await page.locator('.data-table tbody tr').first().waitFor();
+    const idCell=page.locator('.data-table td[data-column="device_id"]').first();
+    assert.equal(await idCell.locator(".device-status-dot").count(),0);
+    assert.equal(await idCell.locator('[data-action="entity-detail"]').count(),0);
+    assert.equal(await idCell.locator(".device-reference-id").textContent(),"office");
   }finally{await context.close();}
 });
