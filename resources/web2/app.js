@@ -285,7 +285,8 @@
     const queue=Number(stats?.decode_queue||0),dropped=Number(stats?.dropped_frames||0);
     const transport=stats?.transport==="WebRTC"?"WebRTC":"WebSocket";
     const codec=String(stats?.codec||"VP9").toUpperCase();
-    const decoder=stats?.decoder==="WebCodecs"?"WebCodecs":"WebAssembly";
+    const decoder=String(stats?.decoder||"").startsWith("WebCodecs")
+      ?String(stats.decoder):"WebAssembly";
     performanceStatus.textContent="画面性能："+transport+" · "+codec+" / "+decoder+
       " · 显示 "+fps.toFixed(1)+" 帧/秒 · 解码 "+decode.toFixed(1)+
       " 毫秒 · 绘制 "+render.toFixed(1)+" 毫秒"+
