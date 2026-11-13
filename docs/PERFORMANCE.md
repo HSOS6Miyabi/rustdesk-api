@@ -1,5 +1,17 @@
 # RustDesk API 性能与数据保存说明
 
+## Redis 与本地缓存
+
+未设置 Redis 地址时，API 使用最多 32 MiB 的内存缓存。缓存条目按有效时间自动过期，内存达到上限时移除较久未使用的条目。无需部署 Redis 即可使用普通登录、OAuth 授权和设备管理功能。
+
+设置 `RUSTDESK_API_REDIS_ADDR` 后，默认缓存使用 Redis。也可以将 `RUSTDESK_API_CACHE_TYPE` 设置为 `redis`，并通过 `RUSTDESK_API_CACHE_REDIS_ADDR` 指定缓存 Redis 地址。明确选择 `memory` 或 `file` 时，缓存分别保存在当前进程内存或本地磁盘中。
+
+Redis 可用时，OAuth 登录及绑定过程中的短期授权状态在各 API 实例间共享，五分钟后过期。登录失败次数、IP 封禁记录和一次性验证码也通过 Redis 共享。验证码验证成功后立即删除；失败计数和封禁记录按设置的有效时间过期。Redis 未配置时，以上状态由当前实例的内存缓存和登录限制器管理。Redis 运行中断时，登录限制器会继续执行本机记录的安全检查；共享授权状态需要等待 Redis 恢复。
+
+设备心跳、策略解析结果及推送订阅状态仍在本机进行短期缓存，以减少频繁访问 Redis 和数据库的开销。多实例部署可以启用 `RUSTDESK_API_MULTI_INSTANCE_CACHE=1`，将这些缓存的更新间隔从约 30 秒缩短为约 5 秒。多个实例之间的 SSE 通知通过 Redis 转发。
+
+
+
 ## 日常运行
 
 默认使用 SQLite 时，程序启用 WAL 日志模式，并将数据库连接数限制在四个以内，以减少并发写入造成的竞争。MySQL 和 PostgreSQL 继续使用各自配置的连接池参数。

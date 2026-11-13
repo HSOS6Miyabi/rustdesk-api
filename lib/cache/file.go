@@ -24,9 +24,10 @@ func (fc *FileCache) getLock(key string) *sync.Mutex {
 }
 
 func (c *FileCache) Get(key string, value interface{}) error {
-	data, _ := c.getValue(key)
-	err := DecodeValue(data, value)
-	return err
+	data, err := c.getValue(key)
+    if err != nil { return err }
+    if data == "" { return zeroCacheValue(value) }
+	return DecodeValue(data, value)
 }
 
 // 获取值,如果文件不存在或者过期，返回空，过滤掉错误

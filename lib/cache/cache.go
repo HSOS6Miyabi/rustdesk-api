@@ -1,7 +1,9 @@
 package cache
 
 import (
-	"encoding/json"
+    "encoding/json"
+    "errors"
+    "reflect"
 )
 
 type Handler interface {
@@ -35,6 +37,15 @@ func New(typ string) Handler {
 		cache = NewMemoryCache(0)
 	}
 	return cache
+}
+
+func zeroCacheValue(value interface{}) error {
+    target := reflect.ValueOf(value)
+    if target.Kind() != reflect.Ptr || target.IsNil() {
+        return errors.New("cache result must be a non-nil pointer")
+    }
+    target.Elem().Set(reflect.Zero(target.Elem().Type()))
+    return nil
 }
 
 func EncodeValue(value interface{}) (string, error) {
