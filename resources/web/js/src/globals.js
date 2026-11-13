@@ -153,6 +153,7 @@ window.__rustdeskClipboardAccess={
         clipboardSync.setEnabled(false);
         currentFileClipboard?.disable();
     },
+    suspendText(){clipboardSync.setEnabled(false);},
     sendLocal(text){return clipboardSync.sendLocal(text);},
     async downloadRemoteFiles(){
         if(!currentFileClipboard)throw Error("尚未建立远程桌面连接");
