@@ -209,6 +209,16 @@ func (m *MemoryCache) deleteItem(item *CacheItem) {
 	delete(m.data, item.Key)
 }
 
+func (m *MemoryCache) Delete(key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if item, found := m.data[key]; found {
+		m.deleteItem(item)
+		m.signalEviction()
+	}
+	return nil
+}
+
 func (m *MemoryCache) Gc() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

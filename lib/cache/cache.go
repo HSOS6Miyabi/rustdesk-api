@@ -7,6 +7,7 @@ import (
 type Handler interface {
 	Get(key string, value interface{}) error
 	Set(key string, value interface{}, exp int) error
+	Delete(key string) error
 	Gc() error
 }
 
@@ -25,7 +26,9 @@ func New(typ string) Handler {
 	case TypeFile:
 		cache = NewFileCache()
 	case TypeRedis:
-		cache = new(RedisCache)
+		// This constructor has no connection options; use an in-memory cache.
+		// A configured Redis cache is created with NewRedis or WrapRedis.
+		cache = NewMemoryCache(0)
 	case TypeMem: // memory
 		cache = NewMemoryCache(0)
 	default:
