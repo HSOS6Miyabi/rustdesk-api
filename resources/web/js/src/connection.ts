@@ -8,6 +8,7 @@ import { loadVp9 } from "./codec";
 import * as sha256 from "fast-sha256";
 import * as globals from "./globals";
 import { decompress, mapKey, sleep } from "./common";
+import {decodeVp9Frames} from "./video_pacing.mjs";
 
 const PORT = 21116;
 // only the first is used to init `HOST`
@@ -36,6 +37,7 @@ export default class Connection {
   _password: Uint8Array | undefined;
   _options: any;
   _videoTestSpeed: number[];
+  _performanceStats: {start:number;frames:number;decode:number;paint:number;bytes:number};
   _fileBridge: any;
   _clipboardPermitted: boolean = true;
   _fileClipboardPermitted: boolean = true;
@@ -52,6 +54,7 @@ export default class Connection {
     this._draw = globals.draw;
     this._id = "";
     this._videoTestSpeed = [0, 0];
+    this._performanceStats = {start:Date.now(),frames:0,decode:0,paint:0,bytes:0};
     this._sessionMode = "desktop";
     this._terminalAdmin = false;
     this._osUsername = "";
@@ -715,39 +718,48 @@ export default class Connection {
     this._ws?.sendMessage({ misc });
   }
 
-  handleVideoFrame(vf: message.VideoFrame) {
-    if (!this._firstFrame) {
-      this.msgbox("", "", "");
-      this._firstFrame = true;
-    }
-    if (vf.vp9s) {
-      const dec = this._videoDecoder;
-      var tm = new Date().getTime();
-      var i = 0;
-      const n = vf.vp9s?.frames.length;
-      vf.vp9s.frames.forEach((f) => {
-        dec.processFrame(f.data.slice(0).buffer, (ok: any) => {
-          i++;
-          if (i == n) this.sendVideoReceived();
-          if (ok && dec.frameBuffer && n == i) {
-            this.draw(dec.frameBuffer);
-            const now = new Date().getTime();
-            var elapsed = now - tm;
-            this._videoTestSpeed[1] += elapsed;
-            this._videoTestSpeed[0] += 1;
-            if (this._videoTestSpeed[0] >= 30) {
-              console.log(
-                "video decoder: " +
-                  parseInt(
-                    "" + this._videoTestSpeed[1] / this._videoTestSpeed[0]
-                  )
-              );
-              this._videoTestSpeed = [0, 0];
-            }
-          }
-        });
+  // Decode time includes decoder queue waiting. Render time includes
+  // synchronous pixel readback and the Flutter display callback.
+  reportVideoPerformance(decodeMs:number,paintMs:number,bytes:number):void {
+    const stats=this._performanceStats;
+    stats.frames++;
+    stats.decode+=decodeMs;
+    stats.paint+=paintMs;
+    stats.bytes+=bytes;
+    const now=Date.now(),period=now-stats.start;
+    if(period<2500)return;
+    const frames=stats.frames;
+    if(frames>0){
+      globals.reportRemotePerformance({
+        fps:Math.round(frames*10000/period)/10,
+        decode_ms:Math.round(stats.decode/frames*10)/10,
+        render_ms:Math.round(stats.paint/frames*10)/10,
+        encoded_kbps:Math.round(stats.bytes*8/Math.max(1,period)),
+        buffered_bytes:this.fileTransportBuffer(),
+        transport:this._ws instanceof WebRTCTransport?"WebRTC":"WebSocket"
       });
     }
+    this._performanceStats={start:now,frames:0,decode:0,paint:0,bytes:0};
+  }
+
+  handleVideoFrame(vf: message.VideoFrame) {
+    if(!this._firstFrame){
+      this.msgbox("","","");
+      this._firstFrame=true;
+    }
+    const decoder=this._videoDecoder;
+    const frames=vf.vp9s?.frames||[];
+    if(!decoder||!frames.length){
+      this.sendVideoReceived();
+      return;
+    }
+    decodeVp9Frames(frames,decoder,
+      ()=>this.sendVideoReceived(),
+      (frame:any,decodeMs:number,bytes:number)=>{
+        const started=Date.now();
+        this.draw(frame);
+        this.reportVideoPerformance(decodeMs,Date.now()-started,bytes);
+      });
   }
 
   handlePeerInfo(pi: message.PeerInfo) {

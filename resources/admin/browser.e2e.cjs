@@ -2191,30 +2191,54 @@ test("device connection opens the original RustDesk remote controls and supports
       child.document.body.append(host);
       child.__rdKeyboardOriginal=original;
       child.__rdCapturedKeys=[];
+      child.__rdCapturedText=[];
       child.curConn={
         _sessionMode:"desktop",_peerInfo:{platform:"Windows"},
-        inputKey(...args){child.__rdCapturedKeys.push(args);}
+        inputKey(...args){child.__rdCapturedKeys.push(args);},
+        inputString(value){child.__rdCapturedText.push(value);}
       };
       input.focus();
       return child.document.activeElement===input;
     });
     assert.ok(editorFocused,"a Flutter-style hidden input must receive keyboard focus");
+    await popup.keyboard.type("abc");
+    await popup.keyboard.press("ArrowLeft");
+    await popup.keyboard.press("Backspace");
+    await popup.keyboard.press("Tab");
     await popup.keyboard.press("Control+c");
     await popup.keyboard.press("Control+Shift+z");
+    await popup.evaluate(()=>{
+      const child=document.querySelector("#v2-native-client")?.contentWindow;
+      const input=child.document.querySelector("#rd-keyboard-integration-input");
+      input.dispatchEvent(new CompositionEvent("compositionstart",{bubbles:true}));
+      input.dispatchEvent(new CompositionEvent("compositionend",{bubbles:true,data:"中文"}));
+      input.dispatchEvent(new InputEvent("beforeinput",{bubbles:true,cancelable:true,
+        inputType:"insertFromComposition",data:"中文"}));
+    });
     const physical=await popup.evaluate(()=>{
       const child=document.querySelector("#v2-native-client")?.contentWindow;
       const calls=child.__rdCapturedKeys||[];
+      child.__rdPhysicalText=child.__rdCapturedText||[];
       child.curConn=child.__rdKeyboardOriginal;
       child.document.querySelector("#rd-keyboard-integration")?.remove();
       delete child.__rdKeyboardOriginal;
       delete child.__rdCapturedKeys;
-      return calls;
+      return {keys:calls,text:child.__rdPhysicalText||[]};
     });
-    assert.equal(physical.length,4,
+    const shortcutKeys=physical.keys.filter(item=>["c","z"].includes(item[0])&&item[4]===true);
+    assert.equal(shortcutKeys.length,4,
       "browser keyboard shortcuts must reach the remote connection");
-    assert.deepEqual(physical.map(item=>[item[0],item[1]]),
+    assert.deepEqual(shortcutKeys.map(item=>[item[0],item[1]]),
       [["c",true],["c",false],["z",true],["z",false]]);
-    assert.ok(physical.every(item=>item[4]===true),"Ctrl modifier must be preserved");
+    assert.ok(shortcutKeys.every(item=>item[4]===true),"Ctrl modifier must be preserved");
+    const ordinaryKeys=physical.keys.filter(item=>
+      ["a","b","c","LeftArrow","Backspace","Tab"].includes(item[0])&&item[4]!==true);
+    assert.deepEqual(ordinaryKeys.map(item=>[item[0],item[1]]),[
+      ["a",true],["a",false],["b",true],["b",false],
+      ["c",true],["c",false],["LeftArrow",true],["LeftArrow",false],
+      ["Backspace",true],["Backspace",false],["Tab",true],["Tab",false]
+    ]);
+    assert.deepEqual(physical.text,["中文"]);
 
     await popup.evaluate(()=>{
       const button=document.createElement("button");

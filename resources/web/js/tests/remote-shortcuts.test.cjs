@@ -69,3 +69,74 @@ test("shortcuts targeting Flutter's hidden text editor reach the remote connecti
   assert.deepEqual(c.sends,[["c",true,true,false],["c",false,true,false]]);
   assert.equal(e.stopped,true);
 });
+
+
+test("plain characters, spaces, arrows, function keys and modifiers reach the remote session",async()=>{
+  const c=capture();await c.install();
+  for(const value of [
+    key("a","KeyA"),key(" ","Space"),key("ArrowLeft","ArrowLeft"),
+    key("Backspace","Backspace"),key("F5","F5"),
+    key("Shift","ShiftLeft",{shiftKey:true})]){
+    c.listeners.keydown(value);
+    c.listeners.keyup(value);
+    assert.equal(value.prevented,true);
+  }
+  assert.deepEqual(c.sends.map(x=>[x[0],x[1]]),[
+    ["a",true],["a",false],["Space",true],["Space",false],
+    ["LeftArrow",true],["LeftArrow",false],
+    ["Backspace",true],["Backspace",false],
+    ["F5",true],["F5",false],["Shift",true],["Shift",false]
+  ]);
+});
+
+test("keyboard repeat and blur release keys rather than leaving modifiers held",async()=>{
+  const c=capture();await c.install();
+  c.listeners.keydown(key("Control","ControlLeft",{ctrlKey:true}));
+  c.listeners.keydown(key("a","KeyA",{ctrlKey:true}));
+  c.listeners.keydown(key("a","KeyA",{ctrlKey:true,repeat:true}));
+  c.listeners.blur();
+  assert.deepEqual(c.sends.map(x=>[x[0],x[1]]),[
+    ["Control",true],["a",true],["a",true],["Control",false],["a",false]
+  ]);
+});
+
+test("composition commits Unicode text once and keeps local inputs editable",async()=>{
+  const listeners={},text=[];
+  const target={addEventListener(name,fn){listeners[name]=fn;},removeEventListener(){}};
+  const {installRemoteShortcutCapture}=await load();
+  installRemoteShortcutCapture({target,isActive:()=>true,send:()=>{},
+    paste:()=>{},sendText:value=>text.push(value)});
+  const flutter={closest:selector=>selector.includes("flt-text-editing-host")?{}:null};
+  listeners.compositionstart({target:flutter,stopImmediatePropagation(){}});
+  listeners.beforeinput({target:flutter,inputType:"insertCompositionText",data:"测",preventDefault(){}});
+  listeners.compositionend({target:flutter,data:"测试",stopImmediatePropagation(){}});
+  listeners.beforeinput({target:flutter,inputType:"insertFromComposition",data:"测试",
+    preventDefault(){this.prevented=true;},stopImmediatePropagation(){}});
+  assert.deepEqual(text,["测试"]);
+  listeners.beforeinput({target:{closest:selector=>selector.includes("input")?{}:null},
+    inputType:"insertText",data:"local"});
+  assert.deepEqual(text,["测试"]);
+});
+
+test("inactive or locally editable focus preserves native keyboard input",async()=>{
+  const c=capture();await c.install();
+  const local=key("a","KeyA",{target:{closest:selector=>selector.includes("input")?{}:null}});
+  c.listeners.keydown(local);
+  c.listeners.keyup(local);
+  assert.equal(local.prevented,undefined);
+  assert.deepEqual(c.sends,[]);
+});
+
+test("direct non-ASCII keyboard characters use text input instead of physical key codes",async()=>{
+  const listeners={},typed=[],keys=[];
+  const {installRemoteShortcutCapture}=await load();
+  const target={addEventListener(type,callback){listeners[type]=callback;},removeEventListener(){}};
+  installRemoteShortcutCapture({target,isActive:()=>true,
+    send:(...args)=>keys.push(args),
+    sendText:value=>typed.push(value),paste(){}});
+  const event=key("中","Unidentified",{});
+  listeners.keydown(event);
+  listeners.keyup(event);
+  assert.deepEqual(typed,["中"]);
+  assert.deepEqual(keys,[]);
+});

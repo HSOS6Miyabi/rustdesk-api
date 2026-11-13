@@ -35,7 +35,7 @@ function createElement(id = "") {
 
 function fixture(options = {}) {
   const ids = [
-    "v2-host", "v2-key", "v2-id", "v2-message",
+    "v2-host", "v2-key", "v2-id", "v2-message","v2-performance-status",
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
@@ -722,4 +722,36 @@ test("manual paste works when browser denies clipboard-read permission",async()=
   app.elements.get("v2-clipboard-text-send").listeners.click();
   assert.deepEqual(messages,["fallback paste"]);
   assert.equal(input.hidden,true);
+});
+
+test("fullscreen buttons stay in session settings and clipboard transfer actions stay in header",()=>{
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  const top=html.split('<div class="top-remote-actions"')[1].split("</div>")[0];
+  const aside=html.split('<div class="clipboard-actions">')[1].split("</div>")[0];
+  for(const id of ["v2-clipboard-select-files","v2-clipboard-paste-text"]){
+    assert.match(top,new RegExp('id="'+id+'"'));
+    assert.doesNotMatch(aside,new RegExp('id="'+id+'"'));
+  }
+  for(const id of ["v2-page-fullscreen","v2-screen-fullscreen"]){
+    assert.match(aside,new RegExp('id="'+id+'"'));
+    assert.doesNotMatch(top,new RegExp('id="'+id+'"'));
+  }
+});
+
+test("performance reports display active remote render cost only",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="render-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const source=app.elements.get("v2-native-client").contentWindow;
+  const status=app.elements.get("v2-performance-status");
+  app.window.__rustdeskRemotePerformance({
+    transport:"WebSocket",fps:18.5,decode_ms:12.5,render_ms:23.1,buffered_bytes:2048
+  },source);
+  assert.match(status.textContent,/18\.5 帧\/秒/);
+  assert.match(status.textContent,/23\.1 毫秒/);
+  assert.equal(status.dataset.slow,"true");
+  const text=status.textContent;
+  app.window.__rustdeskRemotePerformance({fps:1},{}); 
+  assert.equal(status.textContent,text);
 });

@@ -123,6 +123,13 @@ export function getConn() {
     return window.curConn;
 }
 
+export function reportRemotePerformance(stats){
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskRemotePerformance==="function")
+            window.parent.__rustdeskRemotePerformance(stats,window);
+    }catch{}
+}
+
 const clipboardSync=new BrowserClipboardSync({
     send:text=>getConn()?.sendClipboardText(text)===true,
     receive:text=>{
@@ -255,6 +262,13 @@ installRemoteShortcutCapture({
         !window.frameElement?.classList?.contains("session-inactive"),
     send:(name,down,event)=>getConn()?.inputKey(name,down,false,
         event.altKey,event.ctrlKey,event.shiftKey,event.metaKey),
+    sendText:text=>{
+        if(text&&getConn()?._peerInfo)getConn()?.inputString(text);
+    },
+    allowEscape:()=>{
+        try{return window.parent!==window&&window.parent.__rustdeskIsFullscreen?.()===true;}
+        catch{return false;}
+    },
     paste:()=>{
         if(!clipboardSync.enabled){
             pasteIntoRemoteExplorer();

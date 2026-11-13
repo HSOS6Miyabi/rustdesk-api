@@ -19,8 +19,8 @@
   <span id="engine-state" class="sr-only" role="status">正在加载远程连接组件</span>
   <div class="top-remote-actions" aria-label="远程操作">
    <button class="top-action" type="button" id="v2-download-clipboard" title="下载远程电脑剪贴板里的文件">下载剪贴板文件</button>
-   <button class="top-action" type="button" id="v2-page-fullscreen" aria-pressed="false">网页全屏</button>
-   <button class="top-action" type="button" id="v2-screen-fullscreen" aria-pressed="false">显示器全屏</button>
+   <button class="top-action" type="button" id="v2-clipboard-select-files">选择文件并粘贴到远程</button>
+   <button class="top-action" type="button" id="v2-clipboard-paste-text">粘贴本机文本</button>
   </div>
   <a class="top-console-link" href="/_admin/#/shared">共享设备管理</a><a class="top-console-link" href="/_admin/">控制台</a>
  </div>
@@ -41,8 +41,8 @@
    <div class="clipboard-actions">
       <button type="button" class="secondary" id="v2-clipboard-toggle" aria-pressed="true">关闭剪贴板共享</button>
       <button type="button" class="secondary" id="v2-clipboard-copy" hidden>复制远程文本</button>
-      <button type="button" class="secondary" id="v2-clipboard-select-files">选择文件并粘贴到远程</button>
-      <button type="button" class="secondary" id="v2-clipboard-paste-text">粘贴本机文本</button>
+      <button type="button" class="secondary" id="v2-page-fullscreen" aria-pressed="false">网页全屏</button>
+      <button type="button" class="secondary" id="v2-screen-fullscreen" aria-pressed="false">显示器全屏</button>
       <label class="sr-only" for="v2-clipboard-text-input">需要发送至远程设备的文本</label>
       <textarea id="v2-clipboard-text-input" rows="3" maxlength="1048576" placeholder="粘贴或输入需要发送到远程设备的文本" hidden></textarea>
       <button type="button" class="secondary" id="v2-clipboard-text-send" hidden>发送并粘贴</button>
@@ -51,6 +51,7 @@
     </div>
   </form>
   <p id="v2-message" class="connection-notice" role="status" aria-live="polite">准备连接</p>
+  <p id="v2-performance-status" class="webclient-performance-status" role="status" aria-live="polite">连接远程设备后显示画面性能。</p>
   <div class="webclient-device-search">
     <label for="v2-device-query">搜索我的设备与共享设备</label>
     <div class="webclient-search-row">

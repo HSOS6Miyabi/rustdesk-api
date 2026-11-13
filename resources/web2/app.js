@@ -40,6 +40,7 @@
     const chosen=sessions.get(key);
     if(!chosen)return;
     activeSessionKey=key;
+    el("v2-performance-status").textContent="连接后显示帧率与浏览器视频处理时间。";
     config.id.value=chosen.id;
     config.host.value=chosen.host;
     state.activeName=chosen.name;
@@ -52,6 +53,9 @@
     renderSessionTabs();
     syncClipboardSession();
     syncFullscreen();
+    if(chosen.mode==="desktop"){
+      try{chosen.frame.contentWindow?.focus?.();}catch{}
+    }
   }
   function closeSession(key){
     const session=sessions.get(key);
@@ -74,6 +78,7 @@
       else {emptySession.hidden=false;renderSessionTabs();syncClipboardSession();}
     }else renderSessionTabs();
     message(sessions.size?"已断开："+session.name:"当前连接已关闭，可以创建新的连接标签。");
+    if(!sessions.size)el("v2-performance-status").textContent="连接远程设备后显示画面性能。";
   }
   function renderSessionTabs(){
     sessionTabs.replaceChildren();
@@ -135,6 +140,10 @@
       }catch{}
       syncFullscreen();
       syncClipboardSession();
+      const active=sessions.get(activeSessionKey);
+      if(active?.frame===frame&&active.mode==="desktop"){
+        try{frame.contentWindow?.focus?.();}catch{}
+      }
     });
   }
   watchClient(firstClient);
@@ -194,6 +203,7 @@
   const clipboardCopyButton=el("v2-clipboard-copy");
   const clipboardDownloadButton=el("v2-download-clipboard");
   const clipboardStatus=el("v2-clipboard-status");
+  const performanceStatus=el("v2-performance-status");
   const progressPanel=el("v2-clipboard-progress-panel");
   stage.append(progressPanel);
   const progressTitle=el("v2-clipboard-progress-title");
@@ -264,6 +274,21 @@
     return session&&["desktop","camera"].includes(session.mode)?session:null;
   }
   function setClipboardStatus(text){clipboardStatus.textContent=text;}
+  window.__rustdeskRemotePerformance=(stats,source)=>{
+    const active=sessions.get(activeSessionKey);
+    if(!active||active.frame.contentWindow!==source)return;
+    const fps=Number(stats?.fps||0),decode=Number(stats?.decode_ms||0),
+      render=Number(stats?.render_ms||0),buffer=Number(stats?.buffered_bytes||0);
+    const transport=stats?.transport==="WebRTC"?"WebRTC":"WebSocket";
+    performanceStatus.textContent="画面性能："+transport+" · "+
+      fps.toFixed(1)+" 帧/秒 · 解码 "+decode.toFixed(1)+
+      " 毫秒 · 绘制 "+render.toFixed(1)+" 毫秒"+
+      (buffer>0?" · 待发送 "+formatBytes(buffer):"");
+    performanceStatus.dataset.slow=String(decode+render>30);
+    performanceStatus.title=decode+render>30
+      ?"浏览器处理视频帧耗时较长，可降低远程分辨率或画质。"
+      :"如远程操作仍有延迟，可以比较 WebRTC 和 WebSocket 的连接表现。";
+  };
   function currentClipboardBridge(){
     return clipboardSession()?.frame.contentWindow?.__rustdeskClipboardAccess;
   }
