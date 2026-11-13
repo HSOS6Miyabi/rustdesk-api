@@ -2660,3 +2660,65 @@ test("browser retains login through new tabs and a temporary API outage",async()
     await duringRestart.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
   }finally{await context.close();}
 });
+
+
+test("wide desktop: device aliases share an ID column and timestamps remain compact",async()=>{
+  const {context,page}=await pageForViewport(1988,1000,true);
+  try{
+    await page.route("**/api/admin/peer/list**",route=>route.fulfill({
+      status:200,contentType:"application/json",body:JSON.stringify({code:0,data:{list:[
+        {row_id:44,id:"1184774058",alias:"pc408",hostname:"desktop-i4ferju",user_id:5,
+          last_online_time:1794624000,os:"Windows",last_online_ip:"192.0.2.1"}
+      ],total:1}})
+    }));
+    await page.route("**/api/admin/user/list**",route=>route.fulfill({
+      status:200,contentType:"application/json",body:JSON.stringify({code:0,data:{list:[
+        {id:5,username:"408_server",nickname:"408服务器",status:1},
+        {id:11,username:"alice",nickname:"Alice",status:1},
+        {id:12,username:"disabled",nickname:"Disabled",status:0}
+      ],total:3}})
+    }));
+    await page.locator('nav.side-scroll button[data-view="devices"]').click();
+    await page.locator('.data-table td[data-column="id"] .entity-link-name').first().waitFor();
+    const display=await page.evaluate(()=>{
+      const table=document.querySelector(".data-table");
+      const device=table.querySelector('td[data-column="id"]');
+      const identity=device.querySelector(".entity-link-name");
+      const identifier=device.querySelector(".entity-link-id");
+      const time=table.querySelector('td[data-column="last_online_time"] .date-time-stack');
+      const cols=[...table.querySelectorAll("colgroup col")];
+      const width=key=>parseFloat(cols.find(c=>c.dataset.column===key)?.style.width||0);
+      return {
+        name:identity?.textContent,id:identifier?.textContent,
+        lineGap:identifier?.getBoundingClientRect().top-identity?.getBoundingClientRect().bottom,
+        timeLines:time?.children.length,
+        day:time?.children[0]?.textContent,clock:time?.children[1]?.textContent,
+        dateVertical:time?.children[1]?.getBoundingClientRect().top-time?.children[0]?.getBoundingClientRect().top,
+        deviceWidth:width("id"),timeWidth:width("last_online_time"),
+        aliasCol:!!table.querySelector('[data-column="alias"]'),
+        hostnameCol:!!table.querySelector('[data-column="hostname"]')
+      };
+    });
+    assert.equal(display.name,"pc408（desktop-i4ferju）");
+    assert.equal(display.id,"1184774058");
+    assert.ok(display.lineGap>=-1,"device name and ID overlap");
+    assert.equal(display.timeLines,2);
+    assert.ok(display.day?.includes("/"));
+    assert.match(display.clock,/\d{1,2}:\d{2}/);
+    assert.ok(display.dateVertical>10,"time should appear beneath date");
+    assert.ok(display.timeWidth>=130&&display.timeWidth<=166);
+    assert.ok(display.deviceWidth>display.timeWidth);
+    assert.equal(display.aliasCol,false);
+    assert.equal(display.hostnameCol,false);
+    await captureManagementScreenshot(page,"wide-desktop-device-identity.png");
+
+    await page.locator('button[data-action="transfer-device"]').first().click();
+    assert.equal(await page.locator("#transfer-user-id").inputValue(),"");
+    assert.match(await page.locator("#modal-overlay").innerText(),/当前所有者/);
+    await page.locator('.drawer [data-action="picker-open"]').first().click();
+    await page.locator('.picker-dialog .picker-result').first().waitFor();
+    assert.match(await page.locator(".picker-dialog").innerText(),/Alice/);
+    assert.doesNotMatch(await page.locator(".picker-dialog").innerText(),/408服务器|Disabled/);
+    await captureManagementScreenshot(page,"wide-desktop-transfer-owner.png");
+  }finally{await context.close();}
+});
