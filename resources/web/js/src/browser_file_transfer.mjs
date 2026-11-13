@@ -82,8 +82,9 @@ export function packageZip(entries) {
 }
 
 export class BrowserFileTransfer {
-  constructor({send, emit, save, pendingBytes, message}) {
+  constructor({send, emit, save, pendingBytes, message, decompress}) {
     this.send = send;
+    this.decompress=decompress || (async data=>data);
     this.emit = emit;
     this.save = save || this.downloadBlob.bind(this);
     this.pendingBytes = pendingBytes || (()=>0);
@@ -239,8 +240,10 @@ export class BrowserFileTransfer {
     if(response.block){
       const index=result.file_num;
       if(!job.entries[index])throw new Error("Unexpected downloaded block");
-      const bytes=new Uint8Array(result.data);
-      if(bytes.length>BLOCK_BYTES * 2 ||
+      const encoded=new Uint8Array(result.data);
+      if(encoded.length>BLOCK_BYTES * 4)throw new Error("Invalid compressed file block");
+      const bytes=result.compressed?await this.decompress(encoded):encoded;
+      if(!bytes || bytes.length>BLOCK_BYTES * 2 ||
          job.received+bytes.length>MAX_DOWNLOAD_BYTES)throw new Error("Invalid download payload");
       job.entries[index].chunks.push(bytes);
       job.entries[index].received+=bytes.length;
