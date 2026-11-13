@@ -176,6 +176,7 @@
   const clipboardDownloadButton=el("v2-download-clipboard");
   const clipboardStatus=el("v2-clipboard-status");
   const progressPanel=el("v2-clipboard-progress-panel");
+  stage.append(progressPanel);
   const progressTitle=el("v2-clipboard-progress-title");
   const progressFile=el("v2-clipboard-progress-file");
   const progressBar=el("v2-clipboard-progress-bar");
