@@ -5,9 +5,8 @@
 // guarantee that the device's hardware decoder will be used.
 const codecCandidates = {
   vp9: [{codec:"vp09.00.10.08"}],
-  h264: [{codec:"avc1.42001E",avc:{format:"annexb"}},
-         {codec:"avc1.640028",avc:{format:"annexb"}}],
-  h265: [{codec:"hev1.1.6.L93.B0",hevc:{format:"annexb"}}],
+  h264: [{codec:"avc1.42001E"},{codec:"avc1.640028"}],
+  h265: [{codec:"hev1.1.6.L93.B0"}],
   vp8: [{codec:"vp8"}],
   av1: [{codec:"av01.0.08M.08"}]
 };
