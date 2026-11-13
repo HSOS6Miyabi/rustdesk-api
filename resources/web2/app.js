@@ -53,6 +53,9 @@
     renderSessionTabs();
     syncClipboardSession();
     syncFullscreen();
+    if(chosen.mode==="desktop"){
+      try{chosen.frame.contentWindow?.focus?.();}catch{}
+    }
   }
   function closeSession(key){
     const session=sessions.get(key);
@@ -137,6 +140,10 @@
       }catch{}
       syncFullscreen();
       syncClipboardSession();
+      const active=sessions.get(activeSessionKey);
+      if(active?.frame===frame&&active.mode==="desktop"){
+        try{frame.contentWindow?.focus?.();}catch{}
+      }
     });
   }
   watchClient(firstClient);
