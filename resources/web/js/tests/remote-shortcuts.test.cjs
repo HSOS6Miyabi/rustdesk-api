@@ -126,3 +126,17 @@ test("inactive or locally editable focus preserves native keyboard input",async(
   assert.equal(local.prevented,undefined);
   assert.deepEqual(c.sends,[]);
 });
+
+test("direct non-ASCII keyboard characters use text input instead of physical key codes",async()=>{
+  const listeners={},typed=[],keys=[];
+  const {installRemoteShortcutCapture}=await load();
+  const target={addEventListener(type,callback){listeners[type]=callback;},removeEventListener(){}};
+  installRemoteShortcutCapture({target,isActive:()=>true,
+    send:(...args)=>keys.push(args),
+    sendText:value=>typed.push(value),paste(){}});
+  const event=key("中","Unidentified",{});
+  listeners.keydown(event);
+  listeners.keyup(event);
+  assert.deepEqual(typed,["中"]);
+  assert.deepEqual(keys,[]);
+});

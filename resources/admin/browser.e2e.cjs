@@ -2225,7 +2225,7 @@ test("device connection opens the original RustDesk remote controls and supports
       delete child.__rdCapturedKeys;
       return {keys:calls,text:child.__rdPhysicalText||[]};
     });
-    const shortcutKeys=physical.keys.filter(item=>["c","z"].includes(item[0]));
+    const shortcutKeys=physical.keys.filter(item=>["c","z"].includes(item[0])&&item[4]===true);
     assert.equal(shortcutKeys.length,4,
       "browser keyboard shortcuts must reach the remote connection");
     assert.deepEqual(shortcutKeys.map(item=>[item[0],item[1]]),

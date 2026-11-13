@@ -62,7 +62,8 @@ export function installRemoteShortcutCapture({target,isActive,send,paste,sendTex
     held.set(id,{key,forward:!isPaste,flags:snapshot(event)});
     if(isPaste){paste(event);return;}
     // Extended Unicode characters are sent as text, including emoji.
-    if(!event.ctrlKey&&!event.altKey&&!event.metaKey&&key.length>1&&!isModifier(event)&&
+    if(!event.ctrlKey&&!event.altKey&&!event.metaKey&&
+       (key.codePointAt(0)>127||key.length>1)&&!isModifier(event)&&
        !/^(F\d+|Numpad\d|LeftArrow|RightArrow|UpArrow|DownArrow|PageUp|PageDown)$/.test(key)&&
        !/^[A-Za-z]+$/.test(key)){
       held.get(id).forward=false;
