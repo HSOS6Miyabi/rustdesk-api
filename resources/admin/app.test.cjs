@@ -847,6 +847,24 @@ test("account profile uses all desktop space with Passkey management",async()=>{
   assert.doesNotMatch(app.root.innerHTML,/max-width:650px/);
 });
 
+test("SSO and LDAP accounts can set a local password without an existing password",async()=>{
+  const external=createConsole(false);
+  external.fixtures["/user/current"].has_local_password=false;
+  await external.settle();await external.settle();await external.open("profile");
+  assert.match(external.root.innerHTML,/设置备用登录密码/);
+  assert.match(external.root.innerHTML,/SSO 或 LDAP 暂时不可用/);
+  assert.match(external.root.innerHTML,/name="new_password"/);
+  assert.doesNotMatch(external.root.innerHTML,/name="old_password"/);
+  assert.match(external.root.innerHTML,/设置本地密码/);
+
+  const local=createConsole(false);
+  local.fixtures["/user/current"].has_local_password=true;
+  await local.settle();await local.settle();await local.open("profile");
+  assert.match(local.root.innerHTML,/修改登录密码/);
+  assert.match(local.root.innerHTML,/name="old_password"[^>]*required/);
+  assert.doesNotMatch(local.root.innerHTML,/设置备用登录密码/);
+});
+
 test("administrator account security actions are inside the user editor",async()=>{
   const app=createConsole(true);
   app.fixtures["/user/list"]={list:[{id:3,username:"owner",nickname:"Owner",status:1,group_id:1}],total:1};

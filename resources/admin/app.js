@@ -1733,9 +1733,17 @@
       '<button class="btn btn-primary" type="button" data-action="passkey-register">添加 Passkey</button></div>'+
       (state.passkeysError?'<p class="warning">'+esc(state.passkeysError)+'</p>':"")+
       '<div class="passkey-list">'+passkeyRows+'</div></div></section>';
+    const hasLocalPassword=account.has_local_password!==false;
+    const passwordTitle=hasLocalPassword?"修改登录密码":"设置备用登录密码";
+    const passwordHint=hasLocalPassword?"更新密码后需要重新登录。":
+      "SSO 或 LDAP 暂时不可用时，可使用本地密码登录。设置后需要重新登录。";
+    const oldPasswordField=hasLocalPassword?
+      '<div class="field"><label for="current-password">当前密码</label><input id="current-password" type="password" name="old_password" autocomplete="current-password" required></div>':"";
     const securityCards=passkeyCard+
-      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">修改登录密码</h2><p class="panel-sub">更新后其他设备需要重新登录。</p></div></div>'+
-      '<form id="password-form" class="tips profile-card-body"><div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div><div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="72" required></div><button class="btn btn-primary" type="submit">保存新密码</button></form></section>'+
+      '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">'+passwordTitle+'</h2><p class="panel-sub">'+passwordHint+'</p></div></div>'+
+      '<form id="password-form" class="tips profile-card-body">'+oldPasswordField+
+      '<div class="field"><label for="new-local-password">新密码</label><input id="new-local-password" type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="72" required></div>'+
+      '<button class="btn btn-primary" type="submit">'+(hasLocalPassword?"保存新密码":"设置本地密码")+'</button></form></section>'+
       '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">双重认证（TOTP）</h2><p class="panel-sub">'+mfaText+'</p></div></div><div class="tips profile-card-body">'+mfaActions+'</div></section>'+
       '<section class="panel profile-card"><div class="panel-header"><div><h2 class="panel-title">邮箱登录验证</h2><p class="panel-sub">'+emailDescription+'</p></div></div>'+
       '<div class="tips profile-card-body"><p>启用后通过邮件接收登录验证码。已启用 TOTP 时优先使用身份验证器。</p>'+
