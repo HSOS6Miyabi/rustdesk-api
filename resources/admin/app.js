@@ -2134,8 +2134,9 @@
     const deviceCards=!device&&!group&&Array.isArray(relations.devices)?
       '<section class="entity-related-section"><h3>名下设备 <span>'+esc(relations.device_total??devices.length)+' 台</span></h3>'+
       (devices.length?'<div class="entity-related-list">'+devices.map(item=>
-        '<div class="entity-related-item">'+entityLink("device",item.id,item.alias||item.hostname||item.id,true,
-        (item.alias||item.hostname)&&item.id!==item.alias&&item.id!==item.hostname?item.id:"")+
+        '<div class="entity-related-item">'+entityLink("device",item.id,
+        [item.alias,item.hostname].map(v=>String(v||"").trim()).find(v=>v&&v!==String(item.id))||"未设置设备名称",
+        true,item.id)+
         '<small>'+esc(item.os||"")+'</small></div>').join("")+'</div>':
         '<p class="entity-related-empty">当前没有设备。</p>')+
       (Number(relations.device_total)>devices.length?'<p class="entity-related-empty">此处展示最近 '+devices.length+' 台设备，其余设备可在设备管理页面查看。</p>':"")+
