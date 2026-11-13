@@ -176,6 +176,13 @@
   function esc(v) {return String(v===undefined||v===null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
   function txt(v) {return v===null||v===undefined||v===""?"—":Array.isArray(v)?v.join(", "):typeof v==="object"?JSON.stringify(v):String(v);}
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
+  const dateTimeFields=new Set(["sent_at","created_at","updated_at","last_online_time","expire","expired_at","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"]);
+  function dateTime(v){
+    const display=date(v);
+    const parts=String(display).match(/^(\d{4}[-/]\d{1,2}[-/]\d{1,2})[\s,T]+(\d{1,2}:\d{2}(?::\d{2})?)/);
+    if(!parts)return display;
+    return '<span class="date-time-stack"><span class="date-time-day">'+esc(parts[1])+'</span><span class="date-time-clock">'+esc(parts[2])+'</span></span>';
+  }
   const geoIPFields=new Set(["ip","login_ip","client_ip","source_ip","last_online_ip","remote_ip","public_ip","private_ip","device_ip"]);
   const deviceReferenceFields=new Set(["device_id","peer_id","from_peer","to_peer"]);
   const loginSessionPages=new Set(["sessions","mysessions"]);
@@ -207,7 +214,10 @@
   function deviceReference(row,key,id,nameKey=""){
     const value=String(id??"").trim();
     if(!value)return "—";
-    const name=deviceName(row,value,nameKey);
+    const alias=String(row?.alias||"").trim(),hostname=String(row?.hostname||"").trim();
+    const deviceList=key==="id"&&deviceRowPages.has(state.page);
+    const name=deviceList&&alias&&hostname&&alias!==hostname&&hostname!==value?
+      alias+"（"+hostname+"）":deviceName(row,value,nameKey);
     if(registeredDevice(value,row,key))return entityLink("device",value,name,true,value);
     return '<span class="device-reference" title="此标识未关联已登记的设备，无法查看设备在线状态或详情">'+
       '<span class="device-reference-name">'+esc(name)+'</span><span class="device-reference-id">'+esc(value)+'</span></span>';
@@ -469,7 +479,7 @@
       sending:"正在发送",retry:"等待重试",sent:"发送成功",failed:"发送失败"
     }[v]||v);
     if(k==="status")return '<span class="pill '+(Number(v)===1?"good":"warn")+'">'+(Number(v)===1?"启用":"停用")+"</span>";
-    if(["sent_at","created_at","last_online_time","expire","expired_at","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"].includes(k))return date(v);
+    if(dateTimeFields.has(k))return dateTime(v);
     if(typeof v==="boolean")return v?"是":"否";
     return esc(txt(v));
   }
@@ -936,8 +946,8 @@
       from_user_id:160,to_user_id:160,owner_user_id:160,
       user_id:136,group_id:140,collection_id:142,policy_id:158,
       client_ip:224,last_online_ip:224,source_ip:224,ip:224,login_ip:224,
-      created_at:190,deleted_at:190,updated_at:190,last_online_time:190,
-      last_used_at:190,expires_at:190,completed_at:190,delivered_at:190,
+      created_at:138,deleted_at:138,updated_at:138,last_online_time:138,
+      last_used_at:138,expires_at:138,completed_at:138,delivered_at:138,
       os:140,platform:160,method:116,primary_auth:152,two_factor:148,
       path:270,info:272,note:250,remark:240,description:260,
       sources:230,issuer:262,permissions:250,
@@ -965,21 +975,21 @@
       allCols.some(([key])=>key===idKey)&&
       (allCols.some(([key])=>key===nameKey)||deviceReferenceFields.has(idKey)||idKey==="id")));
     const pairedNames=new Set(stackColumn.values());
-    if(deviceRowPages.has(state.page)){
-      const hasDistinctHostname=rows.some(row=>{
-        const alias=String(row.alias||"").trim(),hostname=String(row.hostname||"").trim();
-        return alias&&hostname&&alias!==hostname&&hostname!==String(row.id||"");
-      });
-      if(!hasDistinctHostname)pairedNames.add("hostname");
-    }
+    if(deviceRowPages.has(state.page))pairedNames.add("hostname");
     const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
     const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
+    const hasDeviceLabels=deviceRowPages.has(state.page)&&rows.some(row=>{
+      const alias=String(row.alias||"").trim(),hostname=String(row.hostname||"").trim();
+      return alias&&hostname&&alias!==hostname&&hostname!==String(row.id||"");
+    });
     const widths=desktopCols.map(([key,label])=>{
       const saved=Number(state.tableWidths[state.page]?.[key]);
       if(Number.isFinite(saved)&&saved>=84&&saved<=720)return saved;
       const width=tableColumnWidth(key,label,state.page);
+      if(dateTimeFields.has(key))return Math.max(130,Math.min(166,width));
+      if(key==="id"&&deviceRowPages.has(state.page))return hasDeviceLabels?258:192;
       return key==="direction"?62:stackColumn.has(key)?156:Math.max(100,Math.round(width*.76));
     });
     const priorities=desktopCols.map(([key],index)=>{
@@ -1008,9 +1018,26 @@
     const hidden=desktopCols.filter((_,i)=>!selected.has(i));
     const hasActions=actions.some(Boolean)||hidden.length>0;
     const actionSize=hasActions?actionWidth:0;
-    const tableMinWidth=visible.reduce((sum,col)=>sum+widths[desktopCols.indexOf(col)],actionSize);
+    const fittedWidths=widths.slice();
+    if(viewport>900&&!state.showAllColumns[state.page]){
+      let remaining=Math.max(0,availableWidth-actionSize-visible.reduce(
+        (sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],0));
+      const expandable=desktopCols.map(([key],index)=>({key,index})).filter(({key,index})=>
+        selected.has(index)&&["id","device_id","name","alias","hostname","owner_username","sources","note","remark","description","email","path","info"].includes(key));
+      for(let round=0;round<5&&remaining>0;round++){
+        const eligible=expandable.filter(({key,index})=>
+          fittedWidths[index]<(key==="id"?420:360));
+        if(!eligible.length)break;
+        const share=Math.max(1,Math.ceil(remaining/eligible.length));
+        for(const {key,index} of eligible){
+          const extra=Math.min(remaining,share,(key==="id"?420:360)-fittedWidths[index]);
+          fittedWidths[index]+=extra;remaining-=extra;
+        }
+      }
+    }
+    const tableMinWidth=visible.reduce((sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],actionSize);
     const order=state.sort[state.page]||{};
-    const colgroup='<colgroup>'+visible.map(col=>'<col data-column="'+esc(col[0])+'" style="width:'+widths[desktopCols.indexOf(col)]+'px">').join("")+
+    const colgroup='<colgroup>'+visible.map(col=>'<col data-column="'+esc(col[0])+'" style="width:'+fittedWidths[desktopCols.indexOf(col)]+'px">').join("")+
       (hasActions?'<col style="width:'+actionSize+'px">':"")+'</colgroup>';
     const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
       (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
@@ -1024,8 +1051,8 @@
       const cells=visible.map(([key])=>{
         const first=key===desktopCols[0][0];
         return '<td data-column="'+esc(key)+'" class="'+(multiline.has(key)?"cell-multiline ":"")+
-          (first?"cell-primary ":"")+(stackColumn.has(key)?"cell-device-stack":"")+'" title="'+
-          esc(stackColumn.has(key)?[row[stackColumn.get(key)],row[key]].filter(Boolean).join(" · "):columnTitle(key,row[key]))+
+          (first?"cell-primary ":"")+(dateTimeFields.has(key)?"cell-date-time ":"")+(stackColumn.has(key)?"cell-device-stack":"")+'" title="'+
+          esc(stackColumn.has(key)?[row[stackColumn.get(key)],key==="id"?row.hostname:"",row[key]].filter(Boolean).join(" · "):columnTitle(key,row[key]))+
           '"><span class="'+(first?"cell-title":"")+
           '">'+(stackColumn.has(key)?deviceTableStack(row,key,stackColumn.get(key)):colValue(row[key],key,row))+'</span></td>';
       }).join("");
@@ -2088,6 +2115,10 @@
         }
       }
       if(!picker.isConnected||Number(picker.dataset.sequence)!==sequence)return;
+      if(kind==="user"&&state.modal?.kind==="transfer-device"){
+        rows=rows.filter(item=>String(item.id)!==String(state.modal.device.user_id)&&
+          (item.status===undefined||Number(item.status)===1));
+      }
       results.innerHTML=rows.length?rows.slice(0,50).map(item=>{
         const id=kind==="trash_record"?item.row_id:item.id;
         const name=kind==="device"?[item.alias,item.hostname,item.username,item.os].filter(Boolean).join(" · "):
@@ -2468,8 +2499,8 @@
       const body='<form id="device-transfer-form"><div class="form-grid">'+
         '<div class="field full"><label>设备 ID</label><div class="device-status-inline">'+deviceStatusDot(m.device.id)+'<input readonly value="'+esc(m.device.id)+'"></div></div>'+
         '<div class="field full"><label>新所有者的用户编号 <span class="required">*</span></label>'+
-        pickerField("user_id",m.device.user_id||"",true,m.device,"transfer-user-id")+
-        '<small>仅允许将设备转移给当前账户有权管理的用户。</small></div></div></form>';
+        pickerField("user_id","",true,m.device,"transfer-user-id")+
+        '<small>当前所有者：'+esc(state.referenceNames.user?.[String(m.device.user_id)]||m.device.owner_username||"用户 "+m.device.user_id)+'。请选择另一位有权管理的用户。</small></div></div></form>';
       return modal("转移设备所有者","设备登记记录将同步更新。",body,
         '<button class="btn" data-action="close-modal">取消</button>'+
         '<button class="btn btn-primary" type="submit" form="device-transfer-form">确认转移</button>');
@@ -3612,7 +3643,9 @@
     if(formID==="device-transfer-form"){
       if(state.modal?.kind!=="transfer-device")return;
       const rowID=Number(state.modal.device.row_id),userID=Number(f.elements.user_id.value);
-      if(!Number.isSafeInteger(rowID)||rowID<=0||!Number.isSafeInteger(userID)||userID<=0)return;
+      if(!Number.isSafeInteger(rowID)||rowID<=0){toast("无法确定要转移的设备",true);return;}
+      if(!Number.isSafeInteger(userID)||userID<=0){toast("请先选择新的设备所有者",true);return;}
+      if(userID===Number(state.modal.device.user_id)){toast("请选择与当前所有者不同的用户",true);return;}
       try{
         await request("/peer/transfer","POST",{row_id:rowID,user_id:userID});
         state.modal=null;toast("设备所有者已更新");await load();
