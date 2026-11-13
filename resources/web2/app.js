@@ -56,6 +56,8 @@
   function closeSession(key){
     const session=sessions.get(key);
     if(!session)return;
+    if(clipboardTransfer?.busy&&clipboardTransfer.source===session.frame.contentWindow)
+      cancelClipboardDownload("远程连接已关闭，下载已取消。");
     sessions.delete(key);
     try{session.frame.contentWindow?.__rustdeskClipboardAccess?.disable();}catch{}
     if(session.frame===firstClient){
@@ -173,7 +175,49 @@
   const clipboardCopyButton=el("v2-clipboard-copy");
   const clipboardDownloadButton=el("v2-download-clipboard");
   const clipboardStatus=el("v2-clipboard-status");
+  const progressPanel=el("v2-clipboard-progress-panel");
+  const progressTitle=el("v2-clipboard-progress-title");
+  const progressFile=el("v2-clipboard-progress-file");
+  const progressBar=el("v2-clipboard-progress-bar");
+  const progressStats=el("v2-clipboard-progress-stats");
+  const progressCancel=el("v2-clipboard-progress-cancel");
+  const progressMinimize=el("v2-clipboard-progress-minimize");
+  let clipboardTransfer=null;
   let clipboardEnabled=false,clipboardReadGranted=false,pendingRemoteText=null;
+  const formatBytes=value=>{
+    const bytes=Math.max(0,Number(value)||0);
+    if(bytes<1024)return bytes+" B";
+    const unit=bytes<1024*1024?"KB":"MB",divisor=unit==="KB"?1024:1048576;
+    return (bytes/divisor).toFixed(1)+" "+unit;
+  };
+  function updateDownloadProgress({title,file,received,total,stats,complete=false}){
+    progressPanel.hidden=false;
+    if(title)progressTitle.textContent=title;
+    if(file)progressFile.textContent=file;
+    if(typeof received==="number"&&typeof total==="number"){
+      const percent=total<=0?(complete?100:0):Math.min(100,Math.floor(received/total*100));
+      progressBar.value=percent;
+      progressBar.setAttribute("aria-valuenow",String(percent));
+    }
+    if(stats)progressStats.textContent=stats;
+    if(complete)progressBar.value=100;
+  }
+  function cancelClipboardDownload(text){
+    const task=clipboardTransfer;
+    if(!task?.busy)return;
+    task.busy=false;
+    try{task.source?.__rustdeskClipboardAccess?.cancelRemoteFiles?.();}catch{}
+    progressCancel.hidden=true;
+    updateDownloadProgress({title:"剪贴板下载已取消",stats:text||"已取消下载，远程桌面可以继续使用。"});
+    clipboardDownloadButton.disabled=false;
+  }
+  progressCancel.addEventListener("click",()=>cancelClipboardDownload());
+  progressMinimize.addEventListener("click",()=>{
+    const collapsed=progressPanel.dataset.collapsed!=="true";
+    progressPanel.dataset.collapsed=String(collapsed);
+    progressMinimize.textContent=collapsed?"展开":"收起";
+    progressMinimize.setAttribute("aria-expanded",String(!collapsed));
+  });
   const clipboardAPI=()=>window.navigator?.clipboard;
   function clipboardSession(){
     const session=sessions.get(activeSessionKey);
@@ -187,6 +231,8 @@
         const api=session.frame.contentWindow?.__rustdeskClipboardAccess;
         if(key===activeSessionKey&&active&&clipboardEnabled){
           api?.enable(typeof initialText==="string"?initialText:undefined);
+        }else if(clipboardTransfer?.busy&&session.frame.contentWindow===clipboardTransfer.source){
+          api?.suspendText?.();
         }else api?.disable();
       }catch{}
     }
@@ -213,6 +259,7 @@
   }
   clipboardButton.addEventListener("click",async()=>{
     if(clipboardEnabled){
+      cancelClipboardDownload("剪贴板共享已关闭，下载已取消。");
       clipboardEnabled=false;
       clipboardReadGranted=false;
       pendingRemoteText=null;
@@ -246,34 +293,85 @@
   };
   window.__rustdeskClipboardFileStatus=(kind,detail,source)=>{
     const current=clipboardSession();
-    if(!current||current.frame.contentWindow!==source)return;
+    const currentSession=!!current&&current.frame.contentWindow===source;
+    const task=clipboardTransfer?.source===source?clipboardTransfer:null;
+    if(!currentSession&&!task)return;
     if(kind==="remote-list"){
-      if(detail)setClipboardStatus("检测到远程文件剪贴板，可点击右上角下载。");
+      if(detail&&currentSession)setClipboardStatus("检测到远程文件剪贴板，可点击右上角下载。");
     }else if(kind==="local-files"){
-      setClipboardStatus("已将 "+detail+" 个本地文件交给远程剪贴板。");
-    }else if(kind==="progress"&&detail?.total){
-      setClipboardStatus("正在下载 "+detail.name+"："+Math.round(detail.received/detail.total*100)+"%");
-    }else if(kind==="downloaded"){
-      setClipboardStatus("已下载 "+detail.count+" 个剪贴板文件。");
-    }else if(kind==="unsupported-files"){
+      if(currentSession)setClipboardStatus("已将 "+detail+" 个本地文件交给远程剪贴板。");
+    }else if(kind==="start"&&task){
+      task.total=Number(detail?.total||0);
+      updateDownloadProgress({title:"正在下载剪贴板文件",file:"正在获取 "+Number(detail?.count||0)+" 个文件",
+        received:0,total:task.total,stats:"正在连接远程文件服务。可以继续操作远程桌面。"});
+    }else if(kind==="progress"&&task?.busy){
+      const received=Number(detail?.overallReceived??detail?.received??0);
+      const total=Number(detail?.overallTotal??detail?.total??task.total??0);
+      const file=String(detail?.name||"远程文件");
+      updateDownloadProgress({title:"正在下载剪贴板文件",file,received,total,
+        stats:formatBytes(received)+" / "+formatBytes(total)+" · 文件 "+
+          Number(detail?.index||1)+"/"+Number(detail?.count||1)+" · 可继续操作远程桌面"});
+      if(currentSession)setClipboardStatus("正在下载 "+file+"："+(total?Math.floor(received/total*100):100)+"%");
+    }else if(kind==="saving"&&task?.busy){
+      updateDownloadProgress({title:"正在保存剪贴板文件",stats:"文件接收完成，正在准备浏览器下载。"});
+    }else if(kind==="downloaded"&&task){
+      updateDownloadProgress({title:"剪贴板文件下载完成",file:String(detail?.name||"远程文件"),
+        stats:"已保存 "+Number(detail?.count||0)+" 个文件，可以继续远程操作。",complete:true});
+      progressCancel.hidden=true;
+      if(currentSession)setClipboardStatus("已下载 "+detail.count+" 个剪贴板文件。");
+    }else if(kind==="cancelled"&&task){
+      updateDownloadProgress({title:"剪贴板文件下载已取消",stats:"已取消下载，其他远程操作不受影响。"});
+      progressCancel.hidden=true;
+    }else if(kind==="unsupported-files"&&currentSession){
       setClipboardStatus("远程设备未确认文件剪贴板操作，请切换到“文件”标签上传。");
     }
   };
   clipboardDownloadButton.addEventListener("click",async()=>{
     const current=clipboardSession();
     if(!current){message("请先连接远程桌面或摄像会话。");return;}
+    if(clipboardTransfer?.busy){
+      progressPanel.hidden=false;
+      progressPanel.dataset.collapsed="false";
+      progressMinimize.textContent="收起";
+      progressMinimize.setAttribute("aria-expanded","true");
+      return;
+    }
     if(!clipboardEnabled)await enableClipboard();
-    const remote=current.frame.contentWindow?.__rustdeskClipboardAccess;
+    const source=current.frame.contentWindow;
+    const remote=source?.__rustdeskClipboardAccess;
     if(typeof remote?.downloadRemoteFiles!=="function"){
       message("远程桌面剪贴板组件尚未初始化。");return;
     }
+    const task={source,busy:true,total:0};
+    clipboardTransfer=task;
     clipboardDownloadButton.disabled=true;
+    progressCancel.hidden=false;
+    progressPanel.dataset.collapsed="false";
+    progressMinimize.textContent="收起";
+    progressMinimize.setAttribute("aria-expanded","true");
+    updateDownloadProgress({title:"正在获取剪贴板文件列表",file:"正在读取远程剪贴板",
+      received:0,total:100,stats:"下载任务已开始，远程桌面仍可正常操作。"});
     try{
       const result=await remote.downloadRemoteFiles();
-      message("已下载远程剪贴板文件："+result.name);
+      if(clipboardTransfer===task&&task.busy){
+        updateDownloadProgress({title:"剪贴板文件下载完成",file:result.name,
+          stats:"已保存 "+result.count+" 个文件。",complete:true});
+        progressCancel.hidden=true;
+        message("已下载远程剪贴板文件："+result.name);
+      }
     }catch(error){
-      message("下载剪贴板文件失败："+error.message);
-    }finally{clipboardDownloadButton.disabled=false;}
+      if(clipboardTransfer===task&&task.busy){
+        updateDownloadProgress({title:"剪贴板文件下载失败",stats:String(error?.message||error)});
+        progressCancel.hidden=true;
+        message("下载剪贴板文件失败："+error.message);
+      }
+    }finally{
+      if(clipboardTransfer===task){
+        task.busy=false;
+        clipboardDownloadButton.disabled=false;
+        syncClipboardSession();
+      }
+    }
   });
   document.addEventListener("paste",event=>{
     if(!clipboardEnabled)return;
