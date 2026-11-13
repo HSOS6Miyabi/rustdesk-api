@@ -1768,7 +1768,9 @@ test("personal session screens load account-owned records and submit session act
   const {context,page}=await pageForViewport(1360,900,false);
   try{
     await page.locator('nav.side-scroll button[data-view="myactiveSessions"]').click();
-    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的活动远程连接");
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的活动远程连接" &&
+      !document.querySelector(".content .loading-table") &&
+      !!document.querySelector('.table-scroll [data-action="session-disconnect"]'));
     assert.match(await page.locator(".content").innerText(),/office/);
     page.on("dialog",dialog=>dialog.accept());
     const disconnection=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/session/disconnect")&&req.method()==="POST");
