@@ -50,11 +50,16 @@
     }
     emptySession.hidden=true;
     renderSessionTabs();
+    syncClipboardSession();
+    syncFullscreen();
   }
   function closeSession(key){
     const session=sessions.get(key);
     if(!session)return;
+    if(clipboardTransfer?.busy&&clipboardTransfer.source===session.frame.contentWindow)
+      cancelClipboardDownload("远程连接已关闭，下载已取消。");
     sessions.delete(key);
+    try{session.frame.contentWindow?.__rustdeskClipboardAccess?.disable();}catch{}
     if(session.frame===firstClient){
       firstClient.src="about:blank";
       firstClient.classList.add("session-inactive");
@@ -66,7 +71,7 @@
       activeSessionKey="";
       const next=sessions.keys().next().value;
       if(next)showSession(next);
-      else {emptySession.hidden=false;renderSessionTabs();}
+      else {emptySession.hidden=false;renderSessionTabs();syncClipboardSession();}
     }else renderSessionTabs();
     message(sessions.size?"已断开："+session.name:"当前连接已关闭，可以创建新的连接标签。");
   }
@@ -120,6 +125,16 @@
           if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
         },true);
       }catch{}
+      try{
+        frame.contentWindow?.addEventListener("hashchange",()=>{
+          const hash=String(frame.contentWindow.location?.hash||"");
+          if(/^#\/?(?:home)?\/?$/.test(hash)&&frame.contentWindow.__rustdeskNativeSessionSeen){
+            window.__rustdeskOnSessionClosed(frame.contentWindow,frame.contentWindow.__rustdeskNativeSessionSeen);
+          }
+        });
+      }catch{}
+      syncFullscreen();
+      syncClipboardSession();
     });
   }
   watchClient(firstClient);
@@ -156,6 +171,226 @@
       receive([...event.dataTransfer.files],false);
     }catch(error){message("上传文件失败："+error.message);}
   });
+  const clipboardButton=el("v2-clipboard-toggle");
+  const clipboardCopyButton=el("v2-clipboard-copy");
+  const clipboardDownloadButton=el("v2-download-clipboard");
+  const clipboardStatus=el("v2-clipboard-status");
+  const progressPanel=el("v2-clipboard-progress-panel");
+  stage.append(progressPanel);
+  const progressTitle=el("v2-clipboard-progress-title");
+  const progressFile=el("v2-clipboard-progress-file");
+  const progressBar=el("v2-clipboard-progress-bar");
+  const progressStats=el("v2-clipboard-progress-stats");
+  const progressCancel=el("v2-clipboard-progress-cancel");
+  const progressMinimize=el("v2-clipboard-progress-minimize");
+  let clipboardTransfer=null;
+  let clipboardEnabled=false,clipboardReadGranted=false,pendingRemoteText=null;
+  const formatBytes=value=>{
+    const bytes=Math.max(0,Number(value)||0);
+    if(bytes<1024)return bytes+" B";
+    const unit=bytes<1024*1024?"KB":"MB",divisor=unit==="KB"?1024:1048576;
+    return (bytes/divisor).toFixed(1)+" "+unit;
+  };
+  function updateDownloadProgress({title,file,received,total,stats,complete=false}){
+    progressPanel.hidden=false;
+    if(title)progressTitle.textContent=title;
+    if(file)progressFile.textContent=file;
+    if(typeof received==="number"&&typeof total==="number"){
+      const percent=total<=0?(complete?100:0):Math.min(100,Math.floor(received/total*100));
+      progressBar.value=percent;
+      progressBar.setAttribute("aria-valuenow",String(percent));
+    }
+    if(stats)progressStats.textContent=stats;
+    if(complete)progressBar.value=100;
+  }
+  function cancelClipboardDownload(text){
+    const task=clipboardTransfer;
+    if(!task?.busy)return;
+    task.busy=false;
+    try{task.source?.__rustdeskClipboardAccess?.cancelRemoteFiles?.();}catch{}
+    progressCancel.hidden=true;
+    updateDownloadProgress({title:"剪贴板下载已取消",stats:text||"已取消下载，远程桌面可以继续使用。"});
+    clipboardDownloadButton.disabled=false;
+  }
+  progressCancel.addEventListener("click",()=>cancelClipboardDownload());
+  progressMinimize.addEventListener("click",()=>{
+    const collapsed=progressPanel.dataset.collapsed!=="true";
+    progressPanel.dataset.collapsed=String(collapsed);
+    progressMinimize.textContent=collapsed?"展开":"收起";
+    progressMinimize.setAttribute("aria-expanded",String(!collapsed));
+  });
+  const clipboardAPI=()=>window.navigator?.clipboard;
+  function clipboardSession(){
+    const session=sessions.get(activeSessionKey);
+    return session&&["desktop","camera"].includes(session.mode)?session:null;
+  }
+  function setClipboardStatus(text){clipboardStatus.textContent=text;}
+  function syncClipboardSession(initialText){
+    const active=clipboardSession();
+    for(const [key,session] of sessions){
+      try{
+        const api=session.frame.contentWindow?.__rustdeskClipboardAccess;
+        if(key===activeSessionKey&&active&&clipboardEnabled){
+          api?.enable(typeof initialText==="string"?initialText:undefined);
+        }else if(clipboardTransfer?.busy&&session.frame.contentWindow===clipboardTransfer.source){
+          api?.suspendText?.();
+        }else api?.disable();
+      }catch{}
+    }
+    clipboardButton.setAttribute("aria-pressed",String(clipboardEnabled));
+    clipboardButton.textContent=clipboardEnabled?"关闭剪贴板共享":"启用剪贴板共享";
+    if(!clipboardEnabled)clipboardCopyButton.hidden=true;
+  }
+  async function enableClipboard(){
+    clipboardEnabled=true;
+    const api=clipboardAPI();
+    let initialText;
+    if(typeof api?.readText==="function"){
+      try{
+        initialText=await api.readText();
+        clipboardReadGranted=true;
+      }catch{
+        clipboardReadGranted=false;
+      }
+    }
+    syncClipboardSession(initialText);
+    setClipboardStatus(clipboardReadGranted
+      ?"剪贴板共享已开启，支持文本及资源管理器中的文件。"
+      :"剪贴板共享已开启。浏览器可能要求授权，请使用 Ctrl+C / Ctrl+V 复制文本或文件。");
+  }
+  clipboardButton.addEventListener("click",async()=>{
+    if(clipboardEnabled){
+      cancelClipboardDownload("剪贴板共享已关闭，下载已取消。");
+      clipboardEnabled=false;
+      clipboardReadGranted=false;
+      pendingRemoteText=null;
+      syncClipboardSession();
+      setClipboardStatus("剪贴板共享已关闭。");
+    }else await enableClipboard();
+  });
+  clipboardCopyButton.addEventListener("click",async()=>{
+    if(!pendingRemoteText)return;
+    try{
+      if(!clipboardAPI()?.writeText)throw Error("浏览器未提供剪贴板写入接口");
+      await clipboardAPI().writeText(pendingRemoteText);
+      clipboardCopyButton.hidden=true;
+      setClipboardStatus("远程文本已复制到本机剪贴板。");
+    }catch(error){setClipboardStatus("无法复制远程文本："+error.message);}
+  });
+  window.__rustdeskReceiveRemoteClipboard=async(text,source)=>{
+    const current=clipboardSession();
+    if(!clipboardEnabled||!current||current.frame.contentWindow!==source)return;
+    pendingRemoteText=String(text||"");
+    if(!pendingRemoteText)return;
+    try{
+      if(!clipboardAPI()?.writeText)throw Error("当前浏览器不支持写入剪贴板");
+      await clipboardAPI().writeText(pendingRemoteText);
+      clipboardCopyButton.hidden=true;
+      setClipboardStatus("远程文本已同步至本机剪贴板。");
+    }catch{
+      clipboardCopyButton.hidden=false;
+      setClipboardStatus("收到远程文本。点击“复制远程文本”后，浏览器将请求剪贴板权限。");
+    }
+  };
+  window.__rustdeskClipboardFileStatus=(kind,detail,source)=>{
+    const current=clipboardSession();
+    const currentSession=!!current&&current.frame.contentWindow===source;
+    const task=clipboardTransfer?.source===source?clipboardTransfer:null;
+    if(!currentSession&&!task)return;
+    if(kind==="remote-list"){
+      if(detail&&currentSession)setClipboardStatus("检测到远程文件剪贴板，可点击右上角下载。");
+    }else if(kind==="local-files"){
+      if(currentSession)setClipboardStatus("已将 "+detail+" 个本地文件交给远程剪贴板。");
+    }else if(kind==="start"&&task){
+      task.total=Number(detail?.total||0);
+      updateDownloadProgress({title:"正在下载剪贴板文件",file:"正在获取 "+Number(detail?.count||0)+" 个文件",
+        received:0,total:task.total,stats:"正在连接远程文件服务。可以继续操作远程桌面。"});
+    }else if(kind==="progress"&&task?.busy){
+      const received=Number(detail?.overallReceived??detail?.received??0);
+      const total=Number(detail?.overallTotal??detail?.total??task.total??0);
+      const file=String(detail?.name||"远程文件");
+      updateDownloadProgress({title:"正在下载剪贴板文件",file,received,total,
+        stats:formatBytes(received)+" / "+formatBytes(total)+" · 文件 "+
+          Number(detail?.index||1)+"/"+Number(detail?.count||1)+" · 可继续操作远程桌面"});
+      if(currentSession)setClipboardStatus("正在下载 "+file+"："+(total?Math.floor(received/total*100):100)+"%");
+    }else if(kind==="saving"&&task?.busy){
+      updateDownloadProgress({title:"正在保存剪贴板文件",stats:"文件接收完成，正在准备浏览器下载。"});
+    }else if(kind==="downloaded"&&task){
+      updateDownloadProgress({title:"剪贴板文件下载完成",file:String(detail?.name||"远程文件"),
+        stats:"已保存 "+Number(detail?.count||0)+" 个文件，可以继续远程操作。",complete:true});
+      progressCancel.hidden=true;
+      if(currentSession)setClipboardStatus("已下载 "+detail.count+" 个剪贴板文件。");
+    }else if(kind==="cancelled"&&task){
+      updateDownloadProgress({title:"剪贴板文件下载已取消",stats:"已取消下载，其他远程操作不受影响。"});
+      progressCancel.hidden=true;
+    }else if(kind==="unsupported-files"&&currentSession){
+      setClipboardStatus("远程设备未确认文件剪贴板操作，请切换到“文件”标签上传。");
+    }
+  };
+  clipboardDownloadButton.addEventListener("click",async()=>{
+    const current=clipboardSession();
+    if(!current){message("请先连接远程桌面或摄像会话。");return;}
+    if(clipboardTransfer?.busy){
+      progressPanel.hidden=false;
+      progressPanel.dataset.collapsed="false";
+      progressMinimize.textContent="收起";
+      progressMinimize.setAttribute("aria-expanded","true");
+      return;
+    }
+    if(!clipboardEnabled)await enableClipboard();
+    const source=current.frame.contentWindow;
+    const remote=source?.__rustdeskClipboardAccess;
+    if(typeof remote?.downloadRemoteFiles!=="function"){
+      message("远程桌面剪贴板组件尚未初始化。");return;
+    }
+    const task={source,busy:true,total:0};
+    clipboardTransfer=task;
+    clipboardDownloadButton.disabled=true;
+    progressCancel.hidden=false;
+    progressPanel.dataset.collapsed="false";
+    progressMinimize.textContent="收起";
+    progressMinimize.setAttribute("aria-expanded","true");
+    updateDownloadProgress({title:"正在获取剪贴板文件列表",file:"正在读取远程剪贴板",
+      received:0,total:100,stats:"下载任务已开始，远程桌面仍可正常操作。"});
+    try{
+      const result=await remote.downloadRemoteFiles();
+      if(clipboardTransfer===task&&task.busy){
+        updateDownloadProgress({title:"剪贴板文件下载完成",file:result.name,
+          stats:"已保存 "+result.count+" 个文件。",complete:true});
+        progressCancel.hidden=true;
+        message("已下载远程剪贴板文件："+result.name);
+      }
+    }catch(error){
+      if(clipboardTransfer===task&&task.busy){
+        updateDownloadProgress({title:"剪贴板文件下载失败",stats:String(error?.message||error)});
+        progressCancel.hidden=true;
+        message("下载剪贴板文件失败："+error.message);
+      }
+    }finally{
+      if(clipboardTransfer===task){
+        task.busy=false;
+        clipboardDownloadButton.disabled=false;
+        syncClipboardSession();
+      }
+    }
+  });
+  document.addEventListener("paste",event=>{
+    if(!clipboardEnabled)return;
+    const current=clipboardSession();
+    if(!current)return;
+    const api=current.frame.contentWindow?.__rustdeskClipboardAccess;
+    const files=Array.from(event.clipboardData?.files||[]);
+    if(files.length){api?.offerFiles?.(files);return;}
+    const text=event.clipboardData?.getData("text/plain");
+    if(text)api?.sendLocal?.(text);
+  },true);
+  window.__rustdeskOnSessionClosed=(source,id)=>{
+    const found=[...sessions].find(([,session])=>session.frame.contentWindow===source&&session.id===id);
+    if(!found)return;
+    window.setTimeout?.(()=>{
+      if(sessions.get(found[0])===found[1])closeSession(found[0]);
+    },0);
+  };
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
   function syncFullscreen(){
@@ -165,7 +400,22 @@
     pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen));
     screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
     exitButton.hidden=!(state.pageFullscreen||monitorFullscreen);
+    try{
+      const frame=clipboardSession()?.frame||sessions.get(activeSessionKey)?.frame;
+      frame?.contentWindow?.onFullscreenChanged?.(state.pageFullscreen||monitorFullscreen);
+    }catch{}
   }
+  window.__rustdeskIsFullscreen=()=>state.pageFullscreen||document.fullscreenElement===stage;
+  window.__rustdeskSetFullscreen=(wanted,source)=>{
+    const active=sessions.get(activeSessionKey);
+    if(!active||active.frame.contentWindow!==source)
+      return Promise.reject(Error("该会话当前未显示"));
+    if(wanted){
+      if(typeof stage.requestFullscreen!=="function")return Promise.reject(Error("浏览器不支持全屏"));
+      return Promise.resolve(stage.requestFullscreen({navigationUI:"hide"})).then(()=>syncFullscreen());
+    }
+    return exitFullscreen();
+  };
   async function exitFullscreen(){
     if(document.fullscreenElement===stage){
       try{await document.exitFullscreen();}catch(error){message("退出全屏失败："+error.message);}
@@ -210,8 +460,7 @@
     state.activeName=String(name||"");
     state.autoConnect=false;
     updateDeviceIdentity();
-    config.id.focus();
-    message("已选择设备 "+id+"，请点击发起连接。");
+    connectToDevice(selectedMode);
     window.scrollTo({top:0,behavior:"smooth"});
   }
   async function loadConnectionDefaults(){

@@ -37,6 +37,8 @@ export default class Connection {
   _options: any;
   _videoTestSpeed: number[];
   _fileBridge: any;
+  _clipboardPermitted: boolean = true;
+  _fileClipboard: any;
   _sessionMode: string;
   _terminalAdmin: boolean;
   _osUsername: string;
@@ -75,6 +77,28 @@ export default class Connection {
       throw new Error("File-transfer session is not connected");
     }
     this._ws.sendMessage(payload);
+  }
+
+  setFileClipboard(bridge: any) {
+    this._fileClipboard=bridge;
+  }
+
+  sendCliprdr(data: any): boolean {
+    if(!this._ws||!["desktop","camera"].includes(this._sessionMode)||this._clipboardPermitted===false)return false;
+    this._ws.sendMessage({cliprdr:data} as any);
+    return true;
+  }
+
+  sendClipboardText(text: string): boolean {
+    if(!["desktop","camera"].includes(this._sessionMode)||
+       !this._ws||this._clipboardPermitted===false||
+       this._options?.["disable-clipboard"]) return false;
+    const content=new TextEncoder().encode(text);
+    if(!content.length||content.length>1024*1024)return false;
+    this._ws.sendMessage({
+      clipboard:message.Clipboard.fromPartial({compress:false,content})
+    });
+    return true;
   }
 
   fileTransportBuffer() {
@@ -475,6 +499,9 @@ export default class Connection {
         this.handlePeerInfo((msg as any).peer_info);
       } else if (msg?.video_frame) {
         this.handleVideoFrame(msg?.video_frame!);
+      } else if (msg?.cliprdr) {
+        if(["desktop","camera"].includes(this._sessionMode))
+          await this._fileClipboard?.handle(msg.cliprdr);
       } else if (msg?.clipboard) {
         const cb = msg?.clipboard;
         if (cb.compress) {
@@ -482,12 +509,9 @@ export default class Connection {
           if (!c) continue;
           cb.content = c;
         }
-        try {
-          globals.copyToClipboard(new TextDecoder().decode(cb.content));
-        } catch (e) {
-          console.error(e);
+        if(["desktop","camera"].includes(this._sessionMode)){
+          globals.receiveRemoteClipboard(new TextDecoder().decode(cb.content));
         }
-        // globals.pushEvent("clipboard", cb);
       } else if (msg?.cursor_data) {
         const cd = msg?.cursor_data;
         const c = await decompress(cd.colors);
@@ -560,6 +584,7 @@ export default class Connection {
   }
 
   close() {
+    this._fileClipboard?.close();
     this._fileBridge?.close();
     this._ws?.close();
     this._videoDecoder?.close();
@@ -704,6 +729,7 @@ export default class Connection {
     }
     this.msgbox("success", "Successful", "Connected, waiting for image...");
     globals.pushEvent("peer_info", pi);
+    if(["desktop","camera"].includes(this._sessionMode))this._fileClipboard?.onConnected();
     if(this._sessionMode==="file")this.readRemoteDir("",false);
     const p = this.shouldAutoLogin();
     if (p) this.inputOsPassword(p);
@@ -744,6 +770,8 @@ export default class Connection {
           name = "keyboard";
           break;
         case message.PermissionInfo_Permission.Clipboard:
+          this._clipboardPermitted=Boolean(p.enabled);
+          if(!p.enabled)this._fileClipboard?.disable();
           name = "clipboard";
           break;
         case message.PermissionInfo_Permission.Audio:

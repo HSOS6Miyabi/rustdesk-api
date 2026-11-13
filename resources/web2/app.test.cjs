@@ -21,7 +21,7 @@ function createElement(id = "") {
   const listeners = {};
   return {
     id, listeners, value: "", textContent: "", hidden: false, children: [], src: "", title: "",
-    className: "", disabled: false, attributes:{}, classList: { add() {},toggle() {} },
+    className: "", disabled: false, attributes:{}, dataset:{}, classList: { add() {},toggle() {} },
     setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
@@ -39,6 +39,10 @@ function fixture(options = {}) {
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
     "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-clear-password",
+    "v2-download-clipboard","v2-clipboard-toggle","v2-clipboard-copy","v2-clipboard-status",
+    "v2-clipboard-progress-panel","v2-clipboard-progress-title","v2-clipboard-progress-file",
+    "v2-clipboard-progress-bar","v2-clipboard-progress-stats",
+    "v2-clipboard-progress-cancel","v2-clipboard-progress-minimize",
     "v2-session-tabs", "v2-session-panels", "v2-empty-session",
     "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
@@ -74,7 +78,9 @@ function fixture(options = {}) {
   const assigned = [];
   const window = {
     addEventListener(){},
+    setTimeout:callback=>setTimeout(callback,0),
     scrollTo(){},
+    navigator:{clipboard:options.clipboard||null},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
   };
   const document = {
@@ -128,6 +134,7 @@ test("WebClient v2 loads its own server settings and shared device list",async()
   assert.equal(dot.attributes["aria-label"],"在线");
   app.elements.get("shared-items").children[0].children[1].listeners.click();
   assert.equal(app.elements.get("v2-id").value,"123456789");
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/123456789");
 });
 
 test("WebClient v2 launches the original RustDesk client with the selected device",async()=>{
@@ -251,7 +258,7 @@ test("Selecting a shared device keeps its name as the iframe accessibility title
   await app.settle();
   const item=app.elements.get("shared-items").children[0];
   item.children[1].listeners.click();
-  assert.equal(app.elements.get("v2-native-client").title,"Remote Workstation");
+  assert.equal(app.elements.get("v2-native-client").title,"Remote Workstation · 桌面 · RustDesk");
   assert.equal(app.elements.get("v2-id").value,"123456789");
   app.elements.get("v2-id").value="manual-02";
   app.elements.get("v2-id").listeners.input();
@@ -392,4 +399,146 @@ test("outside-browser files are forwarded to the active file-transfer session",a
   assert.equal(got[0].length,1);
   assert.equal(got[0][0].name,"notes.txt");
   assert.equal(got[1],false);
+});
+
+test("remote toolbar closes the corresponding WebClient tab without leaving the Flutter home screen",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="remote-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const frame=app.elements.get("v2-native-client");
+  app.window.__rustdeskOnSessionClosed(frame.contentWindow,"remote-device");
+  await new Promise(resolve=>setTimeout(resolve,12));
+  assert.equal(frame.src,"about:blank");
+  assert.equal(app.elements.get("v2-session-tabs").children.length,1);
+  assert.match(app.elements.get("v2-session-tabs").children[0].textContent,/新建连接/);
+});
+
+test("RustDesk native fullscreen button switches the parent stage fullscreen",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="remote-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  assert.equal(app.window.__rustdeskIsFullscreen(),false);
+  await app.window.__rustdeskSetFullscreen(true,child);
+  assert.equal(app.document.fullscreenElement,app.stage);
+  assert.equal(app.window.__rustdeskIsFullscreen(),true);
+  await app.window.__rustdeskSetFullscreen(false,child);
+  assert.equal(app.document.fullscreenElement,null);
+  assert.equal(app.window.__rustdeskIsFullscreen(),false);
+});
+
+test("clipboard controls request browser permissions, transfer text and download remote files",async()=>{
+  const clipboard={async readText(){return "selected text"},async writeText(text){this.last=text;}};
+  const app=fixture({token:"session-token",clipboard});
+  await app.settle();
+  app.elements.get("v2-id").value="remote-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const calls=[];
+  const child=app.elements.get("v2-native-client").contentWindow;
+  child.__rustdeskClipboardAccess={
+    enable(text){calls.push(["enable",text]);},
+    disable(){calls.push(["disable"]);},
+    sendLocal(text){calls.push(["sendLocal",text]);},
+    offerFiles(files){calls.push(["files",files]);},
+    async downloadRemoteFiles(){return {name:"remote.zip",count:2};}
+  };
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"true");
+  assert.ok(calls.some(call=>call[0]==="enable"&&call[1]==="selected text"));
+  await app.window.__rustdeskReceiveRemoteClipboard("remote text",child);
+  assert.equal(clipboard.last,"remote text");
+  await app.elements.get("v2-download-clipboard").listeners.click();
+  assert.match(app.elements.get("v2-message").textContent,/remote.zip/);
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"false");
+  assert.ok(calls.some(call=>call[0]==="disable"));
+});
+
+test("remote action buttons remain available on small screens and remote desktop appears first",()=>{
+  const fs=require("node:fs"),path=require("node:path");
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  const css=fs.readFileSync(path.join(__dirname,"style.css"),"utf8");
+  assert.match(html,/class="top-remote-actions"/);
+  for(const id of ["v2-download-clipboard","v2-page-fullscreen","v2-screen-fullscreen"]){
+    assert.equal(html.split('id="'+id+'"').length,2);
+  }
+  assert.match(css,/max-width:760px/);
+  assert.match(css,/\.stage\{order:-1/);
+  assert.match(css,/\.brand\{display:none/);
+});
+
+
+test("clipboard download progress is visible, collapsible, cancellable, and does not interrupt remote tabs",async()=>{
+  const clipboard={async readText(){return "";},async writeText(){}};
+  const app=fixture({token:"session-token",clipboard});
+  await app.settle();
+  app.elements.get("v2-id").value="workstation";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const session=app.elements.get("v2-native-client").contentWindow;
+  let rejectDownload;
+  const calls=[];
+  session.__rustdeskClipboardAccess={
+    enable(){calls.push("enabled");},
+    suspendText(){calls.push("suspendText");},
+    disable(){calls.push("disabled");},
+    cancelRemoteFiles(){
+      calls.push("cancel");
+      rejectDownload(new Error("Cancelled"));
+      return true;
+    },
+    async downloadRemoteFiles(){
+      calls.push("download");
+      return new Promise((resolve,reject)=>{rejectDownload=reject;});
+    }
+  };
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  const pending=app.elements.get("v2-download-clipboard").listeners.click();
+  const panel=app.elements.get("v2-clipboard-progress-panel");
+  assert.equal(panel.hidden,false);
+  app.window.__rustdeskClipboardFileStatus("start",{count:2,total:1024},session);
+  app.window.__rustdeskClipboardFileStatus("progress",{
+    name:"quarter.txt",overallReceived:256,overallTotal:1024,index:1,count:2
+  },session);
+  assert.equal(app.elements.get("v2-clipboard-progress-bar").value,25);
+  assert.match(app.elements.get("v2-clipboard-progress-stats").textContent,/256 B \/ 1.0 KB/);
+  app.elements.get("v2-clipboard-progress-minimize").listeners.click();
+  assert.equal(panel.dataset.collapsed,"true");
+  app.elements.get("v2-mode-file").listeners.click();
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/workstation");
+  assert.equal(app.elements.get("v2-session-panels").children[0].src,"/webclient/#/file-transfer/workstation");
+  assert.ok(calls.includes("suspendText"));
+  app.window.__rustdeskClipboardFileStatus("progress",{
+    name:"quarter.txt",overallReceived:768,overallTotal:1024,index:2,count:2
+  },session);
+  assert.equal(app.elements.get("v2-clipboard-progress-bar").value,75);
+  app.elements.get("v2-clipboard-progress-cancel").listeners.click();
+  await pending;
+  assert.ok(calls.includes("cancel"));
+  assert.match(app.elements.get("v2-clipboard-progress-title").textContent,/取消/);
+  assert.equal(app.elements.get("v2-download-clipboard").disabled,false);
+});
+
+test("clipboard progress reports completed file download without a blocking modal",async()=>{
+  const app=fixture({token:"session-token",clipboard:{async readText(){return "";}}});
+  await app.settle();
+  app.elements.get("v2-id").value="desk-02";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const frame=app.elements.get("v2-native-client").contentWindow;
+  frame.__rustdeskClipboardAccess={
+    enable(){},disable(){},
+    async downloadRemoteFiles(){
+      app.window.__rustdeskClipboardFileStatus("start",{count:1,total:10},frame);
+      app.window.__rustdeskClipboardFileStatus("progress",{name:"notes.txt",
+        overallReceived:10,overallTotal:10,index:1,count:1},frame);
+      return {name:"notes.txt",count:1};
+    }
+  };
+  await app.elements.get("v2-download-clipboard").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-progress-panel").hidden,false);
+  assert.equal(app.elements.get("v2-clipboard-progress-bar").value,100);
+  assert.equal(app.elements.get("v2-clipboard-progress-cancel").hidden,true);
+  assert.equal(app.elements.get("v2-download-clipboard").disabled,false);
+  assert.match(app.elements.get("v2-clipboard-progress-title").textContent,/完成/);
 });

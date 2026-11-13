@@ -59,9 +59,9 @@ export function packageZip(entries) {
   const parts = [], directory = [];
   let offset = 0;
   for (const entry of entries) {
-    const name = encoder.encode(validRelativePath(entry.name));
+    const name = encoder.encode(validRelativePath(entry.name)+(entry.directory?"/":""));
     if (name.length > 65535) throw new Error("File name is too long");
-    const chunks = entry.chunks;
+    const chunks = entry.directory?[]:entry.chunks;
     const length = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
     const crc = crc32(chunks);
     const header = binary(little32(0x04034b50), little16(20), little16(0x0800),
@@ -71,7 +71,7 @@ export function packageZip(entries) {
     directory.push(binary(little32(0x02014b50), little16(20), little16(20),
       little16(0x0800), little16(0), little16(0), little16(0), little32(crc),
       little32(length), little32(length), little16(name.length), little16(0),
-      little16(0), little16(0), little16(0), little32(0), little32(offset), name));
+      little16(0), little16(0), little16(0), little32(entry.directory?16:0), little32(offset), name));
     offset += header.length + length;
   }
   const dirSize = directory.reduce((total, part) => total + part.length, 0);

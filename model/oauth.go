@@ -38,6 +38,7 @@ const (
 type Oauth struct {
 	IdModel
 	Op           string `json:"op"`
+	DisplayName  string `json:"display_name" gorm:"default:'';not null"`
 	OauthType    string `json:"oauth_type"`
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
@@ -76,6 +77,10 @@ func (oa *Oauth) FormatOauthInfo() error {
 	// If the oauth type is google and the issuer is empty, set the issuer to the default value
 	if oauthType == OauthTypeGoogle && issuer == "" {
 		oa.Issuer = IssuerGoogle
+	}
+	oa.DisplayName = strings.TrimSpace(oa.DisplayName)
+	if len([]rune(oa.DisplayName)) > 80 {
+		return errors.New("OAuth display name must be at most 80 characters")
 	}
 	if oa.PkceEnable == nil {
 		oa.PkceEnable = new(bool)

@@ -4,6 +4,8 @@ import {loadVp9} from "./codec";
 import {checkIfRetry, version} from "./gen_js_from_hbb";
 import {initZstd, decompress, translate} from "./common";
 import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
+import {BrowserClipboardSync} from "./browser_clipboard.mjs";
+import {BrowserFileClipboard} from "./browser_clipboard_files.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -120,6 +122,112 @@ export function getConn() {
     return window.curConn;
 }
 
+const clipboardSync=new BrowserClipboardSync({
+    send:text=>getConn()?.sendClipboardText(text)===true,
+    receive:text=>{
+        try{
+            if(window.parent!==window &&
+               typeof window.parent.__rustdeskReceiveRemoteClipboard==="function"){
+                window.parent.__rustdeskReceiveRemoteClipboard(text,window);
+                return;
+            }
+        }catch{}
+        if(navigator.clipboard?.writeText){
+            navigator.clipboard.writeText(text).catch(()=>
+                console.info("Remote clipboard requires browser clipboard-write permission"));
+        }
+    }
+});
+
+export function receiveRemoteClipboard(text){
+    clipboardSync.fromRemote(text);
+}
+let currentFileClipboard;
+window.__rustdeskClipboardAccess={
+    enable(initialText){
+        const result=clipboardSync.setEnabled(true,initialText);
+        currentFileClipboard?.enable();
+        return result;
+    },
+    disable(){
+        clipboardSync.setEnabled(false);
+        currentFileClipboard?.disable();
+    },
+    suspendText(){clipboardSync.setEnabled(false);},
+    sendLocal(text){return clipboardSync.sendLocal(text);},
+    async downloadRemoteFiles(){
+        if(!currentFileClipboard)throw Error("尚未建立远程桌面连接");
+        return currentFileClipboard.download();
+    },
+    cancelRemoteFiles(){return currentFileClipboard?.cancelDownload()??false;},
+    offerFiles(files){return currentFileClipboard?.offerFiles(files)??false;}
+};
+let pendingRemotePaste=false;
+function pasteIntoRemoteExplorer(){
+    const conn=getConn();
+    if(!clipboardSync.enabled||conn?._sessionMode!=="desktop")return;
+    conn.inputKey("v",true,false,false,true,false,false);
+    conn.inputKey("v",false,false,false,true,false,false);
+}
+window.addEventListener("keydown",event=>{
+    if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop")return;
+    if(!((event.ctrlKey||event.metaKey)&&String(event.key).toLowerCase()==="v")||
+       event.altKey||event.isComposing)return;
+    const target=event.target;
+    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+    pendingRemotePaste=true;
+    event.stopImmediatePropagation?.();
+    setTimeout(()=>{
+        if(!pendingRemotePaste)return;
+        pendingRemotePaste=false;
+        pasteIntoRemoteExplorer();
+    },600);
+},true);
+window.addEventListener("paste",event=>{
+    if(!clipboardSync.enabled)return;
+    const target=event.target;
+    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+    const data=event.clipboardData;
+    const files=Array.from(data?.files||[]);
+    if(!files.length){
+        for(const item of Array.from(data?.items||[])){
+            if(item.kind==="file"&&item.getAsFile){
+                const file=item.getAsFile();
+                if(file)files.push(file);
+            }
+        }
+    }
+    if(files.length&&currentFileClipboard){
+        const wantsRemotePaste=pendingRemotePaste;
+        pendingRemotePaste=false;
+        try{
+            currentFileClipboard.offerFiles(files,wantsRemotePaste?pasteIntoRemoteExplorer:undefined);
+            if(wantsRemotePaste){
+                event.preventDefault?.();
+                event.stopImmediatePropagation?.();
+            }
+        }catch(error){
+            msgbox("error","File Clipboard",String(error?.message||error));
+        }
+        return;
+    }
+    if(Array.from(data?.types||[]).includes("Files")&&!files.length){
+        pendingRemotePaste=false;
+        msgbox("error","File Clipboard","浏览器无法读取资源管理器中的文件，请改用文件传输标签上传。");
+        return;
+    }
+    const text=data?.getData("text/plain");
+    if(text)clipboardSync.sendLocal(text);
+    if(pendingRemotePaste){
+        pendingRemotePaste=false;
+        setTimeout(pasteIntoRemoteExplorer,50);
+    }
+},true);
+document.addEventListener("fullscreenchange",()=>{
+    if(typeof window.onFullscreenChanged==="function" && window.parent===window)
+        window.onFullscreenChanged(Boolean(document.fullscreenElement));
+});
+
 export async function startConn(id) {
     setByName('remote_id', id);
     await curConn.start(id);
@@ -131,6 +239,25 @@ export function close() {
 }
 
 let currentBrowserTransfer;
+
+function reportFileClipboardStatus(kind,detail){
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskClipboardFileStatus==="function"){
+            window.parent.__rustdeskClipboardFileStatus(kind,detail,window);
+        }
+    }catch{}
+}
+
+function notifySessionClosed(){
+    const id=window.__rustdeskNativeSessionSeen;
+    if(!id)return;
+    window.__rustdeskNativeSessionSeen=undefined;
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskOnSessionClosed==="function"){
+            window.parent.__rustdeskOnSessionClosed(window,id);
+        }
+    }catch{}
+}
 
 function fileTransferError(request, error) {
     const id=Number(request?.id||0);
@@ -161,6 +288,11 @@ export function newConn() {
         message:text=>console.info("RustDesk File Transfer:",text)
     });
     conn.setFileBridge(currentBrowserTransfer);
+    currentFileClipboard=new BrowserFileClipboard({
+        send:payload=>conn.sendCliprdr(payload.cliprdr),
+        notify:reportFileClipboardStatus
+    });
+    conn.setFileClipboard(currentFileClipboard);
     return conn;
 }
 
@@ -345,6 +477,7 @@ window.setByName = (name, value) => {
         }
         case 'session_close':
             close();
+            notifySessionClosed();
             return '';
         case 'forget_password':
             getConn()?.setRemember(false);
@@ -452,6 +585,26 @@ window.setByName = (name, value) => {
             if (sessionOption?.name) localStorage.setItem('rustdesk.session.' + sessionOption.name, sessionOption.value);
             return '';
         }
+        case 'fullscreen': {
+            const wanted=value==="Y";
+            try{
+                const host=window.parent!==window && window.parent?.__rustdeskSetFullscreen;
+                const operation=typeof host==="function"
+                    ? host(wanted,window)
+                    : wanted
+                      ? document.documentElement.requestFullscreen?.({navigationUI:"hide"})
+                      : document.fullscreenElement
+                        ? document.exitFullscreen?.() : undefined;
+                Promise.resolve(operation).catch(error=>{
+                    window.onFullscreenChanged?.(!wanted);
+                    msgbox("error","Fullscreen",String(error?.message||error));
+                });
+            }catch(error){
+                window.onFullscreenChanged?.(!wanted);
+                msgbox("error","Fullscreen",String(error?.message||error));
+            }
+            return '';
+        }
         case 'option:flutter:peer':
         case 'option:flutter:local': {
             const option = JSON.parse(value || '{}');
@@ -476,6 +629,7 @@ window.setByName = (name, value) => {
         }
         case 'close':
             close();
+            notifySessionClosed();
             break;
         case 'refresh':
             curConn.refresh();
@@ -587,9 +741,18 @@ function _getByName(name, arg) {
             return getConn()?.getOption(arg) || false;
         case 'option:session': {
             const stored=localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+            if(arg==='view_style')
+                return ['adaptive','original','custom'].includes(stored)?stored:'adaptive';
             // Flutter requires a recognized ScrollStyle while processing every video frame.
             return arg === 'scroll_style' && !['scrollauto','scrollbar','scrolledge'].includes(stored)
                 ? 'scrollauto' : stored;
+        }
+        case 'fullscreen': {
+            try{
+                const host=window.parent!==window && window.parent?.__rustdeskIsFullscreen;
+                if(typeof host==="function")return host()?"Y":"N";
+            }catch{}
+            return document.fullscreenElement?"Y":"N";
         }
         case 'option:flutter:peer':
         case 'option:flutter:local':

@@ -1768,7 +1768,9 @@ test("personal session screens load account-owned records and submit session act
   const {context,page}=await pageForViewport(1360,900,false);
   try{
     await page.locator('nav.side-scroll button[data-view="myactiveSessions"]').click();
-    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的活动远程连接");
+    await page.waitForFunction(()=>document.querySelector("h1")?.textContent==="我的活动远程连接" &&
+      !document.querySelector(".content .loading-table") &&
+      !!document.querySelector('.table-scroll [data-action="session-disconnect"]'));
     assert.match(await page.locator(".content").innerText(),/office/);
     page.on("dialog",dialog=>dialog.accept());
     const disconnection=page.waitForRequest(req=>req.url().endsWith("/api/admin/my/session/disconnect")&&req.method()==="POST");
@@ -2441,5 +2443,75 @@ test("recent devices show names and IDs on separate lines with room for their da
     assert.ok(rows.length>=2);
     assert.ok(rows.every(row=>row.stacked&&!row.clipped&&row.dateInside),
       "Recent device names, IDs and dates must remain readable: "+JSON.stringify(rows));
+  }finally{await context.close();}
+});
+
+test("WebClient remote controls remain accessible and desktop precedes settings on narrow screens",async()=>{
+  for(const [width,height] of [[320,700],[375,812],[640,800],[1100,820]]){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      await page.goto(baseUrl+"/webclient2/",{waitUntil:"networkidle"});
+      const result=await page.evaluate(()=>{
+        const header=document.querySelector(".top");
+        const stage=document.querySelector(".stage");
+        const aside=document.querySelector(".aside");
+        const controls=[...document.querySelectorAll(".top-remote-actions button")];
+        const brand=document.querySelector(".brand");
+        return {
+          viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+          brandVisible:getComputedStyle(brand).display!=="none",
+          stageY:stage.getBoundingClientRect().top,asideY:aside.getBoundingClientRect().top,
+          buttons:controls.map(button=>({id:button.id,visible:button.getBoundingClientRect().width>35,
+            top:button.getBoundingClientRect().top,right:button.getBoundingClientRect().right,
+            text:button.innerText})),
+          headerHeight:header.getBoundingClientRect().height
+        };
+      });
+      assert.equal(result.buttons.length,3);
+      assert.ok(result.buttons.every(x=>x.visible && x.top>=0 && x.right<=width+2),
+        "Remote controls must be visible: "+JSON.stringify(result));
+      assert.ok(result.scrollWidth<=width+2,"WebClient viewport overflow: "+JSON.stringify(result));
+      if(width<=760){
+        assert.equal(result.brandVisible,false);
+        assert.ok(result.stageY<result.asideY,"Remote desktop must precede settings on mobile");
+      }
+      await captureManagementScreenshot(page,"webclient-top-controls-"+width+".png");
+    }finally{await context.close();}
+  }
+});
+
+
+test("GitHub SSO display name can be saved without changing the authentication identifier",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  let saved=null;
+  const provider={
+    id:27,op:"github",display_name:"GitHub",oauth_type:"github",
+    client_id:"oauth-client",client_secret:"",issuer:"",scopes:"",
+    auto_register:false,pkce_enable:false,auto_group_ids:"",pkce_method:"S256"
+  };
+  try{
+    await page.route("**/api/admin/oauth/list*",route=>route.fulfill({
+      status:200,contentType:"application/json",
+      body:JSON.stringify({code:0,data:{list:[provider],total:1}})
+    }));
+    await page.route("**/api/admin/oauth/update",async route=>{
+      saved=route.request().postDataJSON();
+      provider.display_name=saved.display_name;
+      await route.fulfill({status:200,contentType:"application/json",
+        body:JSON.stringify({code:0,data:{}})});
+    });
+    await page.locator('nav.side-scroll button[data-view="oauth"]').click();
+    await page.locator('.data-table td[data-column="display_name"]').first().waitFor();
+    await page.locator('.data-table [data-action="edit"]').first().click();
+    const editor=page.locator('#edit-form');
+    const label=editor.locator('input[name="display_name"]');
+    await label.fill("企业 GitHub 登录");
+    assert.equal(await editor.locator('input[name="op"]').inputValue(),"github");
+    assert.equal(await editor.locator('input[name="op"]').getAttribute("readonly"),"");
+    await page.locator('button[form="edit-form"]').click();
+    await page.waitForFunction(()=>document.querySelector('.data-table td[data-column="display_name"]')?.textContent==="企业 GitHub 登录");
+    assert.equal(saved.display_name,"企业 GitHub 登录");
+    assert.equal(saved.op,"github");
+    assert.equal(saved.oauth_type,"github");
   }finally{await context.close();}
 });

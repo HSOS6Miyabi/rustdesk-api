@@ -227,6 +227,7 @@ func (ct *Login) LoginOptions(c *gin.Context) {
 	ops := service.AllService.OauthService.GetOauthProviders()
 	response.Success(c, gin.H{
 		"ops":          ops,
+		"provider_names": service.AllService.OauthService.GetOauthProviderDisplayNames(),
 		"register":     global.Config.App.Register,
 		"need_captcha": needCaptcha,
 		"disable_pwd":  global.Config.App.DisablePwdLogin,

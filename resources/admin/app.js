@@ -74,7 +74,7 @@
     users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"keyword",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
     deployed: {name:"设备部署记录",icon:"monitor",section:"设备管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
     devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
-    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["op","提供者"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["op","提供者标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
+    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["display_name","显示名称"],["op","认证标识"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["display_name","登录按钮名称"],["op","认证标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
@@ -400,6 +400,7 @@
     }));
   }
   function colValue(v,k,row){
+    if(k==="display_name"&&state.page==="oauth")return esc(String(v||row?.op||"—"));
     if(k==="to_id"&&Number(row?.type)===3)return "所有用户";
     if(k==="source_id"&&row?.source_type==="all")return "所有已登录用户";
     if(k==="target_id"&&row?.target_type==="all")return "所有设备";
@@ -544,7 +545,7 @@
     const options=state.options||{};
     const cap=options.need_captcha?'<div class="login-field"><label for="captcha">验证码</label><div style="display:flex;gap:10px"><input name="captcha" id="captcha" required placeholder="输入验证码"><button class="btn" type="button" data-action="captcha">刷新</button></div><input type="hidden" name="captcha_id" value="'+esc(state.captcha&&state.captcha.id||"")+'">'+(state.captcha&&state.captcha.b64?'<img alt="验证码" style="max-height:72px;max-width:220px;margin-top:10px" src="'+esc(state.captcha.b64.startsWith("data:")?state.captcha.b64:"data:image/png;base64,"+state.captcha.b64)+'">':"")+"</div>":"";
     const passwordForm=options.disable_pwd?'<p class="warning">当前服务已关闭密码登录，请选择下方的单点登录服务。</p>':'<form id="login-form"><div class="login-field"><label for="username">用户名</label><input id="username" autocomplete="username" name="username" placeholder="输入用户名" required></div><div class="login-field"><label for="password">密码</label><input type="password" id="password" name="password" autocomplete="current-password" placeholder="输入密码" required></div>'+cap+'<button type="submit" class="btn btn-primary login-submit">登录控制台 '+icon("arrow",17)+'</button></form><button type="button" class="btn" data-action="forgot-password">忘记密码</button>';
-    const ops=(options.ops||[]).map(op=>{const n=typeof op==="string"?op:op.op||op.name;return n?'<button type="button" class="btn" data-action="oidc" data-id="'+esc(n)+'">使用 '+esc(n)+' 登录 '+icon("arrow",14)+'</button>':"";}).join("");
+    const ops=(options.ops||[]).map(op=>{const n=typeof op==="string"?op:op.op||op.name;const label=options.provider_names?.[n]||n;return n?'<button type="button" class="btn" data-action="oidc" data-id="'+esc(n)+'">使用 '+esc(label)+' 登录 '+icon("arrow",14)+'</button>':"";}).join("");
     const passkeyEntry='<button type="button" class="btn passkey-login-button" data-action="passkey-login">'+icon("lock",17)+' 使用 Passkey 登录</button>';
     root.innerHTML='<div class="login-shell"><section class="login-art"><div class="brand-row">'+brand()+'</div><div><p class="eyebrow" style="color:#83e7d4">PRIVATE INFRASTRUCTURE</p><h1>远程设备管理，<br><em>一切尽在掌握。</em></h1><p>统一管理远程设备、联系人、共享群组与用户账户。界面可适应电脑、平板和手机。</p></div><div class="login-foot">RustDesk Self-hosted Control Center</div></section><section class="login-right"><div class="login-card"><p class="eyebrow">WELCOME BACK</p><h2>登录控制台</h2><p class="login-intro">'+esc(state.config.title||"请使用 RustDesk API 账户登录")+'</p>'+passwordForm+'<div class="login-options">'+passkeyEntry+ops+'</div><p class="login-help">首次安装的管理员密码可在服务端启动日志中查看。请通过 HTTPS 连接管理页面。</p></div></section></div>';
     root.innerHTML+=loginRecoveryModal();
@@ -790,11 +791,18 @@
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
       }else if(k==="clientBuilder"){
-        const [profiles,tasks,versions]=await Promise.all([
+        const [profiles,tasks,versions,serverConfig]=await Promise.all([
           request("/client_builder/profiles?"+new URLSearchParams({page:state.clientProfilePageNo,page_size:state.pageSize})),
           request("/client_builder/tasks?"+new URLSearchParams({page:state.clientTaskPageNo,page_size:state.pageSize})),
-          request("/client_builder/versions").catch(()=>({list:[]}))
+          request("/client_builder/versions").catch(()=>({list:[]})),
+          request("/config/server").catch(()=>({}))
         ]);
+        state.clientServerDefaults={
+          host:String(serverConfig.id_server||"").trim(),
+          public_key:String(serverConfig.key||"").trim(),
+          api_server:String(serverConfig.api_server||window.location?.origin||"").trim(),
+          relay_server:String(serverConfig.relay_server||"").trim()
+        };
         state.clientProfiles=profiles.list||[];state.clientProfilesTotal=profiles.total||0;
         state.clientTasks=tasks.list||[];state.clientTasksTotal=tasks.total||0;
         state.clientVersions=Array.isArray(versions.list)?versions.list:[];
@@ -1481,9 +1489,12 @@
       '<datalist id="client-version-options">'+knownVersions.map(item=>
         '<option value="'+esc(item.version)+'">'+esc(item.version)+'</option>').join("")+
       '</datalist><small>可以选择最近发布的官方版本，也可以手动填写较早版本。系统会检查所选版本是否提供对应平台的安装文件。</small></div>';
+    const defaults=state.clientServerDefaults||{};
+    const fieldValue=name=>Object.prototype.hasOwnProperty.call(current,name)?
+      String(current[name]??""):String(defaults[name]??"");
     const textField=(name,title,required=false)=>
       '<div class="field"><label for="client-'+name+'">'+title+'</label>'+
-      '<input id="client-'+name+'" name="'+name+'" value="'+esc(current[name]||"")+'" '+
+      '<input id="client-'+name+'" name="'+name+'" value="'+esc(fieldValue(name))+'" '+
       (required?"required":"")+' autocomplete="off"></div>';
     const fields='<form id="client-profile-form" class="tips">'+
       '<input type="hidden" name="id" value="'+esc(current.id||"")+'">'+
@@ -1498,7 +1509,8 @@
       textField("public_key","服务器公钥（Base64，32 字节）",true)+
       textField("api_server","API 地址（可留空）")+
       textField("relay_server","中继服务器地址（可留空）")+
-      '</div><div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
+      '</div><p class="client-builder-defaults-note">新建配置时自动填写本 API 服务器的地址和公钥。可根据客户端使用的网络环境修改这些字段。</p>'+
+      '<div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
       '<button class="btn" type="button" data-action="client-new">新建配置</button></div></form>';
     const profileList=profiles.map(profile=>'<div class="status-row client-profile-row"><span><strong>'+esc(profile.name)+'</strong>'+
       '<span class="cell-sub">'+esc(profile.platform)+' · RustDesk '+esc(profile.version)+' · '+esc(profile.host)+'</span></span>'+
@@ -2258,7 +2270,11 @@
         if(!state.isAdmin&&state.page==="addressbooks"&&(f[0]==="user_id"))return false;
         return true;
       }).map(f=>state.page==="oauth"&&m.action==="edit"&&f[0]==="client_secret"?[f[0],"Client Secret（留空表示保持当前密钥）",f[2],false]:f);
-      const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'"><div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
+      const providerHint=state.page==="oauth"?'<p class="subtitle">登录按钮名称可以修改。认证标识用于现有登录地址及账户绑定，GitHub 等预设类型保持固定。</p>':"";
+      const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'">'+providerHint+'<div class="form-grid">'+fields.map(f=>
+        state.page==="oauth"&&m.action==="edit"&&f[0]==="op"?
+          '<div class="field"><label>认证标识</label><input name="op" type="text" value="'+esc(m.data.op||"")+'" readonly><small>认证标识用于登录及账户绑定，修改上面的登录按钮名称即可。</small></div>':
+          fieldInput(f,m.data)).join("")+'</div></form>';
       const saveButton=state.page==="apiTokens"?
         '<button class="btn btn-primary" type="button" data-action="submit-api-token">创建令牌</button>':
         state.page==="invitations"?
@@ -3305,7 +3321,12 @@
       catch(err){toast(err.message,true);}
       return;
     }
-    if(a==="webclient"){window.location.assign("/webclient2/");return;}
+    if(a==="webclient"){
+      const tab=window.open("/webclient2/","_blank");
+      if(tab)tab.opener=null;
+      else toast("浏览器阻止了打开新标签页，请允许弹出窗口后重试。",true);
+      return;
+    }
     if(a==="devices-export"){
       const params=new URLSearchParams();
       if(state.query)params.set("search",state.query);
