@@ -115,3 +115,27 @@ test("Chromium exchanges RustDesk-framed messages over a real local WebRTC conne
     assert.equal(result.fingerprint,true);
   }finally{await page.close();}
 });
+
+test("Chromium converts native VideoFrames directly to RGBA for the Flutter image",async()=>{
+  const page=await browser.newPage();
+  try{
+    await page.goto(origin,{waitUntil:"load"});
+    const result=await page.evaluate(async()=>{
+      const canvas=document.createElement("canvas");
+      canvas.width=4;canvas.height=4;
+      const ctx=canvas.getContext("2d");
+      ctx.fillStyle="rgb(32, 64, 128)";
+      ctx.fillRect(0,0,4,4);
+      const frame=new VideoFrame(canvas,{timestamp:0});
+      const bytes=new Uint8Array(4*4*4);
+      try{
+        await frame.copyTo(bytes,{format:"RGBA",layout:[{offset:0,stride:16}]});
+        return {width:frame.displayWidth,height:frame.displayHeight,
+          rgba:[...bytes.subarray(0,4)]};
+      }finally{frame.close()}
+    });
+    assert.equal(result.width,4);
+    assert.equal(result.height,4);
+    assert.deepEqual(result.rgba,[32,64,128,255]);
+  }finally{await page.close()}
+});
