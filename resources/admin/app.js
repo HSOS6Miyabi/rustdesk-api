@@ -178,6 +178,40 @@
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
   const geoIPFields=new Set(["ip","login_ip","client_ip","source_ip","last_online_ip","remote_ip","public_ip","private_ip","device_ip"]);
   const deviceReferenceFields=new Set(["device_id","peer_id","from_peer","to_peer"]);
+  const loginSessionPages=new Set(["sessions","mysessions"]);
+  const deviceNamePairs={from_peer:"from_device_name",peer_id:"to_device_name",device_id:"to_device_name",to_peer:"to_device_name"};
+  function storedTableWidths(){
+    try{
+      const saved=JSON.parse(localStorage.getItem("rustdesk.console.table-widths")||"{}");
+      return saved&&typeof saved==="object"&&!Array.isArray(saved)?saved:{};
+    }catch{return {};}
+  }
+  function registeredDevice(id,row={},key=""){
+    const value=String(id??"").trim();
+    if(!value||loginSessionPages.has(state.page))return false;
+    if(Object.prototype.hasOwnProperty.call(state.deviceNames,value))return true;
+    return key==="id"&&["devices","mydevices","shared"].includes(state.page)&&String(row.id)===value;
+  }
+  function clientDescription(id){
+    return /^(?:web|webadmin|webclient|windows[-_](?:chrome|edge|firefox)|.*(?:chrome|firefox|safari|browser))$/i.test(id)?"浏览器客户端":"未登记的客户端";
+  }
+  function deviceName(row,id,nameKey=""){
+    const direct=[nameKey&&row?.[nameKey],row?.alias,row?.hostname,state.deviceNames[id]];
+    if(loginSessionPages.has(state.page))return "登录客户端";
+    for(const value of direct){
+      const name=String(value??"").trim();
+      if(name&&name!==id&&name!=="—")return name;
+    }
+    return registeredDevice(id,row,"id")?"未设置设备名称":clientDescription(id);
+  }
+  function deviceReference(row,key,id,nameKey=""){
+    const value=String(id??"").trim();
+    if(!value)return "—";
+    const name=deviceName(row,value,nameKey);
+    if(registeredDevice(value,row,key))return entityLink("device",value,name,true,value);
+    return '<span class="device-reference" title="此标识未关联已登记的设备，无法查看设备在线状态或详情">'+
+      '<span class="device-reference-name">'+esc(name)+'</span><span class="device-reference-id">'+esc(value)+'</span></span>';
+  }
   const deviceRowPages=new Set(["devices","mydevices","shared","addressbooks","trash"]);
   function deviceStatusDot(id){
     const key=String(id??"").trim();
@@ -278,6 +312,7 @@
       Object.assign(state.geoLocations,result.locations||{});
       const statuses=result.device_status||{};
       for(const id of deviceIDs)state.devicePresence[id]=Object.prototype.hasOwnProperty.call(statuses,id)?statuses[id]===true:null;
+      Object.assign(state.deviceNames,result.device_names||{});
     }catch{
       for(const ip of ipList)state.geoLocations[ip]="位置未知";
     }
@@ -298,7 +333,7 @@
     if(k==="id"&&deviceRowPages.has(state.page)&&typeof v==="string")return v;
     if(["alias","hostname"].includes(k)&&deviceRowPages.has(state.page))return String(row?.id??"");
     if(k==="from_device_name")return String(row?.from_peer||"");
-    if(k==="to_device_name")return String(row?.peer_id||"");
+    if(k==="to_device_name")return String(row?.peer_id||row?.device_id||"");
     if(k==="target_id"&&row?.target_type==="device")return String(v??"");
     return "";
   }
@@ -380,10 +415,14 @@
       return '<span class="reference-label">'+esc(name)+'</span>';
     }
     if(k==="id_whitelist"&&typeof v==="string"&&v.trim()){
-      return v.split(/[,;\s]+/).filter(Boolean).map(id=>entityLink("device",id,id,true)).join('<span class="entity-separator">, </span>');
+      return v.split(/[,;\s]+/).filter(Boolean).map(id=>deviceReference({},k,id)).join('<span class="entity-separator">, </span>');
     }
     const device=linkedDeviceID(row,k,v);
-    if(device&&v)return entityLink("device",device,v,true);
+    if(device&&v){
+      if(deviceReferenceFields.has(k)||(k==="id"&&deviceRowPages.has(state.page)))
+        return deviceReference(row,k,device,deviceNamePairs[k]||(k==="id"?"alias":""));
+      return registeredDevice(device,row,"id")?entityLink("device",device,v,true):esc(txt(v));
+    }
     const account=linkedAccountID(row,k,v);
     if(account&&v!==undefined&&v!==null&&String(v)!=="")return entityLink("user",account,v,false);
     if(geoIPFields.has(k))return showIP(v);
@@ -452,7 +491,7 @@
       Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
     sort:{},navScroll:0,navCollapsed:JSON.parse(localStorage.getItem("rustdesk.console.nav-collapsed")||"{}"),
     query:"",sourceType:"all",sourceId:"0",contacts:{outgoing:[],incoming:[]},
-    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,pushStreamKeys:[],pushStreamSecret:"",geoLocations:{},devicePresence:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
+    groups:[],referenceNames:{},referenceLoaded:{},referenceRows:{},showAllColumns:{},tableWidths:storedTableWidths(),server:{},serverTab:"overview",serverCategory:"",serverResults:{},serverError:"",serverBusy:false,serverResultPage:1,commands:[],commandSelected:"id-relay-read",commandOutput:"",pickerDialog:null,modal:null,mobile:false,metrics:null,settings:null,settingsOverview:null,settingsHistory:[],settingsFailed:[],settingsFailedCategory:"push",settingsSearch:"",settingsTab:"general",settingsCategory:"",retention:null,cleanupPreview:null,cleanupRequest:{kind:"all",mode:"retention",days:30},mail:null,notifications:null,pushChannels:[],pushEvents:[],pushHistory:[],pushTotal:0,pushEditing:null,pushStreamKeys:[],pushStreamSecret:"",geoLocations:{},devicePresence:{},deviceNames:{},clientProfiles:[],clientTasks:[],clientProfilesTotal:0,clientTasksTotal:0,clientProfilePageNo:1,clientTaskPageNo:1,clientEditing:null,mfa:null,emailVerification:null,passkeys:[],passkeysError:"",
     options:{ops:[],need_captcha:false},captcha:null,config:{},
     theme:localStorage.getItem("rustdesk.console.theme")==="dark"?"dark":"light"
   };
@@ -870,28 +909,26 @@
     return Math.max(widths[key]||144,Math.min(300,labelWidth));
   }
   function deviceTableStack(row,key,nameKey){
-    const id=String(row[key]??"").trim();
-    const name=String(row[nameKey]||row.alias||row.hostname||"").trim();
-    if(!id)return esc(name||"—");
-    return name&&name!==id?
-      entityLink("device",id,name,true,id):
-      entityLink("device",id,id,true);
+    return deviceReference(row,key,row[key],nameKey);
   }
   function table(p,rows){
     if(state.loading)return '<div class="loading-table"><span class="spinner"></span>正在读取数据…</div>';
     if(state.error)return '<div class="empty">'+icon("info",32)+'<h3>读取数据失败</h3><p>'+esc(state.error)+'</p></div>';
     if(!rows.length)return '<div class="empty">'+icon("info",32)+'<h3>暂无记录</h3><p>请调整筛选条件或创建新的记录。</p></div>';
     const allCols=p.columns||[];
-    const pairCandidates={from_peer:"from_device_name",peer_id:"to_device_name",device_id:"to_device_name"};
-    if(["devices","mydevices","shared","addressbooks","trash"].includes(state.page))pairCandidates.id="alias";
+    const pairCandidates={...deviceNamePairs};
+    if(deviceRowPages.has(state.page))pairCandidates.id="alias";
     const stackColumn=new Map(Object.entries(pairCandidates).filter(([idKey,nameKey])=>
-      allCols.some(([key])=>key===idKey)&&allCols.some(([key])=>key===nameKey)));
+      allCols.some(([key])=>key===idKey)&&
+      (allCols.some(([key])=>key===nameKey)||deviceReferenceFields.has(idKey)||idKey==="id")));
     const pairedNames=new Set(stackColumn.values());
     const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
     const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
     const widths=desktopCols.map(([key,label])=>{
+      const saved=Number(state.tableWidths[state.page]?.[key]);
+      if(Number.isFinite(saved)&&saved>=84&&saved<=720)return saved;
       const width=tableColumnWidth(key,label,state.page);
       return key==="direction"?62:stackColumn.has(key)?156:Math.max(100,Math.round(width*.76));
     });
@@ -923,12 +960,13 @@
     const actionSize=hasActions?actionWidth:0;
     const tableMinWidth=visible.reduce((sum,col)=>sum+widths[desktopCols.indexOf(col)],actionSize);
     const order=state.sort[state.page]||{};
-    const colgroup='<colgroup>'+visible.map(col=>'<col style="width:'+widths[desktopCols.indexOf(col)]+'px">').join("")+
+    const colgroup='<colgroup>'+visible.map(col=>'<col data-column="'+esc(col[0])+'" style="width:'+widths[desktopCols.indexOf(col)]+'px">').join("")+
       (hasActions?'<col style="width:'+actionSize+'px">':"")+'</colgroup>';
     const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
       (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
       '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+
-      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"||key==="device_id"?"被连接设备":"设备"):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button></th>').join("");
+      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"||key==="device_id"?"被连接设备":"设备"):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>'+
+      '<span class="column-resize-handle" data-column="'+esc(key)+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整'+esc(label)+'列宽" title="拖动调整列宽，双击自动适应内容；方向键可微调"></span></th>').join("");
     const multiline=new Set(["os","platform","note","remark","info","description","sources","permissions",
       "id_whitelist","ip_whitelist","last_error","last_online_ip","ip","source_ip","client_ip","login_ip",
       "email","hostname","issuer","path","device_uuid","from_account","to_account"]);
@@ -948,8 +986,9 @@
           '<div><dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd></div>').join("")+'</dl></td></tr>':"";
       return main+expanded;
     }).join("");
+    const mobileCols=allCols.filter(([key])=>!pairedNames.has(key));
     const mobile=rows.map((row,index)=>'<article class="mobile-item"><div class="mobile-title">'+
-      colValue(row[allCols[0][0]],allCols[0][0],row)+'</div><dl>'+allCols.slice(1).map(([key,label])=>
+      colValue(row[mobileCols[0][0]],mobileCols[0][0],row)+'</div><dl>'+mobileCols.slice(1).map(([key,label])=>
       '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
       '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
       '</article>').join("");
@@ -961,13 +1000,91 @@
       '<button type="button" class="btn btn-sm" data-action="table-columns">按窗口宽度显示</button>':"";
     const sortSelect=hidden.length?'<label class="table-sort-label">排序字段 <select id="table-sort-column" aria-label="排序字段">'+
       allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+(order.key===key?"selected":"")+'>'+esc(label)+'</option>').join("")+'</select></label>':"";
-    const hint='<div class="table-scroll-hint"><span>点击列标题排序；隐藏的字段可通过查看详情读取。</span>'+sortSelect+expandedActions+'</div>';
+    const hint='<div class="table-scroll-hint"><span>点击列标题排序，拖动标题右侧边缘调整列宽。双击边缘可自动适应内容。</span>'+
+      '<button type="button" class="btn btn-sm" data-action="table-autofit">根据内容调整列宽</button>'+sortSelect+expandedActions+'</div>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
       '数据表" tabindex="0"><table class="data-table" style="--table-min-width:'+tableMinWidth+'px">'+
       colgroup+'<thead><tr>'+th+(hasActions?'<th scope="col">操作</th>':"")+
       '</tr></thead><tbody>'+trs+'</tbody></table></div>'+hint+
       mobileSort+'<div class="mobile-list">'+mobile+'</div>';
   }
+  function updateTableColumnWidth(column,requested,persist=true){
+    const table=document.querySelector(".table-scroll .data-table");
+    if(!table)return;
+    const cols=[...table.querySelectorAll("colgroup col")];
+    const col=cols.find(item=>item.dataset.column===column);
+    if(!col)return;
+    const width=Math.max(84,Math.min(720,Math.round(Number(requested)||0)));
+    col.style.width=width+"px";
+    const total=cols.reduce((sum,item)=>sum+(parseFloat(item.style.width)||0),0);
+    table.style.setProperty("--table-min-width",Math.ceil(total)+"px");
+    if(persist){
+      (state.tableWidths[state.page] ||= {})[column]=width;
+      localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
+    }
+  }
+  function autoFitTableColumns(targetColumn=""){
+    const table=document.querySelector(".table-scroll .data-table");
+    if(!table)return;
+    const context=document.createElement("canvas").getContext("2d");
+    for(const th of table.querySelectorAll("thead th[data-column]")){
+      const key=th.dataset.column;
+      if(targetColumn&&key!==targetColumn)continue;
+      const cells=[th.querySelector(".sort-heading"),...table.querySelectorAll("tbody td[data-column]")];
+      let desired=84;
+      for(const cell of cells){
+        if(!cell)continue;
+        const style=window.getComputedStyle(cell);
+        if(context)context.font=style.font||"13px sans-serif";
+        const texts=cell.querySelectorAll(".entity-link-name,.entity-link-id,.device-reference-name,.device-reference-id");
+        const lines=texts.length?[...texts].map(item=>item.textContent):String(cell.innerText||cell.textContent||"").split(/\r?\n/);
+        for(const value of lines){
+          const text=String(value||"").trim();
+          const width=context?context.measureText(text).width:text.length*8;
+          desired=Math.max(desired,Math.ceil(width)+(cell===cells[0]?62:48));
+        }
+      }
+      updateTableColumnWidth(key,desired,false);
+      (state.tableWidths[state.page] ||= {})[key]=Math.min(720,Math.max(84,desired));
+    }
+    localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
+  }
+  let resizeColumnState=null;
+  document.addEventListener("pointerdown",event=>{
+    const handle=event.target.closest?.(".column-resize-handle");
+    if(!handle||event.button!==0)return;
+    const table=handle.closest(".data-table"),column=handle.dataset.column;
+    const col=[...table.querySelectorAll("colgroup col")].find(item=>item.dataset.column===column);
+    if(!col)return;
+    resizeColumnState={column,pointerId:event.pointerId,startX:event.clientX,startWidth:parseFloat(col.style.width)||156};
+    handle.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  });
+  document.addEventListener("pointermove",event=>{
+    if(!resizeColumnState||event.pointerId!==resizeColumnState.pointerId)return;
+    updateTableColumnWidth(resizeColumnState.column,resizeColumnState.startWidth+event.clientX-resizeColumnState.startX,false);
+  });
+  document.addEventListener("pointerup",event=>{
+    if(!resizeColumnState||event.pointerId!==resizeColumnState.pointerId)return;
+    updateTableColumnWidth(resizeColumnState.column,resizeColumnState.startWidth+event.clientX-resizeColumnState.startX);
+    resizeColumnState=null;
+  });
+  document.addEventListener("pointercancel",()=>{resizeColumnState=null;});
+  document.addEventListener("dblclick",event=>{
+    const handle=event.target.closest?.(".column-resize-handle");
+    if(!handle)return;
+    event.preventDefault();
+    autoFitTableColumns(handle.dataset.column);
+  });
+  document.addEventListener("keydown",event=>{
+    const handle=event.target.closest?.(".column-resize-handle");
+    if(!handle||!["ArrowLeft","ArrowRight"].includes(event.key))return;
+    const table=handle.closest(".data-table");
+    const col=[...table.querySelectorAll("colgroup col")].find(item=>item.dataset.column===handle.dataset.column);
+    if(!col)return;
+    event.preventDefault();
+    updateTableColumnWidth(handle.dataset.column,(parseFloat(col.style.width)||156)+(event.key==="ArrowRight"?16:-16));
+  });
   function pagination(options={}) {
     const scope=options.scope||"";
     const current=options.current||state.pageNo;
@@ -2705,6 +2822,7 @@
       if(row){row.hidden=!row.hidden;el.setAttribute("aria-expanded",String(!row.hidden));el.textContent=row.hidden?"查看详情":"收起详情";}
       return;
     }
+    if(a==="table-autofit"){autoFitTableColumns();return;}
     if(a==="table-columns"){state.showAllColumns[state.page]=!state.showAllColumns[state.page];render();return;}
     if(a==="sort-table"){
       const key=el.dataset.column,order=state.sort[state.page]||{};
