@@ -158,8 +158,11 @@ func (l *Login) LoginOptions(c *gin.Context) {
 		ops = append(ops, model.OauthTypeWebauth)
 	}
 	var oidcItems []map[string]string
+	labels := service.AllService.OauthService.GetOauthProviderDisplayNames()
 	for _, v := range ops {
-		oidcItems = append(oidcItems, map[string]string{"name": v})
+		label := labels[v]
+		if label == "" { label = v }
+		oidcItems = append(oidcItems, map[string]string{"name": v, "display_name": label})
 	}
 	common, err := json.Marshal(oidcItems)
 	if err != nil {
