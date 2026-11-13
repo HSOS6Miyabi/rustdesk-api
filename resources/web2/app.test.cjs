@@ -84,10 +84,21 @@ function fixture(options = {}) {
   const localStorage = storage({access_token:"stale-persistent-token"});
   const sessionStorage = storage(options.token ? {"rustdesk.console.token":options.token} : {});
   const assigned = [];
+  const longTimers = [];
   const window = {
     addEventListener(){},
-    setTimeout:callback=>setTimeout(callback,0),
-    clearTimeout,
+    setTimeout(callback,delay){
+      if(delay>=5000){
+        const task={callback,cancelled:false};
+        longTimers.push(task);
+        return task;
+      }
+      return setTimeout(callback,0);
+    },
+    clearTimeout(timer){
+      if(timer&&typeof timer.callback==="function")timer.cancelled=true;
+      else clearTimeout(timer);
+    },
     scrollTo(){},
     navigator:{clipboard:options.clipboard||null},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
@@ -124,7 +135,13 @@ function fixture(options = {}) {
     console
   }, {filename:"resources/web2/app.js"});
   const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
-  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,frameEvents,bridgeCommands,window,settle};
+  const flushLongTimers=()=>{
+    for(const timer of longTimers.splice(0)){
+      if(!timer.cancelled)timer.callback();
+    }
+  };
+  return {elements,sessionStorage,localStorage,apiCalls,assigned,document,stage,docEvents,
+    frameEvents,bridgeCommands,window,settle,flushLongTimers};
 }
 
 test("WebClient v2 loads its own server settings and shared device list",async()=>{
@@ -625,7 +642,7 @@ test("completed clipboard notifications disappear automatically",async()=>{
   await app.elements.get("v2-download-clipboard").listeners.click();
   const panel=app.elements.get("v2-clipboard-progress-panel");
   assert.equal(panel.hidden,false);
-  await app.settle();
+  app.flushLongTimers();
   assert.equal(panel.hidden,true);
 });
 
