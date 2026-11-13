@@ -2479,3 +2479,39 @@ test("WebClient remote controls remain accessible and desktop precedes settings 
     }finally{await context.close();}
   }
 });
+
+
+test("GitHub SSO display name can be saved without changing the authentication identifier",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  let saved=null;
+  const provider={
+    id:27,op:"github",display_name:"GitHub",oauth_type:"github",
+    client_id:"oauth-client",client_secret:"",issuer:"",scopes:"",
+    auto_register:false,pkce_enable:false,auto_group_ids:"",pkce_method:"S256"
+  };
+  try{
+    await page.route("**/api/admin/oauth/list*",route=>route.fulfill({
+      status:200,contentType:"application/json",
+      body:JSON.stringify({code:0,data:{list:[provider],total:1}})
+    }));
+    await page.route("**/api/admin/oauth/update",async route=>{
+      saved=route.request().postDataJSON();
+      provider.display_name=saved.display_name;
+      await route.fulfill({status:200,contentType:"application/json",
+        body:JSON.stringify({code:0,data:{}})});
+    });
+    await page.locator('nav.side-scroll button[data-view="oauth"]').click();
+    await page.locator('.data-table td[data-column="display_name"]').first().waitFor();
+    await page.locator('.data-table [data-action="edit"]').first().click();
+    const editor=page.locator('#edit-form');
+    const label=editor.locator('input[name="display_name"]');
+    await label.fill("企业 GitHub 登录");
+    assert.equal(await editor.locator('input[name="op"]').inputValue(),"github");
+    assert.equal(await editor.locator('input[name="op"]').getAttribute("readonly"),"");
+    await page.locator('button[form="edit-form"]').click();
+    await page.waitForFunction(()=>document.querySelector('.data-table td[data-column="display_name"]')?.textContent==="企业 GitHub 登录");
+    assert.equal(saved.display_name,"企业 GitHub 登录");
+    assert.equal(saved.op,"github");
+    assert.equal(saved.oauth_type,"github");
+  }finally{await context.close();}
+});
