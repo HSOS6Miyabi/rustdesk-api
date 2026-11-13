@@ -148,6 +148,10 @@
     if(!isFileDrag(event))return;
     event.preventDefault();
     if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+    const session=sessions.get(activeSessionKey);
+    stageDropMask.textContent=session?.mode==="desktop"&&clipboardEnabled
+      ?"将文件放到这里，通过剪贴板粘贴到远程设备"
+      :"将文件放到这里，上传至远程设备";
     stageDropMask.hidden=false;
   });
   stage.addEventListener("dragleave",event=>{
@@ -158,8 +162,18 @@
     event.preventDefault();
     stageDropMask.hidden=true;
     const session=sessions.get(activeSessionKey);
+    if(session?.mode==="desktop"&&clipboardEnabled){
+      try{
+        const accepted=session.frame.contentWindow?.__rustdeskClipboardAccess?.offerFiles?.(
+          [...event.dataTransfer.files],true);
+        if(accepted){
+          message("已将文件交给远程剪贴板，等待远程设备确认。");
+          return;
+        }
+      }catch(error){message("通过剪贴板发送文件失败："+error.message);return;}
+    }
     if(!session||session.mode!=="file"){
-      message("请先连接文件传输标签，再拖入文件上传。");
+      message("远程文件剪贴板尚未准备好，可切换到文件传输标签上传。");
       return;
     }
     try{

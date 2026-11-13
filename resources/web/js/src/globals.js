@@ -426,12 +426,18 @@ function installFileDrop(){
     document.body.append(overlay);
     let depth=0;
     const fileDrag=event=>[...(event.dataTransfer?.types||[])].includes("Files");
+    const fileDropAllowed=()=>getConn()?._sessionMode==="file"||
+        getConn()?._sessionMode==="desktop"&&clipboardSync.enabled&&Boolean(currentFileClipboard);
     window.addEventListener("dragenter",event=>{
-        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
-        event.preventDefault(); depth++; overlay.hidden=false;
+        if(!fileDrag(event)||!fileDropAllowed())return;
+        event.preventDefault();
+        overlay.textContent=getConn()?._sessionMode==="desktop"
+          ?"松开鼠标，通过剪贴板粘贴到远程设备"
+          :"松开鼠标，上传文件至远程设备";
+        depth++; overlay.hidden=false;
     },true);
     window.addEventListener("dragover",event=>{
-        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        if(!fileDrag(event)||!fileDropAllowed())return;
         event.preventDefault();
         if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
     },true);
@@ -441,14 +447,21 @@ function installFileDrop(){
         if(depth===0)overlay.hidden=true;
     },true);
     window.addEventListener("drop",async event=>{
-        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        if(!fileDrag(event)||!fileDropAllowed())return;
         event.preventDefault();
         event.stopPropagation();
         overlay.hidden=true;depth=0;
         try{
             const selected=await collectDroppedFiles(event.dataTransfer);
-            window.__rustdeskReceiveFiles(selected.files,selected.directory);
-        }catch(error){fileTransferError({},error);}
+            if(getConn()?._sessionMode==="desktop"){
+                if(!currentFileClipboard?.offerFiles(selected.files,pasteIntoRemoteExplorer))
+                    throw Error("远程文件剪贴板尚未准备好");
+            }else window.__rustdeskReceiveFiles(selected.files,selected.directory);
+        }catch(error){
+            if(getConn()?._sessionMode==="desktop")
+                msgbox("error","文件剪贴板",String(error?.message||error));
+            else fileTransferError({},error);
+        }
     },true);
 }
 if(typeof window.addEventListener==="function"&&typeof document.body?.append==="function"){

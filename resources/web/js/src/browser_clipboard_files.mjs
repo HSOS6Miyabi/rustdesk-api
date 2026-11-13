@@ -35,7 +35,7 @@ function makeDescriptors(files) {
   const view=new DataView(result.buffer);
   view.setUint32(0,files.length,true);
   files.forEach((file,i)=>{
-    const offset=4+i*DESCRIPTOR_LENGTH, name=fileName(file.relativePath||file.name);
+    const offset=4+i*DESCRIPTOR_LENGTH, name=fileName(file.relativePath||file.webkitRelativePath||file.name);
     if(name.length>259)throw new Error("Clipboard file name is too long");
     const size=number(file.size);
     if(size===null||size>MAX_TOTAL_BYTES)throw new Error("Invalid clipboard file size");

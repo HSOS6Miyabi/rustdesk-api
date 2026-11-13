@@ -653,3 +653,23 @@ test("native fullscreen CSS hides the session controls and preserves ordinary fu
   assert.match(css,/webclient-native-fullscreen:fullscreen \.session-panels/);
   assert.match(html,/id="v2-clipboard-progress-close"/);
 });
+
+test("dropping files onto the desktop offers them to the remote clipboard",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="desktop-drop";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const received=[];
+  app.elements.get("v2-native-client").contentWindow.__rustdeskClipboardAccess={
+    enable(){},offerFiles(files,paste){received.push({files,paste});return true;}
+  };
+  const transfer={types:["Files"],files:[{name:"local.txt",size:10,slice(){}}]};
+  const event={dataTransfer:transfer,preventDefault(){}};
+  app.stage.listeners.dragover(event);
+  assert.match(app.stage.children[0].textContent,/剪贴板粘贴/);
+  app.stage.listeners.drop(event);
+  assert.equal(received.length,1);
+  assert.equal(received[0].paste,true);
+  assert.equal(received[0].files[0].name,"local.txt");
+  assert.match(app.elements.get("v2-message").textContent,/远程剪贴板/);
+});
