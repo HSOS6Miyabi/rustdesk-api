@@ -36,6 +36,7 @@ export default class Connection {
   _password: Uint8Array | undefined;
   _options: any;
   _videoTestSpeed: number[];
+  _fileBridge: any;
   _sessionMode: string;
   _terminalAdmin: boolean;
   _osUsername: string;
