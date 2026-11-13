@@ -37,6 +37,7 @@ export default class Connection {
   _options: any;
   _videoTestSpeed: number[];
   _fileBridge: any;
+  _clipboardPermitted: boolean = true;
   _sessionMode: string;
   _terminalAdmin: boolean;
   _osUsername: string;
@@ -75,6 +76,18 @@ export default class Connection {
       throw new Error("File-transfer session is not connected");
     }
     this._ws.sendMessage(payload);
+  }
+
+  sendClipboardText(text: string): boolean {
+    if(!["desktop","camera"].includes(this._sessionMode)||
+       !this._ws||this._clipboardPermitted===false||
+       this._options?.["disable-clipboard"]) return false;
+    const content=new TextEncoder().encode(text);
+    if(!content.length||content.length>1024*1024)return false;
+    this._ws.sendMessage({
+      clipboard:message.Clipboard.fromPartial({compress:false,content})
+    });
+    return true;
   }
 
   fileTransportBuffer() {
@@ -482,12 +495,9 @@ export default class Connection {
           if (!c) continue;
           cb.content = c;
         }
-        try {
-          globals.copyToClipboard(new TextDecoder().decode(cb.content));
-        } catch (e) {
-          console.error(e);
+        if(["desktop","camera"].includes(this._sessionMode)){
+          globals.receiveRemoteClipboard(new TextDecoder().decode(cb.content));
         }
-        // globals.pushEvent("clipboard", cb);
       } else if (msg?.cursor_data) {
         const cd = msg?.cursor_data;
         const c = await decompress(cd.colors);
@@ -744,6 +754,7 @@ export default class Connection {
           name = "keyboard";
           break;
         case message.PermissionInfo_Permission.Clipboard:
+          this._clipboardPermitted=Boolean(p.enabled);
           name = "clipboard";
           break;
         case message.PermissionInfo_Permission.Audio:
