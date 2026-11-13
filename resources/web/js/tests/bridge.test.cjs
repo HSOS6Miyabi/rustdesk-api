@@ -167,3 +167,26 @@ test("Flutter receives a valid scroll style before the first remote frame",()=>{
   values.set("rustdesk.session.scroll_style","unsupported");
   assert.equal(context.window.getByName("option:session","scroll_style"),"scrollauto");
 });
+
+test("native RustDesk About version reflects the integrated 1.5.3 client",()=>{
+  const build=fs.readFileSync(path.join(__dirname,"../src/gen_js_from_hbb.ts"),"utf8");
+  assert.match(build,/export const version = "1\.5\.3"/);
+  assert.doesNotMatch(build,/export const version = "1\.1\.10"/);
+});
+test("Flutter fullscreen bridge passes native toolbar requests to the parent workspace",async()=>{
+  const begin=source.indexOf("window.setByName = (name, value) => {");
+  const finish=source.indexOf("window.getByName = (name, arg) => {",begin);
+  const calls=[];
+  const parent={__rustdeskSetFullscreen(value,frame){
+    calls.push([value,frame]);return Promise.resolve();
+  },__rustdeskIsFullscreen(){return calls.at(-1)?.[0]===true}};
+  const window={parent,onFullscreenChanged(v){calls.push(["notify",v]);}};
+  const context={window,document:{},Promise,JSON,console};
+  vm.runInNewContext(source.slice(begin,finish),context);
+  assert.equal(window.setByName("fullscreen","Y"),"");
+  assert.equal(window.setByName("fullscreen","N"),"");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls[0][0],true);
+  assert.equal(calls[1][0],false);
+  assert.equal(calls[0][1],window);
+});
