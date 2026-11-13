@@ -40,6 +40,9 @@ function fixture(options = {}) {
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
     "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-clear-password",
     "v2-download-clipboard","v2-clipboard-toggle","v2-clipboard-copy","v2-clipboard-status",
+    "v2-clipboard-progress-panel","v2-clipboard-progress-title","v2-clipboard-progress-file",
+    "v2-clipboard-progress-bar","v2-clipboard-progress-stats",
+    "v2-clipboard-progress-cancel","v2-clipboard-progress-minimize",
     "v2-session-tabs", "v2-session-panels", "v2-empty-session",
     "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
