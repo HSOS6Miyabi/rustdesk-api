@@ -22,22 +22,39 @@
 import { simd } from "wasm-feature-detect";
 
 export async function loadVp9(callback) {
-  // Multithreading is used only if `options.threading` is true. 
-  // This requires browser support for the new `SharedArrayBuffer` and `Atomics` APIs, 
-  // currently available in Firefox and Chrome with experimental flags enabled.
-  // 所有主流浏览器均默认于2018年1月5日禁用SharedArrayBuffer
-  const isSIMD = await simd();
-  console.log('isSIMD: ' + isSIMD);
-  window.OGVLoader.loadClass(
-    isSIMD ? "OGVDecoderVideoVP9SIMDW" : "OGVDecoderVideoVP9W",
-    (videoCodecClass) => {
-      window.videoCodecClass = videoCodecClass;
-      videoCodecClass({ videoFormat: {} }).then((decoder) => {
-        decoder.init(() => {
-          callback(decoder);
-        })
-      })
-    },
-    { worker: true, threading: true }
-  );
+  // RustDesk's browser decoder uses single-threaded VP9 workers. Modern
+  // browsers require cross-origin isolation for multi-threaded WebAssembly.
+  const supportsSIMD=await simd().catch(()=>false);
+  const candidates=supportsSIMD?["OGVDecoderVideoVP9SIMDW","OGVDecoderVideoVP9W"]:["OGVDecoderVideoVP9W"];
+  let lastError;
+  for(const className of candidates){
+    for(const worker of [true,false]){
+      try{
+        const decoder=await new Promise((resolve,reject)=>{
+          if(!window.OGVLoader?.loadClass){
+            reject(new Error("VP9 decoder library was not loaded"));
+            return;
+          }
+          window.OGVLoader.loadClass(className,(Decoder)=>{
+            if(typeof Decoder!=="function"){
+              reject(new Error("VP9 decoder module is unavailable"));
+              return;
+            }
+            Promise.resolve(Decoder({videoFormat:{}})).then(instance=>{
+              if(!instance||typeof instance.init!=="function"){
+                reject(new Error("VP9 decoder initialization is unavailable"));
+                return;
+              }
+              instance.init(()=>resolve(instance));
+            }).catch(reject);
+          },{worker,threading:false});
+        });
+        callback(decoder);
+        return;
+      }catch(error){
+        lastError=error;
+      }
+    }
+  }
+  throw lastError||new Error("VP9 decoder could not be initialized");
 }
