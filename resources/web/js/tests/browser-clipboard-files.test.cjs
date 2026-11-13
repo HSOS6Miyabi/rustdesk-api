@@ -127,3 +127,42 @@ test("empty directories copied from a remote Explorer clipboard remain folders i
   assert.ok(text.includes("empty/"));
   assert.ok(text.includes("files/readme.txt"));
 });
+
+
+test("clipboard file progress provides transferred bytes and supports continued remote interaction",async()=>{
+  const {BrowserFileClipboard}=await lib();
+  let source,target;
+  const reports=[];
+  source=new BrowserFileClipboard({send:msg=>queueMicrotask(()=>target.handle(msg.cliprdr))});
+  target=new BrowserFileClipboard({send:msg=>queueMicrotask(()=>source.handle(msg.cliprdr)),
+    save:async()=>{},notify:(event,data)=>reports.push({event,data})});
+  source.enable();target.enable();
+  source.offerFiles([new File([new Uint8Array(350000)],"large.bin"),new File(["small"],"small.txt")]);
+  await next();await next();
+  await target.download();
+  const starting=reports.find(item=>item.event==="start");
+  const progress=reports.filter(item=>item.event==="progress");
+  assert.equal(starting.data.count,2);
+  assert.equal(starting.data.total,350005);
+  assert.ok(progress.length>=3);
+  assert.ok(progress.every(item=>item.data.overallReceived<=starting.data.total));
+  assert.ok(progress.some(item=>item.data.name==="large.bin"&&item.data.overallReceived>0));
+  assert.equal(progress.at(-1).data.overallReceived,starting.data.total);
+  assert.ok(reports.some(item=>item.event==="downloaded"));
+  source.close();target.close();
+});
+
+test("cancelling a pending clipboard download ends the transfer and clears its request",async()=>{
+  const {BrowserFileClipboard}=await lib();
+  const {clipboard,notes}=mock(BrowserFileClipboard);
+  clipboard.enable();
+  await clipboard.handle({format_list:{formats:[{id:49334,format:"FileGroupDescriptorW"}]}});
+  const waiting=clipboard.download();
+  assert.equal(clipboard.downloading,true);
+  assert.equal(clipboard.cancelDownload(),true);
+  await assert.rejects(waiting,/取消/);
+  assert.equal(clipboard.downloading,false);
+  assert.ok(notes.some(item=>item.event==="cancelled"));
+  assert.equal(clipboard.pendingFormat.size,0);
+  clipboard.close();
+});
