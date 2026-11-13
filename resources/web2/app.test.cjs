@@ -370,3 +370,26 @@ test("closing the final remote tab restores a new-session tab and permits reconn
   assert.equal(tabs.children[0].attributes["aria-selected"],undefined);
   assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
 });
+
+test("outside-browser files are forwarded to the active file-transfer session",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="desk-99";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const files=[{name:"notes.txt",size:30}];
+  const event={dataTransfer:{types:["Files"],files},preventDefault(){this.prevented=true;}};
+  const stage=app.stage;
+  stage.listeners.dragover(event);
+  assert.equal(event.prevented,true);
+  assert.equal(stage.children[0].hidden,false);
+  stage.listeners.drop(event);
+  assert.match(app.elements.get("v2-message").textContent,/文件传输标签/);
+  app.elements.get("v2-mode-file").listeners.click();
+  const upload=app.elements.get("v2-session-panels").children[0];
+  let got=[];
+  upload.contentWindow={__rustdeskReceiveFiles(items,folder){got=[items,folder]}};
+  stage.listeners.drop(event);
+  assert.equal(got[0].length,1);
+  assert.equal(got[0][0].name,"notes.txt");
+  assert.equal(got[1],false);
+});
