@@ -79,3 +79,28 @@ test("RustDesk Flutter starts exactly once after the JavaScript decoder is ready
   await context.window.init();
   assert.deepEqual(calls,["video","zstd","ready","video","zstd"]);
 });
+
+
+test("Flutter receives correctly typed desktop, file and terminal event fields",()=>{
+  const events=[];
+  const bridge=createBridge({onGlobalEvent:raw=>events.push(JSON.parse(raw))});
+  const directory={id:0,path:"/home/user",entries:[{entry_type:4,name:"file.txt",size:99,modified_time:100}]};
+  bridge.pushEvent("file_dir",{value:JSON.stringify(directory),is_local:false});
+  assert.equal(events[0].value,JSON.stringify(directory));
+  assert.equal(events[0].is_local,"false");
+  assert.equal(JSON.parse(events[0].value).entries[0].name,"file.txt");
+  bridge.pushEvent("terminal_response",{
+    type:"opened",terminal_id:3,success:true,persistent_sessions:[2,4]
+  });
+  assert.equal(events[1].type,"opened");
+  assert.equal(events[1].terminal_id,"3");
+  assert.equal(events[1].success,"true");
+  assert.deepEqual(Array.from(events[1].persistent_sessions),[2,4]);
+  bridge.pushEvent("terminal_response",{type:"data",terminal_id:3,data:"aGVsbG8="});
+  assert.equal(events[2].type,"data");
+  assert.equal(events[2].data,"aGVsbG8=");
+  bridge.pushEvent("peer_info",{hostname:"desk",platform:"Windows",displays:[{width:1920,height:1080}]});
+  assert.equal(events[3].hostname,"desk");
+  assert.equal(events[3].platform,"Windows");
+  assert.equal(JSON.parse(events[3].displays)[0].width,1920);
+});
