@@ -403,8 +403,12 @@ function _getByName(name, arg) {
         case 'toggle_option':
         case 'option:toggle':
             return getConn()?.getOption(arg) || false;
-        case 'option:session':
-            return localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+        case 'option:session': {
+            const stored=localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+            // Flutter requires a recognized ScrollStyle while processing every video frame.
+            return arg === 'scroll_style' && !['scrollauto','scrollbar','scrolledge'].includes(stored)
+                ? 'scrollauto' : stored;
+        }
         case 'option:flutter:peer':
         case 'option:flutter:local':
             return localStorage.getItem('rustdesk.flutter.' + arg) || '';
