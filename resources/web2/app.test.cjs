@@ -131,7 +131,7 @@ function fixture(options = {}) {
     return {ok:true,status:200,async json(){return {code:0,data:apiResults[endpoint]};}};
   };
   vm.runInNewContext(source,{
-    window, document, fetch, sessionStorage, localStorage, URL, URLSearchParams,
+    window, document, fetch, sessionStorage, localStorage, URL, URLSearchParams, TextEncoder,
     MutationObserver: class {observe(){}disconnect(){}},
     console
   }, {filename:"resources/web2/app.js"});
