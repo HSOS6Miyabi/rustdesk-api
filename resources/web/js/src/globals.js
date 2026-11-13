@@ -29,7 +29,15 @@ function jsonfyForDart(payload) {
     var tmp = {};
     for (const [key, value] of Object.entries(payload)) {
         if (!key) continue;
-        tmp[key] = value instanceof Uint8Array ? '[' + value.toString() + ']' : JSON.stringify(value);
+        if (value instanceof Uint8Array) {
+            tmp[key] = '[' + value.toString() + ']';
+        } else if (key === 'persistent_sessions' && Array.isArray(value)) {
+            tmp[key] = value;
+        } else if (value !== null && typeof value === 'object') {
+            tmp[key] = JSON.stringify(value);
+        } else {
+            tmp[key] = value == null ? '' : String(value);
+        }
     }
     return tmp;
 }
