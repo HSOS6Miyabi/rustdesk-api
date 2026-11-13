@@ -20,6 +20,7 @@ function storage(initial = {}) {
 function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavior = {}) {
   const calls = [];
   const events = {};
+  const windowEvents = {};
   const root = { innerHTML: "",querySelector(){return null;} };
   const assigned = [];
   const opened = [];
@@ -157,7 +158,7 @@ function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavi
   };
   const mockWindow = {
     open(url,target){const tab={opener:{}};opened.push({url,target,tab});return tab;},
-    addEventListener() {},
+    addEventListener(name,handler) { windowEvents[name]=handler; },
     confirm() { return true; },
     history: {replaceState(_state,_title,url){
       replaced.push(url);
@@ -177,7 +178,7 @@ function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavi
   vm.runInNewContext(source, context, { filename: "resources/admin/app.js" });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return {
-    root, calls, events, fixtures, settle, assigned, opened, replaced, document:mockDocument, session, local, behavior,
+    root, calls, events, windowEvents, fixtures, settle, assigned, opened, replaced, document:mockDocument, session, local, behavior,
     async open(view) {
       const control = { dataset: { view } };
       await events.click({ target: { closest: () => control } });
@@ -1328,4 +1329,44 @@ test("temporary mobile OAuth query failure leaves a retry action",async()=>{
   assert.match(app.root.innerHTML,/data-action="oidc-retry"/);
   assert.equal(app.session.getItem("rustdesk.console.oidc"),"RetryState1234567");
   assert.deepEqual(app.replaced,["/_admin/#/overview"]);
+});
+
+test("mobile SSO login updates the original tab when another tab stores its token",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""});
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/登录控制台/);
+  app.local.setItem("rustdesk.console.token","shared-mobile-token");
+  app.windowEvents.storage({key:"rustdesk.console.token",newValue:"shared-mobile-token"});
+  await app.settle();await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.token"),"shared-mobile-token");
+  assert.match(app.root.innerHTML,/我的设备/);
+  assert.doesNotMatch(app.root.innerHTML,/登录控制台/);
+});
+
+test("a resumed mobile login does not retry an outdated OAuth state",async()=>{
+  const app=createConsole(false,{
+    "rustdesk.console.token":"",
+    "rustdesk.console.oidc":"prior-oauth-state-123"
+  },{},{
+    oidcNetworkError:true
+  });
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/单点登录未能完成/);
+  app.local.setItem("rustdesk.console.token","shared-mobile-token");
+  app.windowEvents.pageshow();
+  await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.oidc"),null);
+  assert.equal(app.session.getItem("rustdesk.console.token"),"shared-mobile-token");
+  assert.match(app.root.innerHTML,/我的设备/);
+});
+
+test("logging out from a second tab clears the original tab's session",async()=>{
+  const app=createConsole(false);
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/我的设备/);
+  app.local.removeItem("rustdesk.console.token");
+  app.windowEvents.storage({key:"rustdesk.console.token",newValue:null});
+  await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.token"),null);
+  assert.match(app.root.innerHTML,/登录控制台/);
 });
