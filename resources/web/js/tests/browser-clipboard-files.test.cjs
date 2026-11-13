@@ -118,3 +118,12 @@ test("Explorer paste is issued only after the remote clipboard list has been acc
   assert.equal(pasted,1);
   clipboard.close();
 });
+
+test("empty directories copied from a remote Explorer clipboard remain folders in ZIP",async()=>{
+  const {packageZip}=await import(pathToFileURL(path.join(__dirname,"../src/browser_file_transfer.mjs")).href);
+  const blob=packageZip([{name:"empty",directory:true,chunks:[]},{name:"files/readme.txt",chunks:[new TextEncoder().encode("ok")]}]);
+  const bytes=new Uint8Array(await blob.arrayBuffer());
+  const text=new TextDecoder().decode(bytes);
+  assert.ok(text.includes("empty/"));
+  assert.ok(text.includes("files/readme.txt"));
+});
