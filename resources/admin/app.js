@@ -2014,10 +2014,17 @@
         const data=await request(path+"?page=1&page_size=200"+filter);
         rows=Array.isArray(data)?data:data?.list||[];
         if(kind==="device"&&rows.length){
+          for(const row of rows){
+            const id=String(row.id||"").trim();
+            if(!id)continue;
+            const name=[row.alias,row.hostname].map(v=>String(v||"").trim()).find(v=>v&&v!==id);
+            state.deviceNames[id]=name||id;
+          }
           const ids=[...new Set(rows.map(row=>String(row.id||"")).filter(Boolean))].slice(0,100);
           try{
             const reply=await request("/geoip/lookup","POST",{device_ids:ids});
             for(const id of ids)state.devicePresence[id]=Object.prototype.hasOwnProperty.call(reply.device_status||{},id)?reply.device_status[id]===true:null;
+            Object.assign(state.deviceNames,reply.device_names||{});
           }catch{}
         }
         if(!filter){
