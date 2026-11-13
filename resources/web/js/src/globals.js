@@ -323,6 +323,12 @@ export function close() {
 
 let currentBrowserTransfer;
 
+export function reportRemoteFileClipboardPermission(allowed){
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskFileClipboardPermission==="function")
+            window.parent.__rustdeskFileClipboardPermission(allowed,window);
+    }catch{}
+}
 function reportFileClipboardStatus(kind,detail){
     try{
         if(window.parent!==window&&typeof window.parent.__rustdeskClipboardFileStatus==="function"){

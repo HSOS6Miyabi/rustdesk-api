@@ -343,6 +343,14 @@
     clipboardPasteButton.disabled=!active||active.mode!=="desktop"||!clipboardEnabled;
     if(!clipboardEnabled)clipboardCopyButton.hidden=true;
   }
+  window.__rustdeskFileClipboardPermission=(allowed,source)=>{
+    const current=clipboardSession();
+    if(!current||current.frame.contentWindow!==source)return;
+    if(!allowed)setClipboardStatus(
+      "远程设备已禁止文件传输，请在远程 RustDesk 的安全设置中允许文件传输。");
+    else if(clipboardEnabled)setClipboardStatus(
+      "远程设备允许文件传输，可以在远程资源管理器复制文件后下载。");
+  };
   window.__rustdeskClipboardReady=source=>{
     const session=[...sessions.values()].find(item=>item.frame.contentWindow===source);
     if(session)syncClipboardSession();

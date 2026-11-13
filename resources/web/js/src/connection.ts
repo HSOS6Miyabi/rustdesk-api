@@ -38,6 +38,7 @@ export default class Connection {
   _videoTestSpeed: number[];
   _fileBridge: any;
   _clipboardPermitted: boolean = true;
+  _fileClipboardPermitted: boolean = true;
   _fileClipboard: any;
   _browserClipboardEnabled: boolean = true;
   _sessionMode: string;
@@ -86,7 +87,8 @@ export default class Connection {
 
   sendCliprdr(data: any): boolean {
     if(!this._ws||!["desktop","camera"].includes(this._sessionMode)||
-       !this._browserClipboardEnabled||this._clipboardPermitted===false)return false;
+       !this._browserClipboardEnabled||this._clipboardPermitted===false||
+       this._fileClipboardPermitted===false)return false;
     this._ws.sendMessage({cliprdr:data} as any);
     return true;
   }
@@ -113,7 +115,10 @@ export default class Connection {
       enable_file_transfer: enabled&&this._sessionMode==="desktop"?yes:no
     });
     this._ws.sendMessage({misc:message.Misc.fromPartial({option})});
-    if(enabled)this._fileClipboard?.onConnected();
+    if(enabled&&this._fileClipboardPermitted&&this._clipboardPermitted){
+      this._fileClipboard?.enable();
+      this._fileClipboard?.onConnected();
+    }
   }
 
   fileTransportBuffer() {
@@ -794,7 +799,17 @@ export default class Connection {
         case message.PermissionInfo_Permission.Clipboard:
           this._clipboardPermitted=Boolean(p.enabled);
           if(!p.enabled)this._fileClipboard?.disable();
+          else if(this._browserClipboardEnabled&&this._fileClipboardPermitted)
+            this._fileClipboard?.enable();
           name = "clipboard";
+          break;
+        case message.PermissionInfo_Permission.File:
+          this._fileClipboardPermitted=Boolean(p.enabled);
+          if(!p.enabled)this._fileClipboard?.disable();
+          else if(this._browserClipboardEnabled&&this._clipboardPermitted)
+            this._fileClipboard?.enable();
+          globals.reportRemoteFileClipboardPermission(Boolean(p.enabled));
+          name="file";
           break;
         case message.PermissionInfo_Permission.Audio:
           name = "audio";
