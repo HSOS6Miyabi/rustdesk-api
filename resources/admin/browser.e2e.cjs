@@ -2147,6 +2147,56 @@ test("device connection opens the original RustDesk remote controls and supports
     await popup.waitForFunction(()=>document.fullscreenElement===document.querySelector(".stage"));
     await popup.locator("#v2-fullscreen-exit").click();
     await popup.waitForFunction(()=>document.fullscreenElement===null);
+
+    const shortcuts=await popup.evaluate(()=>{
+      const child=document.querySelector("#v2-native-client")?.contentWindow;
+      const original=child.curConn;
+      const sent=[];
+      try{
+        child.curConn={
+          _sessionMode:"desktop",_peerInfo:{platform:"Windows"},
+          inputKey(...args){sent.push(args);}
+        };
+        const options={key:"c",code:"KeyC",ctrlKey:true,bubbles:true,cancelable:true};
+        child.dispatchEvent(new KeyboardEvent("keydown",options));
+        child.dispatchEvent(new KeyboardEvent("keyup",options));
+      }finally{child.curConn=original;}
+      return sent;
+    });
+    assert.equal(shortcuts.length,2);
+    assert.equal(shortcuts[0][0],"c");
+    assert.equal(shortcuts[0][1],true);
+    assert.equal(shortcuts[0][4],true);
+    assert.equal(shortcuts[1][1],false);
+
+    await popup.evaluate(()=>{
+      const button=document.createElement("button");
+      button.id="test-rustdesk-native-fullscreen";
+      button.type="button";
+      button.textContent="测试 RustDesk 原生全屏";
+      button.style.cssText="position:fixed;right:12px;bottom:12px;z-index:10000";
+      button.addEventListener("click",()=>{
+        const child=document.querySelector("#v2-native-client")?.contentWindow;
+        child?.setByName?.("fullscreen","Y");
+      });
+      document.body.append(button);
+    });
+    await popup.locator("#test-rustdesk-native-fullscreen").click();
+    await popup.waitForFunction(()=>document.fullscreenElement===document.querySelector(".stage")&&
+      document.querySelector(".stage")?.classList.contains("webclient-native-fullscreen"));
+    const nativeFullscreen=await popup.evaluate(()=>{
+      const stage=document.querySelector(".stage");
+      const frame=stage.querySelector("#v2-native-client");
+      const toolbar=stage.querySelector(".workspace-switcher");
+      return {toolbar:getComputedStyle(toolbar).display,
+        frameHeight:frame.getBoundingClientRect().height,
+        screenHeight:innerHeight};
+    });
+    assert.equal(nativeFullscreen.toolbar,"none");
+    assert.ok(nativeFullscreen.frameHeight>=nativeFullscreen.screenHeight-2);
+    await popup.keyboard.press("Escape");
+    await popup.waitForFunction(()=>document.fullscreenElement===null);
+    await popup.locator("#test-rustdesk-native-fullscreen").evaluate(element=>element.remove());
   }finally{await context.close();}
 });
 

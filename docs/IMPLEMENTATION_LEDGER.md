@@ -65,15 +65,15 @@ API v3.0.0-api.114 将数据库迁移版本更新为 **291**。个人设置支�
 | GitHub 仓库 | [HSOS6Miyabi/rustdesk-api](https://github.com/HSOS6Miyabi/rustdesk-api) | [HSOS6Miyabi/rustdesk-server](https://github.com/HSOS6Miyabi/rustdesk-server) |
 | 正式版本分支 | `master` | `forapi` |
 | 默认分支 | `master` | `forapi` |
-| 正式版本标签 | [v3.0.0-api.126](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.126) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式版本标签 | [v3.0.0-api.127](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.127) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 已合并的拉取请求 | [PR #6](https://github.com/HSOS6Miyabi/rustdesk-api/pull/6)、[PR #8](https://github.com/HSOS6Miyabi/rustdesk-api/pull/8)、[PR #9](https://github.com/HSOS6Miyabi/rustdesk-api/pull/9)、[PR #10](https://github.com/HSOS6Miyabi/rustdesk-api/pull/10)、[PR #11](https://github.com/HSOS6Miyabi/rustdesk-api/pull/11)、[PR #13](https://github.com/HSOS6Miyabi/rustdesk-api/pull/13)、[PR #14](https://github.com/HSOS6Miyabi/rustdesk-api/pull/14)、[PR #16](https://github.com/HSOS6Miyabi/rustdesk-api/pull/16) | [PR #4](https://github.com/HSOS6Miyabi/rustdesk-server/pull/4) |
 | 正式发行工作流 | [#43157085657：九项任务全部通过](https://github.com/HSOS6Miyabi/rustdesk-api/actions/runs/43157085657) | [42690556784：成功](https://github.com/HSOS6Miyabi/rustdesk-server/actions/runs/42690556784) |
-| 正式 Release | [v3.0.0-api.126](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.126) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
+| 正式 Release | [v3.0.0-api.127](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.127) | [v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21) |
 | 里程碑发布 | 已完成 | 已完成 |
 
-正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.126`。
+正式发行版本已经完成自动化测试。日常维护时，应核对对应的版本标签、GitHub Actions 和本台账；Server `v1.1.17-api.21` 的组合 Docker 镜像仍包含 API `v3.0.0-api.103`；独立 API 最新正式版为 `v3.0.0-api.127`。
 
-当前 API 数据库迁移版本：**292**。版本内容及对应发行测试见 [v3.0.0-api.126](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.126) 和 [正式发行工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml)。程序启动时会检查数据库的表、字段和索引，缺少时会自动执行迁移。已有用户、OAuth 配置、设备、审计记录及日志清理配置保持不变。
+当前 API 数据库迁移版本：**292**。版本内容及对应发行测试见 [v3.0.0-api.127](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.127) 和 [正式发行工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/verify-release.yml)。程序启动时会检查数据库的表、字段和索引，缺少时会自动执行迁移。已有用户、OAuth 配置、设备、审计记录及日志清理配置保持不变。
 
 CI 已实际通过的内容：
 
