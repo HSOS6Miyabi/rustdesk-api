@@ -38,6 +38,7 @@ export default class Connection {
   _videoTestSpeed: number[];
   _fileBridge: any;
   _clipboardPermitted: boolean = true;
+  _fileClipboard: any;
   _sessionMode: string;
   _terminalAdmin: boolean;
   _osUsername: string;
@@ -76,6 +77,16 @@ export default class Connection {
       throw new Error("File-transfer session is not connected");
     }
     this._ws.sendMessage(payload);
+  }
+
+  setFileClipboard(bridge: any) {
+    this._fileClipboard=bridge;
+  }
+
+  sendCliprdr(data: any): boolean {
+    if(!this._ws||!["desktop","camera"].includes(this._sessionMode)||this._clipboardPermitted===false)return false;
+    this._ws.sendMessage({cliprdr:data} as any);
+    return true;
   }
 
   sendClipboardText(text: string): boolean {
@@ -488,6 +499,9 @@ export default class Connection {
         this.handlePeerInfo((msg as any).peer_info);
       } else if (msg?.video_frame) {
         this.handleVideoFrame(msg?.video_frame!);
+      } else if (msg?.cliprdr) {
+        if(["desktop","camera"].includes(this._sessionMode))
+          await this._fileClipboard?.handle(msg.cliprdr);
       } else if (msg?.clipboard) {
         const cb = msg?.clipboard;
         if (cb.compress) {
@@ -570,6 +584,7 @@ export default class Connection {
   }
 
   close() {
+    this._fileClipboard?.close();
     this._fileBridge?.close();
     this._ws?.close();
     this._videoDecoder?.close();
@@ -714,6 +729,7 @@ export default class Connection {
     }
     this.msgbox("success", "Successful", "Connected, waiting for image...");
     globals.pushEvent("peer_info", pi);
+    if(["desktop","camera"].includes(this._sessionMode))this._fileClipboard?.onConnected();
     if(this._sessionMode==="file")this.readRemoteDir("",false);
     const p = this.shouldAutoLogin();
     if (p) this.inputOsPassword(p);
@@ -755,6 +771,7 @@ export default class Connection {
           break;
         case message.PermissionInfo_Permission.Clipboard:
           this._clipboardPermitted=Boolean(p.enabled);
+          if(!p.enabled)this._fileClipboard?.disable();
           name = "clipboard";
           break;
         case message.PermissionInfo_Permission.Audio:
