@@ -104,3 +104,66 @@ test("Flutter receives correctly typed desktop, file and terminal event fields",
   assert.equal(events[3].platform,"Windows");
   assert.equal(JSON.parse(events[3].displays)[0].width,1920);
 });
+
+test("file-manager commands reach the browser transfer implementation",()=>{
+  const begin=source.indexOf("window.setByName = (name, value) => {");
+  const finish=source.indexOf("window.getByName = (name, arg) => {",begin);
+  assert.ok(begin>=0&&finish>begin);
+  const calls=[];
+  const transfer={
+    startUpload(value){calls.push(["upload",value]);},
+    startDownload(value){calls.push(["download",value]);},
+    cancel(value){calls.push(["cancel",value]);}
+  };
+  const conn={
+    sendFileMessage(value){calls.push(["send",value]);},
+    readRemoteDir(path,hidden){calls.push(["read",path,hidden]);},
+    cancelFileJob(id){calls.push(["cancel-remote",id]);}
+  };
+  const context={
+    window:{},
+    getConn:()=>conn,
+    currentBrowserTransfer:transfer,
+    withFileTransfer:(_request,callback)=>callback(conn,transfer),
+    openLocalFilePicker:folder=>calls.push(["pick",folder]),
+    console
+  };
+  vm.runInNewContext(source.slice(begin,finish),context);
+  const run=(key,value)=>context.window.setByName(key,JSON.stringify(value));
+  context.window.setByName("select_files",true);
+  run("send_local_files",{id:5,handle_index:2,to:"C:\\Users\\User\\file.txt"});
+  run("send_files",{id:9,path:"C:\\Users\\User\\report.txt",is_remote:true});
+  run("read_remote_dir",{path:"C:\\Users",include_hidden:false});
+  run("rename_file",{id:8,path:"C:\\old.txt",new_name:"new.txt"});
+  run("create_dir",{id:7,path:"C:\\folder"});
+  context.window.setByName("cancel_job","9");
+  assert.equal(calls[0][0],"pick");
+  assert.equal(calls[1][0],"upload");
+  assert.equal(calls[2][0],"download");
+  assert.equal(calls[3][0],"read");
+  assert.equal(calls[4][1].file_action.rename.new_name,"new.txt");
+  assert.equal(calls[5][1].file_action.create.id,7);
+  assert.equal(calls[6][0],"cancel");
+  assert.equal(calls[7][0],"cancel-remote");
+});
+
+test("Flutter receives a valid scroll style before the first remote frame",()=>{
+  const begin=source.indexOf("window.getByName = (name, arg) => {");
+  const finish=source.indexOf("let opusWorker =",begin);
+  assert.ok(begin>=0&&finish>begin);
+  const values=new Map();
+  const context={
+    window:{},
+    localStorage:{
+      getItem(key){return values.get(key)||"";}
+    },
+    getConn:()=>({getOption(key){return values.get("conn."+key)||""}}),
+    JSON, version:"1.5.3",console
+  };
+  vm.runInNewContext(source.slice(begin,finish),context);
+  assert.equal(context.window.getByName("option:session","scroll_style"),"scrollauto");
+  values.set("rustdesk.session.scroll_style","scrollbar");
+  assert.equal(context.window.getByName("option:session","scroll_style"),"scrollbar");
+  values.set("rustdesk.session.scroll_style","unsupported");
+  assert.equal(context.window.getByName("option:session","scroll_style"),"scrollauto");
+});
