@@ -2443,3 +2443,37 @@ test("recent devices show names and IDs on separate lines with room for their da
       "Recent device names, IDs and dates must remain readable: "+JSON.stringify(rows));
   }finally{await context.close();}
 });
+
+test("WebClient remote controls remain accessible and desktop precedes settings on narrow screens",async()=>{
+  for(const [width,height] of [[320,700],[375,812],[640,800],[1100,820]]){
+    const {context,page}=await pageForViewport(width,height,true);
+    try{
+      await page.goto(baseUrl+"/webclient2/",{waitUntil:"networkidle"});
+      const result=await page.evaluate(()=>{
+        const header=document.querySelector(".top");
+        const stage=document.querySelector(".stage");
+        const aside=document.querySelector(".aside");
+        const controls=[...document.querySelectorAll(".top-remote-actions button")];
+        const brand=document.querySelector(".brand");
+        return {
+          viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,
+          brandVisible:getComputedStyle(brand).display!=="none",
+          stageY:stage.getBoundingClientRect().top,asideY:aside.getBoundingClientRect().top,
+          buttons:controls.map(button=>({id:button.id,visible:button.getBoundingClientRect().width>35,
+            top:button.getBoundingClientRect().top,right:button.getBoundingClientRect().right,
+            text:button.innerText})),
+          headerHeight:header.getBoundingClientRect().height
+        };
+      });
+      assert.equal(result.buttons.length,3);
+      assert.ok(result.buttons.every(x=>x.visible && x.top>=0 && x.right<=width+2),
+        "Remote controls must be visible: "+JSON.stringify(result));
+      assert.ok(result.scrollWidth<=width+2,"WebClient viewport overflow: "+JSON.stringify(result));
+      if(width<=760){
+        assert.equal(result.brandVisible,false);
+        assert.ok(result.stageY<result.asideY,"Remote desktop must precede settings on mobile");
+      }
+      await captureManagementScreenshot(page,"webclient-top-controls-"+width+".png");
+    }finally{await context.close();}
+  }
+});
