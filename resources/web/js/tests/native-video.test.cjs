@@ -142,3 +142,14 @@ test("transfers GPU VideoFrames to the Flutter image queue without closing them 
   frame.close();
   assert.equal(frame.closed,1);
 });
+
+test("disconnect during video acknowledgement does not prevent decoder cleanup",async()=>{
+  const {NativeVideoDecoder}=await load();
+  const fixture=createDecoder();
+  const decoder=new NativeVideoDecoder({...fixture.options,
+    acknowledge(){throw new Error("WebSocket is closed")}
+  });
+  decoder.decode([{key:true,data:Uint8Array.of(1)}]);
+  assert.doesNotThrow(()=>decoder.close());
+  assert.equal(fixture.instances[0].closed,true);
+});
