@@ -541,7 +541,7 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .recent-device-row .recent-device-time{flex:0 0 auto;margin-left:auto}
 
 /* Compact desktop date/time columns. */
-.data-table{width:var(--table-min-width,680px)}
+.data-table{width:max(100%,var(--table-min-width,680px))}
 .data-table td.cell-date-time>span{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
 .date-time-stack{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1.35;white-space:nowrap;font-variant-numeric:tabular-nums}
 .date-time-day{font-weight:600}

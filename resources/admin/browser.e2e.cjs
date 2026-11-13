@@ -2722,3 +2722,64 @@ test("wide desktop: device aliases share an ID column and timestamps remain comp
     await captureManagementScreenshot(page,"wide-desktop-transfer-owner.png");
   }finally{await context.close();}
 });
+
+
+test("desktop data tables fill the available panel width with compact date columns",async()=>{
+  const sample=[
+    {row_id:101,id:"1858642980",hostname:"OnePlus-PJD110",os:"android / Android 16 PJD110",
+      last_online_time:1794625818,last_online_ip:"113.201.75.48"},
+    {row_id:102,id:"107173312",hostname:"lowdpi",os:"windows / Windows 10 Education",
+      last_online_time:1794625818,last_online_ip:"124.115.69.229"},
+    {row_id:103,id:"502268168",hostname:"excalibur",os:"windows / Windows 10 Enterprise LTSC",
+      last_online_time:1792748836,last_online_ip:"171.120.23.218"},
+    {row_id:104,id:"29999704",hostname:"revo",os:"windows / Windows 11 Enterprise",
+      last_online_time:1794625804,last_online_ip:"221.11.67.245"}
+  ];
+  for(const {width,pageName} of [
+    {width:1848,pageName:"mydevices"},
+    {width:2560,pageName:"mydevices"},
+    {width:1440,pageName:"mydevices"},
+    {width:1024,pageName:"mydevices"},
+    {width:1848,pageName:"shared"},
+    {width:1848,pageName:"devices"},
+    {width:1848,pageName:"users"}
+  ]){
+    const {context,page}=await pageForViewport(width,900,true);
+    try{
+      const reply=list=>({status:200,contentType:"application/json",
+        body:JSON.stringify({code:0,data:{list,total:list.length}})});
+      await page.route("**/api/admin/my/peer/list**",route=>route.fulfill(reply(sample)));
+      await page.route("**/api/admin/peer/list**",route=>route.fulfill(reply(sample)));
+      await page.route("**/api/admin/shared_devices/list**",route=>route.fulfill(reply(
+        sample.slice(0,3).map(peer=>({...peer,user_id:11,owner_username:"alice",
+          sources:[{type:"group",id:2,name:"实验室"}]})))));
+      await page.locator('nav.side-scroll button[data-view="'+pageName+'"]').click();
+      await page.locator('.data-table tbody tr:not(.table-detail-row)').first().waitFor();
+      const geometry=await page.evaluate(()=>{
+        const table=document.querySelector(".data-table"),region=table.closest(".table-scroll");
+        const rect=table.getBoundingClientRect(),regionRect=region.getBoundingClientRect();
+        const columns=[...table.querySelectorAll("colgroup col")];
+        const width=key=>columns.find(item=>item.dataset.column===key)?.getBoundingClientRect().width??null;
+        return {tableWidth:rect.width,regionWidth:regionRect.width,
+          tableRight:rect.right,regionRight:regionRect.right,
+          documentWidth:document.documentElement.scrollWidth,viewport:innerWidth,
+          dateWidth:width("last_online_time"),systemWidth:width("os"),
+          timeLines:table.querySelector('td[data-column="last_online_time"] .date-time-stack')?.children.length??0};
+      });
+      assert.ok(Math.abs(geometry.tableWidth-geometry.regionWidth)<=2,
+        pageName+" at "+width+"px: table does not occupy its container: "+JSON.stringify(geometry));
+      assert.ok(Math.abs(geometry.tableRight-geometry.regionRight)<=2,
+        pageName+" at "+width+"px: table edge differs from container: "+JSON.stringify(geometry));
+      assert.ok(geometry.documentWidth<=geometry.viewport+2,
+        pageName+" at "+width+"px: document is wider than the viewport");
+      if(geometry.dateWidth!==null){
+        assert.ok(geometry.dateWidth>=130&&geometry.dateWidth<=168,
+          pageName+" at "+width+"px: date column is too wide");
+        assert.equal(geometry.timeLines,2,"date and time must remain on separate lines");
+      }
+      if(geometry.systemWidth!==null)assert.ok(geometry.systemWidth>=190,
+        "operating system names require a readable column");
+      await captureManagementScreenshot(page,"table-fullwidth-"+pageName+"-"+width+".png");
+    }finally{await context.close();}
+  }
+});
