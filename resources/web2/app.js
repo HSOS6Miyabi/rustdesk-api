@@ -255,6 +255,8 @@
       setClipboardStatus("正在下载 "+detail.name+"："+Math.round(detail.received/detail.total*100)+"%");
     }else if(kind==="downloaded"){
       setClipboardStatus("已下载 "+detail.count+" 个剪贴板文件。");
+    }else if(kind==="unsupported-files"){
+      setClipboardStatus("远程设备未确认文件剪贴板操作，请切换到“文件”标签上传。");
     }
   };
   clipboardDownloadButton.addEventListener("click",async()=>{
