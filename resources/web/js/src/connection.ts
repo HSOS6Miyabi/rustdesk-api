@@ -537,7 +537,6 @@ export default class Connection {
 
   draw(frame: any) {
     this._draw?.(frame);
-    globals.draw(frame);
   }
 
   close() {
