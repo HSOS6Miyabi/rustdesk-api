@@ -38,7 +38,7 @@ export class NativeVideoDecoder {
   constructor({codec,config,display,acknowledge,requestKeyFrame,onFailure,
                onDecoded=()=>{},onDropped=()=>{},
                Decoder=globalThis.VideoDecoder,Chunk=globalThis.EncodedVideoChunk,
-               now=()=>performance.now(),schedule=callback=>requestAnimationFrame(callback)}){
+               now=()=>performance.now(),schedule=callback=>queueMicrotask(callback)}){
     this.codec=codec;
     this.config=config;
     this.display=display;
@@ -147,12 +147,15 @@ export class NativeVideoDecoder {
     this.nextFrame=null;
     if(!item)return;
     this.painting=true;
+    let transferred=false;
     try{
-      await this.display(item.frame,item.latency,item.bytes);
+      transferred=(await this.display(item.frame,item.latency,item.bytes))===true;
     }catch(error){
       this.decoderFailed(error);
     }finally{
-      item.frame.close();
+      // Flutter's onVideoFrame queue owns transferred frames and closes them
+      // after GPU import. The RGBA compatibility path keeps local ownership.
+      if(!transferred)item.frame.close();
       this.painting=false;
       if(this.nextFrame&&!this.closed&&!this.paintScheduled){
         this.paintScheduled=true;
