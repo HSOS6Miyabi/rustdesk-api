@@ -193,7 +193,7 @@
     return key==="id"&&["devices","mydevices","shared"].includes(state.page)&&String(row.id)===value;
   }
   function clientDescription(id){
-    return /^(?:web|webadmin|webclient|windows[-_](?:chrome|edge|firefox)|.*(?:chrome|firefox|safari|browser))$/i.test(id)?"浏览器客户端":"未登记的客户端";
+    return /^(?:web|webadmin|webclient|windows[-_](?:chrome|edge|firefox)|.*(?:chrome|firefox|safari|browser))$/i.test(id)?"浏览器客户端":"设备名称未知";
   }
   function deviceName(row,id,nameKey=""){
     const direct=[nameKey&&row?.[nameKey],row?.alias,row?.hostname,state.deviceNames[id]];
