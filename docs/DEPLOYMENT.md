@@ -100,7 +100,7 @@ npm run build
 cd ../../..
 ```
 
-GitHub Release 和 GHCR 镜像会自动包含已构建的文件。
+GitHub Release、GHCR 和 Docker Hub 的正式发行镜像均包含已构建的网页文件。
 
 ## 4. Docker
 
@@ -115,7 +115,20 @@ docker run --name rustdesk-api -d \
   --restart unless-stopped rustdesk-api
 ```
 
-也可从 GHCR 获取发行镜像。管理员密码和数据库保存在挂载的数据目录中。升级容器时继续挂载同一个目录。
+也可以从 GHCR 或 Docker Hub 获取发行镜像，两处均支持 Linux AMD64 和 ARM64：
+
+```bash
+docker pull ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.129
+docker pull kenvix/rustdesk-api:v3.0.0-api.129
+```
+
+使用本仓库的 Compose 配置时，默认从 GHCR 获取镜像。改用 Docker Hub 时执行：
+
+```bash
+RUSTDESK_API_IMAGE=kenvix/rustdesk-api:v3.0.0-api.129 docker compose up -d
+```
+
+正式版本也会发布 `latest` 标签。建议正式部署时明确指定版本号。管理员密码和数据库保存在挂载的数据目录中；升级容器时继续挂载同一个 `/app/data` 目录。
 
 ## 5. 群组和联系人
 

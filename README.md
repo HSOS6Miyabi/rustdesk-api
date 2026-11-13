@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.127](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.127)，数据库迁移版本为 **292**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。控制台已改善宽屏和手机布局，管理员可以协助用户修改资料、重设密码与清除双重认证，个人账户可以注册、使用和移除 Passkey。日志保存期限、日志归档和手动清理也可以在后台管理。参见 [Passkey 与账户管理](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)、[日志保留与清理](docs/LOG_RETENTION.md) 及 [版本兼容性](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.129](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.129)，数据库迁移版本为 **292**。配套服务端为 [RustDesk Server v1.1.17-api.22](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.22)。控制台已改善宽屏和手机布局，管理员可以协助用户修改资料、重设密码与清除双重认证，个人账户可以注册、使用和移除 Passkey。日志保存期限、日志归档和手动清理也可以在后台管理。参见 [Passkey 与账户管理](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)、[日志保留与清理](docs/LOG_RETENTION.md) 及 [版本兼容性](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -75,7 +75,7 @@ mkdir -p data runtime
 
 打开 `http://服务器地址:21114/_admin/` 进入控制台。公网部署请通过 HTTPS 访问。
 
-Docker 构建前也需要先运行上面的 `npm ci` 与 `npm run build`，以生成 WebClient v2 连接组件。直接使用 GitHub Release 或 GHCR 镜像时，所需网页文件已包含在发布内容中。
+Docker 构建前也需要先运行上面的 `npm ci` 与 `npm run build`，以生成 WebClient v2 连接组件。使用 GitHub Release、GHCR 或 Docker Hub 的正式发行镜像时，所需网页文件已包含在发布内容中。
 
 Docker 构建与运行：
 
@@ -86,7 +86,22 @@ docker run -d --name rustdesk-api -p 21114:21114 \
   --stop-timeout 75 --restart unless-stopped rustdesk-api
 ```
 
-Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/rustdesk-api`。
+正式镜像同时发布到 GitHub Container Registry（GHCR）和 Docker Hub。两处均提供 Linux AMD64、ARM64 版本，并使用相同的发行版本号和 `latest` 标签：
+
+```bash
+docker pull ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.129
+docker pull kenvix/rustdesk-api:v3.0.0-api.129
+# 使用 Docker Hub 的最新正式版本
+docker pull kenvix/rustdesk-api:latest
+```
+
+使用仓库的 `docker-compose.yaml` 时，可以选择镜像来源：
+
+```bash
+RUSTDESK_API_IMAGE=kenvix/rustdesk-api:v3.0.0-api.129 docker compose up -d
+```
+
+镜像内容和数据目录保持一致；升级时继续挂载 `/app/data`。
 
 详细配置见 [部署与配置](docs/DEPLOYMENT.md)，接口说明见 [API 使用说明](docs/API.md)。
 
@@ -110,7 +125,7 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 构建、测试及发布
 
-GitHub Actions 检查 Go 后端、浏览器交互、真实 HTTP 接口、数据库兼容性和页面布局。合并代码后，维护者将 `master` 分支中的 `.release-version` 更新为批准的版本号，即可触发 [正式版本发布工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-version.yml)。发布流程会创建版本标签，重新执行测试，再生成 Linux AMD64、Linux ARM64、Windows AMD64 安装包及 GHCR 多架构 Docker 镜像。
+GitHub Actions 检查 Go 后端、浏览器交互、真实 HTTP 接口、数据库兼容性和页面布局。合并代码后，维护者将 `master` 分支中的 `.release-version` 更新为批准的版本号，即可触发 [正式版本发布工作流](https://github.com/HSOS6Miyabi/rustdesk-api/actions/workflows/publish-approved-version.yml)。发布流程会创建版本标签，重新执行测试，再生成 Linux AMD64、Linux ARM64、Windows AMD64 安装包，并将多架构 Docker 镜像同时发布到 GHCR 和 Docker Hub。
 
 查看 [维护说明](docs/MAINTENANCE.md) 了解测试和升级过程。
 
