@@ -21,7 +21,7 @@ function createElement(id = "") {
   const listeners = {};
   return {
     id, listeners, value: "", textContent: "", hidden: false, children: [], src: "", title: "",
-    className: "", disabled: false, attributes:{}, classList: { add() {},toggle() {} },
+    className: "", disabled: false, attributes:{}, dataset:{}, classList: { add() {},toggle() {} },
     setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
@@ -464,4 +464,78 @@ test("remote action buttons remain available on small screens and remote desktop
   assert.match(css,/max-width:760px/);
   assert.match(css,/\.stage\{order:-1/);
   assert.match(css,/\.brand\{display:none/);
+});
+
+
+test("clipboard download progress is visible, collapsible, cancellable, and does not interrupt remote tabs",async()=>{
+  const clipboard={async readText(){return "";},async writeText(){}};
+  const app=fixture({token:"session-token",clipboard});
+  await app.settle();
+  app.elements.get("v2-id").value="workstation";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const session=app.elements.get("v2-native-client").contentWindow;
+  let rejectDownload;
+  const calls=[];
+  session.__rustdeskClipboardAccess={
+    enable(){calls.push("enabled");},
+    suspendText(){calls.push("suspendText");},
+    disable(){calls.push("disabled");},
+    cancelRemoteFiles(){
+      calls.push("cancel");
+      rejectDownload(new Error("Cancelled"));
+      return true;
+    },
+    async downloadRemoteFiles(){
+      calls.push("download");
+      return new Promise((resolve,reject)=>{rejectDownload=reject;});
+    }
+  };
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  const pending=app.elements.get("v2-download-clipboard").listeners.click();
+  const panel=app.elements.get("v2-clipboard-progress-panel");
+  assert.equal(panel.hidden,false);
+  app.window.__rustdeskClipboardFileStatus("start",{count:2,total:1024},session);
+  app.window.__rustdeskClipboardFileStatus("progress",{
+    name:"quarter.txt",overallReceived:256,overallTotal:1024,index:1,count:2
+  },session);
+  assert.equal(app.elements.get("v2-clipboard-progress-bar").value,25);
+  assert.match(app.elements.get("v2-clipboard-progress-stats").textContent,/256 B \/ 1.0 KB/);
+  app.elements.get("v2-clipboard-progress-minimize").listeners.click();
+  assert.equal(panel.dataset.collapsed,"true");
+  app.elements.get("v2-mode-file").listeners.click();
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/workstation");
+  assert.equal(app.elements.get("v2-session-panels").children[0].src,"/webclient/#/file-transfer/workstation");
+  assert.ok(calls.includes("suspendText"));
+  app.window.__rustdeskClipboardFileStatus("progress",{
+    name:"quarter.txt",overallReceived:768,overallTotal:1024,index:2,count:2
+  },session);
+  assert.equal(app.elements.get("v2-clipboard-progress-bar").value,75);
+  app.elements.get("v2-clipboard-progress-cancel").listeners.click();
+  await pending;
+  assert.ok(calls.includes("cancel"));
+  assert.match(app.elements.get("v2-clipboard-progress-title").textContent,/取消/);
+  assert.equal(app.elements.get("v2-download-clipboard").disabled,false);
+});
+
+test("clipboard progress reports completed file download without a blocking modal",async()=>{
+  const app=fixture({token:"session-token",clipboard:{async readText(){return "";}}});
+  await app.settle();
+  app.elements.get("v2-id").value="desk-02";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const frame=app.elements.get("v2-native-client").contentWindow;
+  frame.__rustdeskClipboardAccess={
+    enable(){},disable(){},
+    async downloadRemoteFiles(){
+      app.window.__rustdeskClipboardFileStatus("start",{count:1,total:10},frame);
+      app.window.__rustdeskClipboardFileStatus("progress",{name:"notes.txt",
+        overallReceived:10,overallTotal:10,index:1,count:1},frame);
+      return {name:"notes.txt",count:1};
+    }
+  };
+  await app.elements.get("v2-download-clipboard").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-progress-panel").hidden,false);
+  assert.equal(app.elements.get("v2-clipboard-progress-bar").value,100);
+  assert.equal(app.elements.get("v2-clipboard-progress-cancel").hidden,true);
+  assert.equal(app.elements.get("v2-download-clipboard").disabled,false);
+  assert.match(app.elements.get("v2-clipboard-progress-title").textContent,/完成/);
 });
