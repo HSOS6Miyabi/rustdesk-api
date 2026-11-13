@@ -400,6 +400,7 @@
     }));
   }
   function colValue(v,k,row){
+    if(k==="display_name"&&state.page==="oauth")return esc(String(v||row?.op||"—"));
     if(k==="to_id"&&Number(row?.type)===3)return "所有用户";
     if(k==="source_id"&&row?.source_type==="all")return "所有已登录用户";
     if(k==="target_id"&&row?.target_type==="all")return "所有设备";
@@ -2270,7 +2271,10 @@
         return true;
       }).map(f=>state.page==="oauth"&&m.action==="edit"&&f[0]==="client_secret"?[f[0],"Client Secret（留空表示保持当前密钥）",f[2],false]:f);
       const providerHint=state.page==="oauth"?'<p class="subtitle">登录按钮名称可以修改。认证标识用于现有登录地址及账户绑定，GitHub 等预设类型保持固定。</p>':"";
-      const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'">'+providerHint+'<div class="form-grid">'+fields.map(f=>fieldInput(f,m.data)).join("")+'</div></form>';
+      const body='<form id="edit-form"><input type="hidden" name="id" value="'+esc(m.data.id||"")+'"><input type="hidden" name="row_id" value="'+esc(m.data.row_id||"")+'">'+providerHint+'<div class="form-grid">'+fields.map(f=>
+        state.page==="oauth"&&m.action==="edit"&&f[0]==="op"?
+          '<div class="field"><label>认证标识</label><input name="op" type="text" value="'+esc(m.data.op||"")+'" readonly><small>认证标识用于登录及账户绑定，修改上面的登录按钮名称即可。</small></div>':
+          fieldInput(f,m.data)).join("")+'</div></form>';
       const saveButton=state.page==="apiTokens"?
         '<button class="btn btn-primary" type="button" data-action="submit-api-token">创建令牌</button>':
         state.page==="invitations"?
