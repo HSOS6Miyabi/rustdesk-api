@@ -125,6 +125,9 @@ export class BrowserFileClipboard {
     this.active=false;
     this.localFiles=[];
     this.descriptors=null;
+    this.remoteDescriptorFormat=null;
+    this.remoteListId=0;
+    this.generation++;
     this.cancelPending(new Error("Clipboard sharing was disabled"));
   }
   cancelPending(error){
@@ -197,7 +200,8 @@ export class BrowserFileClipboard {
     const id=Number(request.stream_id||0),index=Number(request.list_index||0);
     const file=this.localFiles[index],offset=Number(request.n_position_low>>>0)+
       Number(request.n_position_high>>>0)*0x100000000;
-    let data=new Uint8Array(),success=Boolean(file);
+    let data=new Uint8Array(),success=Boolean(file)&&(
+      !request.have_clip_data_id||request.clip_data_id===fileListId(this.descriptors||new Uint8Array()));
     try{
       if(!file)throw new Error("Unknown clipboard file index");
       if(request.dw_flags===1){
@@ -255,6 +259,7 @@ export class BrowserFileClipboard {
         if(file.directory)continue;
         const chunks=[];
         for(let start=0;start<file.size;start+=MAX_PART_BYTES){
+          if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
           const wanted=Math.min(file.size-start,MAX_PART_BYTES);
           chunks.push(await this.requestContents(file.index,start,wanted));
           this.notify("progress",{name:file.name,received:start+wanted,total:file.size});
