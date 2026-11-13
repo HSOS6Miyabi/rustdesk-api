@@ -123,3 +123,6 @@ body.webclient-page-fullscreen{overflow:hidden}
 /* Clipboard actions remain accessible in the top bar; display options stay with session settings. */
 .top-remote-actions #v2-clipboard-select-files,.top-remote-actions #v2-clipboard-paste-text{min-width:0}
 @media(max-width:760px){.top-remote-actions{grid-template-columns:1fr 1.35fr 1fr}.top-remote-actions .top-action{min-height:40px}}
+
+.webclient-performance-status{margin:7px 0 4px;color:#5b7189;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.webclient-performance-status[data-slow="true"]{color:#806029}

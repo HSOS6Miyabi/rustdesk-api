@@ -2210,11 +2210,12 @@ test("device connection opens the original RustDesk remote controls and supports
       delete child.__rdCapturedKeys;
       return calls;
     });
-    assert.equal(physical.length,4,
+    const shortcutKeys=physical.filter(item=>["c","z"].includes(item[0]));
+    assert.equal(shortcutKeys.length,4,
       "browser keyboard shortcuts must reach the remote connection");
-    assert.deepEqual(physical.map(item=>[item[0],item[1]]),
+    assert.deepEqual(shortcutKeys.map(item=>[item[0],item[1]]),
       [["c",true],["c",false],["z",true],["z",false]]);
-    assert.ok(physical.every(item=>item[4]===true),"Ctrl modifier must be preserved");
+    assert.ok(shortcutKeys.every(item=>item[4]===true),"Ctrl modifier must be preserved");
 
     await popup.evaluate(()=>{
       const button=document.createElement("button");

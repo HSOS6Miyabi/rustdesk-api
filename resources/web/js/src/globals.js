@@ -123,6 +123,13 @@ export function getConn() {
     return window.curConn;
 }
 
+export function reportRemotePerformance(stats){
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskRemotePerformance==="function")
+            window.parent.__rustdeskRemotePerformance(stats,window);
+    }catch{}
+}
+
 const clipboardSync=new BrowserClipboardSync({
     send:text=>getConn()?.sendClipboardText(text)===true,
     receive:text=>{

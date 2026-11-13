@@ -35,7 +35,7 @@ function createElement(id = "") {
 
 function fixture(options = {}) {
   const ids = [
-    "v2-host", "v2-key", "v2-id", "v2-message",
+    "v2-host", "v2-key", "v2-id", "v2-message","v2-performance-status",
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
@@ -736,4 +736,22 @@ test("fullscreen buttons stay in session settings and clipboard transfer actions
     assert.match(aside,new RegExp('id="'+id+'"'));
     assert.doesNotMatch(top,new RegExp('id="'+id+'"'));
   }
+});
+
+test("performance reports display active remote render cost only",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="render-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const source=app.elements.get("v2-native-client").contentWindow;
+  const status=app.elements.get("v2-performance-status");
+  app.window.__rustdeskRemotePerformance({
+    transport:"WebSocket",fps:18.5,decode_ms:12.5,render_ms:23.1,buffered_bytes:2048
+  },source);
+  assert.match(status.textContent,/18\.5 帧\/秒/);
+  assert.match(status.textContent,/23\.1 毫秒/);
+  assert.equal(status.dataset.slow,"true");
+  const text=status.textContent;
+  app.window.__rustdeskRemotePerformance({fps:1},{}); 
+  assert.equal(status.textContent,text);
 });
