@@ -351,3 +351,22 @@ test("Remembered password deletion is scoped to one server and device without cl
   assert.equal(app.elements.get("v2-session-tabs").children.length,1);
   assert.match(app.elements.get("v2-message").textContent,/已清除/);
 });
+
+test("closing the final remote tab restores a new-session tab and permits reconnecting",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  const tabs=app.elements.get("v2-session-tabs");
+  assert.equal(tabs.children.length,1);
+  assert.match(tabs.children[0].textContent,/新建连接/);
+  app.elements.get("v2-id").value="desk-19";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  assert.equal(tabs.children.length,1);
+  tabs.children[0].children[1].listeners.click();
+  assert.equal(tabs.children.length,1);
+  assert.match(tabs.children[0].textContent,/新建连接/);
+  assert.equal(app.elements.get("v2-empty-session").hidden,false);
+  tabs.children[0].listeners.click();
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/desk-19");
+  assert.equal(tabs.children[0].attributes["aria-selected"],undefined);
+  assert.equal(tabs.children[0].children[0].attributes["aria-selected"],"true");
+});
