@@ -1,6 +1,16 @@
 # 个人账户与 Passkey 登录
 
-登录 `/_admin/`，在“账户 → 个人设置”中，可以查看账户名称、昵称和邮箱，并管理密码、双重认证、邮箱登录验证以及 Passkey。桌面端按窗口宽度排列多列卡片，手机端自动使用单列。
+登录 `/_admin/`，打开“账户 → 个人设置”，可以查看账户名称、昵称和邮箱，并管理本地密码、双重认证、邮箱登录验证及 Passkey。SSO、LDAP 和普通账户都可以使用这些功能。桌面端会根据窗口宽度排列卡片，手机端自动显示单列布局。
+
+## 设置本地备用密码
+
+通过 SSO 或 LDAP 登录的用户，首次进入“个人设置”时，如果账户尚未设置本地密码，页面会显示“设置备用登录密码”。输入 8 至 72 个字符的新密码并保存即可，无需填写 LDAP 密码或 SSO 身份提供商的密码。密码经过 bcrypt 加密后保存在本地数据库中。
+
+已经有本地密码的账户会显示“修改登录密码”，需要填写当前密码和新密码。设置或修改本地密码后，所有旧的登录会话都会失效，需要重新登录。SSO、LDAP 账户关联和原有 Passkey 不受影响。
+
+SSO 或 LDAP 暂时无法访问时，可以在控制台的用户名和密码登录表单中输入**本地账户用户名与已设置的本地密码**。RustDesk 客户端的账户密码登录也使用这套认证方式。启用 LDAP 的服务器会优先验证已设置的本地密码；本地密码没有匹配时，才会尝试 LDAP。管理员关闭全局密码登录后，需要重新启用密码登录，才能使用这一备用方式。
+
+建议在身份提供商正常运行时提前设置本地密码和 Passkey。Passkey 适用于管理控制台网页登录；首次登记 Passkey 需要使用 HTTPS（或 localhost），后续可以直接在登录页面选择 Passkey，无需访问 SSO 或 LDAP 服务。
 
 ## Passkey 注册与登录
 
@@ -36,6 +46,8 @@ Passkey 需要通过 HTTPS 使用。本机开发时允许通过 `localhost` 或 
 | POST | `/api/admin/passkey/login/finish` | 验证 Passkey 并登录 |
 | POST | `/api/admin/user/update` | 管理员修改用户资料 |
 | POST | `/api/admin/user/changePwd` | 管理员重设用户密码 |
+| GET | `/api/admin/user/current` | 返回当前用户资料和 `has_local_password` 字段 |
+| POST | `/api/admin/user/changeCurPwd` | 为本人首次设置本地密码或修改已有密码 |
 | POST | `/api/admin/user/mfa/reset` | 管理员清除用户双重认证 |
 
 Passkey 的 `begin` 接口返回 `options` 和 `session_id`。浏览器通过 `navigator.credentials.create()` 或 `navigator.credentials.get()` 与认证器交互，再将 `credential` 和 `session_id` 提交到对应的 `finish` 接口。注册完成接口还接受 `name`。
@@ -45,3 +57,5 @@ Passkey 的 `begin` 接口返回 `options` 和 `session_id`。浏览器通过 `n
 数据库迁移版本更新为 291，并新增 Passkey 凭证、账户句柄与短期认证请求的存储表。原有账户、密码和会话功能继续使用。升级前请备份数据库及配置。
 
 自动化测试包含认证请求有效期限、重复使用检查、账户隔离、Passkey 注册与签名登录、凭证撤销，以及管理员重设密码和清除双重认证后的旧会话失效检查。页面布局将通过管理员及普通用户在不同屏幕尺寸下的逐页截图检查。
+
+首次设置本地密码时，`changeCurPwd` 请求只需提供 `new_password`。已有本地密码时，还须提供 `old_password`。通过 `has_local_password` 判断应显示哪种表单。
