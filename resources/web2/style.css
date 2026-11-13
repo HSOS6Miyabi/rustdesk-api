@@ -119,3 +119,7 @@ body.webclient-page-fullscreen{overflow:hidden}
 
 .clipboard-actions #v2-clipboard-text-input{flex:1 1 100%;min-width:0;min-height:78px;resize:vertical;background:#f6f9fd;border:1px solid #cad9eb;border-radius:8px;padding:10px;color:#183e5c;font-size:13px;line-height:1.6;font-family:inherit}
 .clipboard-actions #v2-clipboard-paste-text:disabled{opacity:.58;cursor:not-allowed}
+
+/* Clipboard actions remain accessible in the top bar; display options stay with session settings. */
+.top-remote-actions #v2-clipboard-select-files,.top-remote-actions #v2-clipboard-paste-text{min-width:0}
+@media(max-width:760px){.top-remote-actions{grid-template-columns:1fr 1.35fr 1fr}.top-remote-actions .top-action{min-height:40px}}

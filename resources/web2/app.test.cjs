@@ -723,3 +723,17 @@ test("manual paste works when browser denies clipboard-read permission",async()=
   assert.deepEqual(messages,["fallback paste"]);
   assert.equal(input.hidden,true);
 });
+
+test("fullscreen buttons stay in session settings and clipboard transfer actions stay in header",()=>{
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  const top=html.split('<div class="top-remote-actions"')[1].split("</div>")[0];
+  const aside=html.split('<div class="clipboard-actions">')[1].split("</div>")[0];
+  for(const id of ["v2-clipboard-select-files","v2-clipboard-paste-text"]){
+    assert.match(top,new RegExp('id="'+id+'"'));
+    assert.doesNotMatch(aside,new RegExp('id="'+id+'"'));
+  }
+  for(const id of ["v2-page-fullscreen","v2-screen-fullscreen"]){
+    assert.match(aside,new RegExp('id="'+id+'"'));
+    assert.doesNotMatch(top,new RegExp('id="'+id+'"'));
+  }
+});
