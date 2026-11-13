@@ -103,6 +103,7 @@ export class BrowserFileClipboard {
     this.nextStream=1;
     this.generation=0;
     this.downloading=false;
+    this.remoteListId=0;
   }
   emit(cliprdr){
     if(this.closed||!this.active)return false;
@@ -111,7 +112,12 @@ export class BrowserFileClipboard {
   }
   enable(){
     if(this.closed)return;
+    if(this.active)return;
     this.active=true;
+    this.onConnected();
+  }
+  onConnected(){
+    if(!this.active||this.closed)return;
     this.emit({ready:{}});
     if(this.localFiles.length)this.announce();
   }
@@ -219,7 +225,7 @@ export class BrowserFileClipboard {
     });
     const request={stream_id:stream,list_index:index,dw_flags:2,
       n_position_low:offset>>>0,n_position_high:Math.floor(offset/0x100000000),
-      cb_requested:length,have_clip_data_id:false,clip_data_id:0};
+      cb_requested:length,have_clip_data_id:true,clip_data_id:this.remoteListId};
     this.emit({file_contents_request:request});
     try{
       const result=await reply;
@@ -240,7 +246,9 @@ export class BrowserFileClipboard {
       this.emit({format_data_request:{requested_format_id:this.remoteDescriptorFormat}});
       const reply=await wait;
       if(reply.msg_flags!==1)throw new Error("无法读取远程剪贴板文件列表");
-      const files=parseClipboardDescriptors(new Uint8Array(reply.format_data||[]));
+      const descriptors=new Uint8Array(reply.format_data||[]);
+      const files=parseClipboardDescriptors(descriptors);
+      this.remoteListId=fileListId(descriptors);
       const entries=[];
       for(const file of files){
         if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
