@@ -24,7 +24,7 @@ func TestWebAdminOAuthCompletionURL(t *testing.T) {
     if uri.Path != "/_admin/" || uri.RawQuery != "" {
       t.Fatalf("authorization code must stay in the URL fragment: %s", uri)
     }
-    fragment, rawQuery, ok := strings.Cut(uri.Fragment, "?")
+    fragment, rawQuery, ok := strings.Cut(uri.EscapedFragment(), "?")
     if !ok || fragment != "/oidc/complete" {
       t.Fatalf("invalid SSO completion route: %s", uri)
     }
