@@ -11,6 +11,10 @@ function remoteKey(event){
   return key.length===1?key.toLowerCase():key;
 }
 function editable(target){
+  // Flutter receives physical keyboard events through a hidden editable node.
+  // Treat that node as the remote desktop, not as a normal local text field.
+  if(target?.closest?.("flt-text-editing-host,flt-glass-pane,flt-semantics-host,flutter-view"))
+    return false;
   if(target?.isContentEditable)return true;
   return Boolean(target?.closest?.("input,textarea,select,[contenteditable]"));
 }

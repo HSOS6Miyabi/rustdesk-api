@@ -190,3 +190,15 @@ test("Flutter fullscreen bridge passes native toolbar requests to the parent wor
   assert.equal(calls[1][0],false);
   assert.equal(calls[0][1],window);
 });
+
+
+test("native WebClient login explicitly enables the RustDesk file clipboard",()=>{
+  const fs=require("node:fs");
+  const path=require("node:path");
+  const connection=fs.readFileSync(path.join(__dirname,"../src/connection.ts"),"utf8");
+  assert.match(connection,/msg\.enable_file_transfer=this\._browserClipboardEnabled/);
+  assert.match(connection,/msg\.disable_clipboard=this\._browserClipboardEnabled/);
+  assert.match(connection,/setBrowserClipboardEnabled\(enabled: boolean\)/);
+  const protocol=fs.readFileSync(path.join(__dirname,"../src/message.ts"),"utf8");
+  assert.match(protocol,/enable_file_transfer: OptionMessage_BoolOption/);
+});
