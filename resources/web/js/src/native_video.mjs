@@ -169,7 +169,12 @@ export class NativeVideoDecoder {
     batch.acked=true;
     clearTimeout(batch.timer);
     this.batches.delete(batch);
-    this.acknowledge();
+    try{
+      this.acknowledge();
+    }catch(error){
+      // A disconnected socket must not interrupt VideoFrame resource cleanup.
+      console.warn("Video acknowledgement could not be sent",error);
+    }
   }
 
   releasePending(){
