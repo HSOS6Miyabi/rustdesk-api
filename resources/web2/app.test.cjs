@@ -25,6 +25,7 @@ function createElement(id = "") {
     setAttribute(name,value){this.attributes[name]=String(value);},
     addEventListener(type, fn) { listeners[type] = fn; },
     append(...items) { this.children.push(...items); },
+    click(){this.clicked=true;this.listeners.click?.();},
     remove() { this.removed = true; },
     replaceChildren(...items) { this.children = items; },
     focus() {}, scrollIntoView() {},
@@ -43,11 +44,18 @@ function fixture(options = {}) {
     "v2-clipboard-progress-panel","v2-clipboard-progress-title","v2-clipboard-progress-file",
     "v2-clipboard-progress-bar","v2-clipboard-progress-stats",
     "v2-clipboard-progress-cancel","v2-clipboard-progress-minimize",
+    "v2-clipboard-progress-close","v2-clipboard-select-files","v2-clipboard-input",
     "v2-session-tabs", "v2-session-panels", "v2-empty-session",
     "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
   const elements = new Map(ids.map(id => [id, createElement(id)]));
   const stage=createElement("stage");
+  const stageClasses=new Set();
+  stage.classList={
+    add(name){stageClasses.add(name);},
+    contains(name){return stageClasses.has(name);},
+    toggle(name,enabled){if(enabled===true)stageClasses.add(name);else stageClasses.delete(name);}
+  };
   const docEvents={};
   const frameEvents={};
   const bridgeCommands=[];
@@ -79,6 +87,7 @@ function fixture(options = {}) {
   const window = {
     addEventListener(){},
     setTimeout:callback=>setTimeout(callback,0),
+    clearTimeout,
     scrollTo(){},
     navigator:{clipboard:options.clipboard||null},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
@@ -424,9 +433,12 @@ test("RustDesk native fullscreen button switches the parent stage fullscreen",as
   await app.window.__rustdeskSetFullscreen(true,child);
   assert.equal(app.document.fullscreenElement,app.stage);
   assert.equal(app.window.__rustdeskIsFullscreen(),true);
+  assert.equal(app.stage.classList.contains("webclient-native-fullscreen"),true);
+  assert.equal(app.elements.get("v2-fullscreen-exit").hidden,true);
   await app.window.__rustdeskSetFullscreen(false,child);
   assert.equal(app.document.fullscreenElement,null);
   assert.equal(app.window.__rustdeskIsFullscreen(),false);
+  assert.equal(app.stage.classList.contains("webclient-native-fullscreen"),false);
 });
 
 test("clipboard controls request browser permissions, transfer text and download remote files",async()=>{
@@ -444,6 +456,11 @@ test("clipboard controls request browser permissions, transfer text and download
     offerFiles(files){calls.push(["files",files]);},
     async downloadRemoteFiles(){return {name:"remote.zip",count:2};}
   };
+  app.window.__rustdeskClipboardReady(child);
+  assert.ok(calls.some(call=>call[0]==="enable"));
+  assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"true");
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"false");
   await app.elements.get("v2-clipboard-toggle").listeners.click();
   assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"true");
   assert.ok(calls.some(call=>call[0]==="enable"&&call[1]==="selected text"));
@@ -493,7 +510,7 @@ test("clipboard download progress is visible, collapsible, cancellable, and does
       return new Promise((resolve,reject)=>{rejectDownload=reject;});
     }
   };
-  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  app.window.__rustdeskClipboardReady(session);
   const pending=app.elements.get("v2-download-clipboard").listeners.click();
   const panel=app.elements.get("v2-clipboard-progress-panel");
   assert.equal(panel.hidden,false);
@@ -541,4 +558,81 @@ test("clipboard progress reports completed file download without a blocking moda
   assert.equal(app.elements.get("v2-clipboard-progress-cancel").hidden,true);
   assert.equal(app.elements.get("v2-download-clipboard").disabled,false);
   assert.match(app.elements.get("v2-clipboard-progress-title").textContent,/完成/);
+});
+
+
+test("clipboard files can be selected and pasted through the parent file picker",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="file-target";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  const offered=[];
+  child.__rustdeskClipboardAccess={
+    enable(){},disable(){},
+    offerFiles(files,paste){offered.push({files,paste});return true;}
+  };
+  app.window.__rustdeskClipboardReady(child);
+  const button=app.elements.get("v2-clipboard-select-files");
+  button.listeners.click();
+  const input=app.elements.get("v2-clipboard-input");
+  assert.equal(input.clicked,true);
+  input.files=[{name:"notes.txt",size:8,slice(){}}];
+  input.listeners.change();
+  assert.equal(offered.length,1);
+  assert.equal(offered[0].paste,true);
+  assert.equal(offered[0].files[0].name,"notes.txt");
+  assert.match(app.elements.get("v2-clipboard-status").textContent,/1 个文件/);
+});
+
+test("clipboard notifications can be dismissed during a download without cancelling it",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="downloading-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  let resolveDownload;
+  child.__rustdeskClipboardAccess={
+    enable(){},disable(){},
+    async downloadRemoteFiles(){return new Promise(resolve=>{resolveDownload=resolve;});}
+  };
+  const pending=app.elements.get("v2-download-clipboard").listeners.click();
+  await app.settle();
+  const panel=app.elements.get("v2-clipboard-progress-panel");
+  assert.equal(panel.hidden,false);
+  app.elements.get("v2-clipboard-progress-close").listeners.click();
+  assert.equal(panel.hidden,true);
+  assert.equal(app.elements.get("v2-download-clipboard").disabled,true);
+  app.window.__rustdeskClipboardFileStatus("progress",{name:"upload.txt",
+    overallReceived:3,overallTotal:10,index:1,count:1},child);
+  assert.equal(panel.hidden,true);
+  resolveDownload({name:"archive.zip",count:1});
+  await pending;
+  assert.equal(panel.hidden,true);
+  assert.equal(app.elements.get("v2-download-clipboard").disabled,false);
+});
+
+test("completed clipboard notifications disappear automatically",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="complete-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  child.__rustdeskClipboardAccess={
+    enable(){},disable(){},
+    async downloadRemoteFiles(){return {name:"notes.txt",count:1};}
+  };
+  await app.elements.get("v2-download-clipboard").listeners.click();
+  const panel=app.elements.get("v2-clipboard-progress-panel");
+  assert.equal(panel.hidden,false);
+  await app.settle();
+  assert.equal(panel.hidden,true);
+});
+
+test("native fullscreen CSS hides the session controls and preserves ordinary fullscreen tabs",()=>{
+  const css=fs.readFileSync(path.join(__dirname,"style.css"),"utf8");
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  assert.match(css,/webclient-native-fullscreen:fullscreen \.workspace-switcher/);
+  assert.match(css,/webclient-native-fullscreen:fullscreen \.session-panels/);
+  assert.match(html,/id="v2-clipboard-progress-close"/);
 });
