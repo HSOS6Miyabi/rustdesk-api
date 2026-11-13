@@ -1105,3 +1105,13 @@ test("login sessions link registered RustDesk devices and leave browser clients 
   assert.doesNotMatch(app.root.innerHTML,/data-entity-type="device" data-entity-id="webadmin"/);
   assert.match(app.root.innerHTML,/class="device-reference-name">浏览器客户端<\/span><span class="device-reference-id">webadmin<\/span>/);
 });
+
+test("recent device overview rows keep names and IDs in separate elements",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{id:"office",alias:"Office",hostname:"Office"}],total:1};
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/class="status-row recent-device-row"/);
+  assert.match(app.root.innerHTML,/class="recent-device-identity"/);
+  assert.match(app.root.innerHTML,/class="entity-link-name">[^<]+<\/span><span class="entity-link-id">office<\/span>/);
+  assert.match(app.root.innerHTML,/class="pill muted recent-device-time"/);
+});
