@@ -5,6 +5,7 @@ import {checkIfRetry, version} from "./gen_js_from_hbb";
 import {initZstd, decompress, translate} from "./common";
 import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
 import {BrowserClipboardSync} from "./browser_clipboard.mjs";
+import {BrowserFileClipboard} from "./browser_clipboard_files.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -141,16 +142,47 @@ const clipboardSync=new BrowserClipboardSync({
 export function receiveRemoteClipboard(text){
     clipboardSync.fromRemote(text);
 }
+let currentFileClipboard;
 window.__rustdeskClipboardAccess={
-    enable(initialText){return clipboardSync.setEnabled(true,initialText);},
-    disable(){clipboardSync.setEnabled(false);},
-    sendLocal(text){return clipboardSync.sendLocal(text);}
+    enable(initialText){
+        const result=clipboardSync.setEnabled(true,initialText);
+        currentFileClipboard?.enable();
+        return result;
+    },
+    disable(){
+        clipboardSync.setEnabled(false);
+        currentFileClipboard?.disable();
+    },
+    sendLocal(text){return clipboardSync.sendLocal(text);},
+    async downloadRemoteFiles(){
+        if(!currentFileClipboard)throw Error("尚未建立远程桌面连接");
+        return currentFileClipboard.download();
+    },
+    offerFiles(files){return currentFileClipboard?.offerFiles(files)??false;}
 };
 window.addEventListener("paste",event=>{
     if(!clipboardSync.enabled)return;
     const target=event.target;
     if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
-    const text=event.clipboardData?.getData("text/plain");
+    const data=event.clipboardData;
+    const files=Array.from(data?.files||[]);
+    if(!files.length){
+        for(const item of Array.from(data?.items||[])){
+            if(item.kind==="file"&&item.getAsFile){
+                const file=item.getAsFile();
+                if(file)files.push(file);
+            }
+        }
+    }
+    if(files.length&&currentFileClipboard){
+        try{
+            currentFileClipboard.offerFiles(files);
+        }catch(error){
+            msgbox("error","File Clipboard",String(error?.message||error));
+        }
+        return;
+    }
+    const text=data?.getData("text/plain");
     if(text)clipboardSync.sendLocal(text);
 },true);
 document.addEventListener("fullscreenchange",()=>{
@@ -169,6 +201,25 @@ export function close() {
 }
 
 let currentBrowserTransfer;
+
+function reportFileClipboardStatus(kind,detail){
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskClipboardFileStatus==="function"){
+            window.parent.__rustdeskClipboardFileStatus(kind,detail,window);
+        }
+    }catch{}
+}
+
+function notifySessionClosed(){
+    const id=window.__rustdeskNativeSessionSeen;
+    if(!id)return;
+    window.__rustdeskNativeSessionSeen=undefined;
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskOnSessionClosed==="function"){
+            window.parent.__rustdeskOnSessionClosed(window,id);
+        }
+    }catch{}
+}
 
 function fileTransferError(request, error) {
     const id=Number(request?.id||0);
@@ -199,6 +250,11 @@ export function newConn() {
         message:text=>console.info("RustDesk File Transfer:",text)
     });
     conn.setFileBridge(currentBrowserTransfer);
+    currentFileClipboard=new BrowserFileClipboard({
+        send:payload=>conn.sendCliprdr(payload.cliprdr),
+        notify:reportFileClipboardStatus
+    });
+    conn.setFileClipboard(currentFileClipboard);
     return conn;
 }
 
@@ -383,6 +439,7 @@ window.setByName = (name, value) => {
         }
         case 'session_close':
             close();
+            notifySessionClosed();
             return '';
         case 'forget_password':
             getConn()?.setRemember(false);
@@ -534,6 +591,7 @@ window.setByName = (name, value) => {
         }
         case 'close':
             close();
+            notifySessionClosed();
             break;
         case 'refresh':
             curConn.refresh();
