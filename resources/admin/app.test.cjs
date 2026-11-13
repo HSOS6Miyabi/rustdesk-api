@@ -1115,3 +1115,22 @@ test("recent device overview rows keep names and IDs in separate elements",async
   assert.match(app.root.innerHTML,/class="entity-link-name">[^<]+<\/span><span class="entity-link-id">office<\/span>/);
   assert.match(app.root.innerHTML,/class="pill muted recent-device-time"/);
 });
+
+
+test("new client build profiles inherit the currently configured RustDesk server",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/config/server"]={
+    id_server:"internal.example.test:21116",
+    key:"base64-server-key",
+    api_server:"https://management.example.test",
+    relay_server:"relay.example.test:21117"
+  };
+  await app.settle();await app.settle();
+  await app.open("clientBuilder");
+  assert.match(app.root.innerHTML,/name="host" value="internal.example.test:21116"/);
+  assert.match(app.root.innerHTML,/name="public_key" value="base64-server-key"/);
+  assert.match(app.root.innerHTML,/name="api_server" value="https:\/\/management.example.test"/);
+  assert.match(app.root.innerHTML,/name="relay_server" value="relay.example.test:21117"/);
+  assert.match(app.root.innerHTML,/新建配置时自动填写本 API 服务器/);
+  assert.ok(app.calls.some(call=>call.endpoint==="/config/server"));
+});
