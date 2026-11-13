@@ -104,6 +104,7 @@ export class BrowserFileClipboard {
     this.generation=0;
     this.downloading=false;
     this.remoteListId=0;
+    this.pendingPaste=null;
   }
   emit(cliprdr){
     if(this.closed||!this.active)return false;
@@ -128,6 +129,10 @@ export class BrowserFileClipboard {
     this.remoteDescriptorFormat=null;
     this.remoteListId=0;
     this.generation++;
+    if(this.pendingPaste){
+      clearTimeout(this.pendingPaste.timer);
+      this.pendingPaste=null;
+    }
     this.cancelPending(new Error("Clipboard sharing was disabled"));
   }
   cancelPending(error){
@@ -144,7 +149,7 @@ export class BrowserFileClipboard {
       {id:FORMAT_CONTENT_ID,format:"FileContents"}
     ]}});
   }
-  offerFiles(files){
+  offerFiles(files,onAccepted){
     if(!this.active||this.closed)return false;
     const entries=Array.from(files||[]).filter(file=>file && typeof file.slice==="function");
     if(!entries.length)return false;
@@ -156,6 +161,16 @@ export class BrowserFileClipboard {
     }
     this.localFiles=entries;
     this.descriptors=makeDescriptors(entries);
+    if(this.pendingPaste)clearTimeout(this.pendingPaste.timer);
+    if(typeof onAccepted==="function"){
+      const pending={callback:onAccepted,timer:null};
+      pending.timer=setTimeout(()=>{
+        if(this.pendingPaste!==pending)return;
+        this.pendingPaste=null;
+        this.notify("unsupported-files",entries.length);
+      },4000);
+      this.pendingPaste=pending;
+    }else this.pendingPaste=null;
     this.announce();
     this.notify("local-files",entries.length);
     return true;
@@ -174,7 +189,16 @@ export class BrowserFileClipboard {
       this.notify("remote-list",this.remoteDescriptorFormat!==null);
       return true;
     }
-    if(message.format_list_response)return true;
+    if(message.format_list_response){
+      const pending=this.pendingPaste;
+      if(pending){
+        clearTimeout(pending.timer);
+        this.pendingPaste=null;
+        if(message.format_list_response.msg_flags===1)pending.callback();
+        else this.notify("unsupported-files",this.localFiles.length);
+      }
+      return true;
+    }
     if(message.format_data_request){
       const id=message.format_data_request.requested_format_id;
       const bytes=id===FORMAT_DESCRIPTOR_ID?this.descriptors:null;
@@ -278,6 +302,8 @@ export class BrowserFileClipboard {
   close(){
     this.closed=true;
     this.active=false;
+    if(this.pendingPaste)clearTimeout(this.pendingPaste.timer);
+    this.pendingPaste=null;
     this.cancelPending(new Error("Clipboard session closed"));
     this.localFiles=[];
   }
