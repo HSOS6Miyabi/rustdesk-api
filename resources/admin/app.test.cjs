@@ -1099,9 +1099,9 @@ test("login sessions link registered RustDesk devices and leave browser clients 
   await app.settle();await app.settle();await app.open("sessions");
   assert.match(app.root.innerHTML,/data-entity-type="device" data-entity-id="office"/);
   assert.match(app.root.innerHTML,/data-entity-type="device" data-entity-id="home-remote"/);
-  assert.match(app.root.innerHTML,/class="entity-link-name">Office<\\/span><span class="entity-link-id">office<\\/span>/);
+  assert.match(app.root.innerHTML,/class="entity-link-name">Office<\/span><span class="entity-link-id">office<\/span>/);
   assert.match(app.root.innerHTML,/device-status-dot online/);
   assert.match(app.root.innerHTML,/device-status-dot offline/);
   assert.doesNotMatch(app.root.innerHTML,/data-entity-type="device" data-entity-id="webadmin"/);
-  assert.match(app.root.innerHTML,/class="device-reference-name">浏览器客户端<\\/span><span class="device-reference-id">webadmin<\\/span>/);
+  assert.match(app.root.innerHTML,/class="device-reference-name">浏览器客户端<\/span><span class="device-reference-id">webadmin<\/span>/);
 });
