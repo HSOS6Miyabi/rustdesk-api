@@ -10,7 +10,11 @@ function remoteKey(event){
   const key=String(event.key||"");
   return key.length===1?key.toLowerCase():key;
 }
-function editable(target){
+export function isBrowserEditable(target){
+  // Flutter receives physical keyboard events through a hidden editable node.
+  // Treat that node as the remote desktop, not as a normal local text field.
+  if(target?.closest?.("flt-text-editing-host,flt-glass-pane,flt-semantics-host,flutter-view"))
+    return false;
   if(target?.isContentEditable)return true;
   return Boolean(target?.closest?.("input,textarea,select,[contenteditable]"));
 }
@@ -18,7 +22,7 @@ function editable(target){
 export function installRemoteShortcutCapture({target,isActive,send,paste}){
   const held=new Map();
   const keydown=event=>{
-    if(!isActive()||event.isComposing||editable(event.target)||
+    if(!isActive()||event.isComposing||isBrowserEditable(event.target)||
        event.getModifierState?.("AltGraph"))return;
     if(!event.ctrlKey&&!event.metaKey&&!event.altKey)return;
     if(modifierNames.has(event.key))return;

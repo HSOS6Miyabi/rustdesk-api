@@ -38,7 +38,9 @@ export default class Connection {
   _videoTestSpeed: number[];
   _fileBridge: any;
   _clipboardPermitted: boolean = true;
+  _fileClipboardPermitted: boolean = true;
   _fileClipboard: any;
+  _browserClipboardEnabled: boolean = true;
   _sessionMode: string;
   _terminalAdmin: boolean;
   _osUsername: string;
@@ -84,14 +86,16 @@ export default class Connection {
   }
 
   sendCliprdr(data: any): boolean {
-    if(!this._ws||!["desktop","camera"].includes(this._sessionMode)||this._clipboardPermitted===false)return false;
+    if(!this._ws||!["desktop","camera"].includes(this._sessionMode)||
+       !this._browserClipboardEnabled||this._clipboardPermitted===false||
+       this._fileClipboardPermitted===false)return false;
     this._ws.sendMessage({cliprdr:data} as any);
     return true;
   }
 
   sendClipboardText(text: string): boolean {
     if(!["desktop","camera"].includes(this._sessionMode)||
-       !this._ws||this._clipboardPermitted===false||
+       !this._ws||!this._browserClipboardEnabled||this._clipboardPermitted===false||
        this._options?.["disable-clipboard"]) return false;
     const content=new TextEncoder().encode(text);
     if(!content.length||content.length>1024*1024)return false;
@@ -99,6 +103,22 @@ export default class Connection {
       clipboard:message.Clipboard.fromPartial({compress:false,content})
     });
     return true;
+  }
+
+  setBrowserClipboardEnabled(enabled: boolean): void {
+    this._browserClipboardEnabled=enabled;
+    if(!["desktop","camera"].includes(this._sessionMode)||!this._ws||!this._peerInfo)return;
+    const yes=message.OptionMessage_BoolOption.Yes;
+    const no=message.OptionMessage_BoolOption.No;
+    const option=message.OptionMessage.fromPartial({
+      disable_clipboard: enabled?no:yes,
+      enable_file_transfer: enabled&&this._sessionMode==="desktop"?yes:no
+    });
+    this._ws.sendMessage({misc:message.Misc.fromPartial({option})});
+    if(enabled&&this._fileClipboardPermitted&&this._clipboardPermitted){
+      this._fileClipboard?.enable();
+      this._fileClipboard?.onConnected();
+    }
   }
 
   fileTransportBuffer() {
@@ -674,9 +694,18 @@ export default class Connection {
       msg.disable_audio = yes;
       n += 1;
     }
-    if (this._options["disable-clipboard"]) {
-      msg.disable_clipboard = yes;
-      n += 1;
+    // RustDesk 1.5.x leaves file clipboard disabled unless the login
+    // option explicitly requests it, independently of file-transfer sessions.
+    if(this._sessionMode==="desktop"){
+      msg.enable_file_transfer=this._browserClipboardEnabled&&!this._options["view-only"]
+        ?yes:message.OptionMessage_BoolOption.No;
+      n+=1;
+    }
+    if(["desktop","camera"].includes(this._sessionMode)){
+      msg.disable_clipboard=this._browserClipboardEnabled&&
+        !this._options["view-only"]&&!this._options["disable-clipboard"]
+        ?message.OptionMessage_BoolOption.No:yes;
+      n+=1;
     }
     return n > 0 ? msg : undefined;
   }
@@ -772,7 +801,17 @@ export default class Connection {
         case message.PermissionInfo_Permission.Clipboard:
           this._clipboardPermitted=Boolean(p.enabled);
           if(!p.enabled)this._fileClipboard?.disable();
+          else if(this._browserClipboardEnabled&&this._fileClipboardPermitted)
+            this._fileClipboard?.enable();
           name = "clipboard";
+          break;
+        case message.PermissionInfo_Permission.File:
+          this._fileClipboardPermitted=Boolean(p.enabled);
+          if(!p.enabled)this._fileClipboard?.disable();
+          else if(this._browserClipboardEnabled&&this._clipboardPermitted)
+            this._fileClipboard?.enable();
+          globals.reportRemoteFileClipboardPermission(Boolean(p.enabled));
+          name="file";
           break;
         case message.PermissionInfo_Permission.Audio:
           name = "audio";

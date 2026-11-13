@@ -42,6 +42,10 @@
       <button type="button" class="secondary" id="v2-clipboard-toggle" aria-pressed="true">关闭剪贴板共享</button>
       <button type="button" class="secondary" id="v2-clipboard-copy" hidden>复制远程文本</button>
       <button type="button" class="secondary" id="v2-clipboard-select-files">选择文件并粘贴到远程</button>
+      <button type="button" class="secondary" id="v2-clipboard-paste-text">粘贴本机文本</button>
+      <label class="sr-only" for="v2-clipboard-text-input">需要发送至远程设备的文本</label>
+      <textarea id="v2-clipboard-text-input" rows="3" maxlength="1048576" placeholder="粘贴或输入需要发送到远程设备的文本" hidden></textarea>
+      <button type="button" class="secondary" id="v2-clipboard-text-send" hidden>发送并粘贴</button>
       <input type="file" id="v2-clipboard-input" multiple hidden aria-label="选择需要粘贴到远程设备的文件">
       <p id="v2-clipboard-status" role="status" aria-live="polite">剪贴板共享已开启。远程桌面中可用 Ctrl+C / Ctrl+V 复制文本；选择文件可粘贴到远程资源管理器，远程文件可下载到本机。</p>
     </div>

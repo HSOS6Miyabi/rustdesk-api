@@ -41,6 +41,7 @@ function fixture(options = {}) {
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
     "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-clear-password",
     "v2-download-clipboard","v2-clipboard-toggle","v2-clipboard-copy","v2-clipboard-status",
+    "v2-clipboard-paste-text","v2-clipboard-text-input","v2-clipboard-text-send",
     "v2-clipboard-progress-panel","v2-clipboard-progress-title","v2-clipboard-progress-file",
     "v2-clipboard-progress-bar","v2-clipboard-progress-stats",
     "v2-clipboard-progress-cancel","v2-clipboard-progress-minimize",
@@ -100,7 +101,7 @@ function fixture(options = {}) {
       else clearTimeout(timer);
     },
     scrollTo(){},
-    navigator:{clipboard:options.clipboard||null},
+    navigator:{clipboard:options.clipboard||null,keyboard:options.keyboard||null},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
   };
   const document = {
@@ -130,7 +131,7 @@ function fixture(options = {}) {
     return {ok:true,status:200,async json(){return {code:0,data:apiResults[endpoint]};}};
   };
   vm.runInNewContext(source,{
-    window, document, fetch, sessionStorage, localStorage, URL, URLSearchParams,
+    window, document, fetch, sessionStorage, localStorage, URL, URLSearchParams, TextEncoder,
     MutationObserver: class {observe(){}disconnect(){}},
     console
   }, {filename:"resources/web2/app.js"});
@@ -441,7 +442,8 @@ test("remote toolbar closes the corresponding WebClient tab without leaving the 
 });
 
 test("RustDesk native fullscreen button switches the parent stage fullscreen",async()=>{
-  const app=fixture({token:"session-token"});
+  const keyboard={locks:0,unlocks:0,async lock(){this.locks++;},unlock(){this.unlocks++;}};
+  const app=fixture({token:"session-token",keyboard});
   await app.settle();
   app.elements.get("v2-id").value="remote-device";
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
@@ -451,10 +453,12 @@ test("RustDesk native fullscreen button switches the parent stage fullscreen",as
   assert.equal(app.document.fullscreenElement,app.stage);
   assert.equal(app.window.__rustdeskIsFullscreen(),true);
   assert.equal(app.stage.classList.contains("webclient-native-fullscreen"),true);
+  assert.equal(keyboard.locks,1);
   assert.equal(app.elements.get("v2-fullscreen-exit").hidden,true);
   app.docEvents.keydown({key:"Escape"});
   await app.settle();
   assert.equal(app.document.fullscreenElement,null);
+  assert.ok(keyboard.unlocks>=1);
   await app.window.__rustdeskSetFullscreen(true,child);
   app.elements.get("v2-native-client").listeners.load();
   app.frameEvents.keydown({key:"Escape"});
@@ -681,4 +685,41 @@ test("dropping files onto the desktop offers them to the remote clipboard",async
   assert.equal(received[0].paste,true);
   assert.equal(received[0].files[0].name,"local.txt");
   assert.match(app.elements.get("v2-message").textContent,/远程剪贴板/);
+});
+
+test("top-level clipboard read sends host text only to the active session",async()=>{
+  const clipboard={async readText(){return "host text";}};
+  const app=fixture({token:"session-token",clipboard});
+  await app.settle();
+  app.elements.get("v2-id").value="clipboard-desk";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  const reads=await app.window.__rustdeskReadHostClipboard(child);
+  assert.equal(reads.available,true);
+  assert.equal(reads.text,"host text");
+  const invalid=await app.window.__rustdeskReadHostClipboard({});
+  assert.equal(invalid.available,false);
+  const messages=[];
+  child.__rustdeskClipboardAccess={enable(){},disable(){},pasteText(text){messages.push(text);return true;}};
+  await app.elements.get("v2-clipboard-paste-text").listeners.click();
+  assert.deepEqual(messages,["host text"]);
+  assert.match(app.elements.get("v2-clipboard-status").textContent,/已将本机文本发送/);
+});
+
+test("manual paste works when browser denies clipboard-read permission",async()=>{
+  const clipboard={async readText(){throw Error("NotAllowedError");}};
+  const app=fixture({token:"session-token",clipboard});
+  await app.settle();
+  app.elements.get("v2-id").value="clipboard-desk";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  const messages=[];
+  child.__rustdeskClipboardAccess={enable(){},disable(){},pasteText(text){messages.push(text);return true;}};
+  await app.elements.get("v2-clipboard-paste-text").listeners.click();
+  const input=app.elements.get("v2-clipboard-text-input");
+  assert.equal(input.hidden,false);
+  input.value="fallback paste";
+  app.elements.get("v2-clipboard-text-send").listeners.click();
+  assert.deepEqual(messages,["fallback paste"]);
+  assert.equal(input.hidden,true);
 });

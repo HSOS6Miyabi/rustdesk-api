@@ -50,6 +50,22 @@ test("shortcuts in editable fields or outside the remote desktop remain local",a
   assert.deepEqual(c.sends,[]);
   const active=capture();await active.install();
   active.listeners.keydown(key("c","KeyC",{ctrlKey:true,
-    target:{closest:()=>({})}}));
+    target:{closest:selector=>selector.includes("input")?{}:null}}));
   assert.deepEqual(active.sends,[]);
+});
+
+
+test("shortcuts targeting Flutter's hidden text editor reach the remote connection",async()=>{
+  const c=capture();await c.install();
+  const hiddenFlutterInput={
+    closest(selector){
+      if(selector.includes("flt-text-editing-host"))return {tagName:"FLT-TEXT-EDITING-HOST"};
+      if(selector.includes("input"))return {tagName:"INPUT"};
+      return null;
+    },isContentEditable:false
+  };
+  const e=key("c","KeyC",{ctrlKey:true,target:hiddenFlutterInput});
+  c.listeners.keydown(e);c.listeners.keyup(e);
+  assert.deepEqual(c.sends,[["c",true,true,false],["c",false,true,false]]);
+  assert.equal(e.stopped,true);
 });

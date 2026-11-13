@@ -6,7 +6,7 @@ import {initZstd, decompress, translate} from "./common";
 import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
 import {BrowserClipboardSync} from "./browser_clipboard.mjs";
 import {BrowserFileClipboard} from "./browser_clipboard_files.mjs";
-import {installRemoteShortcutCapture} from "./remote_shortcuts.mjs";
+import {installRemoteShortcutCapture,isBrowserEditable} from "./remote_shortcuts.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -146,6 +146,7 @@ export function receiveRemoteClipboard(text){
 let currentFileClipboard;
 window.__rustdeskClipboardAccess={
     enable(initialText){
+        getConn()?.setBrowserClipboardEnabled?.(true);
         const result=clipboardSync.setEnabled(true,initialText);
         currentFileClipboard?.enable();
         return result;
@@ -153,9 +154,18 @@ window.__rustdeskClipboardAccess={
     disable(){
         clipboardSync.setEnabled(false);
         currentFileClipboard?.disable();
+        getConn()?.setBrowserClipboardEnabled?.(false);
     },
     suspendText(){clipboardSync.setEnabled(false);},
     sendLocal(text){return clipboardSync.sendLocal(text);},
+    pasteText(text){
+        if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop"||
+           !getConn()?._peerInfo)return false;
+        const sent=clipboardSync.sendLocal(text);
+        if(!sent&&text!==clipboardSync.lastLocal&&text!==clipboardSync.lastRemote)return false;
+        setTimeout(pasteIntoRemoteExplorer,90);
+        return true;
+    },
     async downloadRemoteFiles(){
         if(!currentFileClipboard)throw Error("尚未建立远程桌面连接");
         return currentFileClipboard.download();
@@ -196,7 +206,13 @@ function acceptClipboardFiles(files){
 function acceptClipboardText(text){
     if(!pendingRemotePaste)return;
     pendingRemotePaste=false;
-    if(text)clipboardSync.sendLocal(text);
+    if(text){
+        const sent=clipboardSync.sendLocal(text);
+        if(!sent&&text!==clipboardSync.lastLocal&&text!==clipboardSync.lastRemote){
+            try{window.parent?.__rustdeskClipboardSendFailure?.(window);}catch{}
+            return;
+        }
+    }
     // Wait for the clipboard message to reach the peer before Ctrl+V.
     setTimeout(pasteIntoRemoteExplorer,80);
 }
@@ -245,7 +261,19 @@ installRemoteShortcutCapture({
             return;
         }
         pendingRemotePaste=true;
-        requestBrowserClipboard();
+        try{
+            const readFromParent=window.parent!==window&&window.parent.__rustdeskReadHostClipboard;
+            if(typeof readFromParent==="function"){
+                Promise.resolve(readFromParent(window)).then(result=>{
+                    if(!pendingRemotePaste)return;
+                    if(result?.available&&result.text){
+                        acceptClipboardText(result.text);
+                        return;
+                    }
+                    requestBrowserClipboard();
+                }).catch(()=>requestBrowserClipboard());
+            }else requestBrowserClipboard();
+        }catch{requestBrowserClipboard();}
         setTimeout(()=>{
             if(!pendingRemotePaste)return;
             pendingRemotePaste=false;
@@ -256,7 +284,7 @@ installRemoteShortcutCapture({
 window.addEventListener("paste",event=>{
     if(!clipboardSync.enabled)return;
     const target=event.target;
-    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+    if(isBrowserEditable(target))return;
     const data=event.clipboardData;
     const files=Array.from(data?.files||[]);
     if(!files.length){
@@ -303,6 +331,12 @@ export function close() {
 
 let currentBrowserTransfer;
 
+export function reportRemoteFileClipboardPermission(allowed){
+    try{
+        if(window.parent!==window&&typeof window.parent.__rustdeskFileClipboardPermission==="function")
+            window.parent.__rustdeskFileClipboardPermission(allowed,window);
+    }catch{}
+}
 function reportFileClipboardStatus(kind,detail){
     try{
         if(window.parent!==window&&typeof window.parent.__rustdeskClipboardFileStatus==="function"){

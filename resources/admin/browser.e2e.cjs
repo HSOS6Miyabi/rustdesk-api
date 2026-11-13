@@ -2169,6 +2169,53 @@ test("device connection opens the original RustDesk remote controls and supports
     assert.equal(shortcuts[0][4],true);
     assert.equal(shortcuts[1][1],false);
 
+    const negotiated=await popup.evaluate(()=>{
+      const connection=document.querySelector("#v2-native-client")?.contentWindow?.curConn;
+      return connection?.getOptionMessage?.()||null;
+    });
+    assert.ok(negotiated,"RustDesk connection options must be available");
+    assert.equal(negotiated.enable_file_transfer,2,
+      "remote file clipboard must be enabled during login");
+    assert.equal(negotiated.disable_clipboard,1,
+      "remote text clipboard must remain enabled during login");
+
+    const editorFocused=await popup.evaluate(()=>{
+      const child=document.querySelector("#v2-native-client")?.contentWindow;
+      const original=child.curConn;
+      const host=child.document.createElement("flt-text-editing-host");
+      host.id="rd-keyboard-integration";
+      host.style.cssText="position:fixed;left:0;top:0;z-index:9999";
+      const input=child.document.createElement("input");
+      input.id="rd-keyboard-integration-input";
+      host.append(input);
+      child.document.body.append(host);
+      child.__rdKeyboardOriginal=original;
+      child.__rdCapturedKeys=[];
+      child.curConn={
+        _sessionMode:"desktop",_peerInfo:{platform:"Windows"},
+        inputKey(...args){child.__rdCapturedKeys.push(args);}
+      };
+      input.focus();
+      return child.document.activeElement===input;
+    });
+    assert.ok(editorFocused,"a Flutter-style hidden input must receive keyboard focus");
+    await popup.keyboard.press("Control+c");
+    await popup.keyboard.press("Control+Shift+z");
+    const physical=await popup.evaluate(()=>{
+      const child=document.querySelector("#v2-native-client")?.contentWindow;
+      const calls=child.__rdCapturedKeys||[];
+      child.curConn=child.__rdKeyboardOriginal;
+      child.document.querySelector("#rd-keyboard-integration")?.remove();
+      delete child.__rdKeyboardOriginal;
+      delete child.__rdCapturedKeys;
+      return calls;
+    });
+    assert.equal(physical.length,4,
+      "browser keyboard shortcuts must reach the remote connection");
+    assert.deepEqual(physical.map(item=>[item[0],item[1]]),
+      [["c",true],["c",false],["z",true],["z",false]]);
+    assert.ok(physical.every(item=>item[4]===true),"Ctrl modifier must be preserved");
+
     await popup.evaluate(()=>{
       const button=document.createElement("button");
       button.id="test-rustdesk-native-fullscreen";
