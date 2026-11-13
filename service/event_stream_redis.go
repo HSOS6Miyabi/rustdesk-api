@@ -15,6 +15,7 @@ import (
 
 const streamRedisEvents = "rustdesk-api:sse:v1:events"
 const streamRedisChanges = "rustdesk-api:sse:v1:changes"
+const redisCacheChangeChannel = "rustdesk-api:cache:v1:invalidation"
 const streamRedisKeyPrefix = "rustdesk-api:sse:v1:instance:"
 const streamRedisLease = 75 * time.Second
 
@@ -66,7 +67,7 @@ func startPushStreamRedisBridge() {
 }
 
 func runPushStreamRedisBridge(ctx context.Context) error {
-    subscription := global.Redis.Subscribe(ctx, streamRedisEvents, streamRedisChanges)
+    subscription := global.Redis.Subscribe(ctx, streamRedisEvents, streamRedisChanges, redisCacheChangeChannel)
     defer subscription.Close()
     if _, err := subscription.Receive(ctx); err != nil { return err }
     streamRedisReady.Store(true)
@@ -96,6 +97,10 @@ func runPushStreamRedisBridge(ctx context.Context) error {
             if !ok { return context.Canceled }
             if msg.Channel == streamRedisChanges {
                 if err := loadRemoteStreamInterests(ctx); err != nil { return err }
+                continue
+            }
+            if msg.Channel == redisCacheChangeChannel {
+                applyRemoteCacheInvalidation(msg.Payload)
                 continue
             }
             var event remoteStreamMessage
@@ -172,5 +177,36 @@ func publishRemotePushEvent(users []uint, code string, data []byte) {
     defer cancel()
     if err := global.Redis.Publish(ctx, streamRedisEvents, payload).Err(); err != nil && Logger != nil {
         Logger.WithError(err).Warn("cannot relay live event to other API instances")
+    }
+}
+
+const cacheInvalidationPolicy = "policy"
+const cacheInvalidationPush = "push"
+const cacheInvalidationNotification = "notification"
+
+// publishCacheInvalidation forwards configuration changes once, after the local
+// database update succeeds. Heartbeats never make Redis requests for caching.
+func publishCacheInvalidation(kind string) {
+    if !streamRedisReady.Load() || global.Redis == nil { return }
+    ctx, cancel := context.WithTimeout(context.Background(), 750*time.Millisecond)
+    defer cancel()
+    if err := global.Redis.Publish(ctx,redisCacheChangeChannel,
+        streamRedisNode+":"+kind).Err(); err != nil && Logger != nil {
+        Logger.WithError(err).Warn("cannot propagate cache invalidation")
+    }
+}
+
+func applyRemoteCacheInvalidation(payload string) {
+    separator := strings.IndexByte(payload, ':')
+    if separator < 0 || separator == len(payload)-1 { return }
+    origin, kind := payload[:separator], payload[separator+1:]
+    if origin == "" || origin == streamRedisNode { return }
+    switch kind {
+    case cacheInvalidationPolicy:
+        invalidatePolicyActivityLocal()
+    case cacheInvalidationPush:
+        invalidatePushActivityLocal()
+    case cacheInvalidationNotification:
+        invalidateAdministrativeNotificationActivityLocal()
     }
 }
