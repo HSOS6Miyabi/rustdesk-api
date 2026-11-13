@@ -979,7 +979,7 @@
     const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
-    const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?64:40));
+    const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?68:44));
     const hasDeviceLabels=deviceRowPages.has(state.page)&&rows.some(row=>{
       const alias=String(row.alias||"").trim(),hostname=String(row.hostname||"").trim();
       return alias&&hostname&&alias!==hostname&&hostname!==String(row.id||"");
@@ -990,6 +990,8 @@
       const width=tableColumnWidth(key,label,state.page);
       if(dateTimeFields.has(key))return Math.max(130,Math.min(166,width));
       if(key==="id"&&deviceRowPages.has(state.page))return hasDeviceLabels?258:192;
+      if(key==="os")return Math.max(196,Math.round(width*.76));
+      if(key==="platform")return Math.max(170,Math.round(width*.76));
       return key==="direction"?62:stackColumn.has(key)?156:Math.max(100,Math.round(width*.76));
     });
     const priorities=desktopCols.map(([key],index)=>{
@@ -1023,15 +1025,31 @@
       let remaining=Math.max(0,availableWidth-actionSize-visible.reduce(
         (sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],0));
       const expandable=desktopCols.map(([key],index)=>({key,index})).filter(({key,index})=>
-        selected.has(index)&&["id","device_id","name","alias","hostname","owner_username","sources","note","remark","description","email","path","info"].includes(key));
+        selected.has(index)&&["id","device_id","name","alias","hostname","os","platform","last_online_ip","ip","owner_username","sources","note","remark","description","email","path","info"].includes(key));
+      const preferredMaximum=key=>key==="id"?420:
+        ["os","platform"].includes(key)?240:
+        ["last_online_ip","ip"].includes(key)?245:360;
       for(let round=0;round<5&&remaining>0;round++){
         const eligible=expandable.filter(({key,index})=>
-          fittedWidths[index]<(key==="id"?420:360));
+          fittedWidths[index]<preferredMaximum(key));
         if(!eligible.length)break;
         const share=Math.max(1,Math.ceil(remaining/eligible.length));
         for(const {key,index} of eligible){
-          const extra=Math.min(remaining,share,(key==="id"?420:360)-fittedWidths[index]);
+          const extra=Math.min(remaining,share,preferredMaximum(key)-fittedWidths[index]);
           fittedWidths[index]+=extra;remaining-=extra;
+        }
+      }
+      if(remaining>0){
+        const fallback=visible.map(col=>desktopCols.indexOf(col)).filter(index=>
+          !dateTimeFields.has(desktopCols[index][0]));
+        const receivers=expandable.length?expandable.map(item=>item.index):fallback;
+        if(receivers.length){
+          const part=Math.floor(remaining/receivers.length);
+          for(const index of receivers){
+            const addition=index===receivers[receivers.length-1]?remaining:part;
+            fittedWidths[index]+=addition;
+            remaining-=addition;
+          }
         }
       }
     }
