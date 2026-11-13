@@ -2829,10 +2829,11 @@ test("mobile SSO callback finishes login when the original browser storage is un
     isMobile:true,hasTouch:true,locale:"zh-CN"
   });
   try{
+    const loginTab=await context.newPage();
+    await loginTab.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    assert.equal(await loginTab.evaluate(()=>sessionStorage.getItem("rustdesk.console.oidc")),null);
+    assert.equal(await loginTab.evaluate(()=>localStorage.getItem("rustdesk.console.token")),null);
     const page=await context.newPage();
-    await page.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
-    assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.oidc")),null);
-    assert.equal(await page.evaluate(()=>localStorage.getItem("rustdesk.console.token")),null);
     const requests=[];
     page.on("request",req=>{
       if(req.url().includes("/api/admin/oidc/auth-query"))requests.push(req.url());
