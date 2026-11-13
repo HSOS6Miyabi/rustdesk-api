@@ -68,11 +68,26 @@
       if(next)showSession(next);
       else {emptySession.hidden=false;renderSessionTabs();}
     }else renderSessionTabs();
-    message("已断开："+session.name);
+    message(sessions.size?"已断开："+session.name:"当前连接已关闭，可以创建新的连接标签。");
   }
   function renderSessionTabs(){
     sessionTabs.replaceChildren();
-    sessionTabs.hidden=sessions.size===0;
+    sessionTabs.hidden=false;
+    if(sessions.size===0){
+      const newTab=document.createElement("button");
+      newTab.type="button";
+      newTab.className="session-tab-new";
+      newTab.textContent="＋ 新建连接";
+      newTab.title="创建远程连接标签";
+      newTab.setAttribute("role","tab");
+      newTab.setAttribute("aria-selected","true");
+      newTab.addEventListener("click",()=>{
+        if(config.host.value.trim()&&config.id.value.trim())connectToDevice(selectedMode);
+        else {config.id.focus();message("请选择或输入设备 ID 后发起连接。");}
+      });
+      sessionTabs.append(newTab);
+      return;
+    }
     for(const [key,session] of sessions){
       const slot=document.createElement("span");
       slot.className="session-tab-slot";
@@ -304,10 +319,11 @@
     button.addEventListener("click",()=>{
       selectedMode=mode;
       renderModeTabs();
-      if(activeSessionKey)connectToDevice(mode);
+      if(activeSessionKey||(config.host.value.trim()&&config.id.value.trim()))connectToDevice(mode);
     });
   }
   renderModeTabs();
+  renderSessionTabs();
   el("connect-form").addEventListener("submit",e=>{e.preventDefault();state.autoConnect=false;connectToDevice();});
   el("v2-disconnect").addEventListener("click",()=>{
     if(activeSessionKey)closeSession(activeSessionKey);
