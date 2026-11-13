@@ -142,7 +142,7 @@ export class BrowserFileClipboard {
     for(const notify of this.remoteFormatWaiters)notify(found);
     this.remoteFormatWaiters.clear();
   }
-  async waitForRemoteFiles(timeout=1500){
+  async waitForRemoteFiles(timeout=3500){
     if(this.remoteDescriptorFormat!==null)return true;
     if(!this.active||this.closed)return false;
     return new Promise(resolve=>{

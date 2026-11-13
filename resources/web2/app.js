@@ -275,7 +275,10 @@
   function sendTextToRemote(text){
     const value=String(text||"");
     if(!value){setClipboardStatus("本机剪贴板没有文本，请先复制文本。");return false;}
-    if(value.length>1024*1024){setClipboardStatus("粘贴的文本过长，最多允许 1 MiB。");return false;}
+    if(new TextEncoder().encode(value).byteLength>1024*1024){
+      setClipboardStatus("粘贴的文本过长，最多允许 1 MiB。");
+      return false;
+    }
     const bridge=currentClipboardBridge();
     if(!clipboardEnabled||typeof bridge?.pasteText!=="function"){
       setClipboardStatus("请先连接远程桌面并开启剪贴板共享。");
@@ -343,6 +346,11 @@
     clipboardPasteButton.disabled=!active||active.mode!=="desktop"||!clipboardEnabled;
     if(!clipboardEnabled)clipboardCopyButton.hidden=true;
   }
+  window.__rustdeskClipboardSendFailure=source=>{
+    const current=clipboardSession();
+    if(current?.frame.contentWindow===source)
+      setClipboardStatus("无法将本机剪贴板内容发送至远程设备，请检查连接状态和剪贴板权限。");
+  };
   window.__rustdeskFileClipboardPermission=(allowed,source)=>{
     const current=clipboardSession();
     if(!current||current.frame.contentWindow!==source)return;

@@ -159,8 +159,10 @@ window.__rustdeskClipboardAccess={
     suspendText(){clipboardSync.setEnabled(false);},
     sendLocal(text){return clipboardSync.sendLocal(text);},
     pasteText(text){
-        if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop")return false;
-        clipboardSync.sendLocal(text);
+        if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop"||
+           !getConn()?._peerInfo)return false;
+        const sent=clipboardSync.sendLocal(text);
+        if(!sent&&text!==clipboardSync.lastLocal&&text!==clipboardSync.lastRemote)return false;
         setTimeout(pasteIntoRemoteExplorer,90);
         return true;
     },
@@ -204,7 +206,13 @@ function acceptClipboardFiles(files){
 function acceptClipboardText(text){
     if(!pendingRemotePaste)return;
     pendingRemotePaste=false;
-    if(text)clipboardSync.sendLocal(text);
+    if(text){
+        const sent=clipboardSync.sendLocal(text);
+        if(!sent&&text!==clipboardSync.lastLocal&&text!==clipboardSync.lastRemote){
+            try{window.parent?.__rustdeskClipboardSendFailure?.(window);}catch{}
+            return;
+        }
+    }
     // Wait for the clipboard message to reach the peer before Ctrl+V.
     setTimeout(pasteIntoRemoteExplorer,80);
 }

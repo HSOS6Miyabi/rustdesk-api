@@ -117,5 +117,5 @@ body.webclient-page-fullscreen{overflow:hidden}
 .clipboard-actions #v2-clipboard-input{display:none}
 .clipboard-actions #v2-clipboard-select-files:disabled{opacity:.58;cursor:not-allowed}
 
-.clipboard-actions #v2-clipboard-text-input{flex:1 1 100%;min-width:0;min-height:78px;resize:vertical;background:#f6f9fd;border:1px solid #cad9eb;border-radius:8px;padding:10px;color:#183e5c;font:13px/1.6 inherit}
+.clipboard-actions #v2-clipboard-text-input{flex:1 1 100%;min-width:0;min-height:78px;resize:vertical;background:#f6f9fd;border:1px solid #cad9eb;border-radius:8px;padding:10px;color:#183e5c;font-size:13px;line-height:1.6;font-family:inherit}
 .clipboard-actions #v2-clipboard-paste-text:disabled{opacity:.58;cursor:not-allowed}
