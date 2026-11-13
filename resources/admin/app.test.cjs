@@ -1214,3 +1214,33 @@ test("console clears persisted credentials when the server rejects a session",as
   assert.equal(app.local.getItem("rustdesk.console.token"),null);
   assert.match(app.root.innerHTML,/登录控制台/);
 });
+
+test("device ID joins alias and hostname while dates have two lines",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{
+    row_id:44,id:"1184774058",alias:"pc408",hostname:"desktop-i4ferju",
+    user_id:5,last_online_time:1794624000,os:"Windows"
+  }],total:1};
+  await app.settle();
+  await app.open("devices");
+  const html=app.root.innerHTML;
+  assert.match(html,/pc408（desktop-i4ferju）/);
+  assert.match(html,/class="entity-link-id">1184774058<\/span>/);
+  assert.doesNotMatch(html,/data-column="alias"/);
+  assert.doesNotMatch(html,/data-column="hostname"/);
+  assert.match(html,/date-time-stack/);
+  assert.match(html,/date-time-clock/);
+  assert.match(html,/data-column="last_online_time"[^>]*width:1(?:3|4|5|6)\dpx/);
+});
+test("transfer selection starts empty with existing owner shown separately",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{
+    row_id:15,id:"1184774058",alias:"pc408",hostname:"desktop-i4ferju",user_id:5
+  }],total:1};
+  await app.settle();
+  await app.open("devices");
+  await app.action("transfer-device",15);
+  assert.match(app.root.innerHTML,/当前所有者：/);
+  assert.match(app.root.innerHTML,/id="transfer-user-id" value=""/);
+  assert.doesNotMatch(app.root.innerHTML,/picker-trigger-label">编号 5/);
+});

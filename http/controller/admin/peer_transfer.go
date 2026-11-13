@@ -22,6 +22,7 @@ func (ct *Peer) Transfer(c *gin.Context) {
 		return
 	}
 	denied := errors.New("当前账户无权转移此设备")
+	sameOwner := errors.New("请选择与当前所有者不同的用户")
 	err := service.DB.Transaction(func(tx *gorm.DB) error {
 		var current model.Peer
 		if err := tx.Where("row_id = ?", form.RowID).First(&current).Error; err != nil {
@@ -36,7 +37,7 @@ func (ct *Peer) Transfer(c *gin.Context) {
 			return denied
 		}
 		if current.UserId == target.Id {
-			return nil
+			return sameOwner
 		}
 		if err := tx.Model(&model.Peer{}).Where("row_id = ?", current.RowId).
 			Update("user_id", target.Id).Error; err != nil {
@@ -56,6 +57,8 @@ func (ct *Peer) Transfer(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, denied) {
 			response.Fail(c, 403, denied.Error())
+		} else if errors.Is(err, sameOwner) {
+			response.Fail(c, 101, sameOwner.Error())
 		} else if errors.Is(err, gorm.ErrRecordNotFound) {
 			response.Fail(c, 101, "设备或目标账户不存在")
 		} else {

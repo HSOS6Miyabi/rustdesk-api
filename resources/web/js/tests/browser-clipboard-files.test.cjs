@@ -91,7 +91,7 @@ test("invalid file descriptors and oversized clipboard files cannot be downloade
   assert.throws(()=>parseClipboardDescriptors(bad),/Invalid clipboard/);
   const {clipboard}=mock(BrowserFileClipboard);
   clipboard.enable();
-  assert.throws(()=>clipboard.offerFiles([{name:"bad",size:268435457,slice(){}}]),/memory limit/);
+  assert.throws(()=>clipboard.offerFiles([{name:"bad",size:536870913,slice(){}}]),/memory limit/);
   clipboard.close();
 });
 test("clipboard file download requires explicit enablement and a remote format list",async()=>{
@@ -198,5 +198,28 @@ test("waiting for a remote file list is cancelled immediately when sharing is di
   const waiting=clipboard.waitForRemoteFiles(5000);
   clipboard.disable();
   assert.equal(await waiting,false);
+  clipboard.close();
+});
+
+test("clipboard descriptors and local files enforce the 512 MiB boundary",async()=>{
+  const {BrowserFileClipboard,parseClipboardDescriptors}=await lib();
+  const limit=512*1024*1024;
+  const descriptor=size=>{
+    const bytes=new Uint8Array(4+592),view=new DataView(bytes.buffer);
+    view.setUint32(0,1,true);
+    view.setUint32(4+64,Math.floor(size/0x100000000),true);
+    view.setUint32(4+68,size>>>0,true);
+    for(const [i,char] of [..."report.bin"].entries())view.setUint16(4+72+i*2,char.charCodeAt(0),true);
+    return bytes;
+  };
+  assert.equal(parseClipboardDescriptors(descriptor(limit))[0].size,limit);
+  assert.throws(()=>parseClipboardDescriptors(descriptor(limit+1)),/too large/);
+  const {clipboard}=mock(BrowserFileClipboard);
+  clipboard.enable();
+  assert.equal(clipboard.offerFiles([{name:"report.bin",size:limit,slice(){}}]),true);
+  assert.throws(()=>clipboard.offerFiles([
+    {name:"part1.bin",size:limit,slice(){}},
+    {name:"part2.bin",size:1,slice(){}}
+  ]),/memory limit/);
   clipboard.close();
 });
