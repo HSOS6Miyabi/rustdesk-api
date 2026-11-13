@@ -36,6 +36,7 @@ export default class Connection {
   _password: Uint8Array | undefined;
   _options: any;
   _videoTestSpeed: number[];
+  _fileBridge: any;
   _sessionMode: string;
   _terminalAdmin: boolean;
   _osUsername: string;
@@ -63,6 +64,22 @@ export default class Connection {
   sendTerminalAction(action: any) {
     if (this._sessionMode !== "terminal") throw new Error("Terminal session required");
     this._ws?.sendMessage({__terminal_action:action} as any);
+  }
+
+  setFileBridge(bridge: any) {
+    this._fileBridge = bridge;
+  }
+
+  sendFileMessage(payload: any) {
+    if (this._sessionMode !== "file" || !this._ws) {
+      throw new Error("File-transfer session is not connected");
+    }
+    this._ws.sendMessage(payload);
+  }
+
+  fileTransportBuffer() {
+    const transport=this._ws as any;
+    return Number(transport?._websocket?.bufferedAmount || transport?.channel?.bufferedAmount || 0);
   }
 
   readRemoteDir(path: string, includeHidden: boolean) {
@@ -506,6 +523,8 @@ export default class Connection {
         globals.pushEvent("cursor_position", msg?.cursor_position);
       } else if (msg?.misc) {
         if (!this.handleMisc(msg?.misc)) break;
+      } else if(msg?.file_action?.send_confirm) {
+        this._fileBridge?.confirm(msg.file_action.send_confirm);
       } else if((msg as any)?.terminal_response){
         const response=(msg as any).terminal_response;
         if(response.type==="data"&&response.data instanceof Uint8Array){
@@ -522,9 +541,10 @@ export default class Connection {
         globals.pushEvent("terminal_response",response);
       } else if(msg?.file_response){
         const response=msg.file_response;
+        const handled=await this._fileBridge?.handleMessage(msg);
         if(response.dir)globals.pushEvent("file_dir",{value:JSON.stringify(response.dir),is_local:false});
-        if(response.error)globals.pushEvent("job_error",{id:response.error.id,err:response.error.error});
-        if(response.done)globals.pushEvent("job_done",{id:response.done.id,file_num:response.done.file_num});
+        if(response.error&&!handled)globals.pushEvent("job_error",{id:response.error.id,err:response.error.error});
+        if(response.done&&!handled)globals.pushEvent("job_done",{id:response.done.id,file_num:response.done.file_num});
       } else if (msg?.audio_frame) {
         globals.playAudio(msg?.audio_frame.data);
       }
@@ -537,10 +557,10 @@ export default class Connection {
 
   draw(frame: any) {
     this._draw?.(frame);
-    globals.draw(frame);
   }
 
   close() {
+    this._fileBridge?.close();
     this._ws?.close();
     this._videoDecoder?.close();
   }

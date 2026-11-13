@@ -188,16 +188,16 @@
   }
   function registeredDevice(id,row={},key=""){
     const value=String(id??"").trim();
-    if(!value||loginSessionPages.has(state.page))return false;
+    if(!value)return false;
     if(Object.prototype.hasOwnProperty.call(state.deviceNames,value))return true;
     return key==="id"&&["devices","mydevices","shared"].includes(state.page)&&String(row.id)===value;
   }
   function clientDescription(id){
-    return /^(?:web|webadmin|webclient|windows[-_](?:chrome|edge|firefox)|.*(?:chrome|firefox|safari|browser))$/i.test(id)?"浏览器客户端":"设备名称未知";
+    return /^(?:web|webadmin|webclient|windows[-_](?:chrome|edge|firefox)|.*(?:chrome|firefox|safari|browser))$/i.test(id)?"浏览器客户端":"未登记的设备标识";
   }
   function deviceName(row,id,nameKey=""){
     const direct=[nameKey&&row?.[nameKey],row?.alias,row?.hostname,state.deviceNames[id]];
-    if(loginSessionPages.has(state.page))return "登录客户端";
+    if(loginSessionPages.has(state.page)&&!registeredDevice(id,row))return clientDescription(id);
     for(const value of direct){
       const name=String(value??"").trim();
       if(name&&name!==id&&name!=="—")return name;
@@ -838,7 +838,7 @@
     const m=state.metrics||{};
     const shortcuts=["mydevices","shared","contacts",state.isAdmin?"devices":"mygroups"];
     const quick=shortcuts.map(k=>'<button type="button" data-view="'+k+'" class="quick-card"><span class="quick-icon">'+icon(pages[k].icon,21)+'</span><strong class="quick-label">'+esc(pages[k].name)+'</strong><span class="quick-arrow">'+icon("arrow",17)+'</span></button>').join("");
-    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+entityLink("device",x.id,[x.alias,x.hostname].map(v=>String(v||"").trim()).find(v=>v&&v!==x.id)||"未设置设备名称",true,x.id)+'</strong></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
+    const recent=(m.recent||[]).map(x=>'<div class="status-row recent-device-row"><div class="recent-device-identity">'+entityLink("device",x.id,[x.alias,x.hostname].map(v=>String(v||"").trim()).find(v=>v&&v!==x.id)||"未设置设备名称",true,x.id)+'</div><span class="pill muted recent-device-time">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
       '<div class="metric-grid">'+metric("设备数量",state.loading?"…":m.devices,"monitor")+metric(state.isAdmin?"用户数量":"地址簿条目",state.loading?"…":m.users,"users")+metric(state.isAdmin?"用户分组":"联系人数量",state.loading?"…":m.groups===undefined?state.contacts.incoming.length:m.groups,"layers")+metric("当前账户",state.user.username,"shield")+'</div>'+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">快速访问</h2><p class="panel-sub">常用管理功能</p></div></div><div class="quick-grid">'+quick+'</div></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">最近出现的设备</h2><p class="panel-sub">按最后活动时间显示</p></div><button data-view="'+(state.isAdmin?"devices":"mydevices")+'" class="btn btn-sm">查看全部</button></div><div class="tips">'+recent+'</div></section></div>';

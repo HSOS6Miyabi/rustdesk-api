@@ -755,6 +755,7 @@ export interface FileAction {
   all_files?: ReadAllFiles | undefined;
   cancel?: FileTransferCancel | undefined;
   send_confirm?: FileTransferSendConfirmRequest | undefined;
+  rename?: { id: number; path: string; new_name: string } | undefined;
 }
 
 export interface FileTransferCancel {
@@ -816,6 +817,7 @@ export interface FileTransferReceiveRequest {
   path: string;
   files: FileEntry[];
   file_num: number;
+  total_size: number;
 }
 
 export interface FileRemoveDir {
@@ -3083,6 +3085,7 @@ function createBaseFileAction(): FileAction {
     all_files: undefined,
     cancel: undefined,
     send_confirm: undefined,
+    rename: undefined,
   };
 }
 
@@ -3114,6 +3117,13 @@ export const FileAction = {
     }
     if (message.send_confirm !== undefined) {
       FileTransferSendConfirmRequest.encode(message.send_confirm, writer.uint32(74).fork()).ldelim();
+    }
+    if (message.rename !== undefined) {
+      const rename=writer.uint32(82).fork();
+      if (message.rename.id) rename.uint32(8).int32(message.rename.id);
+      if (message.rename.path) rename.uint32(18).string(message.rename.path);
+      if (message.rename.new_name) rename.uint32(26).string(message.rename.new_name);
+      rename.ldelim();
     }
     return writer;
   },
@@ -3152,6 +3162,21 @@ export const FileAction = {
         case 9:
           message.send_confirm = FileTransferSendConfirmRequest.decode(reader, reader.uint32());
           break;
+        case 10: {
+          const end=reader.pos+reader.uint32();
+          const rename={id:0,path:"",new_name:""};
+          while(reader.pos<end){
+            const field=reader.uint32();
+            switch(field>>>3){
+              case 1: rename.id=reader.int32(); break;
+              case 2: rename.path=reader.string(); break;
+              case 3: rename.new_name=reader.string(); break;
+              default: reader.skipType(field & 7); break;
+            }
+          }
+          message.rename=rename;
+          break;
+        }
         default:
           reader.skipType(tag & 7);
           break;
@@ -3173,6 +3198,8 @@ export const FileAction = {
       send_confirm: isSet(object.send_confirm)
         ? FileTransferSendConfirmRequest.fromJSON(object.send_confirm)
         : undefined,
+      rename: isSet(object.rename) ? {id:Number(object.rename.id||0),
+        path:String(object.rename.path||""),new_name:String(object.rename.new_name||"")} : undefined,
     };
   },
 
@@ -3195,6 +3222,7 @@ export const FileAction = {
       (obj.send_confirm = message.send_confirm
         ? FileTransferSendConfirmRequest.toJSON(message.send_confirm)
         : undefined);
+    if(message.rename) obj.rename={...message.rename};
     return obj;
   },
 
@@ -3231,6 +3259,8 @@ export const FileAction = {
     message.send_confirm = (object.send_confirm !== undefined && object.send_confirm !== null)
       ? FileTransferSendConfirmRequest.fromPartial(object.send_confirm)
       : undefined;
+    message.rename=object.rename ? {id:object.rename.id??0,path:object.rename.path??"",
+      new_name:object.rename.new_name??""} : undefined;
     return message;
   },
 };
@@ -3859,7 +3889,7 @@ export const FileTransferDone = {
 };
 
 function createBaseFileTransferReceiveRequest(): FileTransferReceiveRequest {
-  return { id: 0, path: "", files: [], file_num: 0 };
+  return { id: 0, path: "", files: [], file_num: 0, total_size: 0 };
 }
 
 export const FileTransferReceiveRequest = {
@@ -3876,6 +3906,7 @@ export const FileTransferReceiveRequest = {
     if (message.file_num !== 0) {
       writer.uint32(32).int32(message.file_num);
     }
+    if (message.total_size !== 0) writer.uint32(40).uint64(message.total_size);
     return writer;
   },
 
@@ -3898,6 +3929,9 @@ export const FileTransferReceiveRequest = {
         case 4:
           message.file_num = reader.int32();
           break;
+        case 5:
+          message.total_size=longToNumber(reader.uint64() as Long);
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -3912,6 +3946,7 @@ export const FileTransferReceiveRequest = {
       path: isSet(object.path) ? String(object.path) : "",
       files: Array.isArray(object?.files) ? object.files.map((e: any) => FileEntry.fromJSON(e)) : [],
       file_num: isSet(object.file_num) ? Number(object.file_num) : 0,
+      total_size: isSet(object.total_size) ? Number(object.total_size) : 0,
     };
   },
 
@@ -3925,6 +3960,7 @@ export const FileTransferReceiveRequest = {
       obj.files = [];
     }
     message.file_num !== undefined && (obj.file_num = Math.round(message.file_num));
+    message.total_size !== undefined && (obj.total_size = Math.round(message.total_size));
     return obj;
   },
 
@@ -3938,6 +3974,7 @@ export const FileTransferReceiveRequest = {
     message.path = object.path ?? "";
     message.files = object.files?.map((e) => FileEntry.fromPartial(e)) || [];
     message.file_num = object.file_num ?? 0;
+    message.total_size = object.total_size ?? 0;
     return message;
   },
 };

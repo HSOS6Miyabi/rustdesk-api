@@ -71,3 +71,11 @@ body.webclient-page-fullscreen{overflow:hidden}
 
 .credential-preferences{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px 12px;margin-top:10px;color:#6a7f93;font-size:11px;line-height:1.55}
 .credential-preferences .text-button{font-size:11px;padding:3px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px}
+
+.session-tab-new{flex:0 0 auto;min-height:32px;border:1px dashed #a8bfdc;background:#f0f6ff;color:#2662b1;padding:7px 13px;border-radius:9px;font-size:12px;font-weight:700;white-space:nowrap}
+.session-tab-new:hover,.session-tab-new:focus-visible{background:#e3efff;border-color:#6b9bde}
+
+.webclient-stage-drop{position:absolute;z-index:12;inset:42px 8px 8px;display:grid;place-items:center;border:2px dashed #6595d6;border-radius:14px;background:rgba(219,234,254,.94);font-size:15px;color:#17519a;font-weight:750;pointer-events:none;text-align:center;padding:26px;box-shadow:inset 0 0 0 7px rgba(255,255,255,.6)}
+.workspace-switcher .session-tabs{padding-block:3px}
+.session-tab-new{border-style:solid;border-color:#b4ceef;box-shadow:0 1px 4px rgba(39,102,213,.08)}
+@media(max-width:1080px){.mode-tabs{width:auto;max-width:100%;overflow-x:auto;justify-content:flex-start}.workspace-switcher .session-tabs{width:auto;flex-basis:100%;max-width:100%}}

@@ -68,11 +68,26 @@
       if(next)showSession(next);
       else {emptySession.hidden=false;renderSessionTabs();}
     }else renderSessionTabs();
-    message("已断开："+session.name);
+    message(sessions.size?"已断开："+session.name:"当前连接已关闭，可以创建新的连接标签。");
   }
   function renderSessionTabs(){
     sessionTabs.replaceChildren();
-    sessionTabs.hidden=sessions.size===0;
+    sessionTabs.hidden=false;
+    if(sessions.size===0){
+      const newTab=document.createElement("button");
+      newTab.type="button";
+      newTab.className="session-tab-new";
+      newTab.textContent="＋ 新建连接";
+      newTab.title="创建远程连接标签";
+      newTab.setAttribute("role","tab");
+      newTab.setAttribute("aria-selected","true");
+      newTab.addEventListener("click",()=>{
+        if(config.host.value.trim()&&config.id.value.trim())connectToDevice(selectedMode);
+        else {config.id.focus();message("请选择或输入设备 ID 后发起连接。");}
+      });
+      sessionTabs.append(newTab);
+      return;
+    }
     for(const [key,session] of sessions){
       const slot=document.createElement("span");
       slot.className="session-tab-slot";
@@ -108,6 +123,39 @@
     });
   }
   watchClient(firstClient);
+  const stageDropMask=document.createElement("div");
+  stageDropMask.className="webclient-stage-drop";
+  stageDropMask.textContent="将文件放到这里，上传至远程设备";
+  stageDropMask.hidden=true;
+  stage.append(stageDropMask);
+  const isFileDrag=event=>[...(event.dataTransfer?.types||[])].includes("Files");
+  stage.addEventListener("dragover",event=>{
+    if(!isFileDrag(event))return;
+    event.preventDefault();
+    if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+    stageDropMask.hidden=false;
+  });
+  stage.addEventListener("dragleave",event=>{
+    if(!stage.contains?.(event.relatedTarget))stageDropMask.hidden=true;
+  });
+  stage.addEventListener("drop",event=>{
+    if(!isFileDrag(event))return;
+    event.preventDefault();
+    stageDropMask.hidden=true;
+    const session=sessions.get(activeSessionKey);
+    if(!session||session.mode!=="file"){
+      message("请先连接文件传输标签，再拖入文件上传。");
+      return;
+    }
+    try{
+      const receive=session.frame.contentWindow?.__rustdeskReceiveFiles;
+      if(typeof receive!=="function"){
+        message("远程文件管理器正在初始化，请连接成功后重试。");
+        return;
+      }
+      receive([...event.dataTransfer.files],false);
+    }catch(error){message("上传文件失败："+error.message);}
+  });
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
   function syncFullscreen(){
@@ -304,10 +352,11 @@
     button.addEventListener("click",()=>{
       selectedMode=mode;
       renderModeTabs();
-      if(activeSessionKey)connectToDevice(mode);
+      if(activeSessionKey||(config.host.value.trim()&&config.id.value.trim()))connectToDevice(mode);
     });
   }
   renderModeTabs();
+  renderSessionTabs();
   el("connect-form").addEventListener("submit",e=>{e.preventDefault();state.autoConnect=false;connectToDevice();});
   el("v2-disconnect").addEventListener("click",()=>{
     if(activeSessionKey)closeSession(activeSessionKey);

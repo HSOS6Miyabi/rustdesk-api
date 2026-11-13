@@ -2,7 +2,8 @@ import Connection from "./connection";
 import _sodium from "libsodium-wrappers";
 import {loadVp9} from "./codec";
 import {checkIfRetry, version} from "./gen_js_from_hbb";
-import {initZstd, translate} from "./common";
+import {initZstd, decompress, translate} from "./common";
+import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -129,11 +130,133 @@ export function close() {
     setConn(undefined);
 }
 
+let currentBrowserTransfer;
+
+function fileTransferError(request, error) {
+    const id=Number(request?.id||0);
+    const message=String(error?.message||error);
+    if(id>0)pushEvent("job_error",{id,err:message,file_num:0});
+    msgbox("error","File Transfer",message);
+}
+
+function withFileTransfer(request, operation) {
+    try{
+        const conn=getConn();
+        if(!conn || conn._sessionMode!=="file" || !currentBrowserTransfer){
+            throw Error("请先连接文件传输会话");
+        }
+        operation(conn,currentBrowserTransfer);
+    }catch(error){fileTransferError(request,error);}
+}
+
 export function newConn() {
     window.curConn?.close();
     const conn = new Connection();
     setConn(conn);
+    currentBrowserTransfer=new BrowserFileTransfer({
+        send:payload=>conn.sendFileMessage(payload),
+        emit:pushEvent,
+        decompress,
+        pendingBytes:()=>conn.fileTransportBuffer(),
+        message:text=>console.info("RustDesk File Transfer:",text)
+    });
+    conn.setFileBridge(currentBrowserTransfer);
     return conn;
+}
+
+function openLocalFilePicker(folder=false) {
+    const input=document.createElement("input");
+    input.type="file";
+    input.multiple=true;
+    if(folder){
+        input.setAttribute("webkitdirectory","");
+        input.webkitdirectory=true;
+    }
+    input.style.cssText="position:fixed;left:-9999px;opacity:0;pointer-events:none";
+    document.body.append(input);
+    const clean=()=>input.remove();
+    input.addEventListener("change",()=>{
+        withFileTransfer({},(_conn,transfer)=>transfer.register(input.files,folder));
+        clean();
+    },{once:true});
+    input.addEventListener("cancel",clean,{once:true});
+    input.click();
+}
+
+async function collectDroppedFiles(transfer) {
+    const files=[],items=[...(transfer?.items||[])];
+    let directory=false;
+    async function walk(entry,prefix="",depth=0) {
+        if(depth>20 || files.length>=4096)return;
+        if(entry.isFile){
+            const file=await new Promise((resolve,reject)=>entry.file(resolve,reject));
+            const relative=prefix+file.name;
+            files.push({name:file.name,size:file.size,lastModified:file.lastModified,
+                webkitRelativePath:relative,slice:file.slice.bind(file)});
+            return;
+        }
+        if(!entry.isDirectory)return;
+        directory=true;
+        const reader=entry.createReader();
+        for(;;){
+            const batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject));
+            if(!batch.length)break;
+            for(const item of batch)await walk(item,prefix+entry.name+"/",depth+1);
+        }
+    }
+    for(const item of items){
+        const entry=item.kind==="file"&&item.webkitGetAsEntry?.();
+        if(entry)await walk(entry);
+    }
+    if(!files.length){
+        for(const file of [...(transfer?.files||[])])files.push(file);
+        directory=files.some(file=>file.webkitRelativePath?.includes("/"));
+    }
+    return {files,directory};
+}
+
+// A same-origin embedding page may pass File objects to the connected file session.
+window.__rustdeskReceiveFiles=(files,folder=false)=>{
+    withFileTransfer({},(conn,transfer)=>{
+        if(!conn._peerInfo)throw Error("文件传输连接尚未完成");
+        transfer.register(files,folder);
+    });
+};
+function installFileDrop(){
+    const overlay=document.createElement("div");
+    overlay.className="rustdesk-transfer-dropzone";
+    overlay.hidden=true;
+    overlay.textContent="松开鼠标，上传文件至远程设备";
+    document.body.append(overlay);
+    let depth=0;
+    const fileDrag=event=>[...(event.dataTransfer?.types||[])].includes("Files");
+    window.addEventListener("dragenter",event=>{
+        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        event.preventDefault(); depth++; overlay.hidden=false;
+    },true);
+    window.addEventListener("dragover",event=>{
+        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        event.preventDefault();
+        if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+    },true);
+    window.addEventListener("dragleave",event=>{
+        if(!fileDrag(event))return;
+        depth=Math.max(0,depth-1);
+        if(depth===0)overlay.hidden=true;
+    },true);
+    window.addEventListener("drop",async event=>{
+        if(!fileDrag(event)||getConn()?._sessionMode!=="file")return;
+        event.preventDefault();
+        event.stopPropagation();
+        overlay.hidden=true;depth=0;
+        try{
+            const selected=await collectDroppedFiles(event.dataTransfer);
+            window.__rustdeskReceiveFiles(selected.files,selected.directory);
+        }catch(error){fileTransferError({},error);}
+    },true);
+}
+if(typeof window.addEventListener==="function"&&typeof document.body?.append==="function"){
+    installFileDrop();
 }
 
 let sodium;
@@ -237,8 +360,67 @@ window.setByName = (name, value) => {
             return '';
         }
         case 'cancel_job':
+            currentBrowserTransfer?.cancel(Number(value||0));
             getConn()?.cancelFileJob(Number(value||0));
             return '';
+        case 'select_files':
+            withFileTransfer({},()=>openLocalFilePicker(value===true||value==="true"||value==="Y"));
+            return '';
+        case 'send_local_files': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(_conn,transfer)=>transfer.startUpload(request));
+            return '';
+        }
+        case 'send_files': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(_conn,transfer)=>transfer.startDownload(request));
+            return '';
+        }
+        case 'create_dir': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{create:{
+                id:Number(request.id||0),path:String(request.path||"")}}}));
+            return '';
+        }
+        case 'remove_file': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{remove_file:{
+                id:Number(request.id||0),path:String(request.path||""),
+                file_num:Number(request.file_num||0)}}}));
+            return '';
+        }
+        case 'remove_dir': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{remove_dir:{
+                id:Number(request.id||0),path:String(request.path||""),recursive:!!request.recursive}}}));
+            return '';
+        }
+        case 'read_dir_to_remove_recursive': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{all_files:{
+                id:Number(request.id||0),path:String(request.path||""),include_hidden:!!request.show_hidden}}}));
+            return '';
+        }
+        case 'remove_all_empty_dirs': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{remove_dir:{
+                id:Number(request.id||0),path:String(request.path||""),recursive:true}}}));
+            return '';
+        }
+        case 'rename_file': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{rename:{
+                id:Number(request.id||0),path:String(request.path||""),
+                new_name:String(request.new_name||"")}}}));
+            return '';
+        }
+        case 'confirm_override_file': {
+            const request=JSON.parse(value||'{}');
+            withFileTransfer(request,(conn)=>conn.sendFileMessage({file_action:{send_confirm:{
+                id:Number(request.id||0),file_num:Number(request.file_num||0),
+                ...(request.need_override?{offset_blk:0}:{skip:true})}}}));
+            return '';
+        }
         case 'open_terminal': {
             const request=JSON.parse(value||'{}');
             getConn()?.sendTerminalAction({open:{terminal_id:Number(request.terminal_id||0),
@@ -403,8 +585,12 @@ function _getByName(name, arg) {
         case 'toggle_option':
         case 'option:toggle':
             return getConn()?.getOption(arg) || false;
-        case 'option:session':
-            return localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+        case 'option:session': {
+            const stored=localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+            // Flutter requires a recognized ScrollStyle while processing every video frame.
+            return arg === 'scroll_style' && !['scrollauto','scrollbar','scrolledge'].includes(stored)
+                ? 'scrollauto' : stored;
+        }
         case 'option:flutter:peer':
         case 'option:flutter:local':
             return localStorage.getItem('rustdesk.flutter.' + arg) || '';
