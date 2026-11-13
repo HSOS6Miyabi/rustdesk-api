@@ -97,6 +97,10 @@ export function installRemoteShortcutCapture({target,isActive,send,paste,sendTex
       cancel(event);
       return;
     }
+    if([...held.values()].some(item=>item.forward&&item.key.toLowerCase()===value.toLowerCase())){
+      cancel(event);
+      return;
+    }
     cancel(event);
     sendText(value);
   };
