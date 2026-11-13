@@ -287,9 +287,10 @@
     const codec=String(stats?.codec||"VP9").toUpperCase();
     const decoder=String(stats?.decoder||"").startsWith("WebCodecs")
       ?String(stats.decoder):"WebAssembly";
+    const directVideoFrame=decoder.includes("直接显示");
     performanceStatus.textContent="画面性能："+transport+" · "+codec+" / "+decoder+
       " · 显示 "+fps.toFixed(1)+" 帧/秒 · 解码 "+decode.toFixed(1)+
-      " 毫秒 · 绘制 "+render.toFixed(1)+" 毫秒"+
+      " 毫秒 · "+(directVideoFrame?"提交画面":"绘制")+" "+render.toFixed(1)+" 毫秒"+
       (dropped>0?" · 跳过绘制 "+dropped+" 帧":"")+
       (buffer>0?" · 待发送 "+formatBytes(buffer):"");
     performanceStatus.dataset.slow=String(decode+render>33||queue>3||dropped>received);
