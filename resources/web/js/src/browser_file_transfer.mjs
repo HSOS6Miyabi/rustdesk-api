@@ -173,6 +173,10 @@ export class BrowserFileTransfer {
         continue;
       }
       const start=Math.min(entry.size, Math.max(0, Number(reply.offset_blk||0))*BLOCK_BYTES);
+      if(entry.size===0){
+        this.send({file_response:{block:{id:job.id,file_num:index,
+          data:new Uint8Array(),compressed:false,blk_id:0}}});
+      }
       for (let offset=start,blk=0;offset<entry.size;offset+=BLOCK_BYTES,blk++) {
         if (job.cancelled || this.closed) return;
         const slice=entry.file.slice(offset,Math.min(offset+BLOCK_BYTES,entry.size));
@@ -317,6 +321,10 @@ export class BrowserFileTransfer {
       response.done?.id??response.error?.id;
     const job=this.jobs.get(id);
     if(!job)return false;
+    if(job.direction==="upload"&&response.error){
+      this.fail(job,new Error(response.error.error||"Remote upload failed"));
+      return true;
+    }
     try{return await this.receive(message)}
     catch(error){this.fail(job,error);return true}
   }
