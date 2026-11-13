@@ -264,6 +264,13 @@ export class BrowserFileClipboard {
       return bytes;
     }finally{this.pendingData.delete(stream)}
   }
+  cancelDownload(){
+    if(!this.downloading)return false;
+    this.generation++;
+    this.cancelPending(new Error("剪贴板文件下载已取消"));
+    this.notify("cancelled",{});
+    return true;
+  }
   async download(){
     if(!this.active||this.closed)throw new Error("请先启用剪贴板共享");
     if(this.downloading)throw new Error("已有剪贴板文件下载任务");
@@ -278,8 +285,11 @@ export class BrowserFileClipboard {
       const descriptors=new Uint8Array(reply.format_data||[]);
       const files=parseClipboardDescriptors(descriptors);
       this.remoteListId=fileListId(descriptors);
+      const totalBytes=files.reduce((sum,file)=>sum+(file.directory?0:file.size),0);
+      let completeBytes=0;
       const entries=[];
-      for(const file of files){
+      this.notify("start",{count:files.length,total:totalBytes});
+      for(const [position,file] of files.entries()){
         if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
         if(file.directory){
           entries.push({name:file.name,directory:true,chunks:[]});
@@ -290,18 +300,26 @@ export class BrowserFileClipboard {
           if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
           const wanted=Math.min(file.size-start,MAX_PART_BYTES);
           const block=await this.requestContents(file.index,start,wanted);
+          if(generation!==this.generation||!this.active)throw new Error("剪贴板文件下载已取消");
           chunks.push(block);
           start+=block.byteLength;
-          this.notify("progress",{name:file.name,received:start,total:file.size});
+          this.notify("progress",{name:file.name,received:start,total:file.size,
+            overallReceived:completeBytes+start,overallTotal:totalBytes,index:position+1,count:files.length});
         }
+        completeBytes+=file.size;
         entries.push({name:file.name,chunks});
+        this.notify("progress",{name:file.name,received:file.size,total:file.size,
+          overallReceived:completeBytes,overallTotal:totalBytes,index:position+1,count:files.length});
       }
+      if(generation!==this.generation||!this.active)throw new Error("剪贴板文件下载已取消");
       if(!entries.length)throw new Error("远程剪贴板中没有可下载的文件");
+      this.notify("saving",{count:entries.length,total:totalBytes});
       const simple=entries.length===1&&!entries[0].directory&&!entries[0].name.includes("/");
       const blob=simple?new Blob(entries[0].chunks,{type:"application/octet-stream"}):packageZip(entries);
       const name=simple?entries[0].name:"rustdesk-clipboard-files.zip";
       await this.save(blob,name);
-      this.notify("downloaded",{count:entries.length,name});
+      if(generation!==this.generation||!this.active)throw new Error("剪贴板文件下载已取消");
+      this.notify("downloaded",{count:entries.length,name,total:totalBytes});
       return {name,count:entries.length};
     }finally{this.downloading=false}
   }
