@@ -39,6 +39,7 @@ function fixture(options = {}) {
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
     "v2-page-fullscreen", "v2-screen-fullscreen", "v2-fullscreen-exit", "v2-native-client", "v2-clear-password",
+    "v2-download-clipboard","v2-clipboard-toggle","v2-clipboard-copy","v2-clipboard-status",
     "v2-session-tabs", "v2-session-panels", "v2-empty-session",
     "v2-mode-desktop", "v2-mode-file", "v2-mode-camera", "v2-mode-terminal", "v2-mode-adminTerminal", "v2-device-query", "v2-search-device", "v2-device-results"
   ];
@@ -74,7 +75,9 @@ function fixture(options = {}) {
   const assigned = [];
   const window = {
     addEventListener(){},
+    setTimeout:callback=>setTimeout(callback,0),
     scrollTo(){},
+    navigator:{clipboard:options.clipboard||null},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
   };
   const document = {
@@ -128,6 +131,7 @@ test("WebClient v2 loads its own server settings and shared device list",async()
   assert.equal(dot.attributes["aria-label"],"在线");
   app.elements.get("shared-items").children[0].children[1].listeners.click();
   assert.equal(app.elements.get("v2-id").value,"123456789");
+  assert.equal(app.elements.get("v2-native-client").src,"/webclient/#/connect/123456789");
 });
 
 test("WebClient v2 launches the original RustDesk client with the selected device",async()=>{
@@ -251,7 +255,7 @@ test("Selecting a shared device keeps its name as the iframe accessibility title
   await app.settle();
   const item=app.elements.get("shared-items").children[0];
   item.children[1].listeners.click();
-  assert.equal(app.elements.get("v2-native-client").title,"Remote Workstation");
+  assert.equal(app.elements.get("v2-native-client").title,"Remote Workstation · 桌面 · RustDesk");
   assert.equal(app.elements.get("v2-id").value,"123456789");
   app.elements.get("v2-id").value="manual-02";
   app.elements.get("v2-id").listeners.input();
@@ -392,4 +396,72 @@ test("outside-browser files are forwarded to the active file-transfer session",a
   assert.equal(got[0].length,1);
   assert.equal(got[0][0].name,"notes.txt");
   assert.equal(got[1],false);
+});
+
+test("remote toolbar closes the corresponding WebClient tab without leaving the Flutter home screen",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="remote-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const frame=app.elements.get("v2-native-client");
+  app.window.__rustdeskOnSessionClosed(frame.contentWindow,"remote-device");
+  await new Promise(resolve=>setTimeout(resolve,12));
+  assert.equal(frame.src,"about:blank");
+  assert.equal(app.elements.get("v2-session-tabs").children.length,1);
+  assert.match(app.elements.get("v2-session-tabs").children[0].textContent,/新建连接/);
+});
+
+test("RustDesk native fullscreen button switches the parent stage fullscreen",async()=>{
+  const app=fixture({token:"session-token"});
+  await app.settle();
+  app.elements.get("v2-id").value="remote-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const child=app.elements.get("v2-native-client").contentWindow;
+  assert.equal(app.window.__rustdeskIsFullscreen(),false);
+  await app.window.__rustdeskSetFullscreen(true,child);
+  assert.equal(app.document.fullscreenElement,app.stage);
+  assert.equal(app.window.__rustdeskIsFullscreen(),true);
+  await app.window.__rustdeskSetFullscreen(false,child);
+  assert.equal(app.document.fullscreenElement,null);
+  assert.equal(app.window.__rustdeskIsFullscreen(),false);
+});
+
+test("clipboard controls request browser permissions, transfer text and download remote files",async()=>{
+  const clipboard={async readText(){return "selected text"},async writeText(text){this.last=text;}};
+  const app=fixture({token:"session-token",clipboard});
+  await app.settle();
+  app.elements.get("v2-id").value="remote-device";
+  app.elements.get("connect-form").listeners.submit({preventDefault(){}});
+  const calls=[];
+  const child=app.elements.get("v2-native-client").contentWindow;
+  child.__rustdeskClipboardAccess={
+    enable(text){calls.push(["enable",text]);},
+    disable(){calls.push(["disable"]);},
+    sendLocal(text){calls.push(["sendLocal",text]);},
+    offerFiles(files){calls.push(["files",files]);},
+    async downloadRemoteFiles(){return {name:"remote.zip",count:2};}
+  };
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"true");
+  assert.ok(calls.some(call=>call[0]==="enable"&&call[1]==="selected text"));
+  await app.window.__rustdeskReceiveRemoteClipboard("remote text",child);
+  assert.equal(clipboard.last,"remote text");
+  await app.elements.get("v2-download-clipboard").listeners.click();
+  assert.match(app.elements.get("v2-message").textContent,/remote.zip/);
+  await app.elements.get("v2-clipboard-toggle").listeners.click();
+  assert.equal(app.elements.get("v2-clipboard-toggle").attributes["aria-pressed"],"false");
+  assert.ok(calls.some(call=>call[0]==="disable"));
+});
+
+test("remote action buttons remain available on small screens and remote desktop appears first",()=>{
+  const fs=require("node:fs"),path=require("node:path");
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  const css=fs.readFileSync(path.join(__dirname,"style.css"),"utf8");
+  assert.match(html,/class="top-remote-actions"/);
+  for(const id of ["v2-download-clipboard","v2-page-fullscreen","v2-screen-fullscreen"]){
+    assert.equal(html.split('id="'+id+'"').length,2);
+  }
+  assert.match(css,/max-width:760px/);
+  assert.match(css,/\.stage\{order:-1/);
+  assert.match(css,/\.brand\{display:none/);
 });
