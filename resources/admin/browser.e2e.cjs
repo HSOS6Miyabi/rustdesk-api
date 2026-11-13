@@ -1602,7 +1602,7 @@ test("responsive data tables keep columns readable across screen sizes",async()=
           const getWidth=element=>element.getBoundingClientRect().width;
           const firstColumn=table.querySelector("colgroup col");
           const direction=table.querySelector('tbody td[data-column="direction"] span');
-          const device=table.querySelector('tbody td[data-column="id"] span, tbody td[data-column="device_id"] span');
+          const device=table.querySelector('tbody td[data-column="id"], tbody td[data-column="device_id"]');
           const oneLine=(span)=>{
             if(!span)return true;
             const s=getComputedStyle(span);
@@ -1633,7 +1633,8 @@ test("responsive data tables keep columns readable across screen sizes",async()=
             mobileFieldWidth:mobileField?Math.round(getWidth(mobileField)):0,
             narrow,nonwrappingDirection:direction?.querySelector('.connection-direction')?
               direction.scrollWidth<=direction.clientWidth+1:oneLine(direction),
-            nonwrappingDevice:oneLine(device),
+            nonwrappingDevice:!device||[...device.querySelectorAll(".entity-link-id,.device-reference-id")].
+             every(id=>id.scrollWidth<=id.clientWidth+2),
             firstCellText:cells[0]?.textContent.trim()||"",
             hasScrollableRegion:region.scrollWidth>region.clientWidth+1
           };
