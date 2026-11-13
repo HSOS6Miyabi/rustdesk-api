@@ -8,6 +8,7 @@ import { loadVp9 } from "./codec";
 import * as sha256 from "fast-sha256";
 import * as globals from "./globals";
 import { decompress, mapKey, sleep } from "./common";
+import {decodeVp9Frames} from "./video_pacing.mjs";
 
 const PORT = 21116;
 // only the first is used to init `HOST`
@@ -738,31 +739,27 @@ export default class Connection {
         transport:this._ws instanceof WebRTCTransport?"WebRTC":"WebSocket"
       });
     }
-    this._performanceStats={start:now,frames:0,decode:0,paint:0,bytes:0};
-  }
-
-  handleVideoFrame(vf: message.VideoFrame) {
+    this._performanceStats=  handleVideoFrame(vf: message.VideoFrame) {
     if(!this._firstFrame){
       this.msgbox("","","");
       this._firstFrame=true;
     }
+    const decoder=this._videoDecoder;
     const frames=vf.vp9s?.frames||[];
-    const dec=this._videoDecoder;
-    if(!dec||!frames.length)return;
-    const started=Date.now();
-    const bytes=frames.reduce((total,frame)=>total+frame.data.length,0);
-    let completed=0;
-    for(const frame of frames){
-      dec.processFrame(frame.data.slice(0).buffer,(ok:boolean)=>{
-        completed++;
-        if(completed!==frames.length)return;
-        // Acknowledge before the potentially expensive GPU readback
-        // and Flutter display update.
-        this.sendVideoReceived();
-        if(!ok||!dec.frameBuffer)return;
-        const decoded=Date.now();
-        this.draw(dec.frameBuffer);
-        this.reportVideoPerformance(decoded-started,Date.now()-decoded,bytes);
+    if(!decoder||!frames.length){
+      this.sendVideoReceived();
+      return;
+    }
+    decodeVp9Frames(frames,decoder,
+      ()=>this.sendVideoReceived(),
+      (frame:any,decodeMs:number,bytes:number)=>{
+        const start=Date.now();
+        this.draw(frame);
+        this.reportVideoPerformance(decodeMs,Date.now()-start,bytes);
+      });
+  }
+
+ted,Date.now()-decoded,bytes);
       });
     }
   }
