@@ -6,6 +6,10 @@ import (
 	"errors"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+    "github.com/go-redis/redis/v8"
+    "github.com/lejianwen/rustdesk-api/v2/global"
+    "github.com/lejianwen/rustdesk-api/v2/lib/cache"
+    "io"
 	"github.com/lejianwen/rustdesk-api/v2/model"
 	"github.com/lejianwen/rustdesk-api/v2/utils"
 	"golang.org/x/oauth2"
@@ -49,6 +53,7 @@ type OauthCacheItem struct {
 	Email      string `json:"email"`
 	Verifier   string `json:"verifier"` // used for oauth pkce
 	Nonce      string `json:"nonce"`
+    expiresAt time.Time
 }
 
 func (oci *OauthCacheItem) ToOauthUser() *model.OauthUser {
@@ -60,39 +65,89 @@ func (oci *OauthCacheItem) ToOauthUser() *model.OauthUser {
 	}
 }
 
-var OauthCache = &sync.Map{}
+const oauthCachePrefix = "rustdesk-api:oauth:v1:"
+const defaultOAuthLifetime = 5 * time.Minute
+
+type oauthCachedValue struct {
+    Item OauthCacheItem `json:"item"`
+    ExpiresAt time.Time `json:"expires_at"`
+}
+
+var localOAuthStore struct {
+    sync.Once
+    value cache.Handler
+}
+
+func oauthCacheStore() cache.Handler {
+    if global.Cache != nil { return global.Cache }
+    localOAuthStore.Do(func() {
+        localOAuthStore.value = cache.NewMemoryCache(8 * 1024 * 1024)
+    })
+    return localOAuthStore.value
+}
 
 const (
-	OauthActionTypeLogin = "login"
-	OauthActionTypeBind  = "bind"
+    OauthActionTypeLogin = "login"
+    OauthActionTypeBind  = "bind"
 )
 
 func (oci *OauthCacheItem) UpdateFromOauthUser(oauthUser *model.OauthUser) {
-	oci.OpenId = oauthUser.OpenId
-	oci.Username = oauthUser.Username
-	oci.Name = oauthUser.Name
-	oci.Email = oauthUser.Email
+    oci.OpenId = oauthUser.OpenId
+    oci.Username = oauthUser.Username
+    oci.Name = oauthUser.Name
+    oci.Email = oauthUser.Email
 }
 
+func validOAuthCacheKey(key string) bool {
+    return key != "" && len(key) <= 128
+}
+
+// GetOauthCache reads the expiring authorization state from the configured cache.
+// Each result is an independent copy that callers can update and save.
 func (os *OauthService) GetOauthCache(key string) *OauthCacheItem {
-	v, ok := OauthCache.Load(key)
-	if !ok {
-		return nil
-	}
-	return v.(*OauthCacheItem)
+    if !validOAuthCacheKey(key) { return nil }
+    var entry oauthCachedValue
+    err := oauthCacheStore().Get(oauthCachePrefix+key, &entry)
+    if err != nil {
+        if Logger != nil && !errors.Is(err, redis.Nil) && !errors.Is(err, io.EOF) {
+            Logger.WithError(err).Warn("cannot read OAuth authorization state")
+        }
+        return nil
+    }
+    if entry.ExpiresAt.IsZero() || !time.Now().Before(entry.ExpiresAt) {
+        return nil
+    }
+    entry.Item.expiresAt = entry.ExpiresAt
+    return &entry.Item
 }
 
-func (os *OauthService) SetOauthCache(key string, item *OauthCacheItem, expire uint) {
-	OauthCache.Store(key, item)
-	if expire > 0 {
-		time.AfterFunc(time.Duration(expire)*time.Second, func() {
-			os.DeleteOauthCache(key)
-		})
-	}
+// SetOauthCache preserves the original deadline when a callback updates a
+// previously issued state. Every entry has a bounded lifetime.
+func (os *OauthService) SetOauthCache(key string, item *OauthCacheItem, expire uint) error {
+    if !validOAuthCacheKey(key) || item == nil {
+        return errors.New("invalid OAuth authorization state")
+    }
+    expiresAt := item.expiresAt
+    if expire > 0 {
+        expiresAt = time.Now().Add(time.Duration(expire) * time.Second)
+    } else if expiresAt.IsZero() {
+        expiresAt = time.Now().Add(defaultOAuthLifetime)
+    }
+    remaining := time.Until(expiresAt)
+    if remaining <= 0 { return errors.New("OAuth authorization state expired") }
+    ttl := int((remaining + time.Second - 1) / time.Second)
+    if ttl < 1 { ttl = 1 }
+    saved := *item
+    saved.expiresAt = expiresAt
+    return oauthCacheStore().Set(oauthCachePrefix+key,
+        oauthCachedValue{Item: saved, ExpiresAt: expiresAt}, ttl)
 }
 
 func (os *OauthService) DeleteOauthCache(key string) {
-	OauthCache.Delete(key)
+    if !validOAuthCacheKey(key) { return }
+    if err := oauthCacheStore().Delete(oauthCachePrefix+key); err != nil && Logger != nil {
+        Logger.WithError(err).Warn("cannot delete OAuth authorization state")
+    }
 }
 
 func (os *OauthService) BeginAuth(op string) (error error, state, verifier, nonce, url string) {

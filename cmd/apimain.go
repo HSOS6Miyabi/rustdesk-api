@@ -222,6 +222,8 @@ func InitGlobal() error {
 	return nil
 }
 
+const defaultMemoryCacheBytes = 32 * 1024 * 1024
+
 func redisConnectionOptions(addr, password string, db int) *redis.Options {
     return &redis.Options{
         Addr: addr, Password: password, DB: db,
