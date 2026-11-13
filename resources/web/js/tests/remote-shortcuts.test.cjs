@@ -50,7 +50,7 @@ test("shortcuts in editable fields or outside the remote desktop remain local",a
   assert.deepEqual(c.sends,[]);
   const active=capture();await active.install();
   active.listeners.keydown(key("c","KeyC",{ctrlKey:true,
-    target:{closest:()=>({})}}));
+    target:{closest:selector=>selector.includes("input")?{}:null}}));
   assert.deepEqual(active.sends,[]);
 });
 
