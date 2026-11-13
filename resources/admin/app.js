@@ -506,7 +506,7 @@
   }
   const state={
     token:localStorage.getItem(consoleTokenKey)||sessionStorage.getItem(consoleTokenKey)||"",user:null,isAdmin:false,
-    connectionUnavailable:false,
+    connectionUnavailable:false,ssoError:"",
     page:"overview",bookTab:"entries",pageNo:1,
     pageSize:[20,50,100].includes(Number(localStorage.getItem("rustdesk.console.page-size")))?
       Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
@@ -582,7 +582,10 @@
     const passwordForm=options.disable_pwd?'<p class="warning">当前服务已关闭密码登录，请选择下方的单点登录服务。</p>':'<form id="login-form"><div class="login-field"><label for="username">用户名</label><input id="username" autocomplete="username" name="username" placeholder="输入用户名" required></div><div class="login-field"><label for="password">密码</label><input type="password" id="password" name="password" autocomplete="current-password" placeholder="输入密码" required></div>'+cap+'<button type="submit" class="btn btn-primary login-submit">登录控制台 '+icon("arrow",17)+'</button></form><button type="button" class="btn" data-action="forgot-password">忘记密码</button>';
     const ops=(options.ops||[]).map(op=>{const n=typeof op==="string"?op:op.op||op.name;const label=options.provider_names?.[n]||n;return n?'<button type="button" class="btn" data-action="oidc" data-id="'+esc(n)+'">使用 '+esc(label)+' 登录 '+icon("arrow",14)+'</button>':"";}).join("");
     const passkeyEntry='<button type="button" class="btn passkey-login-button" data-action="passkey-login">'+icon("lock",17)+' 使用 Passkey 登录</button>';
-    root.innerHTML='<div class="login-shell"><section class="login-art"><div class="brand-row">'+brand()+'</div><div><p class="eyebrow" style="color:#83e7d4">PRIVATE INFRASTRUCTURE</p><h1>远程设备管理，<br><em>一切尽在掌握。</em></h1><p>统一管理远程设备、联系人、共享群组与用户账户。界面可适应电脑、平板和手机。</p></div><div class="login-foot">RustDesk Self-hosted Control Center</div></section><section class="login-right"><div class="login-card"><p class="eyebrow">WELCOME BACK</p><h2>登录控制台</h2><p class="login-intro">'+esc(state.config.title||"请使用 RustDesk API 账户登录")+'</p>'+passwordForm+'<div class="login-options">'+passkeyEntry+ops+'</div><p class="login-help">首次安装的管理员密码可在服务端启动日志中查看。请通过 HTTPS 连接管理页面。</p></div></section></div>';
+    const ssoWarning=state.ssoError?'<div class="warning" role="alert">'+esc(state.ssoError)+
+      (sessionStorage.getItem("rustdesk.console.oidc")?
+        '<button type="button" class="btn btn-sm" data-action="oidc-retry">重试完成登录</button>':"")+'</div>':"";
+    root.innerHTML='<div class="login-shell"><section class="login-art"><div class="brand-row">'+brand()+'</div><div><p class="eyebrow" style="color:#83e7d4">PRIVATE INFRASTRUCTURE</p><h1>远程设备管理，<br><em>一切尽在掌握。</em></h1><p>统一管理远程设备、联系人、共享群组与用户账户。界面可适应电脑、平板和手机。</p></div><div class="login-foot">RustDesk Self-hosted Control Center</div></section><section class="login-right"><div class="login-card"><p class="eyebrow">WELCOME BACK</p><h2>登录控制台</h2><p class="login-intro">'+esc(state.config.title||"请使用 RustDesk API 账户登录")+'</p>'+ssoWarning+passwordForm+'<div class="login-options">'+passkeyEntry+ops+'</div><p class="login-help">首次安装的管理员密码可在服务端启动日志中查看。请通过 HTTPS 连接管理页面。</p></div></section></div>';
     root.innerHTML+=loginRecoveryModal();
   }
   function loginRecoveryModal(){
@@ -676,6 +679,48 @@
     window.location.assign("/webclient2/");
     return true;
   }
+  function oauthCallbackDetails(){
+    const hash=location.hash||"";
+    if(!hash.startsWith("#/oidc/complete?"))return null;
+    const params=new URLSearchParams(hash.slice("#/oidc/complete?".length));
+    const code=params.get("code")||"";
+    return {code:/^[A-Za-z0-9]{10,128}$/.test(code)?code:"",
+      returnTo:params.get("return")==="webclient2"?"/webclient2/":""};
+  }
+  function clearOAuthCallbackLocation(){
+    if(!(location.hash||"").startsWith("#/oidc/complete?"))return;
+    const clean=(window.location.pathname||"/_admin/")+(window.location.search||"")+"#/overview";
+    try{
+      if(typeof window.history?.replaceState!=="function")throw Error("History API unavailable");
+      window.history.replaceState(null,"",clean);
+    }catch{location.hash="#/overview";}
+  }
+  async function completePendingOAuth(callback){
+    if(callback)clearOAuthCallbackLocation();
+    const code=callback?callback.code:(!state.token?sessionStorage.getItem("rustdesk.console.oidc"):"");
+    if(!code){
+      if(callback){
+        sessionStorage.removeItem("rustdesk.console.oidc");
+        state.ssoError="单点登录回调缺少有效的授权状态，请重新选择登录方式。";
+      }
+      return;
+    }
+    if(callback)sessionStorage.setItem("rustdesk.console.oidc",code);
+    try{
+      const data=await request("/oidc/auth-query?code="+encodeURIComponent(code));
+      if(typeof data?.token!=="string"||!data.token)throw Error("授权尚未完成，请确认已在身份认证页面完成登录。");
+      state.token=data.token;
+      saveConsoleToken(data.token);
+      sessionStorage.removeItem("rustdesk.console.oidc");
+      if(callback?.returnTo)sessionStorage.setItem("rustdesk.console.return",callback.returnTo);
+      state.ssoError="";
+    }catch(error){
+      state.ssoError="单点登录未能完成："+(error.message||"请求失败");
+      if(error.apiCode||[400,401,403,404,410].includes(error.httpStatus)){
+        sessionStorage.removeItem("rustdesk.console.oidc");
+      }
+    }
+  }
   async function bootstrap(){
     const recoveryHash=location.hash||"";
     if(recoveryHash.startsWith("#/invite?")){
@@ -695,10 +740,7 @@
       }
     }
     try{state.config=await request("/config/admin");}catch{state.config={};}
-    if(!state.token){
-      const pending=sessionStorage.getItem("rustdesk.console.oidc");
-      if(pending){try{const data=await request("/oidc/auth-query?code="+encodeURIComponent(pending));if(data&&data.token){state.token=data.token;saveConsoleToken(data.token);sessionStorage.removeItem("rustdesk.console.oidc");}}catch{}}
-    }
+    await completePendingOAuth(oauthCallbackDetails());
     if(state.token){
       try{
         state.user=await request("/user/current");
@@ -784,7 +826,12 @@
   }
   async function oidc(op){
     try{
-      const result=await request("/oidc/auth","POST",{op,deviceInfo:{os:"web"},id:"webadmin",uuid:""});
+      state.ssoError="";
+      const returnTo=sessionStorage.getItem("rustdesk.console.return")==="/webclient2/"?"/webclient2/":"";
+      const result=await request("/oidc/auth","POST",{
+        op,deviceInfo:{os:"web"},id:"webadmin",uuid:"",
+        ...(returnTo?{return_to:returnTo}:{})
+      });
       if(!result.url||!result.code)throw Error("无法启动单点登录");
       sessionStorage.setItem("rustdesk.console.oidc",result.code);
       window.location.assign(result.url);
@@ -3456,6 +3503,7 @@
     }
     if(a==="captcha"){await captcha();render();return;}
     if(a==="oidc"){await oidc(el.dataset.id);return;}
+    if(a==="oidc-retry"){state.ssoError="";await bootstrap();return;}
     if(a==="create"||a==="edit"){await openEditor(el.dataset.id,a);return;}
     if(a==="delete"){await deleteEntry(el.dataset.id);return;}
     if(a==="reset-user-mfa"){
