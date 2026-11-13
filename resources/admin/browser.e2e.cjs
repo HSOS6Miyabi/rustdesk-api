@@ -2399,14 +2399,47 @@ test("desktop table columns can be dragged, fitted to content and saved",async()
   }finally{await context.close();}
 });
 
-test("browser client origins and login identifiers have no physical-device status indicator",async()=>{
+test("login sessions distinguish registered devices from unregistered browser clients",async()=>{
   const {context,page}=await pageForViewport(1440,900,true);
   try{
+    await page.route(/\/api\/admin\/user_token\/list(?:\?|$)/,route=>route.fulfill({
+      status:200,contentType:"application/json",
+      body:JSON.stringify({code:0,data:{list:[
+        {id:61,user_id:3,username:"owner",device_id:"office",client:"rustdesk",
+          device_uuid:"registered-device",login_ip:"192.0.2.1",active:true},
+        {id:62,user_id:3,username:"owner",device_id:"webadmin",client:"webadmin",
+          device_uuid:"",login_ip:"192.0.2.1",active:true}
+      ],total:2}})
+    }));
     await page.locator('nav.side-scroll button[data-view="sessions"]').click();
-    await page.locator('.data-table tbody tr').first().waitFor();
-    const idCell=page.locator('.data-table td[data-column="device_id"]').first();
-    assert.equal(await idCell.locator(".device-status-dot").count(),0);
-    assert.equal(await idCell.locator('[data-action="entity-detail"]').count(),0);
-    assert.equal(await idCell.locator(".device-reference-id").textContent(),"office");
+    const cells=page.locator('.data-table td[data-column="device_id"]');
+    await cells.first().waitFor();
+    assert.equal(await cells.count(),2);
+    assert.equal(await cells.nth(0).locator(".device-status-dot").count(),1);
+    assert.equal(await cells.nth(0).locator('[data-action="entity-detail"]').count(),1);
+    assert.equal(await cells.nth(0).locator(".entity-link-id").textContent(),"office");
+    assert.equal(await cells.nth(1).locator(".device-status-dot").count(),0);
+    assert.equal(await cells.nth(1).locator('[data-action="entity-detail"]').count(),0);
+    assert.equal(await cells.nth(1).locator(".device-reference-id").textContent(),"webadmin");
+  }finally{await context.close();}
+});
+
+test("recent devices show names and IDs on separate lines with room for their dates",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  try{
+    await page.waitForFunction(()=>document.querySelector(".recent-device-row .entity-link-id"));
+    const rows=await page.locator(".recent-device-row").evaluateAll(elements=>elements.map(row=>{
+      const name=row.querySelector(".entity-link-name");
+      const id=row.querySelector(".entity-link-id");
+      const date=row.querySelector(".recent-device-time");
+      const nameRect=name.getBoundingClientRect(),idRect=id.getBoundingClientRect();
+      const dateRect=date.getBoundingClientRect();
+      return {name:name.textContent,id:id.textContent,stacked:idRect.top>=nameRect.bottom-1,
+        clipped:row.scrollWidth>row.clientWidth+2,
+        dateInside:dateRect.right<=row.getBoundingClientRect().right+2};
+    }));
+    assert.ok(rows.length>=2);
+    assert.ok(rows.every(row=>row.stacked&&!row.clipped&&row.dateInside),
+      "Recent device names, IDs and dates must remain readable: "+JSON.stringify(rows));
   }finally{await context.close();}
 });
