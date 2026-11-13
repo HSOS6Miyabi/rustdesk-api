@@ -176,7 +176,7 @@ function announceClipboardReady(){
 let pendingRemotePaste=false;
 function pasteIntoRemoteExplorer(){
     const conn=getConn();
-    if(!clipboardSync.enabled||conn?._sessionMode!=="desktop")return;
+    if(conn?._sessionMode!=="desktop")return;
     conn.inputKey("v",true,false,false,true,false,false);
     conn.inputKey("v",false,false,false,true,false,false);
 }
@@ -240,6 +240,10 @@ installRemoteShortcutCapture({
     send:(name,down,event)=>getConn()?.inputKey(name,down,false,
         event.altKey,event.ctrlKey,event.shiftKey,event.metaKey),
     paste:()=>{
+        if(!clipboardSync.enabled){
+            pasteIntoRemoteExplorer();
+            return;
+        }
         pendingRemotePaste=true;
         requestBrowserClipboard();
         setTimeout(()=>{
