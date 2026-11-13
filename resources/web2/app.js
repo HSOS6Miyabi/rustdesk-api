@@ -123,6 +123,39 @@
     });
   }
   watchClient(firstClient);
+  const stageDropMask=document.createElement("div");
+  stageDropMask.className="webclient-stage-drop";
+  stageDropMask.textContent="将文件放到这里，上传至远程设备";
+  stageDropMask.hidden=true;
+  stage.append(stageDropMask);
+  const isFileDrag=event=>[...(event.dataTransfer?.types||[])].includes("Files");
+  stage.addEventListener("dragover",event=>{
+    if(!isFileDrag(event))return;
+    event.preventDefault();
+    if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+    stageDropMask.hidden=false;
+  });
+  stage.addEventListener("dragleave",event=>{
+    if(!stage.contains?.(event.relatedTarget))stageDropMask.hidden=true;
+  });
+  stage.addEventListener("drop",event=>{
+    if(!isFileDrag(event))return;
+    event.preventDefault();
+    stageDropMask.hidden=true;
+    const session=sessions.get(activeSessionKey);
+    if(!session||session.mode!=="file"){
+      message("请先连接文件传输标签，再拖入文件上传。");
+      return;
+    }
+    try{
+      const receive=session.frame.contentWindow?.__rustdeskReceiveFiles;
+      if(typeof receive!=="function"){
+        message("远程文件管理器正在初始化，请连接成功后重试。");
+        return;
+      }
+      receive([...event.dataTransfer.files],false);
+    }catch(error){message("上传文件失败："+error.message);}
+  });
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
   function syncFullscreen(){
