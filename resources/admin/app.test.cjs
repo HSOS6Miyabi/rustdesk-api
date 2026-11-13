@@ -1134,3 +1134,35 @@ test("new client build profiles inherit the currently configured RustDesk server
   assert.match(app.root.innerHTML,/新建配置时自动填写本 API 服务器/);
   assert.ok(app.calls.some(call=>call.endpoint==="/config/server"));
 });
+
+
+test("all WebClient navigation commands open a separate browser tab",async()=>{
+  const app=createConsole(true);
+  await app.settle();await app.settle();
+  await app.action("webclient");
+  assert.equal(app.opened.length,1);
+  assert.equal(app.opened[0].url,"/webclient2/");
+  assert.equal(app.opened[0].target,"_blank");
+  assert.equal(app.opened[0].tab.opener,null);
+  assert.deepEqual(app.assigned,[]);
+  await app.open("shared");
+  assert.match(app.root.innerHTML,/data-action="webclient"/);
+  await app.action("webclient");
+  assert.equal(app.opened.length,2);
+  assert.equal(app.opened[1].target,"_blank");
+});
+
+test("editable OAuth provider display name is shown while the GitHub login identifier stays stable",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/oauth/list"]={list:[{
+    id:42,op:"github",display_name:"企业 GitHub 单点登录",oauth_type:"github",
+    client_id:"test-client",client_secret:"",auto_group_ids:"",issuer:"",
+    scopes:"",auto_register:false,pkce_enable:false,pkce_method:"S256"
+  }],total:1};
+  await app.settle();await app.settle();await app.open("oauth");
+  assert.match(app.root.innerHTML,/企业 GitHub 单点登录/);
+  await app.action("edit",42);
+  assert.match(app.root.innerHTML,/name="display_name" type="text" value="企业 GitHub 单点登录"/);
+  assert.match(app.root.innerHTML,/name="op" type="text" value="github" readonly/);
+  assert.match(app.root.innerHTML,/登录按钮名称可以修改/);
+});
