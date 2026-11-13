@@ -790,11 +790,18 @@
       }else if(k==="mail"){
         state.mail=await request("/mail/settings");
       }else if(k==="clientBuilder"){
-        const [profiles,tasks,versions]=await Promise.all([
+        const [profiles,tasks,versions,serverConfig]=await Promise.all([
           request("/client_builder/profiles?"+new URLSearchParams({page:state.clientProfilePageNo,page_size:state.pageSize})),
           request("/client_builder/tasks?"+new URLSearchParams({page:state.clientTaskPageNo,page_size:state.pageSize})),
-          request("/client_builder/versions").catch(()=>({list:[]}))
+          request("/client_builder/versions").catch(()=>({list:[]})),
+          request("/config/server").catch(()=>({}))
         ]);
+        state.clientServerDefaults={
+          host:String(serverConfig.id_server||"").trim(),
+          public_key:String(serverConfig.key||"").trim(),
+          api_server:String(serverConfig.api_server||window.location?.origin||"").trim(),
+          relay_server:String(serverConfig.relay_server||"").trim()
+        };
         state.clientProfiles=profiles.list||[];state.clientProfilesTotal=profiles.total||0;
         state.clientTasks=tasks.list||[];state.clientTasksTotal=tasks.total||0;
         state.clientVersions=Array.isArray(versions.list)?versions.list:[];
@@ -1481,9 +1488,12 @@
       '<datalist id="client-version-options">'+knownVersions.map(item=>
         '<option value="'+esc(item.version)+'">'+esc(item.version)+'</option>').join("")+
       '</datalist><small>可以选择最近发布的官方版本，也可以手动填写较早版本。系统会检查所选版本是否提供对应平台的安装文件。</small></div>';
+    const defaults=state.clientServerDefaults||{};
+    const fieldValue=name=>Object.prototype.hasOwnProperty.call(current,name)?
+      String(current[name]??""):String(defaults[name]??"");
     const textField=(name,title,required=false)=>
       '<div class="field"><label for="client-'+name+'">'+title+'</label>'+
-      '<input id="client-'+name+'" name="'+name+'" value="'+esc(current[name]||"")+'" '+
+      '<input id="client-'+name+'" name="'+name+'" value="'+esc(fieldValue(name))+'" '+
       (required?"required":"")+' autocomplete="off"></div>';
     const fields='<form id="client-profile-form" class="tips">'+
       '<input type="hidden" name="id" value="'+esc(current.id||"")+'">'+
@@ -1498,7 +1508,8 @@
       textField("public_key","服务器公钥（Base64，32 字节）",true)+
       textField("api_server","API 地址（可留空）")+
       textField("relay_server","中继服务器地址（可留空）")+
-      '</div><div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
+      '</div><p class="client-builder-defaults-note">新建配置时自动填写本 API 服务器的地址和公钥。可根据客户端使用的网络环境修改这些字段。</p>'+
+      '<div class="head-actions"><button class="btn btn-primary" type="button" data-action="client-save">保存配置</button>'+
       '<button class="btn" type="button" data-action="client-new">新建配置</button></div></form>';
     const profileList=profiles.map(profile=>'<div class="status-row client-profile-row"><span><strong>'+esc(profile.name)+'</strong>'+
       '<span class="cell-sub">'+esc(profile.platform)+' · RustDesk '+esc(profile.version)+' · '+esc(profile.host)+'</span></span>'+
