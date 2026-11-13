@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 291
+const DatabaseVersion = 292
 
 // @title 管理系统API
 // @version 1.0
@@ -297,81 +297,10 @@ func initOptionalCache() error {
     return nil
 }
 
-func DatabaseAutoUpdate() error {
-	version := DatabaseVersion
-
-	db := global.DB
-
-	if global.Config.Gorm.Type == config.TypeMysql {
-		//检查存不存在数据库，不存在则创建
-		dbName := db.Migrator().CurrentDatabase()
-		if dbName == "" {
-			dbName = global.Config.Mysql.Dbname
-			// 移除 DSN 中的数据库名称，以便初始连接时不指定数据库
-			dsnWithoutDB := fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-				global.Config.Mysql.Username,
-				global.Config.Mysql.Password,
-				global.Config.Mysql.Addr,
-				"",
-			)
-
-			//新链接
-			dbWithoutDB := orm.NewMysql(&orm.MysqlConfig{
-				Dsn: dsnWithoutDB,
-			}, global.Logger)
-			// 获取底层的 *sql.DB 对象，并确保在程序退出时关闭连接
-			sqlDBWithoutDB, err := dbWithoutDB.DB()
-			if err != nil {
-				return fmt.Errorf("open MySQL administration connection: %w", err)
-			}
-			defer func() {
-				if err := sqlDBWithoutDB.Close(); err != nil {
-					global.Logger.Errorf("关闭连接失败: %v", err)
-				}
-			}()
-
-			err = dbWithoutDB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + " DEFAULT CHARSET utf8mb4").Error
-			if err != nil {
-				return fmt.Errorf("create MySQL database: %w", err)
-			}
-		}
-	}
-
-	if !db.Migrator().HasTable(&model.Version{}) {
-		if err := Migrate(uint(version)); err != nil { return err }
-	} else {
-		//查找最后一个version
-		var v model.Version
-		if err := db.Last(&v).Error; err != nil { return fmt.Errorf("read database migration version: %w", err) }
-		if v.Version < uint(version) {
-			if err := Migrate(uint(version)); err != nil { return err }
-		}
-
-		// 245迁移
-		if v.Version < 245 {
-			//oauths 表的 oauth_type 字段设置为 op同样的值
-			for _, statement := range []string{"update oauths set oauth_type = op", "update oauths set issuer = 'https://accounts.google.com' where op = 'google'", "update user_thirds set oauth_type = third_type, op = third_type"} {
-				if err := db.Exec(statement).Error; err != nil { return fmt.Errorf("legacy OAuth migration: %w", err) }
-			}
-			//通过email迁移旧的google授权
-			uts := make([]model.UserThird, 0)
-			if err := db.Where("oauth_type = ?", "google").Find(&uts).Error; err != nil { return err }
-			for _, ut := range uts {
-				if ut.UserId > 0 {
-					if err := db.Model(&model.User{}).Where("id = ?", ut.UserId).Update("email", ut.OpenId).Error; err != nil { return err }
-				}
-			}
-		}
-		if v.Version < 246 {
-			if err := db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google' and issuer is null").Error; err != nil { return err }
-		}
-	}
-	return nil
-}
-func Migrate(version uint) error {
-	global.Logger.Info("Migrating....", version)
-	err := global.DB.AutoMigrate(
-		&model.Version{},
+// databaseMigrationModels contains every table maintained by the application.
+// The same list is used to detect missing schema changes after an upgrade.
+var databaseMigrationModels = []interface{}{
+&model.Version{},
 		&model.User{},
 		&model.UserToken{},
 		&model.Tag{},
@@ -432,7 +361,125 @@ func Migrate(version uint) error {
 		&model.SystemSettingOverride{},
 		&model.SystemSettingRevision{},
 		&model.SystemSettingHistory{},
-	)
+}
+
+// databaseSchemaNeedsMigration verifies the tables, columns, and indexes that
+// AutoMigrate manages. A missing migration version increment can then be
+// repaired automatically without changing stored application records.
+func databaseSchemaNeedsMigration(db *gorm.DB) (bool, error) {
+	for _, entity := range databaseMigrationModels {
+		if !db.Migrator().HasTable(entity) {
+			return true, nil
+		}
+		statement := &gorm.Statement{DB: db}
+		if err := statement.Parse(entity); err != nil {
+			return false, fmt.Errorf("inspect database model %T: %w", entity, err)
+		}
+		columns, err := db.Migrator().ColumnTypes(entity)
+		if err != nil {
+			return false, fmt.Errorf("inspect columns for %s: %w", statement.Schema.Table, err)
+		}
+		existing := make(map[string]bool, len(columns))
+		for _, column := range columns {
+			existing[strings.ToLower(column.Name())] = true
+		}
+		for _, field := range statement.Schema.Fields {
+			if field.DBName != "" && !field.IgnoreMigration && !existing[strings.ToLower(field.DBName)] {
+				return true, nil
+			}
+		}
+		for _, index := range statement.Schema.ParseIndexes() {
+			if !db.Migrator().HasIndex(entity, index.Name) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func DatabaseAutoUpdate() error {
+	version := DatabaseVersion
+
+	db := global.DB
+
+	if global.Config.Gorm.Type == config.TypeMysql {
+		//检查存不存在数据库，不存在则创建
+		dbName := db.Migrator().CurrentDatabase()
+		if dbName == "" {
+			dbName = global.Config.Mysql.Dbname
+			// 移除 DSN 中的数据库名称，以便初始连接时不指定数据库
+			dsnWithoutDB := fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+				global.Config.Mysql.Username,
+				global.Config.Mysql.Password,
+				global.Config.Mysql.Addr,
+				"",
+			)
+
+			//新链接
+			dbWithoutDB := orm.NewMysql(&orm.MysqlConfig{
+				Dsn: dsnWithoutDB,
+			}, global.Logger)
+			// 获取底层的 *sql.DB 对象，并确保在程序退出时关闭连接
+			sqlDBWithoutDB, err := dbWithoutDB.DB()
+			if err != nil {
+				return fmt.Errorf("open MySQL administration connection: %w", err)
+			}
+			defer func() {
+				if err := sqlDBWithoutDB.Close(); err != nil {
+					global.Logger.Errorf("关闭连接失败: %v", err)
+				}
+			}()
+
+			err = dbWithoutDB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + " DEFAULT CHARSET utf8mb4").Error
+			if err != nil {
+				return fmt.Errorf("create MySQL database: %w", err)
+			}
+		}
+	}
+
+	if !db.Migrator().HasTable(&model.Version{}) {
+		if err := Migrate(uint(version)); err != nil { return err }
+	} else {
+		//查找最后一个version
+		var v model.Version
+		if err := db.Last(&v).Error; err != nil { return fmt.Errorf("read database migration version: %w", err) }
+		if v.Version > uint(version) {
+			return fmt.Errorf("database schema version %d is newer than supported version %d", v.Version, version)
+		}
+		needsMigration := v.Version < uint(version)
+		if !needsMigration {
+			var err error
+			needsMigration, err = databaseSchemaNeedsMigration(db)
+			if err != nil { return fmt.Errorf("inspect database schema: %w", err) }
+		}
+		if needsMigration {
+			if err := Migrate(uint(version)); err != nil { return err }
+		}
+
+		// 245迁移
+		if v.Version < 245 {
+			//oauths 表的 oauth_type 字段设置为 op同样的值
+			for _, statement := range []string{"update oauths set oauth_type = op", "update oauths set issuer = 'https://accounts.google.com' where op = 'google'", "update user_thirds set oauth_type = third_type, op = third_type"} {
+				if err := db.Exec(statement).Error; err != nil { return fmt.Errorf("legacy OAuth migration: %w", err) }
+			}
+			//通过email迁移旧的google授权
+			uts := make([]model.UserThird, 0)
+			if err := db.Where("oauth_type = ?", "google").Find(&uts).Error; err != nil { return err }
+			for _, ut := range uts {
+				if ut.UserId > 0 {
+					if err := db.Model(&model.User{}).Where("id = ?", ut.UserId).Update("email", ut.OpenId).Error; err != nil { return err }
+				}
+			}
+		}
+		if v.Version < 246 {
+			if err := db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google' and issuer is null").Error; err != nil { return err }
+		}
+	}
+	return nil
+}
+func Migrate(version uint) error {
+	global.Logger.Info("Migrating....", version)
+	err := global.DB.AutoMigrate(databaseMigrationModels...)
 	if err != nil {
 		return fmt.Errorf("auto-migrate database tables: %w", err)
 	}
@@ -440,6 +487,9 @@ func Migrate(version uint) error {
 		return fmt.Errorf("create audit cleanup indexes: %w", err)
 	}
 	return global.DB.Transaction(func(tx *gorm.DB) error {
+		var matchingVersions int64
+		if err := tx.Model(&model.Version{}).Where("version >= ?", version).Count(&matchingVersions).Error; err != nil { return err }
+		if matchingVersions > 0 { return nil }
 		if err := tx.Create(&model.Version{Version: version}).Error; err != nil { return fmt.Errorf("write database migration version: %w", err) }
 		var vc int64
 		if err := tx.Model(&model.Version{}).Count(&vc).Error; err != nil { return err }

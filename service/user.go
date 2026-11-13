@@ -101,7 +101,7 @@ func (us *UserService) InfoByAccessToken(token string) (*model.User, *model.User
 	ut.DeviceUuid = row.TokenDeviceUUID
 	ut.Token = token
 	ut.ExpiredAt = row.TokenExpiredAt
-	if ut.ExpiredAt < time.Now().Unix() {
+	if ut.ExpiredAt <= time.Now().Unix() {
 		return u, ut
 	}
 	return &row.User, ut
@@ -109,9 +109,6 @@ func (us *UserService) InfoByAccessToken(token string) (*model.User, *model.User
 
 // GenerateToken 生成token
 func (us *UserService) GenerateToken(u *model.User) string {
-	if len(Jwt.Key) > 0 {
-		return Jwt.GenerateToken(u.Id)
-	}
 	secret := make([]byte, 32)
 	if _, err := crand.Read(secret); err != nil {
 		panic("cannot create secure access token: " + err.Error())
@@ -622,23 +619,35 @@ func (us *UserService) getAdminUserCount() int64 {
 	return count
 }
 
-// UserTokenExpireTimestamp 生成用户token过期时间
-func (us *UserService) UserTokenExpireTimestamp() int64 {
-	exp := Config.App.TokenExpire
-	if exp == 0 {
-		//默认七天
-		exp = 604800
+const defaultLoginSessionDuration = 30 * 24 * time.Hour
+
+func loginSessionDuration() time.Duration {
+	if Config == nil || Config.App.TokenExpire <= 0 {
+		return defaultLoginSessionDuration
 	}
-	return time.Now().Add(exp).Unix()
+	return Config.App.TokenExpire
+}
+
+// UserTokenExpireTimestamp calculates the expiration of a persistent session.
+func (us *UserService) UserTokenExpireTimestamp() int64 {
+	return time.Now().Add(loginSessionDuration()).Unix()
 }
 
 func (us *UserService) RefreshAccessToken(ut *model.UserToken) {
-	ut.ExpiredAt = us.UserTokenExpireTimestamp()
-	DB.Model(ut).Update("expired_at", ut.ExpiredAt)
+	if ut == nil || ut.Id == 0 { return }
+	newExpiration := us.UserTokenExpireTimestamp()
+	result := DB.Model(&model.UserToken{}).
+		Where("id = ? AND expired_at > ?", ut.Id, time.Now().Unix()).
+		Update("expired_at", newExpiration)
+	if result.Error == nil && result.RowsAffected > 0 {
+		ut.ExpiredAt = newExpiration
+	}
 }
 
 func (us *UserService) AutoRefreshAccessToken(ut *model.UserToken) {
-	if ut.ExpiredAt-time.Now().Unix() < Config.App.TokenExpire.Milliseconds()/3000 {
+	if ut == nil || ut.Id == 0 { return }
+	remaining := time.Until(time.Unix(ut.ExpiredAt, 0))
+	if remaining > 0 && remaining <= loginSessionDuration()/3 {
 		us.RefreshAccessToken(ut)
 	}
 }
