@@ -701,10 +701,12 @@ export default class Connection {
         ?yes:message.OptionMessage_BoolOption.No;
       n+=1;
     }
-    msg.disable_clipboard=this._browserClipboardEnabled&&
-      !this._options["view-only"]&&!this._options["disable-clipboard"]
-      ?message.OptionMessage_BoolOption.No:yes;
-    n+=1;
+    if(["desktop","camera"].includes(this._sessionMode)){
+      msg.disable_clipboard=this._browserClipboardEnabled&&
+        !this._options["view-only"]&&!this._options["disable-clipboard"]
+        ?message.OptionMessage_BoolOption.No:yes;
+      n+=1;
+    }
     return n > 0 ? msg : undefined;
   }
 
