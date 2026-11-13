@@ -100,11 +100,11 @@
 | `ldap.user.admin-group` | LDAP 管理员组。标识 LDAP 管理员的用户组 DN。 | `cn=admin,dc=example,dc=com` | `RUSTDESK_API_LDAP_USER_ADMIN_GROUP` | 数据库 |
 | `ldap.user.allow-group` | LDAP 允许登录组。允许使用 LDAP 登录的用户组 DN。 | `cn=users,dc=example,dc=com` | `RUSTDESK_API_LDAP_USER_ALLOW_GROUP` | 数据库 |
 | **缓存** | | | | |
-| `redis.addr` | Redis 地址。兼容现有组件使用的 Redis 服务地址。 | 未在配置模板列出 | `RUSTDESK_API_REDIS_ADDR` | 本机启动文件 |
+| `redis.addr` | Redis 地址。填写后默认缓存会使用 Redis，也供多实例 SSE 通知使用。留空时默认使用内存缓存。 | 未在配置模板列出 | `RUSTDESK_API_REDIS_ADDR` | 本机启动文件 |
 | `redis.password` | Redis 密码。Redis 连接认证密码。 | 空（敏感值） | `RUSTDESK_API_REDIS_PASSWORD` | 本机启动文件 |
 | `redis.db` | Redis 数据库编号。Redis 逻辑数据库编号。 | 未在配置模板列出 | `RUSTDESK_API_REDIS_DB` | 本机启动文件 |
-| `cache.type` | 缓存方式。选择内存、文件或 Redis 缓存。 | 未在配置模板列出 | `RUSTDESK_API_CACHE_TYPE` | 本机启动文件 |
-| `cache.redis-addr` | 缓存 Redis 地址。Redis 缓存使用的服务器地址。 | 未在配置模板列出 | `RUSTDESK_API_CACHE_REDIS_ADDR` | 本机启动文件 |
+| `cache.type` | 缓存方式。留空时自动选择已配置的 Redis 或内存缓存；也可指定 memory、file、redis。 | 未在配置模板列出 | `RUSTDESK_API_CACHE_TYPE` | 本机启动文件 |
+| `cache.redis-addr` | 缓存 Redis 地址。设置 cache.type=redis 时可以单独指定 Redis 地址；未同时设置 redis.addr 时也供 SSE 通知使用。 | 未在配置模板列出 | `RUSTDESK_API_CACHE_REDIS_ADDR` | 本机启动文件 |
 | `cache.redis-pwd` | 缓存 Redis 密码。Redis 缓存的连接密码。 | 空（敏感值） | `RUSTDESK_API_CACHE_REDIS_PWD` | 本机启动文件 |
 | `cache.redis-db` | 缓存 Redis 编号。Redis 缓存使用的逻辑数据库。 | 未在配置模板列出 | `RUSTDESK_API_CACHE_REDIS_DB` | 本机启动文件 |
 | `cache.file-dir` | 文件缓存目录。本地文件缓存的保存目录。 | 未在配置模板列出 | `RUSTDESK_API_CACHE_FILE_DIR` | 本机启动文件 |

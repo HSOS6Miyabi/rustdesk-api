@@ -54,6 +54,13 @@ func (s *SimpleCache) Set(key string, value interface{}, exp int) error {
 	s.data[key] = val.Interface()
 	return nil
 }
+func (s *SimpleCache) Delete(key string) error {
+	s.mu.Lock()
+	delete(s.data, key)
+	s.mu.Unlock()
+	return nil
+}
+
 func (s *SimpleCache) Gc() error {
 	return nil
 }

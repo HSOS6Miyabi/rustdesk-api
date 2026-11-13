@@ -24,9 +24,10 @@ func (fc *FileCache) getLock(key string) *sync.Mutex {
 }
 
 func (c *FileCache) Get(key string, value interface{}) error {
-	data, _ := c.getValue(key)
-	err := DecodeValue(data, value)
-	return err
+	data, err := c.getValue(key)
+    if err != nil { return err }
+    if data == "" { return zeroCacheValue(value) }
+	return DecodeValue(data, value)
 }
 
 // 获取值,如果文件不存在或者过期，返回空，过滤掉错误
@@ -94,6 +95,17 @@ func (c *FileCache) fileName(key string) string {
 
 // Gc only removes expired entries owned by this cache. The configured
 // directory may contain unrelated files that must be preserved.
+func (c *FileCache) Delete(key string) error {
+	path := c.fileName(key)
+	mutex := c.getLock(path)
+	mutex.Lock()
+	defer mutex.Unlock()
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 func (c *FileCache) Gc() error {
 	entries, err := os.ReadDir(c.Dir)
 	if os.IsNotExist(err) { return nil }

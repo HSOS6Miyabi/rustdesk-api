@@ -1,6 +1,7 @@
 package utils
 
 import (
+    "github.com/go-redis/redis/v8"
 	"errors"
 	"sync"
 	"time"
@@ -45,6 +46,8 @@ type LoginLimiter struct {
 	bannedIPs   map[string]BanRecord
 	provider    CaptchaProvider
 	cleanupStop chan struct{}
+    closeOnce sync.Once
+    redis *redis.Client
 }
 
 var defaultSecurityPolicy = SecurityPolicy{
@@ -74,7 +77,19 @@ func NewLoginLimiter(policy SecurityPolicy) *LoginLimiter {
 	return ll
 }
 
-// 注册验证码提供者
+// UseRedis shares login security state between API instances when Redis is configured.
+func (ll *LoginLimiter) UseRedis(client *redis.Client) {
+    ll.redis = client
+}
+
+// Close stops the local expiration worker.
+func (ll *LoginLimiter) Close() {
+    if ll != nil {
+        ll.closeOnce.Do(func() { close(ll.cleanupStop) })
+    }
+}
+
+// RegisterProvider configures the CAPTCHA generator and renderer.
 func (ll *LoginLimiter) RegisterProvider(p CaptchaProvider) {
 	ll.mu.Lock()
 	defer ll.mu.Unlock()
@@ -96,10 +111,11 @@ func (ll *LoginLimiter) IsIPBanned(ip string) bool {
 	if !ll.BanEnabled() {
 		return false
 	}
-	ll.mu.Lock()
-	defer ll.mu.Unlock()
-	blocked, _ := ll.isBanned(ip)
-	return blocked
+	redisBlocked, _ := ll.redisIsIPBanned(ip)
+    ll.mu.Lock()
+    defer ll.mu.Unlock()
+    localBlocked, _ := ll.isBanned(ip)
+    return redisBlocked || localBlocked
 }
 
 // 记录登录失败尝试
@@ -107,6 +123,7 @@ func (ll *LoginLimiter) RecordFailedAttempt(ip string) {
 	if ll.isDisabled() {
 		return
 	}
+    ll.redisRecordFailedAttempt(ip)
 	ll.mu.Lock()
 	defer ll.mu.Unlock()
 
@@ -122,6 +139,12 @@ func (ll *LoginLimiter) RecordFailedAttempt(ip string) {
 
 	// 记录新尝试
 	validAttempts = append(validAttempts, now)
+    maxAttempts := ll.policy.BanThreshold
+    if ll.policy.CaptchaThreshold > maxAttempts { maxAttempts = ll.policy.CaptchaThreshold }
+    if maxAttempts < 32 { maxAttempts = 32 }
+    if len(validAttempts) > maxAttempts {
+        validAttempts = validAttempts[len(validAttempts)-maxAttempts:]
+    }
 	ll.attempts[ip] = validAttempts
 
 	// 检查封禁条件
@@ -135,58 +158,49 @@ func (ll *LoginLimiter) RecordFailedAttempt(ip string) {
 
 // 生成验证码
 func (ll *LoginLimiter) RequireCaptcha() (error, CaptchaMeta) {
-	ll.mu.Lock()
-	defer ll.mu.Unlock()
-
-	if ll.provider == nil {
-		return errors.New("no captcha provider available"), CaptchaMeta{}
-	}
-
-	id, content, answer, err := ll.provider.Generate()
-	if err != nil {
-		return err, CaptchaMeta{}
-	}
-
-	// 存储验证码
-	ll.captchas[id] = CaptchaMeta{
-		Id:        id,
-		Content:   content,
-		Answer:    answer,
-		ExpiresAt: time.Now().Add(ll.provider.Expiration()),
-	}
-
-	return nil, ll.captchas[id]
+    ll.mu.Lock()
+    if ll.provider == nil {
+        ll.mu.Unlock()
+        return errors.New("no captcha provider available"), CaptchaMeta{}
+    }
+    id, content, answer, err := ll.provider.Generate()
+    if err != nil {
+        ll.mu.Unlock()
+        return err, CaptchaMeta{}
+    }
+    result := CaptchaMeta{
+        Id: id, Content: content, Answer: answer,
+        ExpiresAt: time.Now().Add(ll.provider.Expiration()),
+    }
+    ll.captchas[id] = result
+    ll.mu.Unlock()
+    ll.redisStoreCaptcha(result)
+    return nil, result
 }
 
-// 验证验证码
 func (ll *LoginLimiter) VerifyCaptcha(id, answer string) bool {
-	ll.mu.Lock()
-	defer ll.mu.Unlock()
-
-	// 查找匹配验证码
-	if ll.provider == nil {
-		return false
-	}
-
-	// 获取并验证验证码
-	captcha, exists := ll.captchas[id]
-	if !exists {
-		return false
-	}
-
-	// 清理过期验证码
-	if time.Now().After(captcha.ExpiresAt) {
-		delete(ll.captchas, id)
-		return false
-	}
-
-	// 验证并清理状态
-	if answer == captcha.Answer {
-		delete(ll.captchas, id)
-		return true
-	}
-
-	return false
+    if verified, handled := ll.redisVerifyCaptcha(id, answer); handled {
+        if verified {
+            ll.mu.Lock()
+            delete(ll.captchas, id)
+            ll.mu.Unlock()
+        }
+        return verified
+    }
+    ll.mu.Lock()
+    defer ll.mu.Unlock()
+    if ll.provider == nil { return false }
+    captcha, exists := ll.captchas[id]
+    if !exists { return false }
+    if time.Now().After(captcha.ExpiresAt) {
+        delete(ll.captchas, id)
+        return false
+    }
+    if answer == captcha.Answer {
+        delete(ll.captchas, id)
+        return true
+    }
+    return false
 }
 
 func (ll *LoginLimiter) DrawCaptcha(content string) (err error, str string) {
@@ -196,6 +210,7 @@ func (ll *LoginLimiter) DrawCaptcha(content string) (err error, str string) {
 
 // 清除记录窗口
 func (ll *LoginLimiter) RemoveAttempts(ip string) {
+    ll.redisRemoveAttempts(ip)
 	ll.mu.Lock()
 	defer ll.mu.Unlock()
 
@@ -210,21 +225,14 @@ func (ll *LoginLimiter) CheckSecurityStatus(ip string) (banned bool, captchaRequ
 	if ll.isDisabled() {
 		return
 	}
-	ll.mu.Lock()
-	defer ll.mu.Unlock()
-
-	// 检查封禁状态
-	if banned, _ = ll.isBanned(ip); banned {
-		return
-	}
-
-	// 清理过期数据
-	ll.pruneAttempts(ip, time.Now().Add(-ll.policy.AttemptsWindow))
-
-	// 检查验证码要求
-	captchaRequired = len(ll.attempts[ip]) >= ll.policy.CaptchaThreshold
-
-	return
+    redisBanned, redisCaptcha, _ := ll.redisSecurityStatus(ip)
+    ll.mu.Lock()
+    defer ll.mu.Unlock()
+    localBanned, _ := ll.isBanned(ip)
+    if redisBanned || localBanned { return true, false }
+    ll.pruneAttempts(ip, time.Now().Add(-ll.policy.AttemptsWindow))
+    localCaptcha := len(ll.attempts[ip]) >= ll.policy.CaptchaThreshold
+    return false, redisCaptcha || localCaptcha
 }
 
 // 后台清理任务

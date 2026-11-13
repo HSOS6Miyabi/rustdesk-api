@@ -34,6 +34,11 @@ var policyActivity = struct {
 }{}
 
 func invalidatePolicyActivity() {
+    invalidatePolicyActivityLocal()
+    publishCacheInvalidation(cacheInvalidationPolicy)
+}
+
+func invalidatePolicyActivityLocal() {
 	policyActivity.Lock()
 	policyActivity.checked = time.Time{}
 	policyActivity.generation++
@@ -170,6 +175,11 @@ var pushActivity = struct {
 }{}
 
 func invalidatePushActivity() {
+    invalidatePushActivityLocal()
+    publishCacheInvalidation(cacheInvalidationPush)
+}
+
+func invalidatePushActivityLocal() {
 	pushActivity.Lock()
 	pushActivity.checked = time.Time{}
 	pushActivity.generation++
@@ -251,6 +261,11 @@ var administrativeNotificationActivity = struct {
 }{}
 
 func invalidateAdministrativeNotificationActivity() {
+    invalidateAdministrativeNotificationActivityLocal()
+    publishCacheInvalidation(cacheInvalidationNotification)
+}
+
+func invalidateAdministrativeNotificationActivityLocal() {
 	administrativeNotificationActivity.Lock()
 	administrativeNotificationActivity.checked = time.Time{}
 	administrativeNotificationActivity.generation++

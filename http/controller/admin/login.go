@@ -257,7 +257,7 @@ func (ct *Login) OidcAuth(c *gin.Context) {
 		return
 	}
 
-	service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
+	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:     service.OauthActionTypeLogin,
 		Op:         f.Op,
 		Id:         f.Id,
@@ -267,7 +267,10 @@ func (ct *Login) OidcAuth(c *gin.Context) {
 		Uuid:     f.Uuid,
 		Verifier: verifier,
 		Nonce:    nonce,
-	}, 5*60)
+	}, 5*60); err != nil {
+        response.Error(c, "无法保存授权状态，请重试")
+        return
+    }
 
 	response.Success(c, gin.H{
 		"code": state,
