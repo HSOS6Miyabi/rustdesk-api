@@ -260,7 +260,7 @@ export class BrowserFileClipboard {
       const result=await reply;
       if(result.msg_flags!==1)throw new Error("The remote device refused the file request");
       const bytes=new Uint8Array(result.requested_data||[]);
-      if(bytes.length!==length)throw new Error("Remote clipboard file data was incomplete");
+      if(!bytes.length||bytes.length>length)throw new Error("Invalid remote clipboard file block");
       return bytes;
     }finally{this.pendingData.delete(stream)}
   }
@@ -286,11 +286,13 @@ export class BrowserFileClipboard {
           continue;
         }
         const chunks=[];
-        for(let start=0;start<file.size;start+=MAX_PART_BYTES){
+        for(let start=0;start<file.size;){
           if(generation!==this.generation||!this.active)throw new Error("Remote clipboard changed during download");
           const wanted=Math.min(file.size-start,MAX_PART_BYTES);
-          chunks.push(await this.requestContents(file.index,start,wanted));
-          this.notify("progress",{name:file.name,received:start+wanted,total:file.size});
+          const block=await this.requestContents(file.index,start,wanted);
+          chunks.push(block);
+          start+=block.byteLength;
+          this.notify("progress",{name:file.name,received:start,total:file.size});
         }
         entries.push({name:file.name,chunks});
       }
