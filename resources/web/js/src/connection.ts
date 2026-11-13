@@ -762,8 +762,15 @@ export default class Connection {
       received:0,decoded:0,dropped:0};
   }
 
-  async drawNativeFrame(frame:any):Promise<void>{
-    if(typeof window.onRgba!=="function")return;
+  async drawNativeFrame(frame:any):Promise<boolean>{
+    // The official Flutter WebClient imports WebCodecs VideoFrames directly
+    // as images. It takes ownership and closes each frame after GPU import.
+    // If this API is unavailable, use the compatible RGBA image callback.
+    if(typeof (window as any).onVideoFrame==="function"){
+      (window as any).onVideoFrame(0,frame);
+      return true;
+    }
+    if(typeof window.onRgba!=="function")return false;
     const width=frame.displayWidth,height=frame.displayHeight;
     const count=width*height*4;
     if(!Number.isSafeInteger(count)||count<=0||count>128*1024*1024){
@@ -776,6 +783,7 @@ export default class Connection {
     await frame.copyTo(this._nativePixels,{format:"RGBA",
       layout:[{offset:0,stride:width*4}]});
     window.onRgba(0,this._nativePixels);
+    return false;
   }
 
   handleVideoFrame(vf: message.VideoFrame) {
@@ -808,8 +816,10 @@ export default class Connection {
           onDropped:()=>{this._performanceStats.dropped++},
           display:async(frame:any,decodeMs:number)=>{
             const started=performance.now();
-            await this.drawNativeFrame(frame);
-            this.reportVideoPerformance(decodeMs,performance.now()-started,codec,"WebCodecs");
+            const transferred=await this.drawNativeFrame(frame);
+            this.reportVideoPerformance(decodeMs,performance.now()-started,codec,
+              transferred?"WebCodecs · GPU":"WebCodecs");
+            return transferred;
           }
         });
       }
