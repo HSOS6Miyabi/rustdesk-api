@@ -67,3 +67,17 @@ test("standalone peer metadata is extracted from the modern RustDesk message",()
   assert.equal(lib.extractStandalonePeerInfo(Uint8Array.from([58,2,10,0])),null);
   assert.throws(()=>lib.extractStandalonePeerInfo(Uint8Array.from([202,1,5,10])));
 });
+
+test("browser capabilities preserve other login options and allow runtime renegotiation",()=>{
+  const login=Uint8Array.from([58,6,10,0,50,2,8,3]);
+  const native=lib.advertiseVideoDecoders(login,
+    {vp9:true,h264:true,h265:false,vp8:true,av1:false,prefer:2});
+  assert.deepEqual([...native],[58,16,10,0,50,12,8,3,82,8,8,1,16,1,40,1,32,2]);
+  assert.deepEqual([...lib.advertiseVideoDecoders(native,{vp9:true})],
+    [58,12,10,0,50,8,8,3,82,4,8,1,32,1]);
+  const misc=Uint8Array.from([154,1,2,58,0]);
+  const update=lib.advertiseVideoDecoders(misc,{vp9:true,h264:true});
+  assert.deepEqual([...update],[154,1,8,58,6,82,4,8,1,16,1]);
+  assert.deepEqual([...lib.advertiseVideoDecoders(update,{vp9:true})],
+    [154,1,6,58,4,82,2,8,1]);
+});
