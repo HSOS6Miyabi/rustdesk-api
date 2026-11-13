@@ -160,6 +160,27 @@ window.__rustdeskClipboardAccess={
     },
     offerFiles(files){return currentFileClipboard?.offerFiles(files)??false;}
 };
+let pendingRemotePaste=false;
+function pasteIntoRemoteExplorer(){
+    const conn=getConn();
+    if(!clipboardSync.enabled||conn?._sessionMode!=="desktop")return;
+    conn.inputKey("v",true,false,false,true,false,false);
+    conn.inputKey("v",false,false,false,true,false,false);
+}
+window.addEventListener("keydown",event=>{
+    if(!clipboardSync.enabled||getConn()?._sessionMode!=="desktop")return;
+    if(!((event.ctrlKey||event.metaKey)&&String(event.key).toLowerCase()==="v")||
+       event.altKey||event.isComposing)return;
+    const target=event.target;
+    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+    pendingRemotePaste=true;
+    event.stopImmediatePropagation?.();
+    setTimeout(()=>{
+        if(!pendingRemotePaste)return;
+        pendingRemotePaste=false;
+        pasteIntoRemoteExplorer();
+    },600);
+},true);
 window.addEventListener("paste",event=>{
     if(!clipboardSync.enabled)return;
     const target=event.target;
@@ -175,8 +196,14 @@ window.addEventListener("paste",event=>{
         }
     }
     if(files.length&&currentFileClipboard){
+        const wantsRemotePaste=pendingRemotePaste;
+        pendingRemotePaste=false;
         try{
-            currentFileClipboard.offerFiles(files);
+            currentFileClipboard.offerFiles(files,wantsRemotePaste?pasteIntoRemoteExplorer:undefined);
+            if(wantsRemotePaste){
+                event.preventDefault?.();
+                event.stopImmediatePropagation?.();
+            }
         }catch(error){
             msgbox("error","File Clipboard",String(error?.message||error));
         }
@@ -184,6 +211,10 @@ window.addEventListener("paste",event=>{
     }
     const text=data?.getData("text/plain");
     if(text)clipboardSync.sendLocal(text);
+    if(pendingRemotePaste){
+        pendingRemotePaste=false;
+        setTimeout(pasteIntoRemoteExplorer,50);
+    }
 },true);
 document.addEventListener("fullscreenchange",()=>{
     if(typeof window.onFullscreenChanged==="function" && window.parent===window)
