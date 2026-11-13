@@ -257,12 +257,17 @@ func (ct *Login) OidcAuth(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, err.Error()))
 		return
 	}
+	returnTo := ""
+	if f.ReturnTo == "/webclient2/" {
+		returnTo = f.ReturnTo
+	}
 
 	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:     service.OauthActionTypeLogin,
 		Op:         f.Op,
 		Id:         f.Id,
-		DeviceType: "webadmin",
+		DeviceType: model.LoginLogClientWebAdmin,
+		ReturnTo:   returnTo,
 		// DeviceOs: ct.Platform(c),
 		DeviceOs: f.DeviceInfo.Os,
 		Uuid:     f.Uuid,

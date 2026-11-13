@@ -20,10 +20,15 @@ function storage(initial = {}) {
 function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavior = {}) {
   const calls = [];
   const events = {};
+  const windowEvents = {};
   const root = { innerHTML: "",querySelector(){return null;} };
   const assigned = [];
   const opened = [];
-  const browserLocation = { hash: "#/overview", assign(url) {assigned.push(url);} };
+  const replaced = [];
+  const browserLocation = {
+    hash: behavior.initialHash || "#/overview",pathname:"/_admin/",search:"",
+    assign(url) {assigned.push(url);}
+  };
   const user = {
     username: "demo-user",
     nickname: "Demo",
@@ -125,6 +130,15 @@ function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavi
     const location = new URL(String(url), "https://example.test");
     const endpoint = location.pathname.replace(/^\/api\/admin/, "");
     calls.push({ endpoint, method: options?.method || "GET", query:location.search });
+    if(endpoint==="/oidc/auth-query"){
+      if(behavior.oidcNetworkError)throw Error("Network unavailable");
+      if(behavior.oidcError)return {ok:true,status:200,async json(){
+        return {code:101,message:behavior.oidcError};
+      }};
+      return {ok:true,status:200,async json(){
+        return {code:0,data:behavior.oidcResult || {token:"mobile-sso-token"}};
+      }};
+    }
     if(endpoint==="/user/current"&&behavior.failCurrent)throw Error("Temporary API outage");
     if(endpoint==="/user/current"&&behavior.rejectCurrent){
       return {ok:true,status:200,async json(){return {code:403,message:"Please sign in"};}};
@@ -144,8 +158,12 @@ function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavi
   };
   const mockWindow = {
     open(url,target){const tab={opener:{}};opened.push({url,target,tab});return tab;},
-    addEventListener() {},
+    addEventListener(name,handler) { windowEvents[name]=handler; },
     confirm() { return true; },
+    history: {replaceState(_state,_title,url){
+      replaced.push(url);
+      browserLocation.hash=new URL(url,"https://example.test").hash;
+    }},
     location: browserLocation
   };
   const session = storage({ "rustdesk.console.token": "example-session", ...overrides });
@@ -160,7 +178,7 @@ function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavi
   vm.runInNewContext(source, context, { filename: "resources/admin/app.js" });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return {
-    root, calls, events, fixtures, settle, assigned, opened, document:mockDocument, session, local, behavior,
+    root, calls, events, windowEvents, fixtures, settle, assigned, opened, replaced, document:mockDocument, session, local, behavior,
     async open(view) {
       const control = { dataset: { view } };
       await events.click({ target: { closest: () => control } });
@@ -1243,4 +1261,129 @@ test("transfer selection starts empty with existing owner shown separately",asyn
   assert.match(app.root.innerHTML,/当前所有者：/);
   assert.match(app.root.innerHTML,/id="transfer-user-id" value=""/);
   assert.doesNotMatch(app.root.innerHTML,/picker-trigger-label">编号 5/);
+});
+
+test("WebClient2 return intent survives opening the login page in a separate tab",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/login?return=webclient2"
+  });
+  await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.return"),"/webclient2/");
+  assert.match(app.root.innerHTML,/登录控制台/);
+});
+
+test("SSO return intent from the login URL is limited to WebClient2",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/login?return=https%3A%2F%2Fexample.invalid"
+  });
+  await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.return"),null);
+});
+
+test("mobile OIDC callback restores session after losing the original tab's storage",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/oidc/complete?code=MobileSSOState12345",
+    oidcResult:{token:"mobile-sso-token"}
+  });
+  await app.settle();await app.settle();await app.settle();
+  assert.ok(app.calls.some(x=>x.endpoint==="/oidc/auth-query"&&x.query==="?code=MobileSSOState12345"));
+  assert.equal(app.local.getItem("rustdesk.console.token"),"mobile-sso-token");
+  assert.equal(app.session.getItem("rustdesk.console.token"),"mobile-sso-token");
+  assert.equal(app.session.getItem("rustdesk.console.oidc"),null);
+  assert.deepEqual(app.replaced,["/_admin/#/overview"]);
+  assert.match(app.root.innerHTML,/我的设备/);
+  assert.doesNotMatch(app.root.innerHTML,/登录控制台/);
+});
+
+test("mobile OIDC callback takes precedence over a stale authorization state",async()=>{
+  const app=createConsole(false,{
+    "rustdesk.console.token":"","rustdesk.console.oidc":"stale-oidc-state"
+  },{},{
+    initialHash:"#/oidc/complete?code=NewCallbackState1234"
+  });
+  await app.settle();await app.settle();
+  const codes=app.calls.filter(x=>x.endpoint==="/oidc/auth-query").map(x=>x.query);
+  assert.deepEqual(codes,["?code=NewCallbackState1234"]);
+  assert.equal(app.session.getItem("rustdesk.console.oidc"),null);
+  assert.equal(app.local.getItem("rustdesk.console.token"),"mobile-sso-token");
+});
+
+test("mobile SSO callback returns to WebClient2 with an approved return target",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/oidc/complete?code=MobileReturnState123&return=webclient2"
+  });
+  await app.settle();await app.settle();
+  assert.deepEqual(app.assigned,["/webclient2/"]);
+  assert.equal(app.local.getItem("rustdesk.console.token"),"mobile-sso-token");
+  assert.equal(app.session.getItem("rustdesk.console.return"),null);
+  assert.deepEqual(app.replaced,["/_admin/#/overview"]);
+});
+
+test("invalid and expired mobile SSO callbacks show an error instead of a silent login loop",async()=>{
+  const expired=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/oidc/complete?code=ExpiredState12345",
+    oidcError:"授权状态已过期"
+  });
+  await expired.settle();await expired.settle();
+  assert.match(expired.root.innerHTML,/单点登录未能完成：授权状态已过期/);
+  assert.equal(expired.session.getItem("rustdesk.console.oidc"),null);
+  assert.deepEqual(expired.replaced,["/_admin/#/overview"]);
+
+  const invalid=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/oidc/complete?code=bad%24code"
+  });
+  await invalid.settle();await invalid.settle();
+  assert.match(invalid.root.innerHTML,/单点登录回调缺少有效的授权状态/);
+  assert.ok(!invalid.calls.some(x=>x.endpoint==="/oidc/auth-query"));
+});
+
+test("temporary mobile OAuth query failure leaves a retry action",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/oidc/complete?code=RetryState1234567",oidcNetworkError:true
+  });
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/单点登录未能完成：Network unavailable/);
+  assert.match(app.root.innerHTML,/data-action="oidc-retry"/);
+  assert.equal(app.session.getItem("rustdesk.console.oidc"),"RetryState1234567");
+  assert.deepEqual(app.replaced,["/_admin/#/overview"]);
+});
+
+test("mobile SSO login updates the original tab when another tab stores its token",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""});
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/登录控制台/);
+  app.local.setItem("rustdesk.console.token","shared-mobile-token");
+  app.windowEvents.storage({key:"rustdesk.console.token",newValue:"shared-mobile-token"});
+  await app.settle();await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.token"),"shared-mobile-token");
+  assert.match(app.root.innerHTML,/我的设备/);
+  assert.doesNotMatch(app.root.innerHTML,/登录控制台/);
+});
+
+test("a resumed mobile login does not retry an outdated OAuth state",async()=>{
+  const app=createConsole(false,{
+    "rustdesk.console.token":"",
+    "rustdesk.console.oidc":"prior-oauth-state-123"
+  },{},{
+    oidcNetworkError:true
+  });
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/单点登录未能完成/);
+  app.local.setItem("rustdesk.console.token","shared-mobile-token");
+  app.windowEvents.pageshow();
+  await app.settle();await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.oidc"),null);
+  assert.equal(app.session.getItem("rustdesk.console.token"),"shared-mobile-token");
+  assert.match(app.root.innerHTML,/我的设备/);
+});
+
+test("logging out from a second tab clears the original tab's session",async()=>{
+  const app=createConsole(false);
+  await app.settle();await app.settle();
+  assert.match(app.root.innerHTML,/我的设备/);
+  app.local.removeItem("rustdesk.console.token");
+  app.windowEvents.storage({key:"rustdesk.console.token",newValue:null});
+  await app.settle();
+  assert.equal(app.session.getItem("rustdesk.console.token"),null);
+  assert.match(app.root.innerHTML,/登录控制台/);
 });

@@ -21,6 +21,20 @@ function serve(req, res) {
   if(pathname.startsWith("/api/admin/")){
     const route = pathname.slice("/api/admin".length);
     const isAdmin = req.headers["api-token"] === "admin-token";
+    if(route==="/oidc/auth-query"){
+      const code=requestUrl.searchParams.get("code");
+      if(code==="MobileExpiredState1234"){
+        res.writeHead(200,{"Content-Type":"application/json; charset=utf-8"});
+        res.end(JSON.stringify({code:101,message:"授权状态已过期"}));
+        return;
+      }
+      if(["MobileCallbackState12345","MobileReturnState12345"].includes(code)){
+        return answer(res,{token:"mobile-sso-token",username:"mobile-user",route_names:[]});
+      }
+      res.writeHead(200,{"Content-Type":"application/json; charset=utf-8"});
+      res.end(JSON.stringify({code:101,message:"授权状态无效"}));
+      return;
+    }
     if(route==="/login"){
       let payload="";
       req.on("data",chunk=>payload+=chunk.toString());
@@ -2807,4 +2821,81 @@ test("desktop data tables fill the available panel width with compact date colum
       await captureManagementScreenshot(page,"table-fullwidth-"+pageName+"-"+width+".png");
     }finally{await context.close();}
   }
+});
+
+test("mobile SSO callback finishes login when the original browser storage is unavailable",async()=>{
+  const context=await browser.newContext({
+    viewport:{width:390,height:844},deviceScaleFactor:2,
+    isMobile:true,hasTouch:true,locale:"zh-CN"
+  });
+  try{
+    const loginTab=await context.newPage();
+    await loginTab.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    assert.equal(await loginTab.evaluate(()=>sessionStorage.getItem("rustdesk.console.oidc")),null);
+    assert.equal(await loginTab.evaluate(()=>localStorage.getItem("rustdesk.console.token")),null);
+    const page=await context.newPage();
+    const requests=[];
+    page.on("request",req=>{
+      if(req.url().includes("/api/admin/oidc/auth-query"))requests.push(req.url());
+    });
+    await page.goto(baseUrl+"/_admin/#/oidc/complete?code=MobileCallbackState12345");
+    await page.locator("main.content").waitFor();
+    await page.waitForFunction(()=>localStorage.getItem("rustdesk.console.token")==="mobile-sso-token");
+    assert.equal(await page.locator(".login-shell").count(),0);
+    assert.equal(new URL(page.url()).hash,"#/overview");
+    assert.equal(requests.length,1);
+    assert.ok(requests[0].includes("MobileCallbackState12345"));
+    const current=await page.evaluate(()=>({
+      session:sessionStorage.getItem("rustdesk.console.token"),
+      local:localStorage.getItem("rustdesk.console.token"),
+      pending:sessionStorage.getItem("rustdesk.console.oidc")
+    }));
+    assert.deepEqual(current,{session:"mobile-sso-token",local:"mobile-sso-token",pending:null});
+    await captureManagementScreenshot(page,"mobile-sso-login-success.png");
+    await loginTab.bringToFront();
+    await loginTab.locator("main.content").waitFor({timeout:15000});
+    assert.equal(await loginTab.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"mobile-sso-token");
+    assert.equal(await loginTab.locator(".login-shell").count(),0);
+    await captureManagementScreenshot(loginTab,"mobile-sso-original-tab-restored.png");
+    await page.reload({waitUntil:"networkidle"});
+    await page.locator("main.content").waitFor();
+    assert.equal(requests.length,1,"reloading the dashboard must not redeem the OAuth code twice");
+    assert.equal(await page.locator(".login-shell").count(),0);
+  }finally{await context.close();}
+});
+
+test("mobile OAuth callback preserves the WebClient2 destination across tabs",async()=>{
+  const context=await browser.newContext({
+    viewport:{width:390,height:844},deviceScaleFactor:2,
+    isMobile:true,hasTouch:true,locale:"zh-CN"
+  });
+  try{
+    const page=await context.newPage();
+    await page.goto(baseUrl+"/_admin/#/oidc/complete?code=MobileReturnState12345&return=webclient2");
+    await page.waitForURL(url=>url.pathname==="/webclient2/");
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"mobile-sso-token");
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.return")),null);
+    await captureManagementScreenshot(page,"mobile-sso-webclient-return.png");
+  }finally{await context.close();}
+});
+
+test("expired mobile SSO authorization displays a clear error without redirecting again",async()=>{
+  const context=await browser.newContext({
+    viewport:{width:390,height:844},deviceScaleFactor:2,
+    isMobile:true,hasTouch:true,locale:"zh-CN"
+  });
+  try{
+    const page=await context.newPage();
+    const requests=[];
+    page.on("request",req=>{
+      if(req.url().includes("/api/admin/oidc/auth-query"))requests.push(req.url());
+    });
+    await page.goto(baseUrl+"/_admin/#/oidc/complete?code=MobileExpiredState1234");
+    await page.getByRole("alert").waitFor();
+    assert.match(await page.getByRole("alert").innerText(),/单点登录未能完成：授权状态已过期/);
+    assert.equal(requests.length,1);
+    assert.equal(new URL(page.url()).hash,"#/overview");
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem("rustdesk.console.oidc")),null);
+    await captureManagementScreenshot(page,"mobile-sso-login-error.png");
+  }finally{await context.close();}
 });

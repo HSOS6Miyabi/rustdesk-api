@@ -23,15 +23,15 @@ func withOAuthStore(t *testing.T, store cache.Handler) {
 func TestOAuthMemoryCachePreservesExpiryAndDeletes(t *testing.T) {
     withOAuthStore(t, cache.NewMemoryCache(1024 * 1024))
     service := &OauthService{}
-    if err := service.SetOauthCache("local-state", &OauthCacheItem{Op:"github", Nonce:"nonce"}, 1); err != nil {
+    if err := service.SetOauthCache("local-state", &OauthCacheItem{Op:"github", Nonce:"nonce", ReturnTo:"/webclient2/"}, 1); err != nil {
         t.Fatal(err)
     }
     state := service.GetOauthCache("local-state")
-    if state == nil || state.Op != "github" { t.Fatalf("missing state: %+v", state) }
+    if state == nil || state.Op != "github" || state.ReturnTo != "/webclient2/" { t.Fatalf("missing state: %+v", state) }
     state.UserId = 42
     if err := service.SetOauthCache("local-state", state, 0); err != nil { t.Fatal(err) }
     updated := service.GetOauthCache("local-state")
-    if updated == nil || updated.UserId != 42 { t.Fatalf("update missing: %+v", updated) }
+    if updated == nil || updated.UserId != 42 || updated.ReturnTo != "/webclient2/" { t.Fatalf("update missing: %+v", updated) }
     time.Sleep(1100 * time.Millisecond)
     if got := service.GetOauthCache("local-state"); got != nil { t.Fatalf("expired state returned: %+v", got) }
     if err := service.SetOauthCache("local-state", state, 0); err == nil {
