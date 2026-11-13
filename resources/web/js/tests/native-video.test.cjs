@@ -124,3 +124,21 @@ test("closing a decoder releases its queued frames and sends pending acknowledge
   await fixture.paintCallbacks.shift()();
   assert.equal(fixture.renders.length,0);
 });
+
+test("transfers GPU VideoFrames to the Flutter image queue without closing them early",async()=>{
+  const {NativeVideoDecoder}=await load();
+  const fixture=createDecoder();
+  const decoder=new NativeVideoDecoder({...fixture.options,
+    display:async frame=>{fixture.renders.push(frame);return true}
+  });
+  decoder.decode([{key:true,data:Uint8Array.of(1)}]);
+  const frame=fixture.instances[0].emit(1);
+  assert.equal(fixture.acks.length,1);
+  await fixture.paintCallbacks.shift()();
+  assert.deepEqual(fixture.renders,[frame]);
+  assert.equal(frame.closed,0,"Flutter owns a transferred VideoFrame");
+  decoder.close();
+  assert.equal(frame.closed,0);
+  frame.close();
+  assert.equal(frame.closed,1);
+});
