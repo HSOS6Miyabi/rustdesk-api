@@ -144,6 +144,9 @@ export class BrowserFileTransfer {
       sent:0, total:files.reduce((v,f)=>v+f.size,0), waiting:null, timer:null, cancelled:false};
     this.jobs.set(id,job);
     this.handles.delete(handle);
+    this.emit("update_folder_files",{info:JSON.stringify({
+      id,num_entries:files.length,total_size:job.total
+    })});
     this.send({file_action:{receive:{
       id, path:destination,
       files:files.map(x=>({entry_type:4,name:x.path,is_hidden:false,
