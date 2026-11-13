@@ -255,6 +255,13 @@ installRemoteShortcutCapture({
         !window.frameElement?.classList?.contains("session-inactive"),
     send:(name,down,event)=>getConn()?.inputKey(name,down,false,
         event.altKey,event.ctrlKey,event.shiftKey,event.metaKey),
+    sendText:text=>{
+        if(text&&getConn()?._peerInfo)getConn()?.inputString(text);
+    },
+    allowEscape:()=>{
+        try{return window.parent!==window&&window.parent.__rustdeskIsFullscreen?.()===true;}
+        catch{return false;}
+    },
     paste:()=>{
         if(!clipboardSync.enabled){
             pasteIntoRemoteExplorer();
