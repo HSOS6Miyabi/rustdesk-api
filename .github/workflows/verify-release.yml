@@ -393,5 +393,6 @@ jobs:
           docker buildx imagetools create "${TAGS[@]}" "$IMAGE:$TAG-amd64" "$IMAGE:$TAG-arm64"
           docker buildx imagetools create "${HUB_TAGS[@]}" "$HUB_IMAGE:$TAG-amd64" "$HUB_IMAGE:$TAG-arm64"
           docker buildx imagetools inspect "$IMAGE:$TAG"
+          docker logout
           docker buildx imagetools inspect "$HUB_IMAGE:$TAG"
           docker buildx imagetools inspect "$HUB_IMAGE:latest"
