@@ -107,11 +107,11 @@ export class BrowserFileClipboard {
     this.downloadSerial=0;
     this.remoteListId=0;
     this.pendingPaste=null;
+    this.remoteFormatWaiters=new Set();
   }
   emit(cliprdr){
     if(this.closed||!this.active)return false;
-    this.send({cliprdr});
-    return true;
+    return this.send({cliprdr})!==false;
   }
   enable(){
     if(this.closed)return;
@@ -126,6 +126,7 @@ export class BrowserFileClipboard {
   }
   disable(){
     this.active=false;
+    this.resolveRemoteFormatWaiters(false);
     this.localFiles=[];
     this.descriptors=null;
     this.remoteDescriptorFormat=null;
@@ -137,6 +138,28 @@ export class BrowserFileClipboard {
     }
     this.cancelPending(new Error("Clipboard sharing was disabled"));
   }
+  resolveRemoteFormatWaiters(found){
+    for(const notify of this.remoteFormatWaiters)notify(found);
+    this.remoteFormatWaiters.clear();
+  }
+  async waitForRemoteFiles(timeout=1500){
+    if(this.remoteDescriptorFormat!==null)return true;
+    if(!this.active||this.closed)return false;
+    return new Promise(resolve=>{
+      let timer;
+      const done=found=>{
+        clearTimeout(timer);
+        this.remoteFormatWaiters.delete(done);
+        resolve(Boolean(found));
+      };
+      this.remoteFormatWaiters.add(done);
+      timer=setTimeout(()=>done(false),timeout);
+      // An asynchronous Ready triggers a fresh format list on peers that
+      // support the Windows file clipboard protocol.
+      if(!this.emit({ready:{}}))done(false);
+    });
+  }
+  hasRemoteFiles(){return this.active&&!this.closed&&this.remoteDescriptorFormat!==null}
   cancelPending(error){
     this.downloadSerial++;
     const waiting=this.pendingFormat.get("pending");
@@ -189,7 +212,9 @@ export class BrowserFileClipboard {
       this.remoteDescriptorFormat=formats.find(item=>String(item.format||"").toLowerCase()==="filegroupdescriptorw")?.id??null;
       this.generation++;
       this.emit({format_list_response:{msg_flags:1}});
-      this.notify("remote-list",this.remoteDescriptorFormat!==null);
+      const present=this.remoteDescriptorFormat!==null;
+      this.resolveRemoteFormatWaiters(present);
+      this.notify("remote-list",present);
       return true;
     }
     if(message.format_list_response){
@@ -227,8 +252,8 @@ export class BrowserFileClipboard {
     const id=Number(request.stream_id||0),index=Number(request.list_index||0);
     const file=this.localFiles[index],offset=Number(request.n_position_low>>>0)+
       Number(request.n_position_high>>>0)*0x100000000;
-    let data=new Uint8Array(),success=Boolean(file)&&(
-      !request.have_clip_data_id||request.clip_data_id===fileListId(this.descriptors||new Uint8Array()));
+    // FileContents requests without an explicit lock use the current list.
+    let data=new Uint8Array(),success=Boolean(file);
     try{
       if(!file)throw new Error("Unknown clipboard file index");
       if(request.dw_flags===1){
@@ -256,7 +281,7 @@ export class BrowserFileClipboard {
     });
     const request={stream_id:stream,list_index:index,dw_flags:2,
       n_position_low:offset>>>0,n_position_high:Math.floor(offset/0x100000000),
-      cb_requested:length,have_clip_data_id:true,clip_data_id:this.remoteListId};
+      cb_requested:length,have_clip_data_id:false};
     this.emit({file_contents_request:request});
     try{
       const result=await reply;
@@ -276,7 +301,8 @@ export class BrowserFileClipboard {
   async download(){
     if(!this.active||this.closed)throw new Error("请先启用剪贴板共享");
     if(this.downloading)throw new Error("已有剪贴板文件下载任务");
-    if(this.remoteDescriptorFormat===null)throw new Error("远程剪贴板尚未提供文件，请在远程资源管理器复制文件");
+    if(this.remoteDescriptorFormat===null && !(await this.waitForRemoteFiles()))
+      throw new Error("远程剪贴板中暂无文件。请先在远程资源管理器选中文件并按 Ctrl+C。");
     this.downloading=true;
     const downloadSerial=++this.downloadSerial;
     const generation=this.generation;
@@ -333,6 +359,7 @@ export class BrowserFileClipboard {
     this.active=false;
     if(this.pendingPaste)clearTimeout(this.pendingPaste.timer);
     this.pendingPaste=null;
+    this.resolveRemoteFormatWaiters(false);
     this.cancelPending(new Error("Clipboard session closed"));
     this.localFiles=[];
   }
