@@ -2134,6 +2134,19 @@ test("device connection opens the original RustDesk remote controls and supports
       /VP9 \/ WebCodecs · 显示 29\.5 帧\/秒/);
     assert.match(await popup.locator("#v2-performance-status").getAttribute("title"),
       /接收 31\.0 帧\/秒；解码完成 30\.5 帧\/秒/);
+    await popup.evaluate(()=>{
+      const iframe=document.querySelector("#v2-native-client");
+      window.__rustdeskRemotePerformance({
+        codec:"VP9",decoder:"WebCodecs · 直接显示",fps:29.5,
+        received_fps:31,decoded_fps:30.5,display_fps:29.5,
+        decode_ms:4.5,render_ms:0.3,dropped_frames:2,
+        decode_queue:1,encoded_kbps:2560
+      },iframe.contentWindow);
+    });
+    assert.match(await popup.locator("#v2-performance-status").textContent(),
+      /WebCodecs · 直接显示 · 显示 29\.5 帧\/秒.*提交画面 0\.3 毫秒/);
+    assert.match(await popup.locator("#v2-performance-status").getAttribute("title"),
+      /提交时间不包括 Flutter 内部的图像导入与绘制/);
     const normal=await popup.evaluate(()=>{
       const stage=document.querySelector(".stage").getBoundingClientRect();
       const content=document.querySelector(".session-panels").getBoundingClientRect();
