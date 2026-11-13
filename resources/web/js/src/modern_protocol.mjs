@@ -98,24 +98,49 @@ function reencodeField(field) {
   throw new Error("Unsupported protocol message field");
 }
 
-// Modern RustDesk peers receive the list of codecs supported by this browser.
-export function advertiseVP9Decoder(encoded) {
-  const messageFields=fields(encoded);
-  if(!messageFields.some(field=>field.field===7&&field.wire===2))return encoded;
-  const vp9=payload(10,concat(uint(1,1),uint(4,1)));
-  return concat(...messageFields.map(field=>{
-    if(field.field!==7||field.wire!==2)return reencodeField(field);
-    const login=fields(field.value);
-    let foundOption=false;
-    const updated=login.map(item=>{
-      if(item.field!==6||item.wire!==2)return reencodeField(item);
-      foundOption=true;
-      const prior=fields(item.value).filter(part=>part.field!==10);
-      return payload(6,concat(...prior.map(reencodeField),vp9));
+// RustDesk 1.5.3 carries decoding capabilities in OptionMessage field 10.
+// Desktop and camera sessions advertise capabilities when they log in and may
+// update the same option inside Misc without reconnecting.
+export function advertiseVideoDecoders(encoded, abilities={vp9:true,prefer:1}) {
+  const declared={vp9:true,...abilities};
+  const sections=[[1,"vp9"],[2,"h264"],[3,"h265"],[5,"vp8"],[6,"av1"]];
+  const support=concat(
+    ...sections.filter(([,codec])=>declared[codec]===true).map(([field])=>uint(field,1)),
+    ...(Number.isInteger(declared.prefer)&&declared.prefer>0&&declared.prefer<=5
+        ?[uint(4,declared.prefer)]:[])
+  );
+  const addOptions=(value,optionField)=>{
+    const items=fields(value);
+    let updated=false;
+    const parts=items.map(item=>{
+      if(item.field!==optionField||item.wire!==2)return reencodeField(item);
+      updated=true;
+      const existing=fields(item.value).filter(entry=>entry.field!==10);
+      return payload(optionField,concat(...existing.map(reencodeField),payload(10,support)));
     });
-    if(!foundOption)updated.push(payload(6,vp9));
-    return payload(7,concat(...updated));
-  }));
+    if(!updated)parts.push(payload(optionField,payload(10,support)));
+    return concat(...parts);
+  };
+  let modified=false;
+  const encodedFields=fields(encoded).map(item=>{
+    if(item.field===7&&item.wire===2){
+      modified=true;
+      return payload(7,addOptions(item.value,6));
+    }
+    if(item.field===19&&item.wire===2){
+      const misc=fields(item.value);
+      if(misc.some(part=>part.field===7&&part.wire===2)){
+        modified=true;
+        return payload(19,addOptions(item.value,7));
+      }
+    }
+    return reencodeField(item);
+  });
+  return modified?concat(...encodedFields):encoded;
+}
+
+export function advertiseVP9Decoder(encoded) {
+  return advertiseVideoDecoders(encoded,{vp9:true,prefer:1});
 }
 
 // The native protocol may send PeerInfo outside LoginResponse.

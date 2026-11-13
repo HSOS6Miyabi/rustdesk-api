@@ -617,6 +617,11 @@ export interface VideoFrame {
   rgb?: RGB | undefined;
   yuv?: YUV | undefined;
   timestamp: number;
+  h264s?: VP9s | undefined;
+  h265s?: VP9s | undefined;
+  vp8s?: VP9s | undefined;
+  av1s?: VP9s | undefined;
+  display: number;
 }
 
 export interface IdPk {
@@ -1470,7 +1475,8 @@ export const YUV = {
 };
 
 function createBaseVideoFrame(): VideoFrame {
-  return { vp9s: undefined, rgb: undefined, yuv: undefined, timestamp: 0 };
+  return { vp9s: undefined, rgb: undefined, yuv: undefined, timestamp: 0,
+    h264s: undefined, h265s: undefined, vp8s: undefined, av1s: undefined, display: 0 };
 }
 
 export const VideoFrame = {
@@ -1483,6 +1489,21 @@ export const VideoFrame = {
     }
     if (message.yuv !== undefined) {
       YUV.encode(message.yuv, writer.uint32(66).fork()).ldelim();
+    }
+    if (message.h264s !== undefined) {
+      VP9s.encode(message.h264s, writer.uint32(82).fork()).ldelim();
+    }
+    if (message.h265s !== undefined) {
+      VP9s.encode(message.h265s, writer.uint32(90).fork()).ldelim();
+    }
+    if (message.vp8s !== undefined) {
+      VP9s.encode(message.vp8s, writer.uint32(98).fork()).ldelim();
+    }
+    if (message.av1s !== undefined) {
+      VP9s.encode(message.av1s, writer.uint32(106).fork()).ldelim();
+    }
+    if (message.display !== 0) {
+      writer.uint32(112).int32(message.display);
     }
     if (message.timestamp !== 0) {
       writer.uint32(72).int64(message.timestamp);
@@ -1506,6 +1527,21 @@ export const VideoFrame = {
         case 8:
           message.yuv = YUV.decode(reader, reader.uint32());
           break;
+        case 10:
+          message.h264s = VP9s.decode(reader, reader.uint32());
+          break;
+        case 11:
+          message.h265s = VP9s.decode(reader, reader.uint32());
+          break;
+        case 12:
+          message.vp8s = VP9s.decode(reader, reader.uint32());
+          break;
+        case 13:
+          message.av1s = VP9s.decode(reader, reader.uint32());
+          break;
+        case 14:
+          message.display = reader.int32();
+          break;
         case 9:
           message.timestamp = longToNumber(reader.int64() as Long);
           break;
@@ -1523,6 +1559,11 @@ export const VideoFrame = {
       rgb: isSet(object.rgb) ? RGB.fromJSON(object.rgb) : undefined,
       yuv: isSet(object.yuv) ? YUV.fromJSON(object.yuv) : undefined,
       timestamp: isSet(object.timestamp) ? Number(object.timestamp) : 0,
+      h264s: isSet(object.h264s) ? VP9s.fromJSON(object.h264s) : undefined,
+      h265s: isSet(object.h265s) ? VP9s.fromJSON(object.h265s) : undefined,
+      vp8s: isSet(object.vp8s) ? VP9s.fromJSON(object.vp8s) : undefined,
+      av1s: isSet(object.av1s) ? VP9s.fromJSON(object.av1s) : undefined,
+      display: isSet(object.display) ? Number(object.display) : 0,
     };
   },
 
@@ -1532,6 +1573,11 @@ export const VideoFrame = {
     message.rgb !== undefined && (obj.rgb = message.rgb ? RGB.toJSON(message.rgb) : undefined);
     message.yuv !== undefined && (obj.yuv = message.yuv ? YUV.toJSON(message.yuv) : undefined);
     message.timestamp !== undefined && (obj.timestamp = Math.round(message.timestamp));
+    message.h264s !== undefined && (obj.h264s = message.h264s ? VP9s.toJSON(message.h264s) : undefined);
+    message.h265s !== undefined && (obj.h265s = message.h265s ? VP9s.toJSON(message.h265s) : undefined);
+    message.vp8s !== undefined && (obj.vp8s = message.vp8s ? VP9s.toJSON(message.vp8s) : undefined);
+    message.av1s !== undefined && (obj.av1s = message.av1s ? VP9s.toJSON(message.av1s) : undefined);
+    message.display !== undefined && (obj.display = Math.round(message.display));
     return obj;
   },
 
@@ -1545,6 +1591,11 @@ export const VideoFrame = {
     message.rgb = (object.rgb !== undefined && object.rgb !== null) ? RGB.fromPartial(object.rgb) : undefined;
     message.yuv = (object.yuv !== undefined && object.yuv !== null) ? YUV.fromPartial(object.yuv) : undefined;
     message.timestamp = object.timestamp ?? 0;
+    message.h264s = (object.h264s !== undefined && object.h264s !== null) ? VP9s.fromPartial(object.h264s) : undefined;
+    message.h265s = (object.h265s !== undefined && object.h265s !== null) ? VP9s.fromPartial(object.h265s) : undefined;
+    message.vp8s = (object.vp8s !== undefined && object.vp8s !== null) ? VP9s.fromPartial(object.vp8s) : undefined;
+    message.av1s = (object.av1s !== undefined && object.av1s !== null) ? VP9s.fromPartial(object.av1s) : undefined;
+    message.display = object.display ?? 0;
     return message;
   },
 };

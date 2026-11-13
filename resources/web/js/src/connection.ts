@@ -9,6 +9,7 @@ import * as sha256 from "fast-sha256";
 import * as globals from "./globals";
 import { decompress, mapKey, sleep } from "./common";
 import {decodeVp9Frames} from "./video_pacing.mjs";
+import {discoverNativeVideoCodecs,NativeVideoDecoder} from "./native_video.mjs";
 
 const PORT = 21116;
 // only the first is used to init `HOST`
@@ -34,10 +35,18 @@ export default class Connection {
   _peerInfo: message.PeerInfo | undefined;
   _firstFrame: Boolean | undefined;
   _videoDecoder: any;
+  _nativeDecoder: any;
+  _nativeConfigs: Record<string,any> = {};
+  _supportedCodecs: Record<string,boolean|number> = {vp9:true};
+  _failedNativeCodecs: Set<string> = new Set();
+  _softwareDecoderLoading: Promise<void> | undefined;
+  _decoderGeneration: number = 0;
+  _nativePixels: Uint8Array | undefined;
   _password: Uint8Array | undefined;
   _options: any;
   _videoTestSpeed: number[];
-  _performanceStats: {start:number;frames:number;decode:number;paint:number;bytes:number};
+  _performanceStats: {start:number;frames:number;decode:number;paint:number;bytes:number;
+    received:number;decoded:number;dropped:number};
   _fileBridge: any;
   _clipboardPermitted: boolean = true;
   _fileClipboardPermitted: boolean = true;
@@ -54,7 +63,8 @@ export default class Connection {
     this._draw = globals.draw;
     this._id = "";
     this._videoTestSpeed = [0, 0];
-    this._performanceStats = {start:Date.now(),frames:0,decode:0,paint:0,bytes:0};
+    this._performanceStats = {start:Date.now(),frames:0,decode:0,paint:0,bytes:0,
+      received:0,decoded:0,dropped:0};
     this._sessionMode = "desktop";
     this._terminalAdmin = false;
     this._osUsername = "";
@@ -610,7 +620,12 @@ export default class Connection {
     this._fileClipboard?.close();
     this._fileBridge?.close();
     this._ws?.close();
+    this._decoderGeneration++;
+    this._nativeDecoder?.close();
+    this._nativeDecoder=undefined;
+    this._nativePixels=undefined;
     this._videoDecoder?.close();
+    this._videoDecoder=undefined;
   }
 
   refresh() {
@@ -666,7 +681,7 @@ export default class Connection {
     if(this._sessionMode==="file"){
       login_request.file_transfer=message.FileTransfer.fromPartial({dir:"",show_hidden:false});
     }
-    const outgoing:any={login_request};
+    const outgoing:any={login_request,__video_codecs:this._supportedCodecs};
     if(this._sessionMode==="camera"||this._sessionMode==="terminal")outgoing.__login_mode=this._sessionMode;
     if(this._sessionMode==="terminal")outgoing.__os_login={username:this._osUsername,password:this._osPassword};
     this._ws?.sendMessage(outgoing);
@@ -718,28 +733,57 @@ export default class Connection {
     this._ws?.sendMessage({ misc });
   }
 
-  // Decode time includes decoder queue waiting. Render time includes
-  // synchronous pixel readback and the Flutter display callback.
-  reportVideoPerformance(decodeMs:number,paintMs:number,bytes:number):void {
+  // Decoder time includes waiting in the browser's video queue. Display time
+  // includes conversion to RGBA and the Flutter image update.
+  reportVideoPerformance(decodeMs:number,paintMs:number,codec:string,backend:string):void {
     const stats=this._performanceStats;
     stats.frames++;
     stats.decode+=decodeMs;
     stats.paint+=paintMs;
-    stats.bytes+=bytes;
     const now=Date.now(),period=now-stats.start;
     if(period<2500)return;
-    const frames=stats.frames;
-    if(frames>0){
-      globals.reportRemotePerformance({
-        fps:Math.round(frames*10000/period)/10,
-        decode_ms:Math.round(stats.decode/frames*10)/10,
-        render_ms:Math.round(stats.paint/frames*10)/10,
-        encoded_kbps:Math.round(stats.bytes*8/Math.max(1,period)),
-        buffered_bytes:this.fileTransportBuffer(),
-        transport:this._ws instanceof WebRTCTransport?"WebRTC":"WebSocket"
-      });
+    const rate=(count:number)=>Math.round(count*10000/period)/10;
+    globals.reportRemotePerformance({
+      fps:rate(stats.frames),
+      received_fps:rate(stats.received),
+      decoded_fps:rate(stats.decoded),
+      display_fps:rate(stats.frames),
+      decode_ms:stats.frames?Math.round(stats.decode/stats.frames*10)/10:0,
+      render_ms:stats.frames?Math.round(stats.paint/stats.frames*10)/10:0,
+      encoded_kbps:Math.round(stats.bytes*8/Math.max(1,period)),
+      dropped_frames:stats.dropped,
+      decode_queue:this._nativeDecoder?.queueSize||0,
+      codec:codec.toUpperCase(),
+      decoder:backend,
+      buffered_bytes:this.fileTransportBuffer(),
+      transport:this._ws instanceof WebRTCTransport?"WebRTC":"WebSocket"
+    });
+    this._performanceStats={start:now,frames:0,decode:0,paint:0,bytes:0,
+      received:0,decoded:0,dropped:0};
+  }
+
+  async drawNativeFrame(frame:any,display:number):Promise<boolean>{
+    // The official Flutter WebClient imports WebCodecs VideoFrames directly
+    // as images. It takes ownership and closes each frame after GPU import.
+    // If this API is unavailable, use the compatible RGBA image callback.
+    if(typeof (window as any).onVideoFrame==="function"){
+      (window as any).onVideoFrame(display,frame);
+      return true;
     }
-    this._performanceStats={start:now,frames:0,decode:0,paint:0,bytes:0};
+    if(typeof window.onRgba!=="function")return false;
+    const width=frame.displayWidth,height=frame.displayHeight;
+    const count=width*height*4;
+    if(!Number.isSafeInteger(count)||count<=0||count>128*1024*1024){
+      throw new Error("Invalid browser video frame size");
+    }
+    if(!this._nativePixels||this._nativePixels.length!==count)
+      this._nativePixels=new Uint8Array(count);
+    // This path reads decoded pixels only once and avoids WebGL readPixels,
+    // the extra vertical flip, and the OGV.js YUV-to-RGB render pass.
+    await frame.copyTo(this._nativePixels,{format:"RGBA",
+      layout:[{offset:0,stride:width*4}]});
+    window.onRgba(display,this._nativePixels);
+    return false;
   }
 
   handleVideoFrame(vf: message.VideoFrame) {
@@ -747,19 +791,82 @@ export default class Connection {
       this.msgbox("","","");
       this._firstFrame=true;
     }
-    const decoder=this._videoDecoder;
-    const frames=vf.vp9s?.frames||[];
-    if(!decoder||!frames.length){
-      this.sendVideoReceived();
+    const available=[
+      ["h265",vf.h265s?.frames],["h264",vf.h264s?.frames],
+      ["av1",vf.av1s?.frames],["vp9",vf.vp9s?.frames],
+      ["vp8",vf.vp8s?.frames]
+    ] as Array<[string,any[]|undefined]>;
+    const video=available.find(([,frames])=>frames?.length);
+    if(!video){this.sendVideoReceived();return}
+    const [codec,frames]=video;
+    const display=Number.isInteger(vf.display)&&vf.display>=0?vf.display:0;
+    const stats=this._performanceStats;
+    stats.received+=frames!.length;
+    stats.bytes+=frames!.reduce((sum,frame)=>sum+(frame.data?.byteLength||0),0);
+
+    const nativeConfig=this._nativeConfigs[codec];
+    if(nativeConfig){
+      if(!this._nativeDecoder||this._nativeDecoder.codec!==codec){
+        this._nativeDecoder?.close();
+        this._nativeDecoder=new NativeVideoDecoder({
+          codec,config:nativeConfig,
+          acknowledge:()=>this.sendVideoReceived(),
+          requestKeyFrame:()=>this.refresh(),
+          onFailure:(error:any)=>this.fallbackFromNativeDecoder(codec,error),
+          onDecoded:()=>{this._performanceStats.decoded++},
+          onDropped:()=>{this._performanceStats.dropped++},
+          display:async(frame:any,decodeMs:number)=>{
+            const started=performance.now();
+            const transferred=await this.drawNativeFrame(frame,display);
+            this.reportVideoPerformance(decodeMs,performance.now()-started,codec,
+              transferred?"WebCodecs · 直接显示":"WebCodecs");
+            return transferred;
+          }
+        });
+      }
+      this._nativeDecoder.decode(frames);
       return;
     }
+
+    if(codec!=="vp9"||!this._videoDecoder){
+      this.sendVideoReceived();
+      if(codec!=="vp9")this.fallbackFromNativeDecoder(codec,
+        new Error("Browser decoder does not support "+codec));
+      return;
+    }
+    const decoder=this._videoDecoder;
     decodeVp9Frames(frames,decoder,
       ()=>this.sendVideoReceived(),
-      (frame:any,decodeMs:number,bytes:number)=>{
-        const started=Date.now();
+      (frame:any,decodeMs:number)=>{
+        const started=performance.now();
         this.draw(frame);
-        this.reportVideoPerformance(decodeMs,Date.now()-started,bytes);
+        this._performanceStats.decoded+=frames!.length;
+        this.reportVideoPerformance(decodeMs,performance.now()-started,codec,"WebAssembly");
       });
+  }
+
+  async fallbackFromNativeDecoder(codec:string,error:unknown):Promise<void>{
+    if(this._failedNativeCodecs.has(codec))return;
+    this._failedNativeCodecs.add(codec);
+    console.warn("Browser video decoder unavailable for "+codec+", selecting VP9 fallback",error);
+    if(this._nativeDecoder?.codec===codec){
+      this._nativeDecoder.close();
+      this._nativeDecoder=undefined;
+    }
+    delete this._nativeConfigs[codec];
+    if(codec!=="vp9"){
+      this._supportedCodecs[codec]=false;
+      try{
+        this._ws?.sendMessage({misc:{option:message.OptionMessage.fromPartial({})},
+          __video_codecs:this._supportedCodecs} as any);
+      }catch(updateError){console.warn("Video capability update failed",updateError)}
+    }
+    try{
+      await this.ensureSoftwareVp9Decoder();
+      this.refresh();
+    }catch(loadError){
+      this.msgbox("error","Video Decoder",String(loadError));
+    }
   }
 
   handlePeerInfo(pi: message.PeerInfo) {
@@ -1032,9 +1139,30 @@ export default class Connection {
   }
 
   async loadVideoDecoder():Promise<void> {
+    this._decoderGeneration++;
+    this._nativeDecoder?.close();
+    this._nativeDecoder=undefined;
+    this._nativePixels=undefined;
     this._videoDecoder?.close();
     this._videoDecoder=undefined;
-    await new Promise<void>((resolve,reject)=>{
+    const generation=this._decoderGeneration;
+    const supported=await discoverNativeVideoCodecs();
+    if(generation!==this._decoderGeneration)return;
+    this._nativeConfigs=Object.fromEntries(Object.entries(supported)
+      .filter(([codec])=>!this._failedNativeCodecs.has(codec)));
+    this._supportedCodecs={vp9:true};
+    for(const codec of Object.keys(this._nativeConfigs))
+      this._supportedCodecs[codec]=true;
+    // The remote peer chooses a codec common to both devices. Every format
+    // advertised here is backed by a browser decoder; VP9 also has OGV.js.
+    if(!this._nativeConfigs.vp9)await this.ensureSoftwareVp9Decoder();
+  }
+
+  async ensureSoftwareVp9Decoder():Promise<void> {
+    if(this._videoDecoder)return;
+    if(this._softwareDecoderLoading)return this._softwareDecoderLoading;
+    const generation=this._decoderGeneration;
+    const loading=new Promise<void>((resolve,reject)=>{
       let completed=false;
       const timeout=setTimeout(()=>{
         if(completed)return;
@@ -1042,7 +1170,11 @@ export default class Connection {
         reject(new Error("VP9 video decoder initialization timed out"));
       },12000);
       const ready=(decoder:any)=>{
-        if(completed){decoder.close?.();return}
+        if(completed||generation!==this._decoderGeneration){
+          decoder.close?.();
+          if(!completed){completed=true;clearTimeout(timeout);reject(new Error("Video session changed"))}
+          return;
+        }
         completed=true;
         clearTimeout(timeout);
         this._videoDecoder=decoder;
@@ -1055,7 +1187,12 @@ export default class Connection {
         reject(error);
       });
     });
+    this._softwareDecoderLoading=loading;
+    try{await loading}finally{
+      if(this._softwareDecoderLoading===loading)this._softwareDecoderLoading=undefined;
+    }
   }
+
 }
 
 function testDelay() {
