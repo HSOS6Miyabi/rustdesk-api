@@ -277,18 +277,27 @@
   window.__rustdeskRemotePerformance=(stats,source)=>{
     const active=sessions.get(activeSessionKey);
     if(!active||active.frame.contentWindow!==source)return;
-    const fps=Number(stats?.fps||0),decode=Number(stats?.decode_ms||0),
-      render=Number(stats?.render_ms||0),buffer=Number(stats?.buffered_bytes||0);
+    const fps=Number(stats?.display_fps??stats?.fps??0);
+    const received=Number(stats?.received_fps??fps);
+    const decoded=Number(stats?.decoded_fps??fps);
+    const decode=Number(stats?.decode_ms||0),render=Number(stats?.render_ms||0);
+    const buffer=Number(stats?.buffered_bytes||0);
+    const queue=Number(stats?.decode_queue||0),dropped=Number(stats?.dropped_frames||0);
     const transport=stats?.transport==="WebRTC"?"WebRTC":"WebSocket";
-    performanceStatus.textContent="画面性能："+transport+" · "+
-      fps.toFixed(1)+" 帧/秒 · 解码 "+decode.toFixed(1)+
+    const codec=String(stats?.codec||"VP9").toUpperCase();
+    const decoder=stats?.decoder==="WebCodecs"?"WebCodecs":"WebAssembly";
+    performanceStatus.textContent="画面性能："+transport+" · "+codec+" / "+decoder+
+      " · 显示 "+fps.toFixed(1)+" 帧/秒 · 解码 "+decode.toFixed(1)+
       " 毫秒 · 绘制 "+render.toFixed(1)+" 毫秒"+
+      (dropped>0?" · 跳过绘制 "+dropped+" 帧":"")+
       (buffer>0?" · 待发送 "+formatBytes(buffer):"");
-    performanceStatus.dataset.slow=String(decode+render>30);
-    performanceStatus.title=decode+render>30
-      ?"浏览器处理视频帧耗时较长，可降低远程分辨率或画质。"
-      :"如远程操作仍有延迟，可以比较 WebRTC 和 WebSocket 的连接表现。";
+    performanceStatus.dataset.slow=String(decode+render>33||queue>3||dropped>received);
+    performanceStatus.title="接收 "+received.toFixed(1)+" 帧/秒；解码完成 "+
+      decoded.toFixed(1)+" 帧/秒；实际显示 "+fps.toFixed(1)+
+      " 帧/秒；解码排队 "+queue+" 帧；跳过绘制 "+dropped+
+      " 帧；视频接收速率 "+Number(stats?.encoded_kbps||0)+" kbit/s。";
   };
+
   function currentClipboardBridge(){
     return clipboardSession()?.frame.contentWindow?.__rustdeskClipboardAccess;
   }
