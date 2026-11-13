@@ -894,7 +894,7 @@ test("device and user references display link controls with status markers",asyn
   await app.open("devices");
   assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="device" data-entity-id="office"/);
   assert.match(app.root.innerHTML,/device-status-dot online/);
-  assert.match(app.root.innerHTML,/data-entity-label="Desk"/);
+  assert.match(app.root.innerHTML,/data-entity-label="Desk（Office）"/);
   app.fixtures["/user/list"]={list:[{id:7,username:"alice",nickname:"Alice",email:"alice@example.test"}],total:1};
   await app.open("users");
   assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="user" data-entity-id="7"/);
