@@ -762,12 +762,12 @@ export default class Connection {
       received:0,decoded:0,dropped:0};
   }
 
-  async drawNativeFrame(frame:any):Promise<boolean>{
+  async drawNativeFrame(frame:any,display:number):Promise<boolean>{
     // The official Flutter WebClient imports WebCodecs VideoFrames directly
     // as images. It takes ownership and closes each frame after GPU import.
     // If this API is unavailable, use the compatible RGBA image callback.
     if(typeof (window as any).onVideoFrame==="function"){
-      (window as any).onVideoFrame(0,frame);
+      (window as any).onVideoFrame(display,frame);
       return true;
     }
     if(typeof window.onRgba!=="function")return false;
@@ -782,7 +782,7 @@ export default class Connection {
     // the extra vertical flip, and the OGV.js YUV-to-RGB render pass.
     await frame.copyTo(this._nativePixels,{format:"RGBA",
       layout:[{offset:0,stride:width*4}]});
-    window.onRgba(0,this._nativePixels);
+    window.onRgba(display,this._nativePixels);
     return false;
   }
 
@@ -799,6 +799,7 @@ export default class Connection {
     const video=available.find(([,frames])=>frames?.length);
     if(!video){this.sendVideoReceived();return}
     const [codec,frames]=video;
+    const display=Number.isInteger(vf.display)&&vf.display>=0?vf.display:0;
     const stats=this._performanceStats;
     stats.received+=frames!.length;
     stats.bytes+=frames!.reduce((sum,frame)=>sum+(frame.data?.byteLength||0),0);
@@ -816,9 +817,9 @@ export default class Connection {
           onDropped:()=>{this._performanceStats.dropped++},
           display:async(frame:any,decodeMs:number)=>{
             const started=performance.now();
-            const transferred=await this.drawNativeFrame(frame);
+            const transferred=await this.drawNativeFrame(frame,display);
             this.reportVideoPerformance(decodeMs,performance.now()-started,codec,
-              transferred?"WebCodecs · GPU":"WebCodecs");
+              transferred?"WebCodecs · 直接显示":"WebCodecs");
             return transferred;
           }
         });
