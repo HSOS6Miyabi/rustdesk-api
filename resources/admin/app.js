@@ -838,7 +838,7 @@
     const m=state.metrics||{};
     const shortcuts=["mydevices","shared","contacts",state.isAdmin?"devices":"mygroups"];
     const quick=shortcuts.map(k=>'<button type="button" data-view="'+k+'" class="quick-card"><span class="quick-icon">'+icon(pages[k].icon,21)+'</span><strong class="quick-label">'+esc(pages[k].name)+'</strong><span class="quick-arrow">'+icon("arrow",17)+'</span></button>').join("");
-    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+entityLink("device",x.id,x.alias||x.hostname||x.id,true)+'</strong><span class="cell-sub">'+entityLink("device",x.id,x.id,false)+'</span></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
+    const recent=(m.recent||[]).map(x=>'<div class="status-row"><span><strong>'+entityLink("device",x.id,[x.alias,x.hostname].map(v=>String(v||"").trim()).find(v=>v&&v!==x.id)||"未设置设备名称",true,x.id)+'</strong></span><span class="pill muted">'+date(x.last_online_time)+'</span></div>').join("")||'<div class="empty">暂无设备</div>';
     return pageHeading("控制台概览","一个统一的空间，用于管理远程设备与共享关系。")+
       '<div class="metric-grid">'+metric("设备数量",state.loading?"…":m.devices,"monitor")+metric(state.isAdmin?"用户数量":"地址簿条目",state.loading?"…":m.users,"users")+metric(state.isAdmin?"用户分组":"联系人数量",state.loading?"…":m.groups===undefined?state.contacts.incoming.length:m.groups,"layers")+metric("当前账户",state.user.username,"shield")+'</div>'+
       '<div class="two-cols"><section class="panel"><div class="panel-header"><div><h2 class="panel-title">快速访问</h2><p class="panel-sub">常用管理功能</p></div></div><div class="quick-grid">'+quick+'</div></section><section class="panel"><div class="panel-header"><div><h2 class="panel-title">最近出现的设备</h2><p class="panel-sub">按最后活动时间显示</p></div><button data-view="'+(state.isAdmin?"devices":"mydevices")+'" class="btn btn-sm">查看全部</button></div><div class="tips">'+recent+'</div></section></div>';
@@ -922,6 +922,13 @@
       allCols.some(([key])=>key===idKey)&&
       (allCols.some(([key])=>key===nameKey)||deviceReferenceFields.has(idKey)||idKey==="id")));
     const pairedNames=new Set(stackColumn.values());
+    if(deviceRowPages.has(state.page)){
+      const hasDistinctHostname=rows.some(row=>{
+        const alias=String(row.alias||"").trim(),hostname=String(row.hostname||"").trim();
+        return alias&&hostname&&alias!==hostname&&hostname!==String(row.id||"");
+      });
+      if(!hasDistinctHostname)pairedNames.add("hostname");
+    }
     const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
@@ -965,7 +972,7 @@
     const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
       (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
       '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+
-      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"||key==="device_id"?"被连接设备":"设备"):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>'+
+      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"?"被连接设备":key==="device_id"&&loginSessionPages.has(state.page)?"客户端标识":key==="device_id"&&["activeSessions","myactiveSessions"].includes(state.page)?"被连接设备":label):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>'+
       '<span class="column-resize-handle" data-column="'+esc(key)+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整'+esc(label)+'列宽" title="拖动调整列宽，双击自动适应内容；方向键可微调"></span></th>').join("");
     const multiline=new Set(["os","platform","note","remark","info","description","sources","permissions",
       "id_whitelist","ip_whitelist","last_error","last_online_ip","ip","source_ip","client_ip","login_ip",
@@ -1952,7 +1959,7 @@
       '<button type="button" class="btn btn-sm" data-action="picker-manual-add">添加设备 ID</button></div>':"")+
       '<div class="picker-selected" aria-live="polite">'+
       ids.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+object+' '+esc(value)+'">'+
-        (kind==="device"?deviceStatusDot(value):"")+esc(["user_group","deployment_record","trash_record"].includes(kind)?referenceText(kind,value):object+" "+value)+' ×</button>').join("")+'</div>'+
+        (kind==="device"&&Object.prototype.hasOwnProperty.call(state.deviceNames,value)?deviceStatusDot(value):"")+esc(["user_group","deployment_record","trash_record"].includes(kind)?referenceText(kind,value):object+" "+value)+' ×</button>').join("")+'</div>'+
       '<small class="picker-selection">'+(ids.length?"已选择 "+ids.length+" 个"+object:
         kind==="device"?"选择设备或填写外部设备 ID，留空表示适用于所有设备":"请选择"+object)+'</small></div>';
   }
@@ -2628,7 +2635,7 @@
     target.value=values.join(",");
     const kind=picker.dataset.picker,label=lookupLabels[kind]||"用户";
     const selected=picker.querySelector(".picker-selected");
-    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(kind==="device"?deviceStatusDot(value):"")+( ["user_group","deployment_record","trash_record"].includes(kind)?esc(referenceText(kind,value)):esc(label+" "+value))+' ×</button>').join("");
+    selected.innerHTML=values.map(value=>'<button type="button" class="picker-chip" data-action="picker-remove" data-id="'+esc(value)+'" aria-label="移除'+label+' '+esc(value)+'">'+(kind==="device"&&Object.prototype.hasOwnProperty.call(state.deviceNames,value)?deviceStatusDot(value):"")+( ["user_group","deployment_record","trash_record"].includes(kind)?esc(referenceText(kind,value)):esc(label+" "+value))+' ×</button>').join("");
     picker.querySelector(".picker-results").hidden=true;
     picker.querySelector(".picker-selection").textContent="已选择 "+values.length+" 个"+label;
   }
