@@ -1082,6 +1082,7 @@ test("browser sessions and virtual connection origins have no device link or pre
 
 test("desktop table headings expose accessible resizing and automatic width controls",async()=>{
   const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{row_id:4,id:"office",alias:"Office"}],total:1};
   await app.settle();await app.settle();await app.open("devices");
   assert.match(app.root.innerHTML,/class="column-resize-handle" data-column="id" role="separator"/);
   assert.match(app.root.innerHTML,/data-action="table-autofit"/);
