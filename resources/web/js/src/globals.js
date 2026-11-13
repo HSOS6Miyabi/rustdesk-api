@@ -29,7 +29,15 @@ function jsonfyForDart(payload) {
     var tmp = {};
     for (const [key, value] of Object.entries(payload)) {
         if (!key) continue;
-        tmp[key] = value instanceof Uint8Array ? '[' + value.toString() + ']' : JSON.stringify(value);
+        if (value instanceof Uint8Array) {
+            tmp[key] = '[' + value.toString() + ']';
+        } else if (key === 'persistent_sessions' && Array.isArray(value)) {
+            tmp[key] = value;
+        } else if (value !== null && typeof value === 'object') {
+            tmp[key] = JSON.stringify(value);
+        } else {
+            tmp[key] = value == null ? '' : String(value);
+        }
     }
     return tmp;
 }
@@ -200,7 +208,7 @@ window.setByName = (name, value) => {
             window.__rustdeskTerminalAdmin = false;
             window.__rustdeskNativeSessionSeen = id;
             window.dispatchEvent(new CustomEvent('rustdesk:native-session-open', {detail:{id}}));
-            conn.start(id);
+            conn.start(id).catch(error=>msgbox("error","Connection Error",String(error)));
             return '';
         }
         case 'session_login': {
@@ -457,8 +465,8 @@ window.init = async () => {
     opusWorker.onmessage = (e) => {
         pcmPlayer.feed(e.data);
     }
-    loadVp9(() => {
-    });
+    const warming=loadVp9(decoder=>decoder.close?.());
+    if(warming?.catch)warming.catch(error=>console.warn("VP9 preloading failed",error));
     await initZstd();
     console.log('init done');
     if (typeof window.onInitFinished === "function") {

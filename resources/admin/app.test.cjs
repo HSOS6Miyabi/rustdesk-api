@@ -75,7 +75,7 @@ function createConsole(isAdmin = false, overrides = {}) {
     "/mail/settings": { enabled:false, host:"smtp.example.test",port:587,security:"starttls",sender_email:"team@example.test" },
     "/notification/settings": {settings:{enabled:true,recipients:"team@example.test",events:"login.failure,audit.file"},catalog:["login.failure","audit.file"]},
     "/notification/list": {list:[{id:4,event_type:"audit.file",recipient:"team@example.test",status:"failed",attempts:3,last_error:"SMTP unreachable"}],total:1},
-    "/geoip/lookup": {locations:{"10.0.0.5":"局域网地址","127.0.0.1":"本地回环地址","192.0.2.1":"位置未知"},device_status:{"office":true,"home-remote":false,"123456":true,"654321":false,"helpdesk":true,"managed-desk":false,"support-123456":true,"deployed-10002":false},database_ready:false},
+    "/geoip/lookup": {locations:{"10.0.0.5":"局域网地址","127.0.0.1":"本地回环地址","192.0.2.1":"位置未知"},device_status:{"office":true,"home-remote":false,"123456":true,"654321":false,"helpdesk":true,"managed-desk":false,"support-123456":true,"deployed-10002":false},device_names:{"office":"Office","home-remote":"Home PC","123456":"Device A","654321":"Device B","helpdesk":"Helpdesk","managed-desk":"Managed desk","support-123456":"Support PC","deployed-10002":"Deployment"},database_ready:false},
     "/push/events": [{code:"device.online",name:"设备上线"},{code:"device.offline",name:"设备离线"},{code:"connection.started",name:"远程连接建立"}],
     "/push/channels": {list:[{id:11,kind:"messagepusher",name:"我的通知",enabled:true,events:["device.online","connection.started"],base_url:"https://push.example.test",api_key_configured:true}]},
     "/push/stream-keys": {list:[{id:13,name:"自动化订阅",prefix:"rdapi_example",permissions:"events.read",expires_at:0,revoked_at:0}]},
@@ -679,23 +679,23 @@ test("device presence uses inline dots in user and administrator views",async()=
   await user.settle();
   await user.settle();
   await user.open("devices");
-  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
-  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">office<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">home-remote<\/span>/);
   assert.ok(user.calls.some(x=>x.endpoint==="/geoip/lookup"&&x.method==="POST"));
   assert.doesNotMatch(user.root.innerHTML,/<th[^>]*>在线状态<\/th>/);
   await user.open("myconnections");
-  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span>123456<\/span>/);
-  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>654321<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot online[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">123456<\/span>/);
+  assert.match(user.root.innerHTML,/device-status-dot offline[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">654321<\/span>/);
 
   const admin=createConsole(true);
   admin.fixtures["/peer/list"]={list:[{row_id:3,id:"office",hostname:"管理员设备"}],total:1};
   await admin.settle();
   await admin.settle();
   await admin.open("devices");
-  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">office<\/span>/);
   await admin.open("connections");
-  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>managed-desk<\/span>/);
-  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span>helpdesk<\/span>/);
+  assert.match(admin.root.innerHTML,/device-status-dot offline[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">managed-desk<\/span>/);
+  assert.match(admin.root.innerHTML,/device-status-dot online[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">helpdesk<\/span>/);
 });
 
 test("device status also appears in shared devices and saved address books",async()=>{
@@ -711,11 +711,11 @@ test("device status also appears in shared devices and saved address books",asyn
   await app.settle();
   await app.settle();
   await app.open("shared");
-  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
-  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">office<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">home-remote<\/span>/);
   await app.open("addressbooks");
-  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span>office<\/span>/);
-  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span>home-remote<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot online[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">office<\/span>/);
+  assert.match(app.root.innerHTML,/device-status-dot offline[^<]*<\/span><span class="entity-link-text"><span class="entity-link-name">[^<]+<\/span><span class="entity-link-id">home-remote<\/span>/);
 });
 
 test("settings center lists effective sources without revealing secrets", async () => {
@@ -872,7 +872,7 @@ test("device and user references display link controls with status markers",asyn
   await app.open("devices");
   assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="device" data-entity-id="office"/);
   assert.match(app.root.innerHTML,/device-status-dot online/);
-  assert.match(app.root.innerHTML,/data-entity-label="Office"/);
+  assert.match(app.root.innerHTML,/data-entity-label="Desk"/);
   app.fixtures["/user/list"]={list:[{id:7,username:"alice",nickname:"Alice",email:"alice@example.test"}],total:1};
   await app.open("users");
   assert.match(app.root.innerHTML,/data-action="entity-detail" data-entity-type="user" data-entity-id="7"/);
@@ -1000,9 +1000,9 @@ test("desktop connection tables stack names and identifiers without changing the
   }],total:1};
   await app.settle();await app.settle();await app.open("myconnections");
   assert.match(app.root.innerHTML,/data-column="from_peer"[^>]*class="[^"]*cell-device-stack/);
-  assert.match(app.root.innerHTML,/class="entity-link-text"/);
-  assert.match(app.root.innerHTML,/class="entity-link-id">123456789<\/span>/);
-  assert.match(app.root.innerHTML,/class="entity-link-id">987654321<\/span>/);
+  assert.match(app.root.innerHTML,/class="device-reference-name">工作站 A<\/span>/);
+  assert.match(app.root.innerHTML,/class="device-reference-id">123456789<\/span>/);
+  assert.match(app.root.innerHTML,/class="device-reference-id">987654321<\/span>/);
   assert.doesNotMatch(app.root.innerHTML,/data-column="from_device_name"/);
   assert.match(app.root.innerHTML,/class="mobile-list"/);
   assert.match(app.root.innerHTML,/工作站 A/);
@@ -1044,4 +1044,47 @@ test("secondary server categories switch the command menu and preserve server se
   await app.events.click({target:{closest:()=>({dataset:{action:"server-category",category:"访问与网络记录"}})}});
   assert.match(app.root.innerHTML,/aria-selected="true"/);
   assert.match(app.root.innerHTML,/data-action="server-select"/);
+});
+
+
+test("registered devices render unique names and identifiers in two lines",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[
+    {row_id:1,id:"office",alias:"Office",hostname:"Office",user_id:2},
+    {row_id:2,id:"home-remote",alias:"",hostname:"Home PC",user_id:2},
+    {row_id:3,id:"unknown-id",alias:"",hostname:"",user_id:2}
+  ],total:3};
+  await app.settle();await app.settle();await app.open("devices");
+  assert.match(app.root.innerHTML,/class="entity-link-name">Office<\/span><span class="entity-link-id">office<\/span>/);
+  assert.match(app.root.innerHTML,/class="entity-link-name">Home PC<\/span><span class="entity-link-id">home-remote<\/span>/);
+  assert.match(app.root.innerHTML,/class="entity-link-name">未设置设备名称<\/span><span class="entity-link-id">unknown-id<\/span>/);
+  assert.doesNotMatch(app.root.innerHTML,/class="entity-link-name">Office<\/span><span class="entity-link-id">Office<\/span>/);
+});
+
+test("browser sessions and virtual connection origins have no device link or presence dot",async()=>{
+  const app=createConsole(false);
+  app.fixtures["/my/user_token/list"]={list:[
+    {id:98,device_id:"webadmin",client:"webadmin",device_uuid:"",active:true},
+    {id:97,device_id:"windows-Chrome",client:"windows-Chrome",device_uuid:"",active:true}
+  ],total:2};
+  app.fixtures["/my/audit_conn/list"]={list:[
+    {id:26,from_peer:"web",peer_id:"office",to_device_name:"Office",direction:"outgoing"}
+  ],total:1};
+  await app.settle();await app.settle();await app.open("mysessions");
+  assert.doesNotMatch(app.root.innerHTML,/data-entity-id="webadmin"|data-entity-id="windows-Chrome"/);
+  assert.match(app.root.innerHTML,/class="device-reference-id">webadmin<\/span>/);
+  assert.match(app.root.innerHTML,/class="device-reference-id">windows-Chrome<\/span>/);
+  await app.open("myconnections");
+  assert.match(app.root.innerHTML,/class="device-reference-name">浏览器客户端<\/span><span class="device-reference-id">web<\/span>/);
+  assert.doesNotMatch(app.root.innerHTML,/data-entity-id="web"/);
+  assert.match(app.root.innerHTML,/data-entity-id="office"/);
+});
+
+test("desktop table headings expose accessible resizing and automatic width controls",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/peer/list"]={list:[{row_id:4,id:"office",alias:"Office"}],total:1};
+  await app.settle();await app.settle();await app.open("devices");
+  assert.match(app.root.innerHTML,/class="column-resize-handle" data-column="id" role="separator"/);
+  assert.match(app.root.innerHTML,/data-action="table-autofit"/);
+  assert.match(app.root.innerHTML,/<col data-column="id" style="width:\d+px">/);
 });

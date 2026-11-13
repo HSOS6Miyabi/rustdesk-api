@@ -55,6 +55,8 @@ function createFixture(){
       if(request==="./globals")return {encrypt(data){return data},decrypt(data){return data}};
       if(request==="./modern_protocol.mjs")return {
         addSessionMode(data){return data},
+        advertiseVP9Decoder(data){return data},
+        extractStandalonePeerInfo(){return null},
         decodeTerminalMessage(){return null},
         encodeTerminalMessage(){return Uint8Array.from([0])}
       };

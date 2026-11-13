@@ -16,6 +16,11 @@ type auditParticipant struct {
 	DeviceName string
 }
 
+func auditDeviceName(peer model.Peer) string {
+	if name := strings.TrimSpace(peer.Alias); name != "" { return name }
+	return strings.TrimSpace(peer.Hostname)
+}
+
 func auditParticipants(tx *gorm.DB, fromId, toId string) (auditParticipant, auditParticipant, error) {
 	from, to := auditParticipant{}, auditParticipant{}
 	ids := make([]string, 0, 2)
@@ -42,10 +47,10 @@ func auditParticipants(tx *gorm.DB, fromId, toId string) (auditParticipant, audi
 		for _, u := range names { users[u.Id] = u.Username }
 	}
 	if peer, ok := byId[fromId]; ok {
-		from = auditParticipant{peer.UserId, users[peer.UserId], peer.Hostname}
+		from = auditParticipant{peer.UserId, users[peer.UserId], auditDeviceName(peer)}
 	}
 	if peer, ok := byId[toId]; ok {
-		to = auditParticipant{peer.UserId, users[peer.UserId], peer.Hostname}
+		to = auditParticipant{peer.UserId, users[peer.UserId], auditDeviceName(peer)}
 	}
 	return from, to, nil
 }
@@ -225,7 +230,7 @@ func auditDisplayIndex(ids []string) (map[string]model.Peer, map[uint]string, er
 func participantFromIndex(peers map[string]model.Peer, users map[uint]string, id string) auditParticipant {
 	p, ok := peers[id]
 	if !ok { return auditParticipant{} }
-	return auditParticipant{p.UserId, users[p.UserId], p.Hostname}
+	return auditParticipant{p.UserId, users[p.UserId], auditDeviceName(p)}
 }
 
 func auditPersonalScope(tx *gorm.DB, userId uint) *gorm.DB {

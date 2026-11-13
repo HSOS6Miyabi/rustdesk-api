@@ -92,6 +92,38 @@ function readText(value) {
   return value instanceof Uint8Array ? text.decode(value) : "";
 }
 
+function reencodeField(field) {
+  if(field.wire===2)return payload(field.field,field.value);
+  if(field.wire===0)return uint(field.field,field.value);
+  throw new Error("Unsupported protocol message field");
+}
+
+// Modern RustDesk peers receive the list of codecs supported by this browser.
+export function advertiseVP9Decoder(encoded) {
+  const messageFields=fields(encoded);
+  if(!messageFields.some(field=>field.field===7&&field.wire===2))return encoded;
+  const vp9=payload(10,concat(uint(1,1),uint(4,1)));
+  return concat(...messageFields.map(field=>{
+    if(field.field!==7||field.wire!==2)return reencodeField(field);
+    const login=fields(field.value);
+    let foundOption=false;
+    const updated=login.map(item=>{
+      if(item.field!==6||item.wire!==2)return reencodeField(item);
+      foundOption=true;
+      const prior=fields(item.value).filter(part=>part.field!==10);
+      return payload(6,concat(...prior.map(reencodeField),vp9));
+    });
+    if(!foundOption)updated.push(payload(6,vp9));
+    return payload(7,concat(...updated));
+  }));
+}
+
+// The native protocol may send PeerInfo outside LoginResponse.
+export function extractStandalonePeerInfo(encoded) {
+  const info=fields(encoded).find(item=>item.field===25&&item.wire===2);
+  return info?info.value:null;
+}
+
 export function addSessionMode(encoded, mode, osLogin) {
   if (mode !== "camera" && mode !== "terminal" && mode !== "adminTerminal" && !osLogin) return encoded;
   const additions = [];

@@ -132,7 +132,7 @@ export default class Connection {
         }
       }
     }
-    this.loadVideoDecoder();
+    if(this._sessionMode==="desktop"||this._sessionMode==="camera")await this.loadVideoDecoder();
     this._id=id;
     if(sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y" &&
        typeof RTCPeerConnection!=="undefined"){
@@ -454,6 +454,8 @@ export default class Connection {
         } else if (r.peer_info) {
           this.handlePeerInfo(r.peer_info);
         }
+      } else if ((msg as any)?.peer_info) {
+        this.handlePeerInfo((msg as any).peer_info);
       } else if (msg?.video_frame) {
         this.handleVideoFrame(msg?.video_frame!);
       } else if (msg?.clipboard) {
@@ -682,6 +684,7 @@ export default class Connection {
     }
     this.msgbox("success", "Successful", "Connected, waiting for image...");
     globals.pushEvent("peer_info", pi);
+    if(this._sessionMode==="file")this.readRemoteDir("",false);
     const p = this.shouldAutoLogin();
     if (p) this.inputOsPassword(p);
     const username = this.getOption("info")?.username;
@@ -731,7 +734,7 @@ export default class Connection {
       }
       globals.pushEvent("permission", { [name]: p.enabled });
     } else if (misc.switch_display) {
-      this.loadVideoDecoder();
+      this.loadVideoDecoder().catch(error=>this.msgbox("error","Video Decoder",String(error)));
       globals.pushEvent("switch_display", misc.switch_display);
     } else if (misc.close_reason) {
       this.msgbox("error", "Connection Error", misc.close_reason);
@@ -929,12 +932,29 @@ export default class Connection {
     this._ws?.sendMessage({ misc });
   }
 
-  loadVideoDecoder() {
+  async loadVideoDecoder():Promise<void> {
     this._videoDecoder?.close();
-    loadVp9((decoder: any) => {
-      this._videoDecoder = decoder;
-      console.log("vp9 loaded");
-      console.log(decoder);
+    this._videoDecoder=undefined;
+    await new Promise<void>((resolve,reject)=>{
+      let completed=false;
+      const timeout=setTimeout(()=>{
+        if(completed)return;
+        completed=true;
+        reject(new Error("VP9 video decoder initialization timed out"));
+      },12000);
+      const ready=(decoder:any)=>{
+        if(completed){decoder.close?.();return}
+        completed=true;
+        clearTimeout(timeout);
+        this._videoDecoder=decoder;
+        resolve();
+      };
+      loadVp9(ready).catch((error:any)=>{
+        if(completed)return;
+        completed=true;
+        clearTimeout(timeout);
+        reject(error);
+      });
     });
   }
 }

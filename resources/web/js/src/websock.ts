@@ -1,5 +1,5 @@
 import * as message from "./message.js";
-import {addSessionMode,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
+import {addSessionMode,advertiseVP9Decoder,extractStandalonePeerInfo,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
 import * as rendezvous from "./rendezvous.js";
 import * as globals from "./globals";
 import {decodeRendezvous,encodeOffer,encodeICE,IceCandidate} from "./webrtc_protocol";
@@ -52,6 +52,9 @@ export default class Websock {
       : message.Message.encode(message.Message.fromPartial(json)).finish();
     if(extension.__login_mode||extension.__os_login)
       data=addSessionMode(data,extension.__login_mode,extension.__os_login);
+    if(extension.login_request && !extension.login_request.file_transfer &&
+       !["terminal","adminTerminal"].includes(extension.__login_mode))
+      data=advertiseVP9Decoder(data);
     let k = this._secretKey;
     if (k) {
       k[1] += 1;
@@ -80,6 +83,8 @@ export default class Websock {
     const decoded=message.Message.decode(data);
     const terminal=decodeTerminalMessage(data);
     if(terminal)(decoded as any).terminal_response=terminal;
+    const info=extractStandalonePeerInfo(data);
+    if(info)(decoded as any).peer_info=message.PeerInfo.decode(info);
     return decoded;
   }
 

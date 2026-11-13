@@ -51,3 +51,19 @@ test("Administrator terminal login includes temporary OS credentials on the wire
   assert.ok(asText.includes("admin"));
   assert.ok(asText.includes("temporary"));
 });
+
+test("browser desktop login advertises a VP9 decoder while preserving login options",()=>{
+  const login=Uint8Array.from([58,6,10,0,50,2,8,3]);
+  const encoded=lib.advertiseVP9Decoder(login);
+  assert.deepEqual([...encoded],[58,12,10,0,50,8,8,3,82,4,8,1,32,1]);
+  assert.deepEqual([...lib.advertiseVP9Decoder(Uint8Array.from([58,2,10,0]))],
+    [58,10,10,0,50,6,82,4,8,1,32,1]);
+  assert.deepEqual([...lib.advertiseVP9Decoder(encoded)],[...encoded]);
+  assert.deepEqual([...lib.advertiseVP9Decoder(Uint8Array.from([250,1,0]))],[250,1,0]);
+});
+
+test("standalone peer metadata is extracted from the modern RustDesk message",()=>{
+  assert.deepEqual([...lib.extractStandalonePeerInfo(Uint8Array.from([202,1,3,10,1,65]))],[10,1,65]);
+  assert.equal(lib.extractStandalonePeerInfo(Uint8Array.from([58,2,10,0])),null);
+  assert.throws(()=>lib.extractStandalonePeerInfo(Uint8Array.from([202,1,5,10])));
+});

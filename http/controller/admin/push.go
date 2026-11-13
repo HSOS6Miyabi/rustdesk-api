@@ -88,7 +88,7 @@ func (h *PushChannels) GeoIPLookup(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error":"请先登录"})
 		return
 	}
-	deviceStatus, err := service.DevicePresenceForUser(
+	deviceStatus, deviceNames, err := service.DevicePresenceDetailsForUser(
 		user, input.DeviceIDs, service.AllService.UserService.IsAdmin(user),
 	)
 	if err != nil {
@@ -98,7 +98,7 @@ func (h *PushChannels) GeoIPLookup(c *gin.Context) {
 	locations := service.LookupGeoIPBatch(input.IPs)
 	c.Header("Cache-Control","no-store")
 	response.Success(c,gin.H{
-		"locations":locations, "device_status":deviceStatus,
+		"locations":locations, "device_status":deviceStatus, "device_names":deviceNames,
 		"database_ready":service.GeoIPReady(),
 	})
 }

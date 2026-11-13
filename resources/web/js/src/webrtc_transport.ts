@@ -1,5 +1,5 @@
 import * as message from "./message.js";
-import {addSessionMode,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
+import {addSessionMode,advertiseVP9Decoder,extractStandalonePeerInfo,decodeTerminalMessage,encodeTerminalMessage} from "./modern_protocol.mjs";
 
 const MAX_FRAGMENT_PAYLOAD = 60000;
 const MAX_LOGICAL_MESSAGE = 16 * 1024 * 1024;
@@ -69,6 +69,9 @@ export default class WebRTCTransport {
       : message.Message.encode(message.Message.fromPartial(data)).finish();
     if(extension.__login_mode||extension.__os_login)
       bytes=addSessionMode(bytes,extension.__login_mode,extension.__os_login);
+    if(extension.login_request && !extension.login_request.file_transfer &&
+       !["terminal","adminTerminal"].includes(extension.__login_mode))
+      bytes=advertiseVP9Decoder(bytes);
     if(bytes.length > MAX_LOGICAL_MESSAGE) throw new Error("WebRTC message exceeds size limit");
     // A failed send must close the transport to avoid leaving the recipient's
     // fragment accumulator in a partially sent state.
@@ -130,6 +133,8 @@ export default class WebRTCTransport {
       const decoded=message.Message.decode(merged);
       const terminal=decodeTerminalMessage(merged);
       if(terminal)(decoded as any).terminal_response=terminal;
+      const info=extractStandalonePeerInfo(merged);
+      if(info)(decoded as any).peer_info=message.PeerInfo.decode(info);
       const waiter=this.waiting.shift();
       if(waiter){clearTimeout(waiter.timeout);waiter.resolve(decoded)}
       else this.frames.push(decoded);

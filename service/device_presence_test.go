@@ -56,6 +56,10 @@ func TestDevicePresenceBatchOwnershipSharingAndExpiry(t *testing.T) {
 	if err != nil || !guestStatus[ownerDevice.Id] {
 		t.Fatalf("saved address-book device status unavailable: %+v %v",guestStatus,err)
 	}
+	_, visibleNames, err := DevicePresenceDetailsForUser(guest, ids, false)
+	if err != nil || visibleNames[ownerDevice.Id] != "Office" || visibleNames[guestDevice.Id] == "" || visibleNames["unknown-device"] != "" {
+		t.Fatalf("visible device names: %v %v", visibleNames, err)
+	}
 	adminStatus, err := DevicePresenceForUser(guest,ids,true)
 	if err != nil || !adminStatus[ownerDevice.Id] || adminStatus[guestDevice.Id] {
 		t.Fatalf("administrator presence result incorrect: %+v %v",adminStatus,err)
