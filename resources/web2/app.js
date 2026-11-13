@@ -50,11 +50,14 @@
     }
     emptySession.hidden=true;
     renderSessionTabs();
+    syncClipboardSession();
+    syncFullscreen();
   }
   function closeSession(key){
     const session=sessions.get(key);
     if(!session)return;
     sessions.delete(key);
+    try{session.frame.contentWindow?.__rustdeskClipboardAccess?.disable();}catch{}
     if(session.frame===firstClient){
       firstClient.src="about:blank";
       firstClient.classList.add("session-inactive");
@@ -66,7 +69,7 @@
       activeSessionKey="";
       const next=sessions.keys().next().value;
       if(next)showSession(next);
-      else {emptySession.hidden=false;renderSessionTabs();}
+      else {emptySession.hidden=false;renderSessionTabs();syncClipboardSession();}
     }else renderSessionTabs();
     message(sessions.size?"已断开："+session.name:"当前连接已关闭，可以创建新的连接标签。");
   }
@@ -120,6 +123,16 @@
           if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
         },true);
       }catch{}
+      try{
+        frame.contentWindow?.addEventListener("hashchange",()=>{
+          const hash=String(frame.contentWindow.location?.hash||"");
+          if(/^#\/?(?:home)?\/?$/.test(hash)&&frame.contentWindow.__rustdeskNativeSessionSeen){
+            window.__rustdeskOnSessionClosed(frame.contentWindow,frame.contentWindow.__rustdeskNativeSessionSeen);
+          }
+        });
+      }catch{}
+      syncFullscreen();
+      syncClipboardSession();
     });
   }
   watchClient(firstClient);
@@ -156,6 +169,127 @@
       receive([...event.dataTransfer.files],false);
     }catch(error){message("上传文件失败："+error.message);}
   });
+  const clipboardButton=el("v2-clipboard-toggle");
+  const clipboardCopyButton=el("v2-clipboard-copy");
+  const clipboardDownloadButton=el("v2-download-clipboard");
+  const clipboardStatus=el("v2-clipboard-status");
+  let clipboardEnabled=false,clipboardReadGranted=false,pendingRemoteText=null;
+  const clipboardAPI=()=>window.navigator?.clipboard;
+  function clipboardSession(){
+    const session=sessions.get(activeSessionKey);
+    return session&&["desktop","camera"].includes(session.mode)?session:null;
+  }
+  function setClipboardStatus(text){clipboardStatus.textContent=text;}
+  function syncClipboardSession(initialText){
+    const active=clipboardSession();
+    for(const [key,session] of sessions){
+      try{
+        const api=session.frame.contentWindow?.__rustdeskClipboardAccess;
+        if(key===activeSessionKey&&active&&clipboardEnabled){
+          api?.enable(typeof initialText==="string"?initialText:undefined);
+        }else api?.disable();
+      }catch{}
+    }
+    clipboardButton.setAttribute("aria-pressed",String(clipboardEnabled));
+    clipboardButton.textContent=clipboardEnabled?"关闭剪贴板共享":"启用剪贴板共享";
+    if(!clipboardEnabled)clipboardCopyButton.hidden=true;
+  }
+  async function enableClipboard(){
+    clipboardEnabled=true;
+    const api=clipboardAPI();
+    let initialText;
+    if(typeof api?.readText==="function"){
+      try{
+        initialText=await api.readText();
+        clipboardReadGranted=true;
+      }catch{
+        clipboardReadGranted=false;
+      }
+    }
+    syncClipboardSession(initialText);
+    setClipboardStatus(clipboardReadGranted
+      ?"剪贴板共享已开启，支持文本及资源管理器中的文件。"
+      :"剪贴板共享已开启。浏览器可能要求授权，请使用 Ctrl+C / Ctrl+V 复制文本或文件。");
+  }
+  clipboardButton.addEventListener("click",async()=>{
+    if(clipboardEnabled){
+      clipboardEnabled=false;
+      clipboardReadGranted=false;
+      pendingRemoteText=null;
+      syncClipboardSession();
+      setClipboardStatus("剪贴板共享已关闭。");
+    }else await enableClipboard();
+  });
+  clipboardCopyButton.addEventListener("click",async()=>{
+    if(!pendingRemoteText)return;
+    try{
+      if(!clipboardAPI()?.writeText)throw Error("浏览器未提供剪贴板写入接口");
+      await clipboardAPI().writeText(pendingRemoteText);
+      clipboardCopyButton.hidden=true;
+      setClipboardStatus("远程文本已复制到本机剪贴板。");
+    }catch(error){setClipboardStatus("无法复制远程文本："+error.message);}
+  });
+  window.__rustdeskReceiveRemoteClipboard=async(text,source)=>{
+    const current=clipboardSession();
+    if(!clipboardEnabled||!current||current.frame.contentWindow!==source)return;
+    pendingRemoteText=String(text||"");
+    if(!pendingRemoteText)return;
+    try{
+      if(!clipboardAPI()?.writeText)throw Error("当前浏览器不支持写入剪贴板");
+      await clipboardAPI().writeText(pendingRemoteText);
+      clipboardCopyButton.hidden=true;
+      setClipboardStatus("远程文本已同步至本机剪贴板。");
+    }catch{
+      clipboardCopyButton.hidden=false;
+      setClipboardStatus("收到远程文本。点击“复制远程文本”后，浏览器将请求剪贴板权限。");
+    }
+  };
+  window.__rustdeskClipboardFileStatus=(kind,detail,source)=>{
+    const current=clipboardSession();
+    if(!current||current.frame.contentWindow!==source)return;
+    if(kind==="remote-list"){
+      if(detail)setClipboardStatus("检测到远程文件剪贴板，可点击右上角下载。");
+    }else if(kind==="local-files"){
+      setClipboardStatus("已将 "+detail+" 个本地文件交给远程剪贴板。");
+    }else if(kind==="progress"&&detail?.total){
+      setClipboardStatus("正在下载 "+detail.name+"："+Math.round(detail.received/detail.total*100)+"%");
+    }else if(kind==="downloaded"){
+      setClipboardStatus("已下载 "+detail.count+" 个剪贴板文件。");
+    }
+  };
+  clipboardDownloadButton.addEventListener("click",async()=>{
+    const current=clipboardSession();
+    if(!current){message("请先连接远程桌面或摄像会话。");return;}
+    if(!clipboardEnabled)await enableClipboard();
+    const remote=current.frame.contentWindow?.__rustdeskClipboardAccess;
+    if(typeof remote?.downloadRemoteFiles!=="function"){
+      message("远程桌面剪贴板组件尚未初始化。");return;
+    }
+    clipboardDownloadButton.disabled=true;
+    try{
+      const result=await remote.downloadRemoteFiles();
+      message("已下载远程剪贴板文件："+result.name);
+    }catch(error){
+      message("下载剪贴板文件失败："+error.message);
+    }finally{clipboardDownloadButton.disabled=false;}
+  });
+  document.addEventListener("paste",event=>{
+    if(!clipboardEnabled)return;
+    const current=clipboardSession();
+    if(!current)return;
+    const api=current.frame.contentWindow?.__rustdeskClipboardAccess;
+    const files=Array.from(event.clipboardData?.files||[]);
+    if(files.length){api?.offerFiles?.(files);return;}
+    const text=event.clipboardData?.getData("text/plain");
+    if(text)api?.sendLocal?.(text);
+  },true);
+  window.__rustdeskOnSessionClosed=(source,id)=>{
+    const found=[...sessions].find(([,session])=>session.frame.contentWindow===source&&session.id===id);
+    if(!found)return;
+    window.setTimeout?.(()=>{
+      if(sessions.get(found[0])===found[1])closeSession(found[0]);
+    },0);
+  };
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
   function syncFullscreen(){
@@ -165,7 +299,22 @@
     pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen));
     screenFullscreenButton.setAttribute("aria-pressed",String(monitorFullscreen));
     exitButton.hidden=!(state.pageFullscreen||monitorFullscreen);
+    try{
+      const frame=clipboardSession()?.frame||sessions.get(activeSessionKey)?.frame;
+      frame?.contentWindow?.onFullscreenChanged?.(state.pageFullscreen||monitorFullscreen);
+    }catch{}
   }
+  window.__rustdeskIsFullscreen=()=>state.pageFullscreen||document.fullscreenElement===stage;
+  window.__rustdeskSetFullscreen=(wanted,source)=>{
+    const active=sessions.get(activeSessionKey);
+    if(!active||active.frame.contentWindow!==source)
+      return Promise.reject(Error("该会话当前未显示"));
+    if(wanted){
+      if(typeof stage.requestFullscreen!=="function")return Promise.reject(Error("浏览器不支持全屏"));
+      return Promise.resolve(stage.requestFullscreen({navigationUI:"hide"})).then(()=>syncFullscreen());
+    }
+    return exitFullscreen();
+  };
   async function exitFullscreen(){
     if(document.fullscreenElement===stage){
       try{await document.exitFullscreen();}catch(error){message("退出全屏失败："+error.message);}
@@ -210,8 +359,7 @@
     state.activeName=String(name||"");
     state.autoConnect=false;
     updateDeviceIdentity();
-    config.id.focus();
-    message("已选择设备 "+id+"，请点击发起连接。");
+    connectToDevice(selectedMode);
     window.scrollTo({top:0,behavior:"smooth"});
   }
   async function loadConnectionDefaults(){
