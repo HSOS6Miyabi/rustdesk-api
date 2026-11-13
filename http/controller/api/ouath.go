@@ -42,7 +42,7 @@ func (o *Oauth) OidcAuth(c *gin.Context) {
 		return
 	}
 
-	service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
+	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:     service.OauthActionTypeLogin,
 		Id:         f.Id,
 		Op:         f.Op,
@@ -52,7 +52,10 @@ func (o *Oauth) OidcAuth(c *gin.Context) {
 		DeviceType: f.DeviceInfo.Type,
 		Verifier:   verifier,
 		Nonce:      nonce,
-	}, 5*60)
+	}, 5*60); err != nil {
+        response.Error(c, "无法保存授权状态，请重试")
+        return
+    }
 	//fmt.Println("code url", code, url)
 	c.JSON(http.StatusOK, gin.H{
 		"code": state,
@@ -227,6 +230,10 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 			if !*oauthConfig.AutoRegister {
 				//c.String(http.StatusInternalServerError, "还未绑定用户，请先绑定")
 				oauthCache.UpdateFromOauthUser(oauthUser)
+                if err := oauthService.SetOauthCache(cacheKey, oauthCache, 0); err != nil {
+                    c.HTML(http.StatusOK, "oauth_fail.html", gin.H{"message":"OauthExpired"})
+                    return
+                }
 				c.Redirect(http.StatusFound, "/_admin/#/oauth/bind/"+cacheKey)
 				return
 			}
@@ -245,7 +252,10 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 			return
 		}
 		oauthCache.UserId = user.Id
-		oauthService.SetOauthCache(cacheKey, oauthCache, 0)
+		if err := oauthService.SetOauthCache(cacheKey, oauthCache, 0); err != nil {
+            c.HTML(http.StatusOK, "oauth_fail.html", gin.H{"message":"OauthExpired"})
+            return
+        }
 		// 如果是webadmin，登录成功后跳转到webadmin
 		if oauthCache.DeviceType == model.LoginLogClientWebAdmin {
 			/*service.AllService.UserService.Login(u, &model.LoginLog{

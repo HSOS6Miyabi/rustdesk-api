@@ -51,13 +51,16 @@ func (o *Oauth) ToBind(c *gin.Context) {
 		return
 	}
 
-	service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
+	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:   service.OauthActionTypeBind,
 		Op:       f.Op,
 		UserId:   u.Id,
 		Verifier: verifier,
 		Nonce:    nonce,
-	}, 5*60)
+	}, 5*60); err != nil {
+        response.Error(c, "无法保存授权状态，请重试")
+        return
+    }
 
 	response.Success(c, gin.H{
 		"code": state,
@@ -84,7 +87,10 @@ func (o *Oauth) Confirm(c *gin.Context) {
 	}
 	u := service.AllService.UserService.CurUser(c)
 	v.UserId = u.Id
-	service.AllService.OauthService.SetOauthCache(j.Code, v, 0)
+	if err := service.AllService.OauthService.SetOauthCache(j.Code, v, 0); err != nil {
+        response.Error(c, "无法更新授权状态，请重试")
+        return
+    }
 	response.Success(c, v)
 }
 
@@ -114,7 +120,10 @@ func (o *Oauth) BindConfirm(c *gin.Context) {
 	}
 
 	oauthCache.UserId = user.Id
-	oauthService.SetOauthCache(j.Code, oauthCache, 0)
+	if err := oauthService.SetOauthCache(j.Code, oauthCache, 0); err != nil {
+        response.Error(c, "无法更新授权状态，请重试")
+        return
+    }
 	response.Success(c, oauthCache)
 }
 
