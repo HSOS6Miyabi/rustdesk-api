@@ -104,3 +104,17 @@ test("clipboard file download requires explicit enablement and a remote format l
   await assert.rejects(clipboard.download(),/请先启用/);
   clipboard.close();
 });
+
+test("Explorer paste is issued only after the remote clipboard list has been accepted",async()=>{
+  const {BrowserFileClipboard}=await lib();
+  const {clipboard}=mock(BrowserFileClipboard);
+  clipboard.enable();
+  let pasted=0;
+  clipboard.offerFiles([new File(["abc"],"notes.txt")],()=>pasted++);
+  assert.equal(pasted,0);
+  await clipboard.handle({format_list_response:{msg_flags:1}});
+  assert.equal(pasted,1);
+  await clipboard.handle({format_list_response:{msg_flags:1}});
+  assert.equal(pasted,1);
+  clipboard.close();
+});
