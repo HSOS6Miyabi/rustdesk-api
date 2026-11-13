@@ -31,7 +31,6 @@ test("file cliprdr browser advertises descriptors and serves content and size re
   await clipboard.handle({format_data_request:{requested_format_id:49334}});
   const descriptor=sent.at(-1).cliprdr.format_data_response;
   assert.equal(descriptor.msg_flags,1);
-  const parsed=lib?require("node:buffer"):null;
   const files=(await lib()).parseClipboardDescriptors(descriptor.format_data);
   assert.deepEqual(files.map(f=>[f.name,f.size]),[["report.txt",8]]);
   await clipboard.handle({file_contents_request:{stream_id:4,list_index:0,dw_flags:1}});
