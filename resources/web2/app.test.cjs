@@ -101,7 +101,7 @@ function fixture(options = {}) {
       else clearTimeout(timer);
     },
     scrollTo(){},
-    navigator:{clipboard:options.clipboard||null},
+    navigator:{clipboard:options.clipboard||null,keyboard:options.keyboard||null},
     location:{search:options.search||"",assign(url){assigned.push(url);}}
   };
   const document = {
@@ -442,7 +442,8 @@ test("remote toolbar closes the corresponding WebClient tab without leaving the 
 });
 
 test("RustDesk native fullscreen button switches the parent stage fullscreen",async()=>{
-  const app=fixture({token:"session-token"});
+  const keyboard={locks:0,unlocks:0,async lock(){this.locks++;},unlock(){this.unlocks++;}};
+  const app=fixture({token:"session-token",keyboard});
   await app.settle();
   app.elements.get("v2-id").value="remote-device";
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
@@ -452,10 +453,12 @@ test("RustDesk native fullscreen button switches the parent stage fullscreen",as
   assert.equal(app.document.fullscreenElement,app.stage);
   assert.equal(app.window.__rustdeskIsFullscreen(),true);
   assert.equal(app.stage.classList.contains("webclient-native-fullscreen"),true);
+  assert.equal(keyboard.locks,1);
   assert.equal(app.elements.get("v2-fullscreen-exit").hidden,true);
   app.docEvents.keydown({key:"Escape"});
   await app.settle();
   assert.equal(app.document.fullscreenElement,null);
+  assert.ok(keyboard.unlocks>=1);
   await app.window.__rustdeskSetFullscreen(true,child);
   app.elements.get("v2-native-client").listeners.load();
   app.frameEvents.keydown({key:"Escape"});

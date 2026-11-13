@@ -545,10 +545,20 @@
   const pageFullscreenButton=el("v2-page-fullscreen"),screenFullscreenButton=el("v2-screen-fullscreen");
   const exitButton=el("v2-fullscreen-exit");
   let nativeFullscreen=false;
+  async function lockNativeKeyboard(){
+    try{await window.navigator?.keyboard?.lock?.();}
+    catch{ /* Browser keyboard lock is optional. */ }
+  }
+  function unlockNativeKeyboard(){
+    try{window.navigator?.keyboard?.unlock?.();}catch{}
+  }
   function syncFullscreen(){
     const monitorFullscreen=document.fullscreenElement===stage;
     if(monitorFullscreen)state.pageFullscreen=false;
-    else nativeFullscreen=false;
+    else if(nativeFullscreen){
+      nativeFullscreen=false;
+      unlockNativeKeyboard();
+    }
     stage.classList.toggle("webclient-native-fullscreen",nativeFullscreen&&monitorFullscreen);
     document.body.classList.toggle("webclient-page-fullscreen",state.pageFullscreen&&!monitorFullscreen);
     pageFullscreenButton.setAttribute("aria-pressed",String(state.pageFullscreen));
@@ -568,7 +578,7 @@
       if(typeof stage.requestFullscreen!=="function")return Promise.reject(Error("浏览器不支持全屏"));
       nativeFullscreen=true;
       return Promise.resolve(stage.requestFullscreen({navigationUI:"hide"}))
-        .then(()=>syncFullscreen()).catch(error=>{
+        .then(async()=>{syncFullscreen();await lockNativeKeyboard();}).catch(error=>{
           nativeFullscreen=false;
           syncFullscreen();
           throw error;
@@ -581,6 +591,7 @@
       try{await document.exitFullscreen();}catch(error){message("退出全屏失败："+error.message);}
     }
     state.pageFullscreen=false;
+    if(nativeFullscreen)unlockNativeKeyboard();
     nativeFullscreen=false;
     syncFullscreen();
   }
