@@ -452,6 +452,14 @@ test("RustDesk native fullscreen button switches the parent stage fullscreen",as
   assert.equal(app.window.__rustdeskIsFullscreen(),true);
   assert.equal(app.stage.classList.contains("webclient-native-fullscreen"),true);
   assert.equal(app.elements.get("v2-fullscreen-exit").hidden,true);
+  app.docEvents.keydown({key:"Escape"});
+  await app.settle();
+  assert.equal(app.document.fullscreenElement,null);
+  await app.window.__rustdeskSetFullscreen(true,child);
+  app.frameEvents.keydown({key:"Escape"});
+  await app.settle();
+  assert.equal(app.document.fullscreenElement,null);
+  await app.window.__rustdeskSetFullscreen(true,child);
   await app.window.__rustdeskSetFullscreen(false,child);
   assert.equal(app.document.fullscreenElement,null);
   assert.equal(app.window.__rustdeskIsFullscreen(),false);

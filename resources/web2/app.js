@@ -122,7 +122,7 @@
       el("engine-state").classList.add("ready");
       try{
         frame.contentWindow.addEventListener("keydown",event=>{
-          if(event.key==="Escape"&&state.pageFullscreen)exitFullscreen();
+          if(event.key==="Escape"&&(state.pageFullscreen||nativeFullscreen))exitFullscreen();
         },true);
       }catch{}
       try{
@@ -522,8 +522,8 @@
   exitButton.addEventListener("click",exitFullscreen);
   document.addEventListener("fullscreenchange",syncFullscreen);
   document.addEventListener("keydown",event=>{
-    if(event.key==="Escape"&&state.pageFullscreen){
-      state.pageFullscreen=false;syncFullscreen();
+    if(event.key==="Escape"&&(state.pageFullscreen||nativeFullscreen)){
+      exitFullscreen();
     }
   });
   syncFullscreen();
