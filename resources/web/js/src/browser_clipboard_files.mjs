@@ -104,6 +104,7 @@ export class BrowserFileClipboard {
     this.nextStream=1;
     this.generation=0;
     this.downloading=false;
+    this.downloadSerial=0;
     this.remoteListId=0;
     this.pendingPaste=null;
   }
@@ -137,6 +138,7 @@ export class BrowserFileClipboard {
     this.cancelPending(new Error("Clipboard sharing was disabled"));
   }
   cancelPending(error){
+    this.downloadSerial++;
     const waiting=this.pendingFormat.get("pending");
     if(waiting)waiting.reject(error);
     for(const value of this.pendingData.values())value.reject(error);
@@ -276,6 +278,7 @@ export class BrowserFileClipboard {
     if(this.downloading)throw new Error("已有剪贴板文件下载任务");
     if(this.remoteDescriptorFormat===null)throw new Error("远程剪贴板尚未提供文件，请在远程资源管理器复制文件");
     this.downloading=true;
+    const downloadSerial=++this.downloadSerial;
     const generation=this.generation;
     try{
       const wait=waitForReply(this.pendingFormat,20000,"Remote clipboard file list");
@@ -321,7 +324,9 @@ export class BrowserFileClipboard {
       if(generation!==this.generation||!this.active)throw new Error("剪贴板文件下载已取消");
       this.notify("downloaded",{count:entries.length,name,total:totalBytes});
       return {name,count:entries.length};
-    }finally{this.downloading=false}
+    }finally{
+      if(downloadSerial===this.downloadSerial)this.downloading=false;
+    }
   }
   close(){
     this.closed=true;
