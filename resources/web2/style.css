@@ -102,3 +102,17 @@ body.webclient-page-fullscreen{overflow:hidden}
 .clipboard-progress-cancel{justify-self:end;border:1px solid #cadae9;background:#f5f8fb;color:#305775;padding:6px 10px;border-radius:8px;min-height:30px;font-size:12px;font-weight:700}
 .clipboard-progress-cancel:hover{background:#e8f2ff}
 @media(max-width:760px){.clipboard-progress-panel{right:8px;bottom:8px;padding:11px 12px;max-width:calc(100vw - 16px)}.clipboard-progress-panel[data-collapsed="true"]{width:auto;min-width:165px}}
+
+
+/* The native Flutter fullscreen action presents only the remote display. */
+.stage.webclient-native-fullscreen:fullscreen{padding:0;gap:0;background:#000}
+.stage.webclient-native-fullscreen:fullscreen .workspace-switcher,
+.stage.webclient-native-fullscreen:fullscreen .webclient-stage-drop,
+.stage.webclient-native-fullscreen:fullscreen .clipboard-progress-panel{display:none!important}
+.stage.webclient-native-fullscreen:fullscreen .session-panels{position:absolute;inset:0;height:100%;width:100%;flex:1;border-radius:0}
+.stage.webclient-native-fullscreen:fullscreen .native-client{inset:0;width:100%;height:100%;border:0}
+.clipboard-progress-controls{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.clipboard-progress-close{width:28px;height:28px;font-size:20px;line-height:1;color:#586f88}
+.clipboard-progress-close:hover,.clipboard-progress-close:focus-visible{background:#e8f2ff;color:#1f4773}
+.clipboard-actions #v2-clipboard-input{display:none}
+.clipboard-actions #v2-clipboard-select-files:disabled{opacity:.58;cursor:not-allowed}
