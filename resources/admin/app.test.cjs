@@ -17,7 +17,7 @@ function storage(initial = {}) {
   };
 }
 
-function createConsole(isAdmin = false, overrides = {}) {
+function createConsole(isAdmin = false, overrides = {}, localValues = {}, behavior = {}) {
   const calls = [];
   const events = {};
   const root = { innerHTML: "",querySelector(){return null;} };
@@ -125,6 +125,10 @@ function createConsole(isAdmin = false, overrides = {}) {
     const location = new URL(String(url), "https://example.test");
     const endpoint = location.pathname.replace(/^\/api\/admin/, "");
     calls.push({ endpoint, method: options?.method || "GET", query:location.search });
+    if(endpoint==="/user/current"&&behavior.failCurrent)throw Error("Temporary API outage");
+    if(endpoint==="/user/current"&&behavior.rejectCurrent){
+      return {ok:true,status:200,async json(){return {code:403,message:"Please sign in"};}};
+    }
     if (!Object.prototype.hasOwnProperty.call(fixtures, endpoint)) {
       return { ok: true, status: 200, async json() { return { code: 101, message: "Unexpected "+endpoint }; } };
     }
@@ -145,7 +149,7 @@ function createConsole(isAdmin = false, overrides = {}) {
     location: browserLocation
   };
   const session = storage({ "rustdesk.console.token": "example-session", ...overrides });
-  const local = storage();
+  const local = storage(localValues);
   const context = {
     document: mockDocument, window: mockWindow, location: browserLocation,
     sessionStorage: session, localStorage: local, fetch,
@@ -156,7 +160,7 @@ function createConsole(isAdmin = false, overrides = {}) {
   vm.runInNewContext(source, context, { filename: "resources/admin/app.js" });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return {
-    root, calls, events, fixtures, settle, assigned, opened, document:mockDocument,
+    root, calls, events, fixtures, settle, assigned, opened, document:mockDocument, session, local, behavior,
     async open(view) {
       const control = { dataset: { view } };
       await events.click({ target: { closest: () => control } });
@@ -1183,4 +1187,30 @@ test("editable OAuth provider display name is shown while the GitHub login ident
   assert.match(app.root.innerHTML,/name="display_name" type="text" value="企业 GitHub 单点登录"/);
   assert.match(app.root.innerHTML,/name="op" type="text" value="github" readonly/);
   assert.match(app.root.innerHTML,/登录按钮名称可以修改/);
+});
+
+test("console session survives a new tab and a temporary API restart", async () => {
+  const prior={ "rustdesk.console.token": "persistent-login" };
+  const app=createConsole(true,{"rustdesk.console.token":""},prior,{failCurrent:true});
+  await app.settle();await app.settle();
+  assert.equal(app.local.getItem("rustdesk.console.token"),"persistent-login");
+  assert.match(app.root.innerHTML,/正在等待 API 服务恢复/);
+  app.behavior.failCurrent=false;
+  await app.action("retry-session");
+  assert.match(app.root.innerHTML,/控制台概览/);
+  assert.equal(app.local.getItem("rustdesk.console.token"),"persistent-login");
+  assert.equal(app.session.getItem("rustdesk.console.token"),"persistent-login");
+
+  const reopened=createConsole(true,{"rustdesk.console.token":""},prior);
+  await reopened.settle();await reopened.settle();
+  assert.match(reopened.root.innerHTML,/控制台概览/);
+  assert.equal(reopened.local.getItem("rustdesk.console.token"),"persistent-login");
+});
+
+test("console clears persisted credentials when the server rejects a session",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},
+    {"rustdesk.console.token":"revoked-session"},{rejectCurrent:true});
+  await app.settle();await app.settle();
+  assert.equal(app.local.getItem("rustdesk.console.token"),null);
+  assert.match(app.root.innerHTML,/登录控制台/);
 });

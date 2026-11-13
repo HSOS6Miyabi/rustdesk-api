@@ -485,8 +485,18 @@
     }
     return txt(value);
   }
+  const consoleTokenKey="rustdesk.console.token";
+  function saveConsoleToken(token){
+    localStorage.setItem(consoleTokenKey,token);
+    sessionStorage.setItem(consoleTokenKey,token);
+  }
+  function clearConsoleToken(){
+    localStorage.removeItem(consoleTokenKey);
+    sessionStorage.removeItem(consoleTokenKey);
+  }
   const state={
-    token:sessionStorage.getItem("rustdesk.console.token")||"",user:null,isAdmin:false,
+    token:localStorage.getItem(consoleTokenKey)||sessionStorage.getItem(consoleTokenKey)||"",user:null,isAdmin:false,
+    connectionUnavailable:false,
     page:"overview",bookTab:"entries",pageNo:1,
     pageSize:[20,50,100].includes(Number(localStorage.getItem("rustdesk.console.page-size")))?
       Number(localStorage.getItem("rustdesk.console.page-size")):100,rows:[],total:0,loading:false,error:"",
@@ -507,8 +517,16 @@
     try{
       const res=await fetch(API+route,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:ctl.signal,credentials:"same-origin"});
       let data={};try{data=await res.json();}catch{throw Error("服务器返回的数据无法读取");}
-      if(!res.ok)throw Error(data.error||data.message||"HTTP "+res.status);
-      if(typeof data.code==="number"&&data.code!==0)throw Error(data.message||"操作失败");
+      if(!res.ok){
+        const error=Error(data.error||data.message||"HTTP "+res.status);
+        error.httpStatus=res.status;
+        throw error;
+      }
+      if(typeof data.code==="number"&&data.code!==0){
+        const error=Error(data.message||"操作失败");
+        error.apiCode=data.code;
+        throw error;
+      }
       return data.data===undefined?data:data.data;
     }catch(e){if(e.name==="AbortError")throw Error("请求超时");throw e;}finally{clearTimeout(timer);}
   }
@@ -542,6 +560,13 @@
   function button(label,action,primary=false){return '<button type="button" class="btn '+(primary?"btn-primary":"")+'" data-action="'+esc(action)+'">'+esc(label)+'</button>';}
   function brand(){return '<span class="brand-symbol" aria-hidden="true"><span></span><span></span></span><span class="brand-copy"><span class="side-name">RustDesk</span><span class="side-sub">CONTROL CENTER</span></span>';}
   function login(){
+    if(state.token&&state.connectionUnavailable){
+      root.innerHTML='<div class="login-shell"><section class="login-right">'+
+        '<div class="login-card"><p class="eyebrow">CONNECTION</p><h2>正在等待 API 服务恢复</h2>'+
+        '<p class="login-intro">已保留登录信息。服务恢复后可继续使用现有会话。</p>'+
+        '<button type="button" class="btn btn-primary" data-action="retry-session">重新连接</button></div></section></div>';
+      return;
+    }
     const options=state.options||{};
     const cap=options.need_captcha?'<div class="login-field"><label for="captcha">验证码</label><div style="display:flex;gap:10px"><input name="captcha" id="captcha" required placeholder="输入验证码"><button class="btn" type="button" data-action="captcha">刷新</button></div><input type="hidden" name="captcha_id" value="'+esc(state.captcha&&state.captcha.id||"")+'">'+(state.captcha&&state.captcha.b64?'<img alt="验证码" style="max-height:72px;max-width:220px;margin-top:10px" src="'+esc(state.captcha.b64.startsWith("data:")?state.captcha.b64:"data:image/png;base64,"+state.captcha.b64)+'">':"")+"</div>":"";
     const passwordForm=options.disable_pwd?'<p class="warning">当前服务已关闭密码登录，请选择下方的单点登录服务。</p>':'<form id="login-form"><div class="login-field"><label for="username">用户名</label><input id="username" autocomplete="username" name="username" placeholder="输入用户名" required></div><div class="login-field"><label for="password">密码</label><input type="password" id="password" name="password" autocomplete="current-password" placeholder="输入密码" required></div>'+cap+'<button type="submit" class="btn btn-primary login-submit">登录控制台 '+icon("arrow",17)+'</button></form><button type="button" class="btn" data-action="forgot-password">忘记密码</button>';
@@ -647,7 +672,7 @@
       const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
       if(token){
         state.token="";state.user=null;
-        sessionStorage.removeItem("rustdesk.console.token");
+        clearConsoleToken();
         state.modal={kind:"accept-invitation",token};
       }
     }
@@ -655,21 +680,31 @@
       const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
       if(token){
         state.token="";state.user=null;
-        sessionStorage.removeItem("rustdesk.console.token");
+        clearConsoleToken();
         state.modal={kind:"public-reset-password",token};
       }
     }
     try{state.config=await request("/config/admin");}catch{state.config={};}
     if(!state.token){
       const pending=sessionStorage.getItem("rustdesk.console.oidc");
-      if(pending){try{const data=await request("/oidc/auth-query?code="+encodeURIComponent(pending));if(data&&data.token){state.token=data.token;sessionStorage.setItem("rustdesk.console.token",data.token);sessionStorage.removeItem("rustdesk.console.oidc");}}catch{}}
+      if(pending){try{const data=await request("/oidc/auth-query?code="+encodeURIComponent(pending));if(data&&data.token){state.token=data.token;saveConsoleToken(data.token);sessionStorage.removeItem("rustdesk.console.oidc");}}catch{}}
     }
     if(state.token){
       try{
         state.user=await request("/user/current");
         const routes=Array.isArray(state.user.route_names)?state.user.route_names:[];
         state.isAdmin=routes.includes("*");
-      }catch{state.token="";sessionStorage.removeItem("rustdesk.console.token");}
+        state.connectionUnavailable=false;
+        saveConsoleToken(state.token);
+      }catch(error){
+        if(error.apiCode===403||error.httpStatus===401||error.httpStatus===403){
+          state.token="";clearConsoleToken();
+        }else{
+          state.connectionUnavailable=true;
+          render();
+          return;
+        }
+      }
     }
     if(!state.token){await getOptions();render();return;}
     if(returnToWebClient())return;
@@ -699,7 +734,7 @@
         return;
       }
       if(!result||!result.token)throw Error("登录未返回访问令牌");
-      state.token=result.token;sessionStorage.setItem("rustdesk.console.token",result.token);
+      state.token=result.token;saveConsoleToken(result.token);
       state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
       if(returnToWebClient())return;
       state.page="overview";location.hash="#/overview";render();await load();toast("登录成功");
@@ -715,7 +750,7 @@
         session_id:session.session_id,credential
       });
       if(!result?.token)throw Error("服务器没有返回登录令牌");
-      state.token=result.token;sessionStorage.setItem("rustdesk.console.token",result.token);
+      state.token=result.token;saveConsoleToken(result.token);
       state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
       if(returnToWebClient())return;
       state.page="overview";state.modal=null;location.hash="#/overview";
@@ -747,7 +782,7 @@
   }
   async function logout(){
     try{await request("/logout","POST",{});}catch{}
-    state.token="";state.user=null;state.isAdmin=false;state.devicePresence={};state.pushStreamSecret="";sessionStorage.removeItem("rustdesk.console.token");localStorage.removeItem("access_token");
+    state.token="";state.user=null;state.isAdmin=false;state.devicePresence={};state.pushStreamSecret="";clearConsoleToken();localStorage.removeItem("access_token");
     await getOptions();render();
   }
   async function load(){
@@ -2983,6 +3018,7 @@
       return;
     }
     if(a==="book-entries"||a==="book-collections"){state.bookTab=a==="book-entries"?"entries":"collections";state.pageNo=1;state.query="";await load();return;}
+    if(a==="retry-session"){await bootstrap();return;}
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){
@@ -3456,7 +3492,7 @@
         });
         if(!result?.token)throw Error("登录未返回访问令牌");
         state.modal=null;state.token=result.token;
-        sessionStorage.setItem("rustdesk.console.token",result.token);
+        saveConsoleToken(result.token);
         state.user=result;state.isAdmin=Array.isArray(result.route_names)&&result.route_names.includes("*");
         if(returnToWebClient())return;
         state.page="overview";location.hash="#/overview";render();await load();
@@ -3716,7 +3752,7 @@
       if(!hash.startsWith(prefix))continue;
       const token=new URLSearchParams(hash.slice(hash.indexOf("?")+1)).get("token");
       if(token){
-        state.token="";state.user=null;sessionStorage.removeItem("rustdesk.console.token");
+        state.token="";state.user=null;clearConsoleToken();
         state.modal={kind,token};render();
       }
       return;

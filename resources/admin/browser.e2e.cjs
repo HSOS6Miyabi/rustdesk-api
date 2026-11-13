@@ -2515,3 +2515,27 @@ test("GitHub SSO display name can be saved without changing the authentication i
     assert.equal(saved.oauth_type,"github");
   }finally{await context.close();}
 });
+
+test("browser retains login through new tabs and a temporary API outage",async()=>{
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const initial=await context.newPage();
+  try{
+    await initial.addInitScript(()=>sessionStorage.setItem("rustdesk.console.token","admin-token"));
+    await initial.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await initial.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
+    assert.equal(await initial.evaluate(()=>localStorage.getItem("rustdesk.console.token")),"admin-token");
+    const another=await context.newPage();
+    await another.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await another.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
+    assert.equal(await another.evaluate(()=>sessionStorage.getItem("rustdesk.console.token")),"admin-token");
+
+    const duringRestart=await context.newPage();
+    await duringRestart.route("**/api/admin/user/current",route=>route.abort("failed"));
+    await duringRestart.goto(baseUrl+"/_admin/",{waitUntil:"networkidle"});
+    await duringRestart.locator('button[data-action="retry-session"]').waitFor();
+    assert.equal(await duringRestart.evaluate(()=>localStorage.getItem("rustdesk.console.token")),"admin-token");
+    await duringRestart.unroute("**/api/admin/user/current");
+    await duringRestart.locator('button[data-action="retry-session"]').click();
+    await duringRestart.waitForFunction(()=>document.querySelector("h1")?.textContent==="控制台概览");
+  }finally{await context.close();}
+});
