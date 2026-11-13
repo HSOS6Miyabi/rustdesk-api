@@ -2,7 +2,7 @@
 
 This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
 
-The current API release is [v3.0.0-api.118](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.118), using database migration version 291. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
+The current API release is [v3.0.0-api.126](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.126), using database migration version 292. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
 
 ### RustDesk WebClient v2
 
