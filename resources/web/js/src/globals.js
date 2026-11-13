@@ -158,6 +158,7 @@ window.__rustdeskClipboardAccess={
         if(!currentFileClipboard)throw Error("尚未建立远程桌面连接");
         return currentFileClipboard.download();
     },
+    cancelRemoteFiles(){return currentFileClipboard?.cancelDownload()??false;},
     offerFiles(files){return currentFileClipboard?.offerFiles(files)??false;}
 };
 let pendingRemotePaste=false;
