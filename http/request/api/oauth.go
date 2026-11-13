@@ -5,6 +5,7 @@ type OidcAuthRequest struct {
 	Id         string            `json:"id"  label:"id"`
 	Op         string            `json:"op" label:"op"`
 	Uuid       string            `json:"uuid"  label:"uuid"`
+	ReturnTo   string            `json:"return_to"`
 }
 
 type OidcAuthQuery struct {

@@ -47,6 +47,7 @@ type OauthCacheItem struct {
 	DeviceName string `json:"device_name"`
 	DeviceOs   string `json:"device_os"`
 	DeviceType string `json:"device_type"`
+	ReturnTo   string `json:"return_to"`
 	OpenId     string `json:"open_id"`
 	Username   string `json:"username"`
 	Name       string `json:"name"`

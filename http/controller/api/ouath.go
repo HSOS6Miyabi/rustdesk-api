@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/global"
@@ -139,6 +140,15 @@ func (o *Oauth) OidcAuthQuery(c *gin.Context) {
 	})
 }
 
+func webAdminOAuthCompletionURL(state, returnTo string) string {
+	params := url.Values{}
+	params.Set("code", state)
+	if returnTo == "/webclient2/" {
+		params.Set("return", "webclient2")
+	}
+	return "/_admin/#/oidc/complete?" + params.Encode()
+}
+
 // OauthCallback 回调
 // @Tags Oauth
 // @Summary OauthCallback
@@ -266,7 +276,7 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 				Type:     model.LoginLogTypeOauth,
 				Platform: oauthService.DeviceOs,
 			})*/
-			c.Redirect(http.StatusFound, "/_admin/#/")
+			c.Redirect(http.StatusFound, webAdminOAuthCompletionURL(cacheKey, oauthCache.ReturnTo))
 			return
 		}
 		c.HTML(http.StatusOK, "oauth_success.html", gin.H{
