@@ -483,6 +483,21 @@ func (os *OauthService) List(page, pageSize uint, where func(tx *gorm.DB), sort 
 	return
 }
 
+// GetOauthProviderDisplayNames returns user-configured labels keyed by stable authentication identifiers.
+func (os *OauthService) GetOauthProviderDisplayNames() map[string]string {
+	var rows []model.Oauth
+	if err := DB.Select("op, display_name").Find(&rows).Error; err != nil {
+		return map[string]string{}
+	}
+	labels := make(map[string]string, len(rows))
+	for _, provider := range rows {
+		label := strings.TrimSpace(provider.DisplayName)
+		if label == "" { label = provider.Op }
+		labels[provider.Op] = label
+	}
+	return labels
+}
+
 // GetTypeByOp 根据op获取OauthType
 func (os *OauthService) GetTypeByOp(op string) (error, string) {
 	oauthInfo := &model.Oauth{}
@@ -529,7 +544,14 @@ func (os *OauthService) Update(oauthInfo *model.Oauth) error {
 	if err != nil {
 		return err
 	}
-	return DB.Model(oauthInfo).Updates(oauthInfo).Error
+	return DB.Model(oauthInfo).Updates(map[string]interface{}{
+		"op": oauthInfo.Op, "oauth_type": oauthInfo.OauthType,
+		"display_name": oauthInfo.DisplayName, "client_id": oauthInfo.ClientId,
+		"client_secret": oauthInfo.ClientSecret, "auto_register": oauthInfo.AutoRegister,
+		"auto_group_ids": oauthInfo.AutoGroupIds, "issuer": oauthInfo.Issuer,
+		"scopes": oauthInfo.Scopes, "pkce_enable": oauthInfo.PkceEnable,
+		"pkce_method": oauthInfo.PkceMethod,
+	}).Error
 }
 
 // GetOauthProviders 获取所有的provider
