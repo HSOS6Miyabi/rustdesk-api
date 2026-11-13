@@ -1,6 +1,6 @@
 # RustDesk API
 
-> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.118](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.118)，数据库迁移版本为 **291**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。控制台已改善宽屏和手机布局，管理员可以协助用户修改资料、重设密码与清除双重认证，个人账户可以注册、使用和移除 Passkey。日志保存期限、日志归档和手动清理也可以在后台管理。参见 [Passkey 与账户管理](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)、[日志保留与清理](docs/LOG_RETENTION.md) 及 [版本兼容性](docs/COMPATIBILITY.md)。
+> **正式版本与维护说明：** 当前发行版为 [RustDesk API v3.0.0-api.127](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.127)，数据库迁移版本为 **292**。配套服务端为 [RustDesk Server v1.1.17-api.21](https://github.com/HSOS6Miyabi/rustdesk-server/releases/tag/v1.1.17-api.21)。控制台已改善宽屏和手机布局，管理员可以协助用户修改资料、重设密码与清除双重认证，个人账户可以注册、使用和移除 Passkey。日志保存期限、日志归档和手动清理也可以在后台管理。参见 [Passkey 与账户管理](docs/PASSKEY_AND_ACCOUNT_MANAGEMENT.md)、[日志保留与清理](docs/LOG_RETENTION.md) 及 [版本兼容性](docs/COMPATIBILITY.md)。
 
 基于 [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) 继续维护的 RustDesk 自托管 API 与管理控制台。可与本项目的 [RustDesk Server](https://github.com/HSOS6Miyabi/rustdesk-server) 配合使用。
 
@@ -100,13 +100,13 @@ Docker 镜像也通过 GitHub Container Registry 发布：`ghcr.io/hsos6miyabi/r
 
 ## 与 RustDesk Server 配合使用
 
-在 `conf/config.yaml` 中填写 ID 服务器、中继服务器、公钥和 API 访问地址。建议同时为 API 和 RustDesk Server 设置同一个 `RUSTDESK_API_JWT_KEY`，用于验证用户登录令牌。
+在 `conf/config.yaml` 中填写 ID 服务器、中继服务器、公钥和 API 访问地址。启用 `MUST_LOGIN=Y` 时，请为 API 和 RustDesk Server 设置相同的 `RUSTDESK_API_JWT_KEY`，并在重启后保留原来的密钥。登录会话管理和有效期设置见 [登录会话说明](docs/login-sessions.md)。
 
 服务器原有的 `MUST_LOGIN` 设置不受联系人和群组可见范围影响。需要所有连接都先登录时，再将其设置为 `Y`。
 
 ## 更新现有安装
 
-升级之前备份 `data/rustdeskapi.db`，MySQL 或 PostgreSQL 用户请备份对应数据库。新版本会自动添加群组成员关系、公共成员以及联系人等数据库表。现有用户、设备、地址簿和访问记录会保留。
+升级之前备份 `data/rustdeskapi.db`，MySQL 或 PostgreSQL 用户请备份对应数据库。新版本启动时会检查数据库表、字段和索引，并补充缺少的内容。原有用户、SSO 设置、设备、地址簿和访问记录会保留。
 
 ## 构建、测试及发布
 
@@ -173,7 +173,7 @@ GitHub Actions 检查 Go 后端、浏览器交互、真实 HTTP 接口、数据�
 
 管理员还可以创建独立 API 令牌、管理远程控制权限、编辑设备安全策略、批量维护共享关系及设备登记，并通过“邮件事件通知”选择需要提醒的操作。完整接口和启用方法见 [API 文档](docs/API.md) 及 [部署说明](docs/DEPLOYMENT.md)。
 
-当前正式版本 `v3.0.0-api.114` 的数据库迁移版本为 **291**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
+当前正式版本 `v3.0.0-api.127` 的数据库迁移版本为 **292**。正式 SMTP、真实跨系统客户端连接及生产数据库恢复演练应在各自部署环境完成，方法见 [测试说明](docs/TESTING.md) 和 [数据库备份与恢复](docs/DATABASE_BACKUP_RESTORE.md)。
 
 数据库迁移、备份和恢复方法见 [数据库备份恢复说明](docs/DATABASE_BACKUP_RESTORE.md)。
 ### 迁移到 PostgreSQL

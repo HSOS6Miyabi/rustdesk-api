@@ -58,7 +58,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			if err!=nil{t.Fatal(err)}
 			defer connection.Close()
 			connection.SetMaxOpenConns(1)
-			if err:=db.AutoMigrate(&legacyDevicePolicyForDrivers{},&legacyAuditConnForDrivers{});err!=nil{
+			if err:=db.AutoMigrate(&legacyDevicePolicyForDrivers{},&legacyAuditConnForDrivers{},&legacyOAuthProvider{});err!=nil{
 				t.Fatalf("old schema preparation failed: %v",err)
 			}
 			priorPolicy:=&legacyDevicePolicyForDrivers{
@@ -68,10 +68,26 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 			if err:=db.Create(&legacyAuditConnForDrivers{Id:5,PeerId:"target",FromPeer:"source",ConnId:42}).Error;err!=nil{
 				t.Fatal(err)
 			}
-			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
+			legacyProvider:=&legacyOAuthProvider{
+				Op:"github", OauthType:model.OauthTypeGithub, ClientId:"legacy-client-id",
+			}
+			if err:=db.Create(legacyProvider).Error;err!=nil{t.Fatal(err)}
+			if db.Migrator().HasColumn(&model.Oauth{},"display_name"){
+				t.Fatal("old provider table unexpectedly has the display_name column")
+			}
+			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},&model.Oauth{},
 				&model.NotificationSetting{},&model.NotificationDelivery{},
 				&model.AuditRetentionPolicy{}, &model.ClientBuildProfile{},&model.ClientBuildTask{},
 			);err!=nil{t.Fatalf("new schema migration failed: %v",err)}
+			var provider model.Oauth
+			if err:=db.Where("id = ?",legacyProvider.Id).First(&provider).Error;err!=nil{t.Fatal(err)}
+			if provider.Op!="github"||provider.ClientId!="legacy-client-id"||provider.DisplayName!=""{
+				t.Fatalf("historical OAuth provider changed during migration: %+v",provider)
+			}
+			if err:=db.Model(&provider).Update("display_name","工作 GitHub 登录").Error;err!=nil{t.Fatal(err)}
+			if err:=db.First(&provider,legacyProvider.Id).Error;err!=nil||provider.DisplayName!="工作 GitHub 登录"{
+				t.Fatalf("OAuth display name update failed after migration: %+v %v",provider,err)
+			}
 			var policy model.DevicePolicy
 			if err:=db.Where("id = ?",priorPolicy.Id).First(&policy).Error;err!=nil{t.Fatal(err)}
 			if policy.Name!="Legacy policy"||policy.IdWhitelist!="desk-one"||
@@ -114,7 +130,7 @@ func TestDatabaseMigrationAcrossDrivers(t *testing.T) {
 				archived.ConfigSnapshot!=task.ConfigSnapshot||archived.Filename!=task.Filename {
 				t.Fatalf("client build history was not persisted: %+v %v",archived,err)
 			}
-			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},
+			if err:=db.AutoMigrate(&model.DevicePolicy{},&model.AuditConn{},&model.Oauth{},
 				&model.NotificationSetting{},&model.NotificationDelivery{},
 				&model.AuditRetentionPolicy{},
 				&model.ClientBuildProfile{},&model.ClientBuildTask{});err!=nil{

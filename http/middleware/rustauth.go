@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/service"
 )
 
@@ -29,20 +28,8 @@ func RustAuth() gin.HandlerFunc {
 		//这里只是简单的提取
 		token = token[7:]
 
-		//验证token
-
-		//检查是否设置了jwt key
-		if global.Jwt != nil && len(global.Jwt.Key) > 0 {
-			uid, _ := service.AllService.UserService.VerifyJWT(token)
-			if uid == 0 {
-				c.JSON(401, gin.H{
-					"error": "Unauthorized",
-				})
-				c.Abort()
-				return
-			}
-		}
-
+		// Login sessions are validated against the persistent database so
+		// rotating an optional legacy JWT key does not log out active users.
 		user, ut := service.AllService.UserService.InfoByAccessToken(token)
 		if user.Id == 0 {
 			c.JSON(401, gin.H{
