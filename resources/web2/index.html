@@ -89,5 +89,17 @@
   </div>
  </section>
 </main>
+<section id="v2-clipboard-progress-panel" class="clipboard-progress-panel" role="region" aria-label="剪贴板文件下载" hidden>
+ <div class="clipboard-progress-head">
+  <strong id="v2-clipboard-progress-title">剪贴板文件下载</strong>
+  <button type="button" id="v2-clipboard-progress-minimize" class="clipboard-progress-icon" aria-expanded="true" aria-label="收起下载进度">收起</button>
+ </div>
+ <div class="clipboard-progress-details" id="v2-clipboard-progress-details">
+  <p id="v2-clipboard-progress-file" class="clipboard-progress-file">正在准备下载</p>
+  <progress id="v2-clipboard-progress-bar" max="100" value="0" aria-label="剪贴板下载进度"></progress>
+  <p id="v2-clipboard-progress-stats" class="clipboard-progress-stats" role="status" aria-live="polite">读取文件列表中</p>
+  <button type="button" class="clipboard-progress-cancel" id="v2-clipboard-progress-cancel">取消下载</button>
+ </div>
+</section>
 </body>
 </html>
