@@ -1,6 +1,6 @@
 services:
   rustdesk-api:
-    image: ghcr.io/hsos6miyabi/rustdesk-api:latest
+    image: ${RUSTDESK_API_IMAGE:-ghcr.io/hsos6miyabi/rustdesk-api:latest}
     pull_policy: always
     container_name: rustdesk-api
     environment:

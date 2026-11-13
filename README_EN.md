@@ -2,7 +2,7 @@
 
 This repository extends [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) with a modern administration console, device policies, shared address books, delegated roles, account security, event notifications, client installer tasks, and optional integrations with the accompanying RustDesk Server.
 
-The current API release is [v3.0.0-api.127](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.127), using database migration version 292. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
+The current API release is [v3.0.0-api.129](https://github.com/HSOS6Miyabi/rustdesk-api/releases/tag/v3.0.0-api.129), using database migration version 292. The console provides responsive layouts, searchable selectors, structured server administration, personal login and remote connection management, administrator-assisted account recovery, WebAuthn Passkey registration and login, and configurable log retention and cleanup.
 
 ### RustDesk WebClient v2
 
@@ -13,6 +13,14 @@ The RustDesk password prompt includes a **Remember password** option. When enabl
 The console supports persistent collapsible navigation, database-wide sortable tables, multi-field user and device search, and details for devices shared with the current account. The client builder can use published RustDesk versions or generate a configured installer from a local EXE, DEB, or DMG entirely in the browser. Locally selected files are not uploaded to the API, and their SHA-256 is not calculated.
 
 System administrators can use **System Management → Settings Center** in `/_admin/` to inspect active configuration values, their sources, descriptions, and website overrides. Website overrides take precedence over environment variables. Restart the API after saving global settings.
+
+Official multi-platform Docker images are available from both GHCR (`ghcr.io/hsos6miyabi/rustdesk-api`) and Docker Hub (`kenvix/rustdesk-api`). Both registries provide `v3.0.0-api.129` and `latest` tags for Linux AMD64 and ARM64:
+
+```bash
+docker pull ghcr.io/hsos6miyabi/rustdesk-api:v3.0.0-api.129
+docker pull kenvix/rustdesk-api:v3.0.0-api.129
+RUSTDESK_API_IMAGE=kenvix/rustdesk-api:v3.0.0-api.129 docker compose up -d
+```
 
 For native installations, preserve the `data/` directory. For Docker, mount `/app/data`. Back up the database, server identity files, configuration, and encryption keys before upgrading.
 
@@ -281,7 +289,7 @@ The table below does not list all configurations. Please refer to the configurat
     -e RUSTDESK_API_RUSTDESK_RELAY_SERVER=192.168.1.66:21117 \
     -e RUSTDESK_API_RUSTDESK_API_SERVER=http://192.168.1.66:21114 \
     -e RUSTDESK_API_RUSTDESK_KEY=abc123456 \
-    lejianwen/rustdesk-api
+    kenvix/rustdesk-api:latest
     ```
 
 2. Using `docker-compose`,look [WIKI](https://github.com/lejianwen/rustdesk-api/wiki)
