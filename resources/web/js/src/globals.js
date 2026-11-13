@@ -4,6 +4,7 @@ import {loadVp9} from "./codec";
 import {checkIfRetry, version} from "./gen_js_from_hbb";
 import {initZstd, decompress, translate} from "./common";
 import {BrowserFileTransfer} from "./browser_file_transfer.mjs";
+import {BrowserClipboardSync} from "./browser_clipboard.mjs";
 import PCMPlayer from "pcm-player";
 import {getServerConf} from "./ljw";
 
@@ -119,6 +120,43 @@ export function setConn(conn) {
 export function getConn() {
     return window.curConn;
 }
+
+const clipboardSync=new BrowserClipboardSync({
+    send:text=>getConn()?.sendClipboardText(text)===true,
+    receive:text=>{
+        try{
+            if(window.parent!==window &&
+               typeof window.parent.__rustdeskReceiveRemoteClipboard==="function"){
+                window.parent.__rustdeskReceiveRemoteClipboard(text,window);
+                return;
+            }
+        }catch{}
+        if(navigator.clipboard?.writeText){
+            navigator.clipboard.writeText(text).catch(()=>
+                console.info("Remote clipboard requires browser clipboard-write permission"));
+        }
+    }
+});
+
+export function receiveRemoteClipboard(text){
+    clipboardSync.fromRemote(text);
+}
+window.__rustdeskClipboardAccess={
+    enable(initialText){return clipboardSync.setEnabled(true,initialText);},
+    disable(){clipboardSync.setEnabled(false);},
+    sendLocal(text){return clipboardSync.sendLocal(text);}
+};
+window.addEventListener("paste",event=>{
+    if(!clipboardSync.enabled)return;
+    const target=event.target;
+    if(target?.closest?.('input,textarea,[contenteditable="true"]'))return;
+    const text=event.clipboardData?.getData("text/plain");
+    if(text)clipboardSync.sendLocal(text);
+},true);
+document.addEventListener("fullscreenchange",()=>{
+    if(typeof window.onFullscreenChanged==="function" && window.parent===window)
+        window.onFullscreenChanged(Boolean(document.fullscreenElement));
+});
 
 export async function startConn(id) {
     setByName('remote_id', id);
@@ -452,6 +490,26 @@ window.setByName = (name, value) => {
             if (sessionOption?.name) localStorage.setItem('rustdesk.session.' + sessionOption.name, sessionOption.value);
             return '';
         }
+        case 'fullscreen': {
+            const wanted=value==="Y";
+            try{
+                const host=window.parent!==window && window.parent?.__rustdeskSetFullscreen;
+                const operation=typeof host==="function"
+                    ? host(wanted,window)
+                    : wanted
+                      ? document.documentElement.requestFullscreen?.({navigationUI:"hide"})
+                      : document.fullscreenElement
+                        ? document.exitFullscreen?.() : undefined;
+                Promise.resolve(operation).catch(error=>{
+                    window.onFullscreenChanged?.(!wanted);
+                    msgbox("error","Fullscreen",String(error?.message||error));
+                });
+            }catch(error){
+                window.onFullscreenChanged?.(!wanted);
+                msgbox("error","Fullscreen",String(error?.message||error));
+            }
+            return '';
+        }
         case 'option:flutter:peer':
         case 'option:flutter:local': {
             const option = JSON.parse(value || '{}');
@@ -587,9 +645,18 @@ function _getByName(name, arg) {
             return getConn()?.getOption(arg) || false;
         case 'option:session': {
             const stored=localStorage.getItem('rustdesk.session.' + arg) || getConn()?.getOption(arg) || '';
+            if(arg==='view_style')
+                return ['adaptive','original','custom'].includes(stored)?stored:'adaptive';
             // Flutter requires a recognized ScrollStyle while processing every video frame.
             return arg === 'scroll_style' && !['scrollauto','scrollbar','scrolledge'].includes(stored)
                 ? 'scrollauto' : stored;
+        }
+        case 'fullscreen': {
+            try{
+                const host=window.parent!==window && window.parent?.__rustdeskIsFullscreen;
+                if(typeof host==="function")return host()?"Y":"N";
+            }catch{}
+            return document.fullscreenElement?"Y":"N";
         }
         case 'option:flutter:peer':
         case 'option:flutter:local':
