@@ -547,3 +547,9 @@ label.field:has(>input[type=checkbox])>span{font-size:13px;font-weight:700}
 .date-time-day{font-weight:600}
 .date-time-clock{font-size:11px;color:var(--muted)}
 .mobile-list .date-time-stack{white-space:nowrap}
+
+@media(min-width:901px){
+  .data-table .cell-action-list{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;white-space:nowrap}
+  .data-table .cell-action-list .btn{white-space:nowrap;flex:0 0 auto;text-align:center}
+  .data-table .cell-actions{overflow:hidden}
+}

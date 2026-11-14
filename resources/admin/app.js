@@ -971,7 +971,7 @@
     if(state.page==="deployed")return '<button type="button" class="btn btn-sm" data-action="deployment-toggle" data-id="'+esc(row.id)+'">'+(row.status==="approved"?"撤销部署":"恢复部署")+"</button>";
     if(p.readonly)return "";
     const id=esc(rowIdentifier(row));
-    let out=state.page==="mydevices"?'<button type="button" class="btn btn-sm btn-primary" data-action="device-connect" data-device-id="'+esc(row.id)+'" data-device-name="'+esc(row.alias||row.hostname||"")+'">连接设备</button>':"";
+    let out=["mydevices","shared"].includes(state.page)?'<button type="button" class="btn btn-sm btn-primary" data-action="device-connect" data-device-id="'+esc(row.id)+'" data-device-name="'+esc(row.alias||row.hostname||"")+'">连接设备</button>':"";
     const editable=pages[state.page]?.admin?canPageAction(state.page,"edit"):true;
     if(editable)out+='<button class="btn btn-sm" data-action="edit" data-id="'+id+'">编辑</button>';
     if(state.page==="devices"&&(state.isAdmin||hasPrivilege("devices.transfer"))){
@@ -1056,7 +1056,18 @@
       return (index===0?1000:participantRank>=0?300-participantRank*12:important.has(key)?120:40)-(index*.1);
     });
     const ordered=desktopCols.map((_,i)=>i).sort((a,b)=>priorities[b]-priorities[a]);
-    const selected=new Set(),actionWidth=158;
+    const actionSizes=actions.map(markup=>{
+      const names=[...markup.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
+        .map(m=>m[1].replace(/<[^>]*>/g,"").trim());
+      const buttons=names.reduce((sum,name)=>sum+Math.max(38,
+        Math.ceil(Array.from(name).reduce((width,char)=>width+(char.codePointAt(0)>255?13:7),0)+18)),0);
+      return buttons+Math.max(0,names.length-1)*5+24;
+    });
+    const baseActionWidth=Math.max(158,...actionSizes);
+    const needsDetails=!state.showAllColumns[state.page]&&
+      widths.reduce((sum,width)=>sum+width,baseActionWidth)>availableWidth;
+    const actionWidth=Math.min(460,baseActionWidth+(needsDetails?80:0));
+    const selected=new Set();
     let needed=actionWidth;
     if(state.showAllColumns[state.page]){
       desktopCols.forEach((_,i)=>selected.add(i));
@@ -1172,12 +1183,41 @@
   function autoFitTableColumns(targetColumn=""){
     const table=document.querySelector(".table-scroll .data-table");
     if(!table)return;
+    const columns=[...table.querySelectorAll("thead th[data-column]")];
+    const colgroup=[...table.querySelectorAll("colgroup col")];
+    const scroller=table.closest(".table-scroll");
+    if(!columns.length||!scroller)return;
+    const columnElements=columns.map(th=>colgroup.find(col=>col.dataset.column===th.dataset.column));
+    if(columnElements.some(col=>!col))return;
+    const actionColumn=colgroup.find(col=>!col.dataset.column);
+    const actionWidth=actionColumn?(parseFloat(actionColumn.style.width)||actionColumn.getBoundingClientRect().width):0;
+    const available=Math.floor(scroller.clientWidth-actionWidth);
+    if(available<=0)return;
     const context=document.createElement("canvas").getContext("2d");
-    for(const th of table.querySelectorAll("thead th[data-column]")){
+    const minimums=columns.map(th=>{
       const key=th.dataset.column;
-      if(targetColumn&&key!==targetColumn)continue;
+      return dateTimeFields.has(key)?130:key==="id"?128:key==="os"?140:84;
+    });
+    const caps=columns.map(th=>{
+      const key=th.dataset.column;
+      return dateTimeFields.has(key)?166:key==="id"?420:key==="os"?390:480;
+    });
+    if(minimums.reduce((sum,value)=>sum+value,0)>available){
+      if(state.showAllColumns[state.page]){
+        state.showAllColumns[state.page]=false;
+        delete state.tableWidths[state.page];
+        localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
+        render();
+        autoFitTableColumns();
+      }
+      return;
+    }
+    const measured=columns.map((th,index)=>{
+      const key=th.dataset.column;
+      const current=parseFloat(columnElements[index].style.width)||minimums[index];
+      if(targetColumn&&key!==targetColumn)return current;
       const cells=[th.querySelector(".sort-heading"),...table.querySelectorAll("tbody td[data-column]")];
-      let desired=84;
+      let desired=minimums[index];
       for(const cell of cells){
         if(!cell)continue;
         const style=window.getComputedStyle(cell);
@@ -1185,14 +1225,52 @@
         const texts=cell.querySelectorAll(".entity-link-name,.entity-link-id,.device-reference-name,.device-reference-id");
         const lines=texts.length?[...texts].map(item=>item.textContent):String(cell.innerText||cell.textContent||"").split(/\r?\n/);
         for(const value of lines){
-          const text=String(value||"").trim();
-          const width=context?context.measureText(text).width:text.length*8;
-          desired=Math.max(desired,Math.ceil(width)+(cell===cells[0]?62:48));
+          const valueText=String(value||"").trim();
+          if(!valueText)continue;
+          const width=context?context.measureText(valueText).width:valueText.length*8;
+          const horizontalPadding=cell===cells[0]?54:34;
+          desired=Math.max(desired,Math.ceil(width)+horizontalPadding);
         }
       }
-      updateTableColumnWidth(key,desired,false);
-      (state.tableWidths[state.page] ||= {})[key]=Math.min(720,Math.max(84,desired));
+      return Math.max(minimums[index],Math.min(caps[index],desired));
+    });
+    const fitted=measured.slice();
+    const total=()=>fitted.reduce((sum,width)=>sum+width,0);
+    if(total()>available){
+      let remaining=total()-available;
+      while(remaining>0){
+        const flexible=fitted.map((width,index)=>({index,slack:width-minimums[index]}))
+          .filter(item=>item.slack>0);
+        if(!flexible.length)break;
+        const slackTotal=flexible.reduce((sum,item)=>sum+item.slack,0);
+        let removed=0;
+        for(const item of flexible){
+          const subtract=Math.min(item.slack,Math.max(1,Math.floor(remaining*item.slack/slackTotal)));
+          fitted[item.index]-=subtract;
+          removed+=subtract;
+          if(removed>=remaining)break;
+        }
+        remaining-=removed;
+      }
     }
+    if(total()<available){
+      const expandable=columns.map((th,index)=>({key:th.dataset.column,index}))
+        .filter(item=>!dateTimeFields.has(item.key));
+      const receivers=expandable.length?expandable:columns.map((th,index)=>({key:th.dataset.column,index}));
+      let extra=available-total();
+      for(let i=0;i<receivers.length;i++){
+        const amount=i===receivers.length-1?extra:Math.floor(extra/(receivers.length-i));
+        fitted[receivers[i].index]+=amount;
+        extra-=amount;
+      }
+    }
+    for(let i=0;i<columnElements.length;i++){
+      const width=Math.round(fitted[i]);
+      columnElements[i].style.width=width+"px";
+      (state.tableWidths[state.page] ||= {})[columns[i].dataset.column]=width;
+    }
+    const combined=colgroup.reduce((sum,col)=>sum+(parseFloat(col.style.width)||0),0);
+    table.style.setProperty("--table-min-width",Math.ceil(combined)+"px");
     localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
   }
   let resizeColumnState=null;
