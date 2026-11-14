@@ -226,7 +226,7 @@ test("WebClient v2 collapses server settings for device links and expands for ma
   await manual.settle();
   assert.equal(manual.elements.get("v2-server-settings").open,true);
   const index=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-  assert.match(index,/<details id="v2-server-settings"[^>]*open>/);
+  assert.match(index,/<details id="v2-server-settings" class="server-settings">/);
   assert.match(index,/<summary>服务器设置/);
   assert.match(index,/<\/details>/);
 });
