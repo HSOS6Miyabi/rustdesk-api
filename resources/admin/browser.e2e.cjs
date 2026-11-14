@@ -2995,19 +2995,26 @@ test("WebClient2 device links show compact server settings and WebRTC checked",a
 });
 
 
-test("linked WebClient settings stay closed even without a saved login or server",async()=>{
+test("linked WebClient settings stay closed when the server configuration request fails",async()=>{
   const context=await browser.newContext({
     viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:"zh-CN"
   });
   try{
     const page=await context.newPage();
+    await page.addInitScript(()=>{
+      localStorage.setItem("rustdesk.console.token","admin-token");
+    });
+    await page.route("**/api/admin/config/server",route=>route.fulfill({
+      status:500,contentType:"application/json",
+      body:JSON.stringify({code:101,message:"暂时无法读取服务器设置"})
+    }));
     await page.goto(baseUrl+"/webclient2/?id=464956471&name=meili",
       {waitUntil:"networkidle"});
     const settings=page.locator("#v2-server-settings");
     assert.equal(await settings.evaluate(el=>el.open),false);
     assert.equal(await page.locator("#v2-id").inputValue(),"464956471");
     await settings.scrollIntoViewIfNeeded();
-    await captureManagementScreenshot(page,"webclient2-linked-settings-no-token.png");
+    await captureManagementScreenshot(page,"webclient2-linked-settings-no-server.png");
     await page.reload({waitUntil:"networkidle"});
     assert.equal(await settings.evaluate(el=>el.open),false,
       "reloaded deep links must keep server settings collapsed");

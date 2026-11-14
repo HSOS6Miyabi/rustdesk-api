@@ -128,6 +128,9 @@ function fixture(options = {}) {
     if(endpoint==="/shared_devices/list"&&!options.token){
       return {ok:false,status:403,async json(){return {message:"Unauthenticated"};}};
     }
+    if(endpoint==="/config/server"&&options.failServerConfig){
+      return {ok:false,status:500,async json(){return {message:"暂时无法读取服务器设置"};}};
+    }
     if(!Object.prototype.hasOwnProperty.call(apiResults,endpoint)){
       return {ok:false,status:404,async json(){return {message:"Unexpected path "+endpoint};}};
     }
@@ -780,7 +783,8 @@ test("performance reports display active remote render cost only",async()=>{
 });
 
 test("linked WebClient settings remain collapsed when the account has no saved server configuration",async()=>{
-  const linked=fixture({search:"?id=464956471&name=meili"});
+  const linked=fixture({token:"session-token",failServerConfig:true,
+    search:"?id=464956471&name=meili"});
   await linked.settle();
   const settings=linked.elements.get("v2-server-settings");
   assert.equal(settings.open,false);
