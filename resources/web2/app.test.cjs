@@ -128,6 +128,9 @@ function fixture(options = {}) {
     if(endpoint==="/shared_devices/list"&&!options.token){
       return {ok:false,status:403,async json(){return {message:"Unauthenticated"};}};
     }
+    if(endpoint==="/config/server"&&options.failServerConfig){
+      return {ok:false,status:500,async json(){return {message:"暂时无法读取服务器设置"};}};
+    }
     if(!Object.prototype.hasOwnProperty.call(apiResults,endpoint)){
       return {ok:false,status:404,async json(){return {message:"Unexpected path "+endpoint};}};
     }
@@ -226,7 +229,7 @@ test("WebClient v2 collapses server settings for device links and expands for ma
   await manual.settle();
   assert.equal(manual.elements.get("v2-server-settings").open,true);
   const index=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-  assert.match(index,/<details id="v2-server-settings"[^>]*open>/);
+  assert.match(index,/<details id="v2-server-settings" class="server-settings">/);
   assert.match(index,/<summary>服务器设置/);
   assert.match(index,/<\/details>/);
 });
@@ -777,4 +780,19 @@ test("performance reports display active remote render cost only",async()=>{
   const text=status.textContent;
   app.window.__rustdeskRemotePerformance({fps:1},{}); 
   assert.equal(status.textContent,text);
+});
+
+test("linked WebClient settings remain collapsed when the account has no saved server configuration",async()=>{
+  const linked=fixture({token:"session-token",failServerConfig:true,
+    search:"?id=464956471&name=meili"});
+  await linked.settle();
+  const settings=linked.elements.get("v2-server-settings");
+  assert.equal(settings.open,false);
+  assert.equal(linked.elements.get("v2-id").value,"464956471");
+  const direct=fixture();
+  await direct.settle();
+  assert.equal(direct.elements.get("v2-server-settings").open,true);
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  assert.match(html,/<details id="v2-server-settings" class="server-settings">/);
+  assert.doesNotMatch(html,/<details id="v2-server-settings"[^>]*\sopen>/);
 });

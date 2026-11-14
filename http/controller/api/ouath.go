@@ -143,8 +143,16 @@ func (o *Oauth) OidcAuthQuery(c *gin.Context) {
 func webAdminOAuthCompletionURL(state, returnTo string) string {
 	params := url.Values{}
 	params.Set("code", state)
-	if returnTo == "/webclient2/" {
+	safe := service.SafeWebClientReturnPath(returnTo)
+	if safe != "" {
 		params.Set("return", "webclient2")
+		if parsed, err := url.Parse(safe); err == nil {
+			for _, key := range []string{"id", "name"} {
+				if value := parsed.Query().Get(key); value != "" {
+					params.Set(key, value)
+				}
+			}
+		}
 	}
 	return "/_admin/#/oidc/complete?" + params.Encode()
 }

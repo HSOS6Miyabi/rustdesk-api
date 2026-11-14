@@ -15,6 +15,9 @@
   config.id.value=initialDeviceId||read("remote-id")||read("id");
   const serverSettings=el("v2-server-settings");
   serverSettings.open=!initialDeviceId;
+  if(initialDeviceId){
+    window.addEventListener("pageshow",()=>{serverSettings.open=false;});
+  }
   function updateDeviceIdentity(){
     el("v2-native-client").title=state.activeName||"RustDesk 远程桌面";
   }
@@ -678,7 +681,7 @@
   }
   async function loadConnectionDefaults(){
     if(!state.token){
-      if(!config.host.value.trim())serverSettings.open=true;
+      if(!initialDeviceId&&!config.host.value.trim())serverSettings.open=true;
       return;
     }
     try{
@@ -694,7 +697,7 @@
     }catch(err){
       message("无法自动读取服务器信息，请手动填写连接设置。");
     }
-    if(!config.host.value.trim())serverSettings.open=true;
+    if(!initialDeviceId&&!config.host.value.trim())serverSettings.open=true;
   }
   async function loadDevices(){
     const info=el("shared-info"),list=el("shared-items"),login=el("shared-login");
