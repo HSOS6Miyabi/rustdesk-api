@@ -673,10 +673,38 @@
     state.page=k;if(k==="addressbooks")state.bookTab="entries";state.pageNo=1;state.query=query;state.sourceType="all";state.sourceId="0";state.mobile=false;state.modal=null;state.error="";
     location.hash="#/"+k+(query?"?search="+encodeURIComponent(query):"");render();load();
   }
+  function safeWebClientReturnPath(value){
+    if(value==="/webclient2/")return value;
+    if(!String(value||"").startsWith("/webclient2/?"))return "";
+    const url=String(value),parts=url.split("?");
+    if(parts.length!==2||parts[0]!=="/webclient2/")return "";
+    const params=new URLSearchParams(parts[1]),keys=[...params.keys()];
+    if(keys.some(key=>!["id","name"].includes(key)))return "";
+    if(["id","name"].some(key=>params.getAll(key).length>1))return "";
+    const id=(params.get("id")||"").trim();
+    if(!id||id.length>128||/[\x00-\x1f]/.test(id))return "";
+    const target=new URLSearchParams({id});
+    const name=(params.get("name")||"").trim();
+    if(name){
+      if(name.length>160||/[\x00-\x1f]/.test(name))return "";
+      target.set("name",name);
+    }
+    return "/webclient2/?"+target.toString();
+  }
+  function webClientReturnFromParams(params){
+    if(params.get("return")!=="webclient2")return "";
+    const id=params.get("id")||"";
+    if(!id)return "/webclient2/";
+    const target=new URLSearchParams({id});
+    const name=params.get("name")||"";
+    if(name)target.set("name",name);
+    return safeWebClientReturnPath("/webclient2/?"+target.toString());
+  }
   function returnToWebClient(){
-    if(sessionStorage.getItem("rustdesk.console.return")!=="/webclient2/")return false;
+    const target=safeWebClientReturnPath(sessionStorage.getItem("rustdesk.console.return"));
+    if(!target)return false;
     sessionStorage.removeItem("rustdesk.console.return");
-    window.location.assign("/webclient2/");
+    window.location.assign(target);
     return true;
   }
   function oauthCallbackDetails(){
@@ -685,7 +713,7 @@
     const params=new URLSearchParams(hash.slice("#/oidc/complete?".length));
     const code=params.get("code")||"";
     return {code:/^[A-Za-z0-9]{10,128}$/.test(code)?code:"",
-      returnTo:params.get("return")==="webclient2"?"/webclient2/":""};
+      returnTo:webClientReturnFromParams(params)};
   }
   function clearOAuthCallbackLocation(){
     if(!(location.hash||"").startsWith("#/oidc/complete?"))return;
@@ -724,8 +752,9 @@
   async function bootstrap(){
     const recoveryHash=location.hash||"";
     if(recoveryHash.startsWith("#/login?")){
-      const destination=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("return");
-      if(destination==="webclient2")sessionStorage.setItem("rustdesk.console.return","/webclient2/");
+      const params=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1));
+      const target=webClientReturnFromParams(params);
+      if(target)sessionStorage.setItem("rustdesk.console.return",target);
     }
     if(recoveryHash.startsWith("#/invite?")){
       const token=new URLSearchParams(recoveryHash.slice(recoveryHash.indexOf("?")+1)).get("token");
@@ -831,7 +860,7 @@
   async function oidc(op){
     try{
       state.ssoError="";
-      const returnTo=sessionStorage.getItem("rustdesk.console.return")==="/webclient2/"?"/webclient2/":"";
+      const returnTo=safeWebClientReturnPath(sessionStorage.getItem("rustdesk.console.return"));
       const result=await request("/oidc/auth","POST",{
         op,deviceInfo:{os:"web"},id:"webadmin",uuid:"",
         ...(returnTo?{return_to:returnTo}:{})
