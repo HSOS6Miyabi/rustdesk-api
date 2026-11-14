@@ -2969,6 +2969,10 @@ test("WebClient2 device links show compact server settings and WebRTC checked",a
     });
     try{
       const page=await context.newPage();
+      await page.addInitScript(()=>{
+        localStorage.setItem("rustdesk.console.token","admin-token");
+        sessionStorage.setItem("rustdesk.console.token","admin-token");
+      });
       await page.goto(baseUrl+"/webclient2/?id=shared-device-123&name=Shared%20Machine",
         {waitUntil:"domcontentloaded"});
       await page.locator("#v2-id").waitFor();
@@ -2980,6 +2984,9 @@ test("WebClient2 device links show compact server settings and WebRTC checked",a
       assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),true);
       assert.equal(await page.locator("#v2-host").isVisible(),true);
       await captureManagementScreenshot(page,"webclient2-expanded-settings-"+width+".png");
+      await page.goto(baseUrl+"/webclient2/",{waitUntil:"domcontentloaded"});
+      assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),true);
+      await captureManagementScreenshot(page,"webclient2-manual-settings-"+width+".png");
     }finally{await context.close();}
   }
 });
