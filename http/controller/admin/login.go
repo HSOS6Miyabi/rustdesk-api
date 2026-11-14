@@ -8,6 +8,7 @@ import (
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/controller/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
+	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
 	apiReq "github.com/lejianwen/rustdesk-api/v2/http/request/api"
 	"github.com/lejianwen/rustdesk-api/v2/http/response"
 	adResp "github.com/lejianwen/rustdesk-api/v2/http/response/admin"
@@ -204,6 +205,7 @@ func (ct *Login) Logout(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return
 	}
+	middleware.ClearWebClientSessionCookie(c)
 	response.Success(c, nil)
 }
 
@@ -257,10 +259,7 @@ func (ct *Login) OidcAuth(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, err.Error()))
 		return
 	}
-	returnTo := ""
-	if f.ReturnTo == "/webclient2/" {
-		returnTo = f.ReturnTo
-	}
+	returnTo := service.SafeWebClientReturnPath(f.ReturnTo)
 
 	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:     service.OauthActionTypeLogin,
@@ -303,6 +302,7 @@ func (ct *Login) OidcAuthQuery(c *gin.Context) {
 }
 
 func responseLoginSuccess(c *gin.Context, u *model.User, token string) {
+	middleware.SetWebClientSessionCookie(c, token)
 	lp := &adResp.LoginPayload{}
 	lp.FromUser(u)
 	lp.Token = token
