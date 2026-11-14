@@ -82,7 +82,7 @@ function fixture(options = {}) {
     "/login-options": { ops: ["company-oidc"], disable_pwd: options.disablePwd ?? true, need_captcha:false }
   };
   const apiCalls = [];
-  const localStorage = storage({access_token:"stale-persistent-token"});
+  const localStorage = storage({access_token:"stale-persistent-token",...(options.localToken?{"rustdesk.console.token":options.localToken}:{})});
   const sessionStorage = storage({
     ...(options.token ? {"rustdesk.console.token":options.token} : {}),
     ...(options.webrtcPreference ? {"rustdesk.webclient.webrtc":options.webrtcPreference} : {})
