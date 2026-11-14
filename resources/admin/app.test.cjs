@@ -1387,3 +1387,20 @@ test("logging out from a second tab clears the original tab's session",async()=>
   assert.equal(app.session.getItem("rustdesk.console.token"),null);
   assert.match(app.root.innerHTML,/登录控制台/);
 });
+
+test("shared device rows expose the WebClient connection button",async()=>{
+  const app=createConsole(false);
+  app.fixtures["/shared_devices/list"]={list:[{
+    id:"shared-123456789",alias:"研发设备",hostname:"workstation-01",
+    owner_username:"alice",sources:[{type:"group",name:"研发组"}]
+  }],total:1};
+  await app.settle();await app.settle();
+  await app.open("shared");
+  assert.match(app.root.innerHTML,/data-action="device-connect" data-device-id="shared-123456789"/);
+  assert.match(app.root.innerHTML,/data-device-name="研发设备"/);
+  await app.events.click({target:{closest(){return {dataset:{
+    action:"device-connect",deviceId:"shared-123456789",deviceName:"研发设备"
+  }};}}});
+  assert.match(app.opened[0].url,/^\/webclient2\/\?id=shared-123456789/);
+  assert.equal(app.opened[0].target,"_blank");
+});
