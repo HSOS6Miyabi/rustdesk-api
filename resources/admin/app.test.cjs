@@ -1404,3 +1404,29 @@ test("shared device rows expose the WebClient connection button",async()=>{
   assert.match(app.opened[0].url,/^\/webclient2\/\?id=shared-123456789/);
   assert.equal(app.opened[0].target,"_blank");
 });
+
+test("WebClient device return preserves the intended device without exposing arbitrary destinations",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":"example-session"},{},{
+    initialHash:"#/login?return=webclient2&id=464956471&name=meili"
+  });
+  await app.settle();await app.settle();
+  assert.deepEqual(app.assigned,["/webclient2/?id=464956471&name=meili"]);
+  assert.equal(app.session.getItem("rustdesk.console.return"),null);
+});
+test("malformed WebClient return target is ignored during SSO",async()=>{
+  const app=createConsole(false,{
+    "rustdesk.console.token":"example-session",
+    "rustdesk.console.return":"//outside.example/steal"
+  });
+  await app.settle();await app.settle();
+  assert.deepEqual(app.assigned,[]);
+  assert.match(app.root.innerHTML,/我的设备/);
+});
+test("OIDC callback carries approved device metadata between mobile tabs",async()=>{
+  const app=createConsole(false,{"rustdesk.console.token":""},{},{
+    initialHash:"#/oidc/complete?code=MobileState12345&return=webclient2&id=464956471&name=meili"
+  });
+  await app.settle();await app.settle();
+  assert.deepEqual(app.assigned,["/webclient2/?id=464956471&name=meili"]);
+  assert.equal(app.local.getItem("rustdesk.console.token"),"mobile-sso-token");
+});

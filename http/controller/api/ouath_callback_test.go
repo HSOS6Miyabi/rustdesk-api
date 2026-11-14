@@ -38,3 +38,27 @@ func TestWebAdminOAuthCompletionURL(t *testing.T) {
     }
   }
 }
+
+func TestWebAdminOAuthCompletionWithDeviceReturn(t *testing.T) {
+    parsed, err := url.Parse(webAdminOAuthCompletionURL("MobileState12345",
+        "/webclient2/?id=464956471&name=meili"))
+    if err != nil { t.Fatal(err) }
+    _, query, ok := strings.Cut(parsed.EscapedFragment(), "?")
+    if !ok { t.Fatal("callback query missing") }
+    params, err := url.ParseQuery(query)
+    if err != nil { t.Fatal(err) }
+    if params.Get("return") != "webclient2" ||
+        params.Get("id") != "464956471" || params.Get("name") != "meili" {
+        t.Fatalf("callback metadata lost: %v", params)
+    }
+    rejected, err := url.Parse(webAdminOAuthCompletionURL("MobileState12345",
+        "//outside.example/steal"))
+    if err != nil { t.Fatal(err) }
+    _, raw, ok := strings.Cut(rejected.EscapedFragment(), "?")
+    if !ok { t.Fatal("rejected callback query missing") }
+    params, err = url.ParseQuery(raw)
+    if err != nil { t.Fatal(err) }
+    if params.Has("return") || params.Has("id") {
+        t.Fatalf("untrusted redirect destination carried into callback: %v", params)
+    }
+}

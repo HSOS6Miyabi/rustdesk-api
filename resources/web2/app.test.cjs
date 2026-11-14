@@ -778,3 +778,17 @@ test("performance reports display active remote render cost only",async()=>{
   app.window.__rustdeskRemotePerformance({fps:1},{}); 
   assert.equal(status.textContent,text);
 });
+
+test("linked WebClient settings remain collapsed when the account has no saved server configuration",async()=>{
+  const linked=fixture({search:"?id=464956471&name=meili"});
+  await linked.settle();
+  const settings=linked.elements.get("v2-server-settings");
+  assert.equal(settings.open,false);
+  assert.equal(linked.elements.get("v2-id").value,"464956471");
+  const direct=fixture();
+  await direct.settle();
+  assert.equal(direct.elements.get("v2-server-settings").open,true);
+  const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  assert.match(html,/<details id="v2-server-settings" class="server-settings">/);
+  assert.doesNotMatch(html,/<details id="v2-server-settings"[^>]*\sopen>/);
+});
