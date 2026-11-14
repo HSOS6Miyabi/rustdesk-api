@@ -5,7 +5,7 @@
   const read = key => localStorage.getItem(key)||"";
   const linkedDevice=new URLSearchParams(window.location.search||"");
   const initialDeviceId=String(linkedDevice.get("id")||"").trim();
-  const state = { token:sessionStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,defaultsLoaded:false,
+  const state = { token:sessionStorage.getItem("rustdesk.console.token")||localStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,defaultsLoaded:false,
     pageFullscreen:false,autoConnect:Boolean(initialDeviceId),activeName:String(linkedDevice.get("name")||"").slice(0,160) };
   const config = {
     host: el("v2-host"), key: el("v2-key"), id: el("v2-id")
