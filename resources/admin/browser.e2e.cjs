@@ -2979,13 +2979,16 @@ test("WebClient2 device links show compact server settings and WebRTC checked",a
       assert.equal(await page.locator("#v2-id").inputValue(),"shared-device-123");
       assert.equal(await page.locator("#v2-webrtc").isChecked(),true);
       assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),false);
+      if(width<600)await page.locator("#v2-server-settings").scrollIntoViewIfNeeded();
       await captureManagementScreenshot(page,"webclient2-linked-settings-"+width+".png");
       await page.locator("#v2-server-settings summary").click();
       assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),true);
       assert.equal(await page.locator("#v2-host").isVisible(),true);
+      if(width<600)await page.locator("#v2-server-settings").scrollIntoViewIfNeeded();
       await captureManagementScreenshot(page,"webclient2-expanded-settings-"+width+".png");
       await page.goto(baseUrl+"/webclient2/",{waitUntil:"domcontentloaded"});
       assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),true);
+      if(width<600)await page.locator("#v2-server-settings").scrollIntoViewIfNeeded();
       await captureManagementScreenshot(page,"webclient2-manual-settings-"+width+".png");
     }finally{await context.close();}
   }
