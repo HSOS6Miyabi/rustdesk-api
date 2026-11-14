@@ -35,7 +35,7 @@ function createElement(id = "") {
 
 function fixture(options = {}) {
   const ids = [
-    "v2-host", "v2-key", "v2-id", "v2-message","v2-performance-status",
+    "v2-host", "v2-key", "v2-id", "v2-server-settings", "v2-message","v2-performance-status",
     "engine-state", "shared-info", "shared-items", "shared-login",
     "shared-login-form", "sso-login-link", "connect-form", "v2-disconnect",
     "v2-refresh", "v2-captcha", "v2-captcha-image", "v2-webrtc",
@@ -82,8 +82,11 @@ function fixture(options = {}) {
     "/login-options": { ops: ["company-oidc"], disable_pwd: options.disablePwd ?? true, need_captcha:false }
   };
   const apiCalls = [];
-  const localStorage = storage({access_token:"stale-persistent-token"});
-  const sessionStorage = storage(options.token ? {"rustdesk.console.token":options.token} : {});
+  const localStorage = storage({access_token:"stale-persistent-token",...(options.localToken?{"rustdesk.console.token":options.localToken}:{})});
+  const sessionStorage = storage({
+    ...(options.token ? {"rustdesk.console.token":options.token} : {}),
+    ...(options.webrtcPreference ? {"rustdesk.webclient.webrtc":options.webrtcPreference} : {})
+  });
   const assigned = [];
   const longTimers = [];
   const window = {
@@ -194,18 +197,38 @@ test("WebClient v2 supports password login alongside SSO when allowed",async()=>
   assert.equal(app.elements.get("sso-login-link").hidden,false);
 });
 
-test("WebClient v2 enables direct WebRTC only after the user selects it",async()=>{
+test("WebClient v2 enables WebRTC by default and keeps an explicit preference",async()=>{
   const app=fixture({token:"session-token"});
   await app.settle();
   const toggle=app.elements.get("v2-webrtc");
-  assert.equal(toggle.checked,false);
-  toggle.checked=true;
+  assert.equal(toggle.checked,true);
   app.elements.get("v2-id").value="123456789";
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
   assert.equal(app.sessionStorage.getItem("rustdesk.webclient.webrtc"),"Y");
   toggle.checked=false;
   app.elements.get("connect-form").listeners.submit({preventDefault(){}});
   assert.equal(app.sessionStorage.getItem("rustdesk.webclient.webrtc"),"N");
+  const optedOut=fixture({webrtcPreference:"N",token:"session-token"});
+  await optedOut.settle();
+  assert.equal(optedOut.elements.get("v2-webrtc").checked,false);
+  const optedIn=fixture({webrtcPreference:"Y",token:"session-token"});
+  await optedIn.settle();
+  assert.equal(optedIn.elements.get("v2-webrtc").checked,true);
+});
+
+test("WebClient v2 collapses server settings for device links and expands for manual connection",async()=>{
+  const linked=fixture({token:"session-token",search:"?id=shared-device&name=Office"});
+  await linked.settle();
+  assert.equal(linked.elements.get("v2-server-settings").open,false);
+  assert.equal(linked.elements.get("v2-id").value,"shared-device");
+  assert.equal(linked.elements.get("v2-webrtc").checked,true);
+  const manual=fixture({token:"session-token"});
+  await manual.settle();
+  assert.equal(manual.elements.get("v2-server-settings").open,true);
+  const index=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+  assert.match(index,/<details id="v2-server-settings"[^>]*open>/);
+  assert.match(index,/<summary>服务器设置/);
+  assert.match(index,/<\/details>/);
 });
 
 

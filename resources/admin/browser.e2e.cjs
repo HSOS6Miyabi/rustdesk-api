@@ -2899,3 +2899,98 @@ test("expired mobile SSO authorization displays a clear error without redirectin
     await captureManagementScreenshot(page,"mobile-sso-login-error.png");
   }finally{await context.close();}
 });
+
+
+test("wide desktop: device actions stay on one row and auto-fit never creates horizontal overflow",async()=>{
+  const sample=[{
+    row_id:71,id:"long-device-71",alias:"Production workstation with long readable alias",
+    hostname:"long-hostname-71",os:"Windows 11 Enterprise 24H2 (26100) Extended build",
+    last_online_time:1794625818,last_online_ip:"203.0.113.99",note:"Notes with a long sentence that should fit or wrap",
+    owner_username:"alice",sources:[{type:"group",name:"Production engineering devices"}]
+  },{
+    row_id:72,id:"device-72",alias:"Office",hostname:"pc-72",
+    os:"Windows 10 Enterprise LTSC",last_online_time:1794625804,
+    last_online_ip:"203.0.113.101",owner_username:"bob",
+    sources:[{type:"group",name:"Office"}]
+  }];
+  for(const {width,pageName} of [
+    {width:1848,pageName:"mydevices"},
+    {width:1440,pageName:"mydevices"},
+    {width:1024,pageName:"mydevices"},
+    {width:1848,pageName:"shared"},
+    {width:1440,pageName:"shared"}
+  ]){
+    const {context,page}=await pageForViewport(width,900,true);
+    try{
+      const reply=list=>({status:200,contentType:"application/json",
+        body:JSON.stringify({code:0,data:{list,total:list.length}})});
+      await page.route("**/api/admin/my/peer/list**",route=>route.fulfill(reply(sample)));
+      await page.route("**/api/admin/shared_devices/list**",route=>route.fulfill(reply(sample)));
+      await page.locator('nav.side-scroll button[data-view="'+pageName+'"]').click();
+      await page.locator('.data-table tbody tr:not(.table-detail-row)').first().waitFor();
+      const actionCell=page.locator('.data-table tbody tr:not(.table-detail-row) .cell-action-list').first();
+      assert.equal(await actionCell.locator('[data-action="device-connect"]').count(),1);
+      await page.locator('[data-action="table-autofit"]').click();
+      const geometry=await page.evaluate(()=>{
+        const table=document.querySelector(".data-table"),region=table.closest(".table-scroll");
+        const actions=table.querySelector(".cell-action-list");
+        const buttons=[...actions.querySelectorAll("button")].map(el=>el.getBoundingClientRect());
+        const date=table.querySelector('col[data-column="last_online_time"]');
+        return {
+          tableWidth:table.getBoundingClientRect().width,
+          regionWidth:region.clientWidth,
+          scrollWidth:region.scrollWidth,
+          actionRows:Math.round(Math.max(...buttons.map(r=>r.top))-Math.min(...buttons.map(r=>r.top))),
+          clipped:buttons.some(r=>r.left<actions.getBoundingClientRect().left-1||
+            r.right>actions.getBoundingClientRect().right+1),
+          dateWidth:date?.getBoundingClientRect().width||null,
+          pageScrollWidth:document.documentElement.scrollWidth,
+          viewport:innerWidth
+        };
+      });
+      assert.ok(geometry.scrollWidth<=geometry.regionWidth+2,
+        pageName+" at "+width+"px: auto-fit created horizontal overflow: "+JSON.stringify(geometry));
+      assert.ok(Math.abs(geometry.tableWidth-geometry.regionWidth)<=2,
+        pageName+" at "+width+"px: table no longer fills the container: "+JSON.stringify(geometry));
+      assert.ok(geometry.actionRows<=1,
+        pageName+" at "+width+"px: action buttons wrapped: "+JSON.stringify(geometry));
+      assert.equal(geometry.clipped,false,
+        pageName+" at "+width+"px: action buttons were clipped");
+      assert.ok(geometry.pageScrollWidth<=geometry.viewport+2);
+      if(geometry.dateWidth!==null)assert.ok(geometry.dateWidth>=130&&geometry.dateWidth<=168);
+      await captureManagementScreenshot(page,"device-actions-fit-"+pageName+"-"+width+".png");
+    }finally{await context.close();}
+  }
+});
+test("WebClient2 device links show compact server settings and WebRTC checked",async()=>{
+  for(const {width,height} of [{width:390,height:844},{width:1440,height:900}]){
+    const context=await browser.newContext({
+      viewport:{width,height},deviceScaleFactor:1,isMobile:width<600,hasTouch:width<600
+    });
+    try{
+      const page=await context.newPage();
+      await page.addInitScript(()=>{
+        localStorage.setItem("rustdesk.console.token","admin-token");
+        sessionStorage.setItem("rustdesk.console.token","admin-token");
+      });
+      await page.goto(baseUrl+"/webclient2/?id=shared-device-123&name=Shared%20Machine",
+        {waitUntil:"domcontentloaded"});
+      await page.locator("#v2-id").waitFor();
+      assert.equal(await page.locator("#v2-id").inputValue(),"shared-device-123");
+      assert.equal(await page.locator("#v2-webrtc").isChecked(),true);
+      assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),false);
+      if(width<600)await page.locator("#v2-server-settings").scrollIntoViewIfNeeded();
+      await captureManagementScreenshot(page,"webclient2-linked-settings-"+width+".png");
+      await page.locator("#v2-server-settings summary").click();
+      assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),true);
+      assert.equal(await page.locator("#v2-host").isVisible(),true);
+      if(width<600)await page.locator("#v2-server-settings").scrollIntoViewIfNeeded();
+      await captureManagementScreenshot(page,"webclient2-expanded-settings-"+width+".png");
+      await page.goto(baseUrl+"/webclient2/",{waitUntil:"domcontentloaded"});
+      assert.equal(await page.locator("#v2-server-settings").evaluate(el=>el.open),true);
+      if(width<600)await page.locator("#v2-server-settings").scrollIntoViewIfNeeded();
+      await captureManagementScreenshot(page,"webclient2-manual-settings-"+width+".png");
+    }finally{await context.close();}
+  }
+});
+

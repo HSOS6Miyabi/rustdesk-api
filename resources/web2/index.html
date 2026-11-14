@@ -31,8 +31,13 @@
   <h1>远程连接</h1>
   <p class="helper">输入设备 ID 即可连接。输入框中的设置仅用于当前浏览器。</p>
   <form id="connect-form">
-   <label for="v2-host">ID 服务器</label><input id="v2-host" name="host" required spellcheck="false" placeholder="例如：desk.example.com">
-   <label for="v2-key">服务器公钥</label><input id="v2-key" name="key" spellcheck="false" placeholder="从 RustDesk 服务器获取">
+   <details id="v2-server-settings" class="server-settings" open>
+     <summary>服务器设置 <span class="server-settings-summary">ID 服务器及公钥</span></summary>
+     <div class="server-settings-fields">
+       <label for="v2-host">ID 服务器</label><input id="v2-host" name="host" required spellcheck="false" placeholder="例如：desk.example.com">
+       <label for="v2-key">服务器公钥</label><input id="v2-key" name="key" spellcheck="false" placeholder="从 RustDesk 服务器获取">
+     </div>
+   </details>
    <label for="v2-id">目标设备 ID</label><input id="v2-id" name="id" required spellcheck="false" autocomplete="off" placeholder="输入设备 ID">
    <label class="rtc-toggle" for="v2-webrtc"><input id="v2-webrtc" name="webrtc" type="checkbox"><span>优先通过 WebRTC 直接连接</span></label>
    <p class="helper rtc-help">适用于 RustDesk 1.5.x 客户端。若无法建立直接连接，将自动尝试原有的 WebSocket 中继连接。</p>

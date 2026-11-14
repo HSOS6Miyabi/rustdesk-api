@@ -126,3 +126,16 @@ body.webclient-page-fullscreen{overflow:hidden}
 
 .webclient-performance-status{margin:7px 0 4px;color:#5b7189;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
 .webclient-performance-status[data-slow="true"]{color:#806029}
+
+.server-settings{margin:14px 0 16px;border:1px solid #dce6ee;border-radius:12px;background:#f8fbff;overflow:hidden}
+.server-settings summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:9px;cursor:pointer;padding:12px 14px;color:#274967;font-size:12px;font-weight:750}
+.server-settings summary::-webkit-details-marker{display:none}
+.server-settings summary::after{content:"";width:8px;height:8px;border-right:2px solid #577591;border-bottom:2px solid #577591;transform:rotate(45deg);transition:transform .15s;flex-shrink:0}
+.server-settings[open] summary::after{transform:rotate(225deg)}
+.server-settings-summary{margin-left:auto;color:#68849f;font-weight:500;font-size:11px;text-align:right}
+.server-settings[open] summary{border-bottom:1px solid #e0eaf3}
+.server-settings-fields{padding:2px 14px 15px}
+.server-settings-fields label{margin-top:12px}
+.server-settings-fields input{margin-bottom:2px}
+.server-settings summary:focus-visible{outline:3px solid #74a8f9;outline-offset:-3px}
+@media(max-width:680px){.server-settings{margin:12px 0 14px}.server-settings summary{padding:11px 12px}.server-settings-fields{padding:2px 12px 13px}}

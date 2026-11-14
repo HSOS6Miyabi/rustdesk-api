@@ -5,7 +5,7 @@
   const read = key => localStorage.getItem(key)||"";
   const linkedDevice=new URLSearchParams(window.location.search||"");
   const initialDeviceId=String(linkedDevice.get("id")||"").trim();
-  const state = { token:sessionStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,defaultsLoaded:false,
+  const state = { token:sessionStorage.getItem("rustdesk.console.token")||localStorage.getItem("rustdesk.console.token")||"",captchaId:"",ready:false,defaultsLoaded:false,
     pageFullscreen:false,autoConnect:Boolean(initialDeviceId),activeName:String(linkedDevice.get("name")||"").slice(0,160) };
   const config = {
     host: el("v2-host"), key: el("v2-key"), id: el("v2-id")
@@ -13,12 +13,14 @@
   config.host.value=read("custom-rendezvous-server")||read("rendezvous-server");
   config.key.value=read("key");
   config.id.value=initialDeviceId||read("remote-id")||read("id");
+  const serverSettings=el("v2-server-settings");
+  serverSettings.open=!initialDeviceId;
   function updateDeviceIdentity(){
     el("v2-native-client").title=state.activeName||"RustDesk 远程桌面";
   }
   config.id.addEventListener("input",()=>{state.activeName="";state.autoConnect=false;updateDeviceIdentity();});
   updateDeviceIdentity();
-  el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")==="Y";
+  el("v2-webrtc").checked=sessionStorage.getItem("rustdesk.webclient.webrtc")!=="N";
   function message(text){el("v2-message").textContent=text;}
   const stage=document.querySelector(".stage");
   const firstClient=el("v2-native-client");
@@ -675,7 +677,10 @@
     window.scrollTo({top:0,behavior:"smooth"});
   }
   async function loadConnectionDefaults(){
-    if(!state.token)return;
+    if(!state.token){
+      if(!config.host.value.trim())serverSettings.open=true;
+      return;
+    }
     try{
       const server=await request("/config/server");
       if(!config.host.value.trim()&&server.id_server){
@@ -689,6 +694,7 @@
     }catch(err){
       message("无法自动读取服务器信息，请手动填写连接设置。");
     }
+    if(!config.host.value.trim())serverSettings.open=true;
   }
   async function loadDevices(){
     const info=el("shared-info"),list=el("shared-items"),login=el("shared-login");
