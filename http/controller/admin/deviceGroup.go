@@ -85,6 +85,10 @@ func (ct *DeviceGroup) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.GroupService.DeviceGroupList(query.Page, query.PageSize, nil, query.SortBy, query.SortDir)
+	if err := service.EnrichDeviceGroupDirectory(res.DeviceGroups); err != nil {
+		response.Error(c, err.Error())
+		return
+	}
 	response.Success(c, res)
 }
 

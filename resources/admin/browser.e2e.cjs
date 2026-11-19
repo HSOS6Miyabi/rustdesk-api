@@ -9,6 +9,7 @@ const { chromium } = require("playwright");
 
 let browser, server, baseUrl;
 const assetRoot = __dirname;
+let deviceGroupBatchPayload=null;
 
 function answer(res, data) {
   res.writeHead(200, {"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"});
@@ -148,8 +149,17 @@ function serve(req, res) {
           {id:3,name:"研究人员组",type:1,owner_user_id:0}],total:3
       });
     }
+    if(route==="/device_group/devices")return answer(res,{list:[
+      {row_id:501,id:"lab-workstation-1",alias:"实验室工作站 01",hostname:"LAB-01",os:"Windows 11",username:"student",group_id:3,last_online_time:1794864000},
+      {row_id:502,id:"lab-server-2",alias:"实验室服务器",hostname:"LAB-SRV",os:"Linux",username:"service",group_id:3,last_online_time:1794864000}
+    ],total:2});
+    if(route==="/device_group/devices/batch"){
+      let body="";req.on("data",chunk=>body+=chunk.toString());
+      req.on("end",()=>{deviceGroupBatchPayload=JSON.parse(body||"{}");answer(res,{updated:deviceGroupBatchPayload.peer_row_ids.length});});
+      return;
+    }
     if(route==="/device_group/list")return answer(res,{
-      list:[{id:3,name:"实验室设备组"}],total:1
+      list:[{id:3,name:"实验室设备组",device_count:2,policy_name:"实验室安全策略",control_role_name:"设备控制角色",created_at:"2026-10-02 08:00:00"}],total:1
     });
     if(route==="/audit_conn/list")return answer(res,{list:[
       {id:21,peer_id:"managed-desk",from_peer:"helpdesk",note:"现场支持",created_at:1710000000}
@@ -327,8 +337,8 @@ function serve(req, res) {
     if(route==="/my/address_book/trash/restore"||route==="/my/address_book/trash/purge")return answer(res,{});
     if(route==="/my/login_log/list")return answer(res, {list:[{id:9,ip:"10.0.0.5",platform:"Windows",created_at:1710000000}],total:1});
     if(route==="/peer/list"||route==="/my/peer/list")return answer(res,{
-      list:[{row_id:101,id:"office",hostname:"办公电脑",last_online_ip:"10.0.0.5"},
-        {row_id:102,id:"home-remote",hostname:"家庭电脑",last_online_ip:"127.0.0.1"}],
+      list:[{row_id:101,id:"office",hostname:"办公电脑",os:"Windows 11",group_id:0,last_online_ip:"10.0.0.5"},
+        {row_id:102,id:"home-remote",hostname:"家庭电脑",os:"Linux",group_id:2,last_online_ip:"127.0.0.1"}],
       total:2
     });
     if(route==="/user/mfa/reset")return answer(res,{});
@@ -430,7 +440,7 @@ function serve(req, res) {
     res.writeHead(404);res.end("Not found");return;
   }
   const filename=name.slice("/_admin/".length);
-  if(!["index.html","style.css","app.js","client-local.js","passkey.js","favicon.svg"].includes(filename)){
+  if(!["index.html","style.css","app.js","device-group-manager.js","client-local.js","passkey.js","favicon.svg"].includes(filename)){
     res.writeHead(404);res.end("Not found");return;
   }
   const file=path.join(assetRoot,filename);
@@ -3021,5 +3031,54 @@ test("linked WebClient settings stay closed when the server configuration reques
     await page.goto(baseUrl+"/webclient2/",{waitUntil:"networkidle"});
     assert.equal(await settings.evaluate(el=>el.open),true,
       "manually opening WebClient2 should show server configuration");
+  }finally{await context.close();}
+});
+
+
+test("device groups show useful columns and edit registered devices without deleting them",async()=>{
+  const {context,page}=await pageForViewport(1680,920,true);
+  page.on("dialog",dialog=>dialog.accept());
+  try{
+    await page.locator('nav.side-scroll button[data-view="devicegroups"]').click();
+    await page.locator('.data-table tbody tr').first().waitFor();
+    assert.match(await page.locator('.content').innerText(),/实验室安全策略/);
+    assert.match(await page.locator('.content').innerText(),/设备控制角色/);
+    const idWidth=await page.locator('.data-table th[data-column="id"]').first().evaluate(e=>e.getBoundingClientRect().width);
+    assert.ok(idWidth<=116,"numeric identifier column occupies too much width: "+idWidth);
+    await page.locator('[data-action="device-group-devices"]').first().click();
+    await page.locator('.device-group-table tbody tr').first().waitFor();
+    assert.equal(await page.locator('.device-group-table tbody tr').count(),2);
+    await page.locator('.device-group-selected').first().check();
+    await page.locator('[data-action="device-group-submit"]').click();
+    assert.deepEqual(deviceGroupBatchPayload,{group_id:3,peer_row_ids:[501],action:"remove"});
+    await page.locator('[data-action="device-group-tab"][data-mode="add"]').click();
+    await page.locator('.device-group-table tbody tr').first().waitFor();
+    await page.locator('.device-group-selected').first().check();
+    await page.locator('[data-action="device-group-submit"]').click();
+    assert.deepEqual(deviceGroupBatchPayload,{group_id:3,peer_row_ids:[101],action:"add"});
+    const shot=path.join(__dirname,"test-screenshots","device-group-editor-desktop.png");
+    fs.mkdirSync(path.dirname(shot),{recursive:true});
+    await page.screenshot({path:shot,animations:"disabled"});
+  }finally{await context.close();}
+});
+
+test("device group management remains usable on narrow screens",async()=>{
+  const {context,page}=await pageForViewport(390,844,true);
+  try{
+    await page.locator('[data-action="mobile-open"]').click();
+    await page.locator('nav.side-scroll button[data-view="devicegroups"]').click();
+    await page.locator('.mobile-list article').first().waitFor();
+    await page.locator('.mobile-list [data-action="device-group-devices"]').first().click();
+    await page.locator('.device-group-table tbody tr').first().waitFor();
+    const widths=await page.evaluate(()=>({
+      viewport:window.innerWidth,
+      document:document.documentElement.scrollWidth,
+      drawer:document.querySelector('.drawer-device-group').getBoundingClientRect().width
+    }));
+    assert.ok(widths.drawer<=widths.viewport+1,"group editor wider than phone: "+JSON.stringify(widths));
+    assert.ok(widths.document<=widths.viewport+1,"unexpected page overflow: "+JSON.stringify(widths));
+    const shot=path.join(__dirname,"test-screenshots","device-group-editor-mobile.png");
+    fs.mkdirSync(path.dirname(shot),{recursive:true});
+    await page.screenshot({path:shot,animations:"disabled"});
   }finally{await context.close();}
 });

@@ -119,6 +119,7 @@ func (ct *User) List(c *gin.Context) {
 			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
 			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize), service.SortScope(query.SortBy,query.SortDir)).
 				Find(&records.Users).Error;err!=nil{response.Error(c,err.Error());return}
+			if err:=service.EnrichUserDeviceCounts(records.Users);err!=nil{response.Error(c,err.Error());return}
 			response.Success(c,records)
 			return
 		}
@@ -129,6 +130,7 @@ func (ct *User) List(c *gin.Context) {
 			tx.Where("username like ?", "%"+query.Username+"%")
 		}
 	},query.SortBy,query.SortDir)
+	if err:=service.EnrichUserDeviceCounts(res.Users);err!=nil{response.Error(c,err.Error());return}
 	response.Success(c, res)
 }
 

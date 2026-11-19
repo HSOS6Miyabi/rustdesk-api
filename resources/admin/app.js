@@ -67,14 +67,14 @@
     shared: {name:"共享设备",icon:"share",section:"工作空间",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["owner_username","设备所有者"],["sources","共享来源"],["last_online_time","最后在线"]]},
     contacts: {name:"联系人",icon:"users",section:"工作空间"},
     addressbooks: {name:"地址簿",icon:"book",section:"工作空间",endpoint:"address_book",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["username","登录账户"],["platform","平台"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","登录账户"],["password","连接密码","password"],["platform","平台"],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"],["forceAlwaysRelay","强制使用中继","checkbox"]]},
-    collections: {name:"地址簿分类",icon:"folder",section:"工作空间",endpoint:"address_book_collection",columns:[["id","编号"],["name","分类名称"],["user_id","所有者 ID"]],fields:[["name","名称","text",true],["user_id","所有者 ID","number",true]]},
-    tags: {name:"设备标签",icon:"tag",section:"工作空间",endpoint:"tag",columns:[["id","编号"],["name","标签名称"],["color","颜色"],["collection_id","地址簿 ID"]],fields:[["name","名称","text",true],["color","颜色","color",true],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"]]},
-    mygroups: {name:"我的群组",icon:"layers",section:"个人管理",endpoint:"my/group",columns:[["id","编号"],["name","群组名称"],["type","分组类型"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
-    groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"],["owner_user_id","创建者用户 ID"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
-    users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"keyword",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
+    collections: {name:"地址簿分类",icon:"folder",section:"工作空间",endpoint:"address_book_collection",columns:[["id","编号"],["name","分类名称"],["user_id","所有者 ID"],["created_at","创建时间"]],fields:[["name","名称","text",true],["user_id","所有者 ID","number",true]]},
+    tags: {name:"设备标签",icon:"tag",section:"工作空间",endpoint:"tag",columns:[["id","编号"],["name","标签名称"],["color","颜色"],["collection_id","地址簿 ID"],["created_at","创建时间"]],fields:[["name","名称","text",true],["color","颜色","color",true],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"]]},
+    mygroups: {name:"我的群组",icon:"layers",section:"个人管理",endpoint:"my/group",columns:[["id","编号"],["name","群组名称"],["type","分组类型"],["member_count","成员数"],["device_count","成员设备数"],["anchor_count","公共成员数"],["created_at","创建时间"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
+    groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"],["member_count","成员数"],["device_count","成员设备数"],["anchor_count","公共成员数"],["owner_user_id","创建者"],["created_at","创建时间"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
+    users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"keyword",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["device_count","设备数"],["is_admin","账户类型"],["status","状态"],["created_at","创建时间"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
     deployed: {name:"设备部署记录",icon:"monitor",section:"设备管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
-    devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
-    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["display_name","显示名称"],["op","认证标识"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["display_name","登录按钮名称"],["op","认证标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
+    devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"],["device_count","设备数"],["policy_name","安全策略"],["control_role_name","控制角色"],["created_at","创建时间"]],fields:[["name","名称","text",true]]},
+    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["display_name","显示名称"],["op","认证标识"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"],["auto_register","自动注册"],["pkce_enable","PKCE"],["created_at","创建时间"]],fields:[["display_name","登录按钮名称"],["op","认证标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
@@ -91,9 +91,9 @@
       ["enable_clipboard","允许远程剪贴板","policy_bool"],
       ["enable_file_transfer","允许远程文件传输","policy_bool"],
       ["approval_mode","远程连接确认方式","policy_approve"]]},
-    policyAssignments: {name:"设备策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
+    policyAssignments: {name:"设备策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"],["created_at","创建时间"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
     userPolicyAssignments: {name:"用户策略分配",icon:"users",section:"设备管理",endpoint:"device_policy/user_assignment",admin:true,columns:[["id","编号"],["user_id","用户 ID"],["policy_id","策略编号"]],fields:[["user_id","用户 ID","number",true],["policy_id","策略编号","number",true]]},
-    groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
+    groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"],["created_at","创建时间"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
     retention: {name:"日志保留设置",icon:"settings",section:"审计管理",admin:true},
     myloginlogs: {name:"我的登录记录",icon:"clock",section:"我的审计记录",endpoint:"my/login_log",readonly:true,columns:[["id","编号"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     loginlogs: {name:"登录记录",icon:"clock",section:"审计管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
@@ -417,13 +417,15 @@
     if(k==="scope_id"&&row?.scope_type==="global")return "全部账户";
     if(k==="auto_group_ids"){
       const ids=Array.isArray(v)?v:String(v||"").split(/[,;，\s]+/).filter(Boolean);
-      return ids.length?ids.map(id=>'<span class="reference-label">'+esc(referenceText("user_group",id))+'</span>').join("、"):"—";
+      return ids.length?ids.map(id=>'<span class="reference-label" title="'+esc(referenceText("user_group",id))+'">'+
+        esc(state.referenceNames.user_group?.[String(id)]||referenceText("user_group",id))+'</span>').join("、"):"—";
     }
     const refKind=referenceKind(k,row);
     if(refKind&&v!==undefined&&v!==null&&String(v)!==""){
       const name=referenceText(refKind,v);
       if(refKind==="user"&&String(v)!=="0")return entityLink("user",v,name);
-      return '<span class="reference-label">'+esc(name)+'</span>';
+      const brief=state.referenceNames[refKind]?.[String(v)]||name;
+      return '<span class="reference-label" title="'+esc(name)+'">'+esc(brief)+'</span>';
     }
     if(k==="id_whitelist"&&typeof v==="string"&&v.trim()){
       return v.split(/[,;\s]+/).filter(Boolean).map(id=>deviceReference({},k,id)).join('<span class="entity-separator">, </span>');
@@ -456,6 +458,8 @@
     if(k==="typ")return ({0:"IP 白名单拒绝",1:"密码尝试次数过多",2:"短时间连续登录失败",6:"IPv6 地址段登录尝试过多",7:"系统账户登录暂缓",8:"系统账户登录并发限制",9:"会话权限违规",10:"设备 ID 白名单拒绝"}[Number(v)]||"其他告警")+" ("+esc(txt(v))+")";
     if(k==="success")return v?'<span class="pill good">成功</span>':'<span class="pill warn">失败</span>';
     if(k==="is_admin")return v?"管理员":"普通用户";
+    if(k==="auto_register"||k==="pkce_enable")return v?'<span class="pill good">已启用</span>':'<span class="pill muted">未启用</span>';
+    if(["member_count","device_count","anchor_count"].includes(k))return '<span class="table-count">'+esc(v??0)+'</span>';
     if(k==="enable_webrtc")return v?"启用":"停用";
     if(k==="enabled")return v?"已启用":"已停用";
     if(k==="event_type")return esc({
@@ -1007,6 +1011,7 @@
       out+='<button class="btn btn-sm" data-action="transfer-device" data-id="'+id+'">转移设备</button>';
     }
 
+    if(state.page==="devicegroups"&&canPageAction("devices","view"))out+='<button class="btn btn-sm btn-primary" data-action="device-group-devices" data-id="'+id+'">管理设备</button>';
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
     if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
@@ -1015,7 +1020,9 @@
   function tableColumnWidth(key,label,page){
     const deviceIDPages=new Set(["devices","mydevices","shared","addressbooks","trash"]);
     const widths={
-      id:deviceIDPages.has(page)?164:80,
+      id:deviceIDPages.has(page)?164:78,
+      member_count:94,device_count:94,anchor_count:108,policy_name:190,control_role_name:180,
+      auto_register:106,pkce_enable:94,is_admin:110,
       device_id:200,peer_id:176,from_peer:176,
       device_uuid:176,conn_id:145,conn_audit_ref:190,
       direction:80,type:128,rule:136,status:130,enabled:126,
@@ -1059,13 +1066,18 @@
     const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
-    const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?68:44));
+    const contentElement=document.querySelector(".content");
+    const contentStyle=contentElement&&window.getComputedStyle?window.getComputedStyle(contentElement):null;
+    const contentPadding=contentStyle?(parseFloat(contentStyle.paddingLeft)||0)+(parseFloat(contentStyle.paddingRight)||0):0;
+    const availableWidth=Math.max(630,contentElement?contentElement.clientWidth-contentPadding-2:
+      viewport-(viewport>1190?252:222)-(viewport>1190?68:44));
     const hasDeviceLabels=deviceRowPages.has(state.page)&&rows.some(row=>{
       const alias=String(row.alias||"").trim(),hostname=String(row.hostname||"").trim();
       return alias&&hostname&&alias!==hostname&&hostname!==String(row.id||"");
     });
     const widths=desktopCols.map(([key,label])=>{
       const saved=Number(state.tableWidths[state.page]?.[key]);
+      if(key==="id"&&!deviceRowPages.has(state.page))return Number.isFinite(saved)&&saved>=70&&saved<=116?saved:78;
       if(Number.isFinite(saved)&&saved>=84&&saved<=720)return saved;
       const width=tableColumnWidth(key,label,state.page);
       if(dateTimeFields.has(key))return Math.max(130,Math.min(166,width));
@@ -1075,7 +1087,7 @@
       return key==="direction"?62:stackColumn.has(key)?156:Math.max(100,Math.round(width*.76));
     });
     const priorities=desktopCols.map(([key],index)=>{
-      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","to_account","from_account","from_peer","to_device_name","from_device_name",
+      const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","member_count","device_count","policy_name","control_role_name","display_name","auto_register","to_account","from_account","from_peer","to_device_name","from_device_name",
         "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
         "active","current","expired_at","login_ip"]);
@@ -1092,7 +1104,7 @@
         Math.ceil(Array.from(name).reduce((width,char)=>width+(char.codePointAt(0)>255?13:7),0)+18)),0);
       return buttons+Math.max(0,names.length-1)*5+24;
     });
-    const baseActionWidth=Math.max(158,...actionSizes);
+    const baseActionWidth=Math.max(90,...actionSizes);
     const needsDetails=!state.showAllColumns[state.page]&&
       widths.reduce((sum,width)=>sum+width,baseActionWidth)>availableWidth;
     const actionWidth=Math.min(460,baseActionWidth+(needsDetails?80:0));
@@ -1116,8 +1128,8 @@
       let remaining=Math.max(0,availableWidth-actionSize-visible.reduce(
         (sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],0));
       const expandable=desktopCols.map(([key],index)=>({key,index})).filter(({key,index})=>
-        selected.has(index)&&["id","device_id","name","alias","hostname","os","platform","last_online_ip","ip","owner_username","sources","note","remark","description","email","path","info"].includes(key));
-      const preferredMaximum=key=>key==="id"?420:
+        selected.has(index)&&["device_id","name","display_name","username","nickname","policy_name","control_role_name","issuer","alias","hostname","os","platform","last_online_ip","ip","owner_username","sources","note","remark","description","email","path","info"].includes(key));
+      const preferredMaximum=key=>key==="device_id"?320:
         ["os","platform"].includes(key)?240:
         ["last_online_ip","ip"].includes(key)?245:360;
       for(let round=0;round<5&&remaining>0;round++){
@@ -1131,27 +1143,26 @@
         }
       }
       if(remaining>0){
-        const fallback=visible.map(col=>desktopCols.indexOf(col)).filter(index=>
-          !dateTimeFields.has(desktopCols[index][0]));
-        const receivers=expandable.length?expandable.map(item=>item.index):fallback;
-        if(receivers.length){
-          const part=Math.floor(remaining/receivers.length);
-          for(const index of receivers){
-            const addition=index===receivers[receivers.length-1]?remaining:part;
-            fittedWidths[index]+=addition;
-            remaining-=addition;
-          }
-        }
+        const preferred=["name","display_name","email","username","nickname","policy_name","control_role_name","issuer","description","note","remark","path","info","hostname","device_id"];
+        const recipient=preferred.map(key=>desktopCols.findIndex((col,i)=>col[0]===key&&selected.has(i)))
+          .find(index=>index>=0);
+        const fallback=visible.map(col=>desktopCols.indexOf(col)).find(index=>
+          desktopCols[index][0]!=="id"&&!dateTimeFields.has(desktopCols[index][0]));
+        const index=recipient===undefined?fallback:recipient;
+        if(index!==undefined)fittedWidths[index]+=remaining;
       }
     }
     const tableMinWidth=visible.reduce((sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],actionSize);
     const order=state.sort[state.page]||{};
+    const computedColumns=new Set(["member_count","device_count","anchor_count","policy_name","control_role_name"]);
+    const sortableColumns=allCols.filter(([key])=>!computedColumns.has(key));
     const colgroup='<colgroup>'+visible.map(col=>'<col data-column="'+esc(col[0])+'" style="width:'+fittedWidths[desktopCols.indexOf(col)]+'px">').join("")+
       (hasActions?'<col style="width:'+actionSize+'px">':"")+'</colgroup>';
     const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
       (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
-      '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+
-      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"?"被连接设备":key==="device_id"&&loginSessionPages.has(state.page)?"客户端标识":key==="device_id"&&["activeSessions","myactiveSessions"].includes(state.page)?"被连接设备":label):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>'+
+      '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'" '+
+      (computedColumns.has(key)?'disabled aria-label="统计信息"':'')+'>'+
+      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"?"被连接设备":key==="device_id"&&loginSessionPages.has(state.page)?"客户端标识":key==="device_id"&&["activeSessions","myactiveSessions"].includes(state.page)?"被连接设备":label):label)+'<span aria-hidden="true">'+(computedColumns.has(key)?"":order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>'+
       '<span class="column-resize-handle" data-column="'+esc(key)+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整'+esc(label)+'列宽" title="拖动调整列宽，双击自动适应内容；方向键可微调"></span></th>').join("");
     const multiline=new Set(["os","platform","note","remark","info","description","sources","permissions",
       "id_whitelist","ip_whitelist","last_error","last_online_ip","ip","source_ip","client_ip","login_ip",
@@ -1173,19 +1184,23 @@
       return main+expanded;
     }).join("");
     const mobileCols=allCols.filter(([key])=>!pairedNames.has(key));
+    const primaryKey=["groups","mygroups","devicegroups","collections","tags","oauth","users"].includes(state.page)?
+      mobileCols.find(([key])=>["name","display_name","username"].includes(key))?.[0]:mobileCols[0][0];
+    const primaryColumn=mobileCols.find(([key])=>key===primaryKey)||mobileCols[0];
+    const mobileDetails=mobileCols.filter(([key])=>key!==primaryColumn[0]);
     const mobile=rows.map((row,index)=>'<article class="mobile-item"><div class="mobile-title">'+
-      colValue(row[mobileCols[0][0]],mobileCols[0][0],row)+'</div><dl>'+mobileCols.slice(1).map(([key,label])=>
+      colValue(row[primaryColumn[0]],primaryColumn[0],row)+'</div><dl>'+mobileDetails.map(([key,label])=>
       '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
       '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
       '</article>').join("");
     const mobileSort='<div class="mobile-sort"><label for="mobile-sort-column">按列排序</label><select id="mobile-sort-column" aria-label="排序字段">'+
-      allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||allCols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
+      sortableColumns.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||sortableColumns[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
       '</select><button type="button" class="btn btn-sm" data-action="mobile-sort-dir">'+(state.sort[state.page]?.dir===-1?"降序 ▼":"升序 ▲")+'</button></div>';
     const expandedActions=hidden.length?'<button type="button" class="btn btn-sm" data-action="table-columns">'+
       (state.showAllColumns[state.page]?"按窗口宽度显示":"显示全部列")+'</button>':state.showAllColumns[state.page]?
       '<button type="button" class="btn btn-sm" data-action="table-columns">按窗口宽度显示</button>':"";
     const sortSelect=hidden.length?'<label class="table-sort-label">排序字段 <select id="table-sort-column" aria-label="排序字段">'+
-      allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+(order.key===key?"selected":"")+'>'+esc(label)+'</option>').join("")+'</select></label>':"";
+      sortableColumns.map(([key,label])=>'<option value="'+esc(key)+'" '+(order.key===key?"selected":"")+'>'+esc(label)+'</option>').join("")+'</select></label>':"";
     const hint='<div class="table-scroll-hint"><span>点击列标题排序，拖动标题右侧边缘调整列宽。双击边缘可自动适应内容。</span>'+
       '<button type="button" class="btn btn-sm" data-action="table-autofit">根据内容调整列宽</button>'+sortSelect+expandedActions+'</div>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
@@ -1225,11 +1240,11 @@
     const context=document.createElement("canvas").getContext("2d");
     const minimums=columns.map(th=>{
       const key=th.dataset.column;
-      return dateTimeFields.has(key)?130:key==="id"?128:key==="os"?140:84;
+      return dateTimeFields.has(key)?130:key==="id"?(deviceRowPages.has(state.page)?150:74):key==="os"?140:84;
     });
     const caps=columns.map(th=>{
       const key=th.dataset.column;
-      return dateTimeFields.has(key)?166:key==="id"?420:key==="os"?390:480;
+      return dateTimeFields.has(key)?166:key==="id"?(deviceRowPages.has(state.page)?360:116):key==="os"?390:480;
     });
     if(minimums.reduce((sum,value)=>sum+value,0)>available){
       if(state.showAllColumns[state.page]){
@@ -1245,7 +1260,7 @@
       const key=th.dataset.column;
       const current=parseFloat(columnElements[index].style.width)||minimums[index];
       if(targetColumn&&key!==targetColumn)return current;
-      const cells=[th.querySelector(".sort-heading"),...table.querySelectorAll("tbody td[data-column]")];
+      const cells=[th.querySelector(".sort-heading"),...table.querySelectorAll('tbody td[data-column="'+key+'"]')];
       let desired=minimums[index];
       for(const cell of cells){
         if(!cell)continue;
@@ -1280,17 +1295,6 @@
           if(removed>=remaining)break;
         }
         remaining-=removed;
-      }
-    }
-    if(total()<available){
-      const expandable=columns.map((th,index)=>({key:th.dataset.column,index}))
-        .filter(item=>!dateTimeFields.has(item.key));
-      const receivers=expandable.length?expandable:columns.map((th,index)=>({key:th.dataset.column,index}));
-      let extra=available-total();
-      for(let i=0;i<receivers.length;i++){
-        const amount=i===receivers.length-1?extra:Math.floor(extra/(receivers.length-i));
-        fitted[receivers[i].index]+=amount;
-        extra-=amount;
       }
     }
     for(let i=0;i<columnElements.length;i++){
@@ -2513,6 +2517,7 @@
   }
   function renderModal(){
     const m=state.modal;if(!m)return "";
+    if(m.kind==="device-group-devices"&&deviceGroupManager)return deviceGroupManager.renderModal(m);
     if(m.kind==="entity")return entityPanel(m);
     if(m.kind==="edit"){
       const p=pages[activeKey()],fields=(p.fields||[]).filter(f=>{
@@ -2922,6 +2927,7 @@
     if(tab)tab.opener=null;
     else toast("浏览器阻止了打开新标签页，请在浏览器中允许该操作。",true);
   }
+  const deviceGroupManager=window.RustDeskDeviceGroupManager?.({state,request,render,modal,toast,esc,dateTime,deviceStatusDot,referenceText,canPageAction})||null;
   document.addEventListener("click",async event=>{
     const clickTarget=event.target;
     if(clickTarget?.closest?.(".picker-overlay")&&!clickTarget.closest(".picker-dialog")){
@@ -2934,6 +2940,8 @@
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
+    if(a==="device-group-devices"){if(deviceGroupManager)await deviceGroupManager.open(el.dataset.id);return;}
+    if(deviceGroupManager&&await deviceGroupManager.handleAction(a,el))return;
     if(a==="device-connect"){
       openWebClientDevice(el.dataset.deviceId,el.dataset.deviceName);
       return;
@@ -3892,6 +3900,7 @@
   });
   document.addEventListener("input",event=>{
     const el=event.target;
+    if(deviceGroupManager?.handleInput(el))return;
     if(el.classList.contains("picker-query")&&el.closest(".picker-dialog")){
       const dialog=el.closest(".picker-dialog");
       clearTimeout(dialog.searchTimer);
@@ -3921,6 +3930,7 @@
   });
   document.addEventListener("change",async event=>{
     const el=event.target;
+    if(deviceGroupManager?.handleChange(el))return;
     if(["type","source_type","target_type","scope_type"].includes(el.name)&&el.closest("#edit-form")){
       const form=el.closest("#edit-form");
       form.querySelectorAll('.entity-picker[data-picker-dep="'+el.name+'"]').forEach(picker=>{

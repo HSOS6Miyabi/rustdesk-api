@@ -12,7 +12,7 @@ import (
  "github.com/gin-gonic/gin"
 )
 
-var consoleAssets = []string{"style.css", "client-local.js", "passkey.js", "app.js"}
+var consoleAssets = []string{"style.css", "client-local.js", "passkey.js", "device-group-manager.js", "app.js"}
 
 func consoleFileHash(content []byte) string {
  digest := sha256.Sum256(content)

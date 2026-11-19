@@ -85,6 +85,10 @@ func (ct *Group) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.GroupService.List(query.Page, query.PageSize, nil, query.SortBy, query.SortDir)
+	if err := service.EnrichGroupDirectory(res.Groups); err != nil {
+		response.Error(c, err.Error())
+		return
+	}
 	response.Success(c, res)
 }
 

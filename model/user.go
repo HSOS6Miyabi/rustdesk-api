@@ -13,6 +13,7 @@ type User struct {
 	Status   StatusCode `json:"status" gorm:"default:1;not null;"`
 	Remark   string     `json:"remark" gorm:"default:'';not null;"`
 	TimeModel
+	DeviceCount int64 `json:"device_count" gorm:"-"`
 }
 
 // BeforeSave 钩子用于确保 email 字段有合理的默认值

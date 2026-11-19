@@ -148,6 +148,8 @@ func DeviceGroupBind(rg *gin.RouterGroup) {
 		cont := &admin.DeviceGroup{}
 		aR.GET("/list", cont.List)
 		aR.GET("/detail/:id", cont.Detail)
+		aR.GET("/devices", cont.Devices)
+		aR.POST("/devices/batch", cont.BatchDevices)
 		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
 		aR.POST("/delete", cont.Delete)

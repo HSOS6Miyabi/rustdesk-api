@@ -32,6 +32,10 @@ func (m *MyGroup) List(c *gin.Context) {
 	if querySize > 100 { querySize = 100 }
 	user := service.AllService.UserService.CurUser(c)
 	result := service.AllService.GroupService.OwnedGroups(user.Id, uint(queryPage), uint(querySize),c.Query("sort_by"),c.Query("sort_dir"))
+	if err := service.EnrichGroupDirectory(result.Groups); err != nil {
+		response.Error(c, err.Error())
+		return
+	}
 	response.Success(c, result)
 }
 
