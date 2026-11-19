@@ -16,9 +16,10 @@ func TestConsoleAssetsChangeURLsAndRemainCacheable(t *testing.T) {
  gin.SetMode(gin.TestMode)
  root := t.TempDir()
  files := map[string]string{
-  "index.html": `<html><head><link rel="stylesheet" href="/_admin/style.css"><script src="/_admin/client-local.js" defer></script><script src="/_admin/passkey.js" defer></script><script src="/_admin/app.js" defer></script></head><body></body></html>`,
+  "index.html": `<html><head><link rel="stylesheet" href="/_admin/style.css"><script src="/_admin/client-local.js" defer></script><script src="/_admin/passkey.js" defer></script><script src="/_admin/device-group-manager.js" defer></script><script src="/_admin/app.js" defer></script></head><body></body></html>`,
   "style.css": ".base{color:red}", "app.js": "console.log('first');",
   "passkey.js": "console.log('passkey');", "client-local.js": "console.log('builder');",
+  "device-group-manager.js": "console.log('group manager');",
   "favicon.svg": `<svg xmlns="http://www.w3.org/2000/svg"></svg>`,
  }
  for name, body := range files {
@@ -43,6 +44,12 @@ func TestConsoleAssetsChangeURLsAndRemainCacheable(t *testing.T) {
  assetPattern:=regexp.MustCompile(`/_admin/assets/[0-9a-f]{20}/app\.js`)
  oldURL:=assetPattern.FindString(index.Body.String())
  if oldURL=="" {t.Fatalf("app.js lacks fingerprinted URL: %s",index.Body.String())}
+ groupPattern:=regexp.MustCompile(`/_admin/assets/[0-9a-f]{20}/device-group-manager\\.js`)
+ groupURL:=groupPattern.FindString(index.Body.String())
+ if groupURL=="" {t.Fatalf("device group management script lacks fingerprinted URL: %s",index.Body.String())}
+ if script:=call(groupURL,""); script.Code!=200 || script.Body.String()!=files["device-group-manager.js"] {
+  t.Fatalf("device group management script response: %d",script.Code)
+ }
  cache := call(oldURL,"")
  if cache.Code!=200 || cache.Body.String()!=files["app.js"] {t.Fatalf("versioned asset response: %d %q",cache.Code,cache.Body.String())}
  if !strings.Contains(cache.Header().Get("Cache-Control"),"immutable") || !strings.Contains(cache.Header().Get("Cache-Control"),"31536000") {t.Fatalf("asset must retain long-lived cache: %v",cache.Header())}
