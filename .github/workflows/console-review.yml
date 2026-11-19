@@ -1,0 +1,140 @@
+name: Console table and device group review
+on:
+  push:
+    branches: [fix/console-density-device-members-20261119]
+    paths: [.console-review/**, .github/workflows/console-review.yml]
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      REDIS_TEST_ADDR: 127.0.0.1:6379
+      REPORT: /tmp/console-review-results
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare reviewed source
+        id: source
+        run: |
+          mkdir -p "$REPORT"
+          python3 - <<'PY'
+          import hashlib, json, lzma, shutil
+          from pathlib import Path
+          data=b''.join(Path('.console-review/part'+str(i)).read_bytes() for i in range(1,5))
+          assert hashlib.sha256(data).hexdigest()=='4b0da148718c5096cafd239d6ebf34e80a88aafcf1a4dded618088509414b91a'
+          for change in json.loads(lzma.decompress(data)):
+              p=Path(change['path'])
+              text=p.read_text() if p.exists() else ''
+              assert hashlib.sha256(text.encode()).hexdigest()==change['sha256'], str(p)
+              for a,b,replacement in reversed(change['edits']):
+                  text=text[:a]+replacement+text[b:]
+              p.parent.mkdir(parents=True, exist_ok=True)
+              p.write_text(text)
+          shutil.rmtree('.console-review')
+          Path('.github/workflows/console-workspace.yml').unlink()
+          Path('.github/workflows/console-review.yml').unlink()
+          PY
+          git add -A
+          git diff --cached --check
+          git diff --cached --stat | tee "$REPORT/changes.txt"
+          git write-tree > "$REPORT/tested-tree.txt"
+          git archive "$(cat "$REPORT/tested-tree.txt")" | gzip > "$REPORT/source.tar.gz"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript tests and API inventory
+        id: unit
+        continue-on-error: true
+        run: |
+          node --check resources/admin/app.js
+          node --check resources/admin/browser.e2e.cjs
+          node --test resources/admin/app.test.cjs resources/admin/client-local.test.cjs resources/web2/app.test.cjs | tee "$REPORT/javascript.txt"
+          python3 scripts/test_frontend_api_contract.py --static | tee "$REPORT/api-inventory.txt"
+          python3 scripts/verify_task_ledger.py | tee "$REPORT/documentation.txt"
+      - name: Go tests
+        id: go_tests
+        continue-on-error: true
+        run: go test ./... -count=1 2>&1 | tee "$REPORT/go.txt"
+      - name: Concurrent group management tests
+        id: race
+        continue-on-error: true
+        run: go test -race ./service ./http/controller/admin -run 'TestDeviceGroup|TestConsole.*Summar' -count=1 -v 2>&1 | tee "$REPORT/race.txt"
+      - name: Real API requests
+        id: api
+        continue-on-error: true
+        run: |
+          go build -o /tmp/rustdesk-passkey-api ./cmd/apimain.go
+          python3 scripts/test_frontend_api_contract.py /tmp/rustdesk-passkey-api 2>&1 | tee "$REPORT/api.txt"
+          bash scripts/test_settings_startup.sh /tmp/rustdesk-passkey-api 2>&1 | tee "$REPORT/startup.txt"
+      - name: Install browser and fonts
+        run: |
+          mkdir -p "$HOME/.local/share/fonts"
+          curl --fail --location --silent --show-error --retry 4 --connect-timeout 20 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf --output "$HOME/.local/share/fonts/NotoSansCJKsc-Regular.otf"
+          fc-cache -f "$HOME/.local/share/fonts"
+          fc-match -f '%{family}\n' 'Noto Sans CJK SC' | grep -F 'Noto Sans CJK SC'
+          npm --prefix resources/admin install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.0
+          resources/admin/node_modules/.bin/playwright install --with-deps chromium
+          npm ci --prefix resources/web/js --no-audit --no-fund
+          npm run build --prefix resources/web/js
+      - name: Responsive interaction and screenshots
+        id: browser
+        continue-on-error: true
+        env:
+          RUSTDESK_VISUAL_AUDIT: '1'
+          RUSTDESK_REQUIRE_CJK_FONT: '1'
+        run: node --test resources/admin/browser.e2e.cjs 2>&1 | tee "$REPORT/browser.txt"
+      - name: WebRTC and Passkey integration
+        id: integration
+        continue-on-error: true
+        run: |
+          node --test resources/web/js/tests/*.test.cjs resources/admin/browser.webrtc.e2e.cjs 2>&1 | tee "$REPORT/webrtc.txt"
+          node --test resources/admin/passkey.integration.cjs 2>&1 | tee "$REPORT/passkey.txt"
+      - name: Create screenshot galleries
+        if: always() && steps.source.outcome == 'success'
+        run: |
+          if test -f resources/admin/test-screenshots/audit/layout-report.json; then
+            python3 -m pip install --quiet pillow
+            python3 scripts/create_visual_review_gallery.py resources/admin/test-screenshots/audit resources/admin/test-screenshots/contact-sheets
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: console-review-results
+          path: /tmp/console-review-results
+          retention-days: 7
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: console-review-screenshots
+          path: resources/admin/test-screenshots
+          retention-days: 7
+          if-no-files-found: warn
+          compression-level: 0
+      - name: Require every test suite
+        env:
+          UNIT: ${{ steps.unit.outcome }}
+          GO: ${{ steps.go_tests.outcome }}
+          RACE: ${{ steps.race.outcome }}
+          API: ${{ steps.api.outcome }}
+          BROWSER: ${{ steps.browser.outcome }}
+          INTEGRATION: ${{ steps.integration.outcome }}
+        run: |
+          for status in "$UNIT" "$GO" "$RACE" "$API" "$BROWSER" "$INTEGRATION"; do test "$status" = success; done
+      - name: Save verified source
+        run: |
+          test "$(git write-tree)" = "$(cat "$REPORT/tested-tree.txt")"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: enrich console tables and manage device group members'
+          git push origin "HEAD:$GITHUB_REF_NAME"
