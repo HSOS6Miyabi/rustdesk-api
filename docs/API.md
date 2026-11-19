@@ -341,6 +341,36 @@ curl -X POST -H "Authorization: Bearer ${RUSTDESK_AUTOMATION_TOKEN}" \
 
 `GET /api/device-policy/current?device_id=desk-123456` 现在还返回 `source` 和 `policy_id`，便于查看配置来源。客户端心跳仍使用原生 `modified_at`、`strategy.config_options` 格式。
 
+## 设备分组管理与列表统计
+
+管理控制台会将关联对象的统计信息直接附加到已有列表的 `list` 数组中：
+
+| 接口 | 新增字段 | 含义 |
+| --- | --- | --- |
+| `GET /api/admin/group/list` | `member_count`、`device_count`、`anchor_count` | 用户组成员数量、成员拥有的设备数量、公共成员数量 |
+| `GET /api/admin/my/group/list` | 同上 | 当前账户拥有的用户分组统计 |
+| `GET /api/admin/device_group/list` | `device_count`、`policy_name`、`control_role_name` | 设备数量、关联安全策略及控制角色名称 |
+| `GET /api/admin/user/list` | `device_count` | 账户拥有的已登记设备数量 |
+
+用户组成员数量按主要分组与附加分组去重后统计。设备分组中的 `device_count` 仅统计当前分组内的设备，两处设备数量的统计范围不同。关联策略或角色未配置时，名称为空。
+
+设备分组另有两个成员设备管理接口：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/admin/device_group/devices?group_id=3&page=1&page_size=20&keyword=desk` | 分页查询第 3 组内的设备，可按设备信息筛选 |
+| `POST` | `/api/admin/device_group/devices/batch` | 批量加入或移出组内设备 |
+
+批量加入请求示例：
+
+```json
+{"group_id":3,"peer_row_ids":[11,22],"action":"add"}
+```
+
+将 `action` 改为 `remove`，即可从指定组移出设备。这里的 `peer_row_ids` 使用设备登记记录的 `row_id`，每次可提交 1 至 100 个编号。服务器会检查设备记录、目标分组及原有分组关系，并在同一数据库事务中完成修改。移出操作只修改设备的 `group_id`，设备身份、所有者和其他资料保留。加入时，原属于其他设备分组的记录将转移到目标分组。
+
+读取组内设备需要 `device_groups.view` 与全局 `devices.view` 权限；批量修改需要 `device_groups.edit` 与全局 `devices.edit_info` 权限。仅允许查看某些用户设备的管理员角色无法通过这两个接口查看或修改其他范围内的设备。列表查询的 `page_size` 最多为 100。
+
 ## 活动远程连接与结束会话
 
 管理员可以查看设备最近报告的活动连接：

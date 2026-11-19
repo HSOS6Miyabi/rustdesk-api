@@ -56,6 +56,14 @@ bash scripts/test_settings_startup.sh /tmp/rustdesk-api
 
 WebClient 编译、真实客户端协议和 Chromium 浏览器测试见 [测试说明](TESTING.md)。GitHub Actions 也会执行 SQLite、MySQL、PostgreSQL 迁移检查和 Docker 构建测试。
 
+## 管理控制台与设备分组
+
+管理控制台位于 `resources/admin/`，通用表格与交互在 `app.js`，设备分组成员管理在 `device-group-manager.js`，桌面与移动端样式在 `style.css`。设备分组路由由 `http/router/admin.go` 注册，控制器位于 `http/controller/admin/device_group_members.go`，数据库操作位于 `service/device_group_members.go`，列表统计位于 `service/group_directory_summary.go`。
+
+设备分组可以直接分页查看设备、搜索与跨页选择成员，并批量加入或移出设备。操作针对设备数据库记录编号 `row_id`，每次最多 100 台。服务器会验证管理员权限及设备原有分组，通过数据库事务更新 `group_id`，保留设备登记记录和所有者。用户组和设备组的成员与设备数量在列表接口中计算。
+
+使用方法见 [控制台与服务器管理](CONSOLE_MANAGEMENT.md)，请求字段见 [API 使用说明](API.md)，自动化测试和 Chromium 截图检查见 [测试说明](TESTING.md)。
+
 ## 版本与发布
 
 普通代码提交与拉取请求仅执行自动化检查。正式 Release 和 Docker 镜像发布必须先完成相应测试并取得明确批准。发布记录应写明 API、Server、客户端和数据库的兼容版本。

@@ -382,6 +382,18 @@ RUSTDESK_VISUAL_AUDIT=1 node --test --test-name-pattern="responsive data tables"
 
 测试会逐一打开有示例数据的列表，检查桌面、笔记本、平板、手机以及普通用户界面。检查内容包括表格各列的实际宽度、连接方向和设备 ID 是否发生意外换行、表格横向滚动、手机详情卡片和页面整体宽度。截图与逐页检查结果保存在 resources/admin/test-screenshots/table-layout/，可通过 GitHub Actions 的完整截图压缩包下载。
 
+## 设备分组、列表统计和列宽检查
+
+设备分组通过设备登记记录的编号批量修改成员关系。相关测试会检查分页查询、关键词搜索、重复选择、跨分组转移、移出分组、事务回滚和设备所有者保持不变。用户分组统计测试覆盖主要成员与附加成员去重、设备数量，以及关联的安全策略名称和控制角色名称。执行：
+
+```bash
+go test ./service -run 'TestDeviceGroupMembershipChangesOnlySelectedRegisteredRows|TestDeviceGroupDirectoryProvidesAccurateTotalsAndPolicies|TestGroupDirectoryCountsMembersAndOwnedDevices' -count=1
+node --test resources/admin/app.test.cjs
+RUSTDESK_VISUAL_AUDIT=1 RUSTDESK_REQUIRE_CJK_FONT=1 node --test resources/admin/browser.e2e.cjs
+```
+
+浏览器检查覆盖 1024px 笔记本、常规桌面、超宽屏、平板和手机，检查编号列宽度、重要字段是否可见、表格是否填满容器、自动调整列宽后的排版，以及设备分组的搜索、选择和批量操作。实际接口联调按照下文说明启动临时 API 服务，使用独立的测试数据库。
+
 ## 管理界面的布局检查
 
 安装 Playwright、Chromium 和 Noto Sans CJK SC 简体中文字体后，可以执行以下命令：
