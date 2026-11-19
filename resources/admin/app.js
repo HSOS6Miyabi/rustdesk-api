@@ -1088,7 +1088,7 @@
     });
     const priorities=desktopCols.map(([key],index)=>{
       const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","member_count","device_count","policy_name","control_role_name","display_name","auto_register","to_account","from_account","from_peer","to_device_name","from_device_name",
-        "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
+        "last_online_time","last_online_ip","ip","os","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
         "active","current","expired_at","login_ip"]);
       const participantPages=new Set(["myconnections","connections","mytransfers","transfers"]);
@@ -1119,10 +1119,10 @@
           const shrinkable=[...selected].map(index=>{
             const key=desktopCols[index][0];
             const minimum=key==="id"?(deviceRowPages.has(state.page)?156:74):
-              dateTimeFields.has(key)?130:key==="status"?108:widths[index];
+              dateTimeFields.has(key)?130:key==="os"?190:key==="status"?108:widths[index];
             return {index,capacity:Math.max(0,widths[index]-minimum)};
           }).filter(item=>item.capacity>0).sort((a,b)=>b.capacity-a.capacity);
-          if(deficit>110||shrinkable.reduce((sum,item)=>sum+item.capacity,0)<deficit)continue;
+          if(deficit>130||shrinkable.reduce((sum,item)=>sum+item.capacity,0)<deficit)continue;
           let rest=deficit;
           for(const {index,capacity} of shrinkable){
             const reduction=Math.min(rest,capacity);

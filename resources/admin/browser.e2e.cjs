@@ -1680,7 +1680,8 @@ test("responsive data tables keep columns readable across screen sizes",async()=
             assert.ok(result.hasScrollableRegion,"Wide table cannot scroll on "+role+" "+key);
           const cellWidths=await page.locator(".data-table tbody tr:first-child td:not(.cell-actions)").evaluateAll(cells=>
             cells.map(cell=>({label:cell.dataset.column,width:cell.getBoundingClientRect().width})));
-          assert.ok(cellWidths.every(item=>item.label==="direction"?item.width>=48:item.width>=78),
+          assert.ok(cellWidths.every(item=>item.label==="direction"?item.width>=48:
+            item.label==="id"?item.width>=70:item.width>=78),
             "Found compressed columns in "+role+" "+key+": "+JSON.stringify(cellWidths));
         }else{
           assert.ok(result.cardsVisible&&result.cardCount>0,
@@ -2826,6 +2827,8 @@ test("desktop data tables fill the available panel width with compact date colum
           pageName+" at "+width+"px: date column is too wide");
         assert.equal(geometry.timeLines,2,"date and time must remain on separate lines");
       }
+      if((pageName==="mydevices"||pageName==="devices")&&width===1024)
+        assert.ok(geometry.systemWidth!==null,"device system details must remain visible at 1024px");
       if(geometry.systemWidth!==null)assert.ok(geometry.systemWidth>=190,
         "operating system names require a readable column");
       await captureManagementScreenshot(page,"table-fullwidth-"+pageName+"-"+width+".png");
