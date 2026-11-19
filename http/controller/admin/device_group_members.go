@@ -48,6 +48,16 @@ func (ct *DeviceGroup) BatchDevices(c *gin.Context) {
 		response.Fail(c, 101, "请填写设备分组及设备记录编号")
 		return
 	}
+	user := service.AllService.UserService.CurUser(c)
+	scope, err := service.RoleAccessForUser(user, "devices.edit_info")
+	if err != nil {
+		response.Error(c, err.Error())
+		return
+	}
+	if !scope.Global {
+		response.Fail(c, 403, "当前账户无权管理设备分组成员")
+		return
+	}
 	if err := service.AllService.GroupService.ChangeDeviceGroupMembers(input.GroupID, input.PeerRowIDs, input.Action); err != nil {
 		response.Fail(c, 101, err.Error())
 		return

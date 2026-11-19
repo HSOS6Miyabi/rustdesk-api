@@ -1114,7 +1114,22 @@
       desktopCols.forEach((_,i)=>selected.add(i));
     }else{
       for(const i of ordered){
-        if(selected.size>0&&needed+widths[i]>availableWidth)continue;
+        if(selected.size>0&&needed+widths[i]>availableWidth){
+          const deficit=Math.ceil(needed+widths[i]-availableWidth);
+          const shrinkable=[...selected].map(index=>{
+            const key=desktopCols[index][0];
+            const minimum=key==="id"?(deviceRowPages.has(state.page)?156:74):
+              dateTimeFields.has(key)?130:key==="status"?108:widths[index];
+            return {index,capacity:Math.max(0,widths[index]-minimum)};
+          }).filter(item=>item.capacity>0).sort((a,b)=>b.capacity-a.capacity);
+          if(deficit>110||shrinkable.reduce((sum,item)=>sum+item.capacity,0)<deficit)continue;
+          let rest=deficit;
+          for(const {index,capacity} of shrinkable){
+            const reduction=Math.min(rest,capacity);
+            widths[index]-=reduction;needed-=reduction;rest-=reduction;
+            if(rest===0)break;
+          }
+        }
         selected.add(i);needed+=widths[i];
       }
       if(!selected.size)selected.add(0);
@@ -1296,6 +1311,30 @@
         }
         remaining-=removed;
       }
+    }
+    if(total()<available){
+      const maximums=columns.map((th,index)=>{
+        const key=th.dataset.column;
+        if(key==="id"||dateTimeFields.has(key))return fitted[index];
+        if(key==="os"||key==="platform")return 360;
+        if(["ip","last_online_ip","source_ip","login_ip","client_ip"].includes(key))return 245;
+        if(["note","remark","description","info","path"].includes(key))return 680;
+        return 420;
+      });
+      let extra=available-total();
+      const receivers=columns.map((th,index)=>({index,key:th.dataset.column}))
+        .filter(({key})=>key!=="id"&&!dateTimeFields.has(key));
+      for(let round=0;round<receivers.length+2&&extra>0;round++){
+        const eligible=receivers.filter(({index})=>fitted[index]<maximums[index]);
+        if(!eligible.length)break;
+        const share=Math.max(1,Math.ceil(extra/eligible.length));
+        for(const {index} of eligible){
+          const gain=Math.min(extra,share,maximums[index]-fitted[index]);
+          fitted[index]+=gain;extra-=gain;
+          if(extra===0)break;
+        }
+      }
+      if(extra>0&&receivers.length)fitted[receivers[0].index]+=extra;
     }
     for(let i=0;i<columnElements.length;i++){
       const width=Math.round(fitted[i]);

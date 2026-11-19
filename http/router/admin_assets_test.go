@@ -44,7 +44,7 @@ func TestConsoleAssetsChangeURLsAndRemainCacheable(t *testing.T) {
  assetPattern:=regexp.MustCompile(`/_admin/assets/[0-9a-f]{20}/app\.js`)
  oldURL:=assetPattern.FindString(index.Body.String())
  if oldURL=="" {t.Fatalf("app.js lacks fingerprinted URL: %s",index.Body.String())}
- groupPattern:=regexp.MustCompile(`/_admin/assets/[0-9a-f]{20}/device-group-manager\\.js`)
+ groupPattern:=regexp.MustCompile(`/_admin/assets/[0-9a-f]{20}/device-group-manager\.js`)
  groupURL:=groupPattern.FindString(index.Body.String())
  if groupURL=="" {t.Fatalf("device group management script lacks fingerprinted URL: %s",index.Body.String())}
  if script:=call(groupURL,""); script.Code!=200 || script.Body.String()!=files["device-group-manager.js"] {

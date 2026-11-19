@@ -67,7 +67,7 @@ window.RustDeskDeviceGroupManager = function createDeviceGroupManager(deps) {
 
   function renderModal(m) {
     const adding = m.mode === "add";
-    const canEdit = canPageAction("devicegroups","edit");
+    const canEdit = canPageAction("devicegroups","edit") && canPageAction("devices","edit");
     const name = String(m.group.name || m.group.id);
     const switcher = '<div class="device-group-tabs" role="group" aria-label="设备分组管理方式">'+
       '<button type="button" class="btn '+(!adding?'btn-primary':'')+'" data-action="device-group-tab" data-mode="members" aria-pressed="'+!adding+'">组内设备</button>'+
