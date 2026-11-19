@@ -41,6 +41,8 @@ func AdminPermissionForRoute(method,path string)string{
 	case strings.HasPrefix(p,"/group/"):
 		if read{return "user_groups.view"}
 		if write{return "user_groups.edit"}
+	case p=="/device_group/candidates":
+		if read{return "device_groups.edit"}
 	case strings.HasPrefix(p,"/device_group/"):
 		if read{return "device_groups.view"}
 		if write{return "device_groups.edit"}

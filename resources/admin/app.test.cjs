@@ -1430,3 +1430,42 @@ test("OIDC callback carries approved device metadata between mobile tabs",async(
   assert.deepEqual(app.assigned,["/webclient2/?id=464956471&name=meili"]);
   assert.equal(app.local.getItem("rustdesk.console.token"),"mobile-sso-token");
 });
+
+test("sparse resource tables keep numeric identifiers compact and request summaries",async()=>{
+  const app=createConsole(true,{}, {"rustdesk.console.table-widths":JSON.stringify({groups:{id:640},users:{id:600}})});
+  app.fixtures["/group/list"]={list:[{id:1,name:"实验室",type:3,member_count:24,device_count:42,anchor_count:2,owner_user_id:0,created_at:"2026-11-19 12:00:00"}],total:1};
+  app.fixtures["/user/list"]={list:[{id:1,username:"admin",nickname:"管理员",group_id:1,is_admin:true,device_count:8,status:1,created_at:"2026-11-19 12:00:00"}],total:1};
+  await app.settle();await app.settle();
+  for(const page of ["groups","users"]){
+    await app.open(page);
+    const width=Number(app.root.innerHTML.match(/<col data-column="id" style="width:(\d+)px">/)?.[1]);
+    assert.ok(width>=80&&width<=124,"numeric ID width must remain compact: "+width);
+    assert.ok(app.calls.some(call=>call.endpoint===(page==="groups"?"/group/list":"/user/list")&&call.query.includes("summary=1")));
+    assert.doesNotMatch(app.root.innerHTML,/data-action="sort-table" data-column="device_count"/);
+    assert.match(app.root.innerHTML,/设备数量|成员设备数/);
+  }
+  await app.open("groups");
+  assert.match(app.root.innerHTML,/24 人/);assert.match(app.root.innerHTML,/42 台/);assert.match(app.root.innerHTML,/系统创建/);
+});
+
+test("device group drawer displays paginated members and useful device identity",async()=>{
+  const app=createConsole(true);
+  app.fixtures["/device_group/list"]={list:[{id:3,name:"服务器",device_count:25,active_count:21,group_policy:"服务器策略",control_role:"只读",last_active_at:1795060000}],total:1};
+  app.fixtures["/device_group/devices"]={list:[{row_id:5,id:"100001",alias:"数据库服务器",hostname:"db-01",os:"Linux",group_id:3,group_name:"服务器",owner_username:"admin",last_online_time:1795060000}],total:25};
+  await app.settle();await app.settle();await app.open("devicegroups");
+  assert.match(app.root.innerHTML,/服务器策略/);assert.match(app.root.innerHTML,/25 台/);
+  await app.action("device-group-devices",3);
+  assert.match(app.root.innerHTML,/device-group-drawer/);assert.match(app.root.innerHTML,/数据库服务器/);
+  assert.match(app.root.innerHTML,/共 25 台 · 第 1 \/ 2 页/);assert.match(app.root.innerHTML,/添加设备/);
+  assert.ok(app.calls.some(call=>call.endpoint==="/device_group/devices"&&call.query.includes("page_size=20")));
+});
+
+test("read-only group administrators can inspect members without selection controls",async()=>{
+  const app=createConsole(false);
+  app.fixtures["/user/current"].route_names=["device_groups.view"];
+  app.fixtures["/device_group/list"]={list:[{id:3,name:"服务器",device_count:1}],total:1};
+  app.fixtures["/device_group/devices"]={list:[{row_id:5,id:"100001",group_id:3,hostname:"server"}],total:1};
+  await app.settle();await app.settle();await app.open("devicegroups");await app.action("device-group-devices",3);
+  assert.match(app.root.innerHTML,/组内设备/);assert.doesNotMatch(app.root.innerHTML,/data-action="device-group-apply"/);
+  assert.doesNotMatch(app.root.innerHTML,/data-tab="candidates"/);assert.doesNotMatch(app.root.innerHTML,/data-member-row=/);
+});

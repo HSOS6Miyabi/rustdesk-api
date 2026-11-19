@@ -119,7 +119,13 @@ func (ct *User) List(c *gin.Context) {
 			if err:=tx.Count(&records.Total).Error;err!=nil{response.Error(c,err.Error());return}
 			if err:=tx.Scopes(service.Paginate(query.Page,query.PageSize), service.SortScope(query.SortBy,query.SortDir)).
 				Find(&records.Users).Error;err!=nil{response.Error(c,err.Error());return}
-			response.Success(c,records)
+			if c.Query("summary") == "1" {
+			rows, err := service.SummarizeConsoleUsers(records.Users)
+			if err != nil { response.Error(c, err.Error()); return }
+			response.Success(c, gin.H{"list":rows,"total":records.Total,"page":records.Page,"page_size":records.PageSize})
+			return
+		}
+		response.Success(c,records)
 			return
 		}
 	}
@@ -129,7 +135,13 @@ func (ct *User) List(c *gin.Context) {
 			tx.Where("username like ?", "%"+query.Username+"%")
 		}
 	},query.SortBy,query.SortDir)
-	response.Success(c, res)
+	if c.Query("summary") == "1" {
+			rows, err := service.SummarizeConsoleUsers(res.Users)
+			if err != nil { response.Error(c, err.Error()); return }
+			response.Success(c, gin.H{"list":rows,"total":res.Total,"page":res.Page,"page_size":res.PageSize})
+			return
+		}
+		response.Success(c, res)
 }
 
 // Update 编辑

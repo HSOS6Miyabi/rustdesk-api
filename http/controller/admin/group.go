@@ -85,6 +85,15 @@ func (ct *Group) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.GroupService.List(query.Page, query.PageSize, nil, query.SortBy, query.SortDir)
+	if c.Query("summary") == "1" {
+		rows, err := service.SummarizeConsoleGroups(res.Groups)
+		if err != nil {
+			response.Error(c, err.Error())
+			return
+		}
+		response.Success(c, gin.H{"list": rows, "total": res.Total, "page": res.Page, "page_size": res.PageSize})
+		return
+	}
 	response.Success(c, res)
 }
 

@@ -894,3 +894,7 @@ Content-Type: application/json
 用户也可以添加 `kind: "webhook"` 推送渠道，服务器将事件转换为 JSON，使用 `POST` 发送到用户配置的 HTTPS 地址；可选 Bearer 密钥，并保留失败重试和发送记录。`connection.started` 表示远程连接开始建立；`connection.authenticated` 表示该连接已经通过身份认证。
 
 完整的事件代码、JSON 字段、密钥管理 API、curl 示例、发送重试、安全设置和多实例部署说明，请阅读 [消息推送与实时事件接口](PUSH_NOTIFICATIONS.md)。
+
+## 设备分组成员与控制台摘要
+
+`GET /api/admin/device_group/devices` 查询组内设备，`GET /api/admin/device_group/candidates` 查询可以加入的设备，`POST /api/admin/device_group/devices/batch` 批量修改设备分组。设备与用户分组列表以及用户账户列表可通过 `summary=1` 获取数量摘要。权限、分页参数及请求示例见 [控制台表格与设备分组](CONSOLE_TABLES_AND_DEVICE_GROUPS.md)。

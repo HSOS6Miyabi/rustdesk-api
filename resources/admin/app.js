@@ -67,14 +67,14 @@
     shared: {name:"共享设备",icon:"share",section:"工作空间",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["owner_username","设备所有者"],["sources","共享来源"],["last_online_time","最后在线"]]},
     contacts: {name:"联系人",icon:"users",section:"工作空间"},
     addressbooks: {name:"地址簿",icon:"book",section:"工作空间",endpoint:"address_book",columns:[["id","设备 ID"],["alias","备注"],["hostname","主机名"],["username","登录账户"],["platform","平台"]],fields:[["id","设备 ID","text",true],["alias","备注"],["hostname","主机名"],["username","登录账户"],["password","连接密码","password"],["platform","平台"],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"],["forceAlwaysRelay","强制使用中继","checkbox"]]},
-    collections: {name:"地址簿分类",icon:"folder",section:"工作空间",endpoint:"address_book_collection",columns:[["id","编号"],["name","分类名称"],["user_id","所有者 ID"]],fields:[["name","名称","text",true],["user_id","所有者 ID","number",true]]},
-    tags: {name:"设备标签",icon:"tag",section:"工作空间",endpoint:"tag",columns:[["id","编号"],["name","标签名称"],["color","颜色"],["collection_id","地址簿 ID"]],fields:[["name","名称","text",true],["color","颜色","color",true],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"]]},
-    mygroups: {name:"我的群组",icon:"layers",section:"个人管理",endpoint:"my/group",columns:[["id","编号"],["name","群组名称"],["type","分组类型"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
-    groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,columns:[["id","编号"],["name","分组名称"],["type","分组类型"],["owner_user_id","创建者用户 ID"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
-    users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"keyword",columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["status","状态"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
+    collections: {name:"地址簿分类",icon:"folder",section:"工作空间",endpoint:"address_book_collection",columns:[["id","编号"],["name","分类名称"],["user_id","所有者 ID"],["created_at","创建时间"],["updated_at","修改时间"]],fields:[["name","名称","text",true],["user_id","所有者 ID","number",true]]},
+    tags: {name:"设备标签",icon:"tag",section:"工作空间",endpoint:"tag",columns:[["id","编号"],["name","标签名称"],["color","颜色"],["collection_id","地址簿 ID"],["created_at","创建时间"],["updated_at","修改时间"]],fields:[["name","名称","text",true],["color","颜色","color",true],["user_id","所有者 ID","number"],["collection_id","地址簿 ID","number"]]},
+    mygroups: {name:"我的群组",icon:"layers",section:"个人管理",endpoint:"my/group",summary:true,unsortable:["member_count","device_count","anchor_count"],columns:[["id","编号"],["name","群组名称"],["type","分组类型"],["member_count","成员数"],["device_count","成员设备数"],["anchor_count","公共成员数"],["created_at","创建时间"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
+    groups: {name:"用户分组",icon:"layers",section:"成员管理",endpoint:"group",admin:true,summary:true,unsortable:["member_count","device_count","anchor_count"],columns:[["id","编号"],["name","分组名称"],["type","分组类型"],["member_count","成员数"],["device_count","成员设备数"],["anchor_count","公共成员数"],["owner_user_id","创建者"],["created_at","创建时间"]],fields:[["name","名称","text",true],["type","类型","group_type",true]]},
+    users: {name:"用户账户",icon:"users",section:"成员管理",endpoint:"user",admin:true,search:"keyword",summary:true,unsortable:["device_count"],columns:[["id","编号"],["username","用户名"],["nickname","昵称"],["email","邮箱"],["group_id","主要分组"],["is_admin","账户类型"],["device_count","设备数量"],["status","状态"],["created_at","创建时间"],["remark","备注"]],fields:[["username","用户名","text",true],["password","初始密码","password",true],["nickname","昵称"],["email","邮箱","email"],["group_id","主要分组 ID","number",true],["is_admin","管理员","checkbox"],["status","账户状态","status"],["remark","备注","textarea"]]},
     deployed: {name:"设备部署记录",icon:"monitor",section:"设备管理",endpoint:"device_deployment",admin:true,readonly:true,columns:[["id","编号"],["device_id","设备 ID"],["owner_user_id","部署账户 ID"],["status","部署状态"],["created_at","部署时间"]]},
-    devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,columns:[["id","编号"],["name","名称"]],fields:[["name","名称","text",true]]},
-    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["display_name","显示名称"],["op","认证标识"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"]],fields:[["display_name","登录按钮名称"],["op","认证标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
+    devicegroups: {name:"设备分组",icon:"grid",section:"设备管理",endpoint:"device_group",admin:true,summary:true,unsortable:["device_count","active_count","group_policy","control_role","last_active_at"],columns:[["id","编号"],["name","分组名称"],["device_count","设备数量"],["active_count","近期活跃"],["group_policy","组安全策略"],["control_role","组控制角色"],["last_active_at","最近活动"],["updated_at","修改时间"]],fields:[["name","名称","text",true]]},
+    oauth: {name:"OIDC / SSO",icon:"key",section:"系统管理",endpoint:"oauth",admin:true,columns:[["id","编号"],["display_name","显示名称"],["op","认证标识"],["oauth_type","类型"],["issuer","颁发者"],["auto_group_ids","自动加入分组"],["auto_register","自动注册"],["pkce_enable","PKCE"],["created_at","创建时间"]],fields:[["display_name","登录按钮名称"],["op","认证标识"],["oauth_type","登录类型","oauth_type",true],["issuer","Issuer URL"],["scopes","Scopes"],["client_id","Client ID","text",true],["client_secret","Client Secret","password",true],["auto_register","允许自动注册","checkbox"],["auto_group_ids","自动加入的用户分组"],["pkce_enable","启用 PKCE","checkbox"],["pkce_method","PKCE 方法"]]},
     trash: {name:"地址簿回收站",icon:"book",section:"个人管理",endpoint:"my/address_book/trash",readonly:true,columns:[["id","设备 ID"],["alias","别名"],["hostname","主机名"],["collection_id","地址簿编号"],["deleted_at","删除时间"]]},
     myRules: {name:"我的地址簿共享规则",icon:"shield",section:"个人管理",endpoint:"my/address_book_collection_rule",columns:[["id","编号"],["collection_id","地址簿 ID"],["type","分享对象"],["to_id","对象 ID"],["rule","权限"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID（所有用户填 0）","number",true],["rule","权限级别","rule",true]]},
     rules: {name:"地址簿共享权限",icon:"shield",section:"系统管理",endpoint:"address_book_collection_rule",admin:true,columns:[["id","编号"],["collection_id","地址簿 ID"],["type","对象类型"],["to_id","对象 ID"],["rule","权限级别"]],fields:[["collection_id","地址簿 ID","number",true],["type","对象类型","rule_type",true],["to_id","对象 ID","number",true],["rule","权限级别","rule",true],["user_id","所有者 ID","number"]]},
@@ -91,9 +91,9 @@
       ["enable_clipboard","允许远程剪贴板","policy_bool"],
       ["enable_file_transfer","允许远程文件传输","policy_bool"],
       ["approval_mode","远程连接确认方式","policy_approve"]]},
-    policyAssignments: {name:"设备策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
-    userPolicyAssignments: {name:"用户策略分配",icon:"users",section:"设备管理",endpoint:"device_policy/user_assignment",admin:true,columns:[["id","编号"],["user_id","用户 ID"],["policy_id","策略编号"]],fields:[["user_id","用户 ID","number",true],["policy_id","策略编号","number",true]]},
-    groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
+    policyAssignments: {name:"设备策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/assignment",admin:true,columns:[["id","编号"],["device_id","设备 ID"],["policy_id","安全策略编号"],["created_at","创建时间"],["updated_at","修改时间"]],fields:[["device_id","设备 ID","text",true],["policy_id","安全策略编号","number",true]]},
+    userPolicyAssignments: {name:"用户策略分配",icon:"users",section:"设备管理",endpoint:"device_policy/user_assignment",admin:true,columns:[["id","编号"],["user_id","用户 ID"],["policy_id","策略编号"],["created_at","创建时间"],["updated_at","修改时间"]],fields:[["user_id","用户 ID","number",true],["policy_id","策略编号","number",true]]},
+    groupPolicyAssignments: {name:"设备组策略分配",icon:"grid",section:"设备管理",endpoint:"device_policy/group_assignment",admin:true,columns:[["id","编号"],["group_id","设备组 ID"],["policy_id","策略编号"],["created_at","创建时间"],["updated_at","修改时间"]],fields:[["group_id","设备组 ID","number",true],["policy_id","策略编号","number",true]]},
     retention: {name:"日志保留设置",icon:"settings",section:"审计管理",admin:true},
     myloginlogs: {name:"我的登录记录",icon:"clock",section:"我的审计记录",endpoint:"my/login_log",readonly:true,columns:[["id","编号"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
     loginlogs: {name:"登录记录",icon:"clock",section:"审计管理",endpoint:"login_log",admin:true,readonly:true,columns:[["id","编号"],["user_id","用户 ID"],["client","客户端"],["ip","IP 地址"],["platform","平台"],["created_at","时间"]]},
@@ -117,13 +117,13 @@
         ["scope_type","权限适用范围","admin_scope",true],["scope_id","指定用户或群组编号（全局填 0）","number"],
         ["enabled","启用此角色","checkbox"]]},
     adminRoleAssignments: {name:"管理员角色分配",icon:"users",section:"成员管理",endpoint:"admin_role_assignment",admin:true,
-      columns:[["id","编号"],["user_id","成员用户 ID"],["role_id","管理员角色 ID"]],
+      columns:[["id","编号"],["user_id","成员用户 ID"],["role_id","管理员角色 ID"],["created_at","创建时间"],["updated_at","修改时间"]],
       fields:[["user_id","成员用户 ID","number",true],["role_id","管理员角色 ID","number",true]]},
     controlRoles: {name:"远程控制角色",icon:"shield",section:"设备管理",endpoint:"control_role",admin:true,
       columns:[["id","编号"],["name","角色名称"],["keyboard","键盘和鼠标"],["clipboard","剪贴板"],["file","文件传输"],["terminal","远程终端"],["remote_modify","修改远程设置"]],
       fields:[["name","角色名称","text",true],...controlPermissionFields]},
     controlAssignments: {name:"远程控制角色分配",icon:"grid",section:"设备管理",endpoint:"control_assignment",admin:true,
-      columns:[["id","编号"],["target_type","分配范围"],["target_id","设备或账户编号"],["role_id","控制角色编号"]],
+      columns:[["id","编号"],["target_type","分配范围"],["target_id","设备或账户编号"],["role_id","控制角色编号"],["created_at","创建时间"],["updated_at","修改时间"]],
       fields:[["target_type","分配范围","control_target",true],["target_id","设备 ID 或用户/设备组编号","text",true],
         ["role_id","控制角色编号","number",true]]},
     mail: {name:"SMTP 邮件服务",icon:"file",section:"系统管理",admin:true},
@@ -176,7 +176,7 @@
   function esc(v) {return String(v===undefined||v===null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
   function txt(v) {return v===null||v===undefined||v===""?"—":Array.isArray(v)?v.join(", "):typeof v==="object"?JSON.stringify(v):String(v);}
   function date(v) {if(!v)return "—";if(typeof v==="number"||/^[0-9]{10,13}$/.test(String(v))){const n=Number(v);return new Date(n<1e12?n*1000:n).toLocaleString("zh-CN",{hour12:false});}return esc(txt(v));}
-  const dateTimeFields=new Set(["sent_at","created_at","updated_at","last_online_time","expire","expired_at","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"]);
+  const dateTimeFields=new Set(["last_active_at","sent_at","created_at","updated_at","last_online_time","expire","expired_at","expires_at","revoked_at","last_used_at","last_seen_at","delivered_at","completed_at","deleted_at","accepted_at"]);
   function dateTime(v){
     const display=date(v);
     const parts=String(display).match(/^(\d{4}[-/]\d{1,2}[-/]\d{1,2})[\s,T]+(\d{1,2}:\d{2}(?::\d{2})?)/);
@@ -189,9 +189,14 @@
   const deviceNamePairs={from_peer:"from_device_name",peer_id:"to_device_name",device_id:"to_device_name",to_peer:"to_device_name"};
   function storedTableWidths(){
     try{
+      if(localStorage.getItem("rustdesk.console.table-widths-schema")!=="2")return {};
       const saved=JSON.parse(localStorage.getItem("rustdesk.console.table-widths")||"{}");
       return saved&&typeof saved==="object"&&!Array.isArray(saved)?saved:{};
     }catch{return {};}
+  }
+  function saveTableWidths(){
+    localStorage.setItem("rustdesk.console.table-widths-schema","2");
+    localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
   }
   function registeredDevice(id,row={},key=""){
     const value=String(id??"").trim();
@@ -410,6 +415,14 @@
     }));
   }
   function colValue(v,k,row){
+    if(k==="owner_user_id"&&["groups","mygroups"].includes(state.page)&&!Number(v))return "系统创建";
+    if(k==="member_count"&&v!==undefined)return '<button class="entity-link" data-action="members" data-id="'+esc(row.id)+'">'+esc(v)+' 人</button>';
+    if(k==="anchor_count")return Number(row.type)===3&&v!==undefined?'<button class="entity-link" data-action="anchors" data-id="'+esc(row.id)+'">'+esc(v)+' 人</button>':"—";
+    if(k==="device_count"&&v!==undefined)return state.page==="devicegroups"?'<button class="entity-link" data-action="device-group-devices" data-id="'+esc(row.id)+'">'+esc(v)+' 台</button>':esc(v)+' 台';
+    if(k==="active_count"&&v!==undefined)return '<span title="最近 2 分钟收到心跳的设备">'+esc(v)+' 台</span>';
+    if(k==="group_policy")return v?esc(v)+(Number(row.group_policy_status)===2?'（已停用）':''):"未分配";
+    if(k==="control_role")return v?esc(v):"未分配";
+    if(["auto_register","pkce_enable"].includes(k))return v===undefined?"—":'<span class="pill '+(v?'good':'muted')+'">'+(v?'启用':'关闭')+'</span>';
     if(k==="display_name"&&state.page==="oauth")return esc(String(v||row?.op||"—"));
     if(k==="to_id"&&Number(row?.type)===3)return "所有用户";
     if(k==="source_id"&&row?.source_type==="all")return "所有已登录用户";
@@ -565,7 +578,8 @@
     return !state.isAdmin&&!delegatedDeviceView&&["peer","address_book","address_book_collection","tag","login_log"].includes(p.endpoint)?"/my/"+p.endpoint:"/"+p.endpoint;
   }
   function pageHeading(title,subtitle,actions=""){
-    return '<div class="page-head"><div><p class="eyebrow">RUSTDESK / CONTROL CENTER</p><h1>'+esc(title)+'</h1><p class="subtitle">'+esc(subtitle)+'</p></div><div class="head-actions">'+actions+'</div></div>';
+    const listing=!!pages[activeKey()]?.columns;
+    return '<div class="page-head'+(listing?' page-head-list':'')+'"><div>'+(listing?'':'<p class="eyebrow">RUSTDESK / CONTROL CENTER</p>')+'<h1>'+esc(title)+'</h1><p class="subtitle">'+esc(subtitle)+'</p></div><div class="head-actions">'+actions+'</div></div>';
   }
   function button(label,action,primary=false){return '<button type="button" class="btn '+(primary?"btn-primary":"")+'" data-action="'+esc(action)+'">'+esc(label)+'</button>';}
   function brand(){return '<span class="brand-symbol" aria-hidden="true"><span></span><span></span></span><span class="brand-copy"><span class="side-name">RustDesk</span><span class="side-sub">CONTROL CENTER</span></span>';}
@@ -952,6 +966,7 @@
         state.server=await request("/config/server");
       }else if(p.endpoint){
         const q=new URLSearchParams({page:state.pageNo,page_size:state.pageSize});
+        if(p.summary)q.set("summary","1");
         if(p.search&&state.query)q.set(p.search,state.query);
         const order=state.sort[k];if(order?.key){q.set("sort_by",order.key);q.set("sort_dir",order.dir===-1?"desc":"asc");}
         const result=await request(endpoint(activeKey())+"/list?"+q.toString());
@@ -1007,6 +1022,7 @@
       out+='<button class="btn btn-sm" data-action="transfer-device" data-id="'+id+'">转移设备</button>';
     }
 
+    if(state.page==="devicegroups")out+='<button class="btn btn-sm" data-action="device-group-devices" data-id="'+id+'">管理设备</button>';
     if(state.page==="groups"||state.page==="mygroups"){out+='<button class="btn btn-sm" data-action="members" data-id="'+id+'">成员</button>';if(row.type===3)out+='<button class="btn btn-sm" data-action="anchors" data-id="'+id+'">公共成员</button>';}
     const deletable=pages[state.page]?.admin?canPageAction(state.page,"delete"):true;
     if(deletable)out+='<button class="btn btn-sm btn-danger" data-action="delete" data-id="'+id+'">删除</button>';
@@ -1030,7 +1046,8 @@
       last_used_at:138,expires_at:138,completed_at:138,delivered_at:138,
       os:140,platform:160,method:116,primary_auth:152,two_factor:148,
       path:270,info:272,note:250,remark:240,description:260,
-      sources:230,issuer:262,permissions:250,
+      sources:230,issuer:310,permissions:250,display_name:240,
+      member_count:104,device_count:118,anchor_count:118,active_count:118,group_policy:210,control_role:210,is_admin:132,auto_register:126,pkce_enable:110,
       id_whitelist:250,ip_whitelist:250,source_type:164,target_type:164,
       target_id:160,source_id:160,scope_type:166,scope_id:145,
       event_type:178,recipients:220,last_error:250,
@@ -1040,6 +1057,34 @@
     const labelWidth=Array.from(label).reduce((sum,char)=>
       sum+(char.charCodeAt(0)>255?13:7),0)+36;
     return Math.max(widths[key]||144,Math.min(300,labelWidth));
+  }
+  function compactTableColumn(key){
+    return key==="id"&&!deviceRowPages.has(state.page)||
+      ["member_count","device_count","anchor_count","active_count","status","enabled","is_admin","auto_register","pkce_enable","direction","oauth_type","type","method","priority"].includes(key);
+  }
+  function flexibleTableColumn(key){
+    return !dateTimeFields.has(key)&&!compactTableColumn(key);
+  }
+  function distributeTableSpace(widths,keys,available){
+    let extra=Math.max(0,Math.floor(available-widths.reduce((sum,width)=>sum+width,0)));
+    const receivers=keys.map((key,index)=>({key,index})).filter(item=>flexibleTableColumn(item.key));
+    for(let round=0;round<4&&extra>0;round++){
+      const eligible=receivers.filter(item=>widths[item.index]<(item.key==="id"?420:360));
+      if(!eligible.length)break;
+      const share=Math.max(1,Math.ceil(extra/eligible.length));
+      for(const item of eligible){
+        const amount=Math.min(extra,share,(item.key==="id"?420:360)-widths[item.index]);
+        widths[item.index]+=amount;extra-=amount;
+      }
+    }
+    if(extra&&receivers.length){
+      const preferred=receivers.filter(item=>["name","display_name","username","email","issuer","description","note","sources","os"].includes(item.key));
+      const items=preferred.length?preferred:receivers;
+      for(let i=0;i<items.length;i++){
+        const amount=Math.ceil(extra/(items.length-i));widths[items[i].index]+=amount;extra-=amount;
+      }
+    }
+    return extra;
   }
   function deviceTableStack(row,key,nameKey){
     return deviceReference(row,key,row[key],nameKey);
@@ -1059,7 +1104,10 @@
     const desktopCols=allCols.filter(([key])=>!pairedNames.has(key));
     const actions=rows.map(row=>rowActions(row));
     const viewport=Number(window.innerWidth)||1440;
-    const availableWidth=Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?68:44));
+    const content=root.querySelector(".content");
+    const contentStyle=content&&window.getComputedStyle?window.getComputedStyle(content):null;
+    const availableWidth=contentStyle?Math.floor(content.clientWidth-parseFloat(contentStyle.paddingLeft)-parseFloat(contentStyle.paddingRight)-2):
+      Math.max(630,viewport-(viewport>1190?252:222)-(viewport>1190?68:44));
     const hasDeviceLabels=deviceRowPages.has(state.page)&&rows.some(row=>{
       const alias=String(row.alias||"").trim(),hostname=String(row.hostname||"").trim();
       return alias&&hostname&&alias!==hostname&&hostname!==String(row.id||"");
@@ -1069,6 +1117,10 @@
       if(Number.isFinite(saved)&&saved>=84&&saved<=720)return saved;
       const width=tableColumnWidth(key,label,state.page);
       if(dateTimeFields.has(key))return Math.max(130,Math.min(166,width));
+      if(key==="id"&&!deviceRowPages.has(state.page))return Math.min(196,Math.max(84,...rows.map(row=>String(row.id??"").length*7+28)));
+      if(["group_id","auto_group_ids","role_id","policy_id"].includes(key))return 188;
+      if(key==="display_name")return 210;
+      if(key==="issuer")return 266;
       if(key==="id"&&deviceRowPages.has(state.page))return hasDeviceLabels?258:192;
       if(key==="os")return Math.max(196,Math.round(width*.76));
       if(key==="platform")return Math.max(170,Math.round(width*.76));
@@ -1078,6 +1130,7 @@
       const important=new Set(["id","device_id","peer_id","alias","hostname","username","nickname","name","to_account","from_account","from_peer","to_device_name","from_device_name",
         "last_online_time","last_online_ip","ip","status","group_id","email","created_at","last_seen_at",
         "conn_id","owner_username","account","requested_by","target_id","address","client","platform",
+        "member_count","device_count","active_count","group_policy","control_role","display_name","issuer","auto_group_ids",
         "active","current","expired_at","login_ip"]);
       const participantPages=new Set(["myconnections","connections","mytransfers","transfers"]);
       const participantColumns=["from_peer","peer_id","from_account","to_account","direction","created_at"];
@@ -1110,52 +1163,29 @@
     const visible=desktopCols.filter((_,i)=>selected.has(i));
     const hidden=desktopCols.filter((_,i)=>!selected.has(i));
     const hasActions=actions.some(Boolean)||hidden.length>0;
-    const actionSize=hasActions?actionWidth:0;
+    let actionSize=hasActions?actionWidth:0;
     const fittedWidths=widths.slice();
     if(viewport>900&&!state.showAllColumns[state.page]){
-      let remaining=Math.max(0,availableWidth-actionSize-visible.reduce(
-        (sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],0));
-      const expandable=desktopCols.map(([key],index)=>({key,index})).filter(({key,index})=>
-        selected.has(index)&&["id","device_id","name","alias","hostname","os","platform","last_online_ip","ip","owner_username","sources","note","remark","description","email","path","info"].includes(key));
-      const preferredMaximum=key=>key==="id"?420:
-        ["os","platform"].includes(key)?240:
-        ["last_online_ip","ip"].includes(key)?245:360;
-      for(let round=0;round<5&&remaining>0;round++){
-        const eligible=expandable.filter(({key,index})=>
-          fittedWidths[index]<preferredMaximum(key));
-        if(!eligible.length)break;
-        const share=Math.max(1,Math.ceil(remaining/eligible.length));
-        for(const {key,index} of eligible){
-          const extra=Math.min(remaining,share,preferredMaximum(key)-fittedWidths[index]);
-          fittedWidths[index]+=extra;remaining-=extra;
-        }
-      }
-      if(remaining>0){
-        const fallback=visible.map(col=>desktopCols.indexOf(col)).filter(index=>
-          !dateTimeFields.has(desktopCols[index][0]));
-        const receivers=expandable.length?expandable.map(item=>item.index):fallback;
-        if(receivers.length){
-          const part=Math.floor(remaining/receivers.length);
-          for(const index of receivers){
-            const addition=index===receivers[receivers.length-1]?remaining:part;
-            fittedWidths[index]+=addition;
-            remaining-=addition;
-          }
-        }
-      }
+      const indexes=visible.map(col=>desktopCols.indexOf(col));
+      const displayed=indexes.map(index=>fittedWidths[index]);
+      const extra=distributeTableSpace(displayed,visible.map(col=>col[0]),availableWidth-actionSize);
+      indexes.forEach((index,i)=>{fittedWidths[index]=displayed[i];});
+      if(extra&&hasActions)actionSize+=extra;
     }
     const tableMinWidth=visible.reduce((sum,col)=>sum+fittedWidths[desktopCols.indexOf(col)],actionSize);
     const order=state.sort[state.page]||{};
     const colgroup='<colgroup>'+visible.map(col=>'<col data-column="'+esc(col[0])+'" style="width:'+fittedWidths[desktopCols.indexOf(col)]+'px">').join("")+
       (hasActions?'<col style="width:'+actionSize+'px">':"")+'</colgroup>';
-    const th=visible.map(([key,label])=>'<th scope="col" data-column="'+esc(key)+'" aria-sort="'+
-      (order.key===key?(order.dir===1?"ascending":"descending"):"none")+
-      '" title="'+esc(label)+'"><button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+
-      esc(stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"?"被连接设备":key==="device_id"&&loginSessionPages.has(state.page)?"客户端标识":key==="device_id"&&["activeSessions","myactiveSessions"].includes(state.page)?"被连接设备":label):label)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>'+
-      '<span class="column-resize-handle" data-column="'+esc(key)+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整'+esc(label)+'列宽" title="拖动调整列宽，双击自动适应内容；方向键可微调"></span></th>').join("");
+    const th=visible.map(([key,label])=>{
+      const sortable=!(p.unsortable||[]).includes(key);
+      const title=stackColumn.has(key)?(key==="from_peer"?"连接方设备":key==="peer_id"?"被连接设备":key==="device_id"&&loginSessionPages.has(state.page)?"客户端标识":key==="device_id"&&["activeSessions","myactiveSessions"].includes(state.page)?"被连接设备":label):label;
+      return '<th scope="col" data-column="'+esc(key)+'"'+(sortable?' aria-sort="'+(order.key===key?(order.dir===1?"ascending":"descending"):"none")+'"':'')+' title="'+esc(label)+'">'+
+        (sortable?'<button type="button" class="sort-heading" data-action="sort-table" data-column="'+esc(key)+'">'+esc(title)+'<span aria-hidden="true">'+(order.key===key?(order.dir===1?"▲":"▼"):"↕")+'</span></button>':'<span class="sort-heading">'+esc(title)+'</span>')+
+        '<span class="column-resize-handle" data-column="'+esc(key)+'" role="separator" tabindex="0" aria-orientation="vertical" aria-label="调整'+esc(label)+'列宽" title="拖动调整列宽，双击自动适应内容；方向键可微调"></span></th>';
+    }).join("");
     const multiline=new Set(["os","platform","note","remark","info","description","sources","permissions",
       "id_whitelist","ip_whitelist","last_error","last_online_ip","ip","source_ip","client_ip","login_ip",
-      "email","hostname","issuer","path","device_uuid","from_account","to_account"]);
+      "email","hostname","issuer","path","device_uuid","from_account","to_account","display_name","group_policy","control_role"]);
     const trs=rows.map((row,index)=>{
       const cells=visible.map(([key])=>{
         const first=key===desktopCols[0][0];
@@ -1173,20 +1203,22 @@
       return main+expanded;
     }).join("");
     const mobileCols=allCols.filter(([key])=>!pairedNames.has(key));
+    const mobileTitle=mobileCols.findIndex(([key])=>["name","display_name","username"].includes(key));
+    if(mobileTitle>0)mobileCols.unshift(...mobileCols.splice(mobileTitle,1));
     const mobile=rows.map((row,index)=>'<article class="mobile-item"><div class="mobile-title">'+
       colValue(row[mobileCols[0][0]],mobileCols[0][0],row)+'</div><dl>'+mobileCols.slice(1).map(([key,label])=>
       '<dt>'+esc(label)+'</dt><dd>'+colValue(row[key],key,row)+'</dd>').join("")+
       '</dl>'+(actions[index]?'<div class="mobile-actions">'+actions[index]+'</div>':"")+
       '</article>').join("");
     const mobileSort='<div class="mobile-sort"><label for="mobile-sort-column">按列排序</label><select id="mobile-sort-column" aria-label="排序字段">'+
-      allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||allCols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
+      allCols.filter(([key])=>!(p.unsortable||[]).includes(key)).map(([key,label])=>'<option value="'+esc(key)+'" '+((state.sort[state.page]?.key||allCols[0][0])===key?"selected":"")+'>'+esc(label)+'</option>').join("")+
       '</select><button type="button" class="btn btn-sm" data-action="mobile-sort-dir">'+(state.sort[state.page]?.dir===-1?"降序 ▼":"升序 ▲")+'</button></div>';
     const expandedActions=hidden.length?'<button type="button" class="btn btn-sm" data-action="table-columns">'+
       (state.showAllColumns[state.page]?"按窗口宽度显示":"显示全部列")+'</button>':state.showAllColumns[state.page]?
       '<button type="button" class="btn btn-sm" data-action="table-columns">按窗口宽度显示</button>':"";
     const sortSelect=hidden.length?'<label class="table-sort-label">排序字段 <select id="table-sort-column" aria-label="排序字段">'+
-      allCols.map(([key,label])=>'<option value="'+esc(key)+'" '+(order.key===key?"selected":"")+'>'+esc(label)+'</option>').join("")+'</select></label>':"";
-    const hint='<div class="table-scroll-hint"><span>点击列标题排序，拖动标题右侧边缘调整列宽。双击边缘可自动适应内容。</span>'+
+      allCols.filter(([key])=>!(p.unsortable||[]).includes(key)).map(([key,label])=>'<option value="'+esc(key)+'" '+(order.key===key?"selected":"")+'>'+esc(label)+'</option>').join("")+'</select></label>':"";
+    const hint='<div class="table-scroll-hint"><span>拖动列边缘调整宽度，双击可适应本列内容。</span>'+
       '<button type="button" class="btn btn-sm" data-action="table-autofit">根据内容调整列宽</button>'+sortSelect+expandedActions+'</div>';
     return '<div class="table-scroll" role="region" aria-label="'+esc(p.name||"数据")+
       '数据表" tabindex="0"><table class="data-table" style="--table-min-width:'+tableMinWidth+'px">'+
@@ -1206,7 +1238,7 @@
     table.style.setProperty("--table-min-width",Math.ceil(total)+"px");
     if(persist){
       (state.tableWidths[state.page] ||= {})[column]=width;
-      localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
+      saveTableWidths();
     }
   }
   function autoFitTableColumns(targetColumn=""){
@@ -1225,17 +1257,17 @@
     const context=document.createElement("canvas").getContext("2d");
     const minimums=columns.map(th=>{
       const key=th.dataset.column;
-      return dateTimeFields.has(key)?130:key==="id"?128:key==="os"?140:84;
+      return dateTimeFields.has(key)?130:key==="id"?(deviceRowPages.has(state.page)?128:84):key==="os"?196:["group_id","auto_group_ids"].includes(key)?180:84;
     });
     const caps=columns.map(th=>{
       const key=th.dataset.column;
-      return dateTimeFields.has(key)?166:key==="id"?420:key==="os"?390:480;
+      return dateTimeFields.has(key)?166:key==="id"?(deviceRowPages.has(state.page)?420:196):compactTableColumn(key)?160:key==="os"?390:480;
     });
     if(minimums.reduce((sum,value)=>sum+value,0)>available){
       if(state.showAllColumns[state.page]){
         state.showAllColumns[state.page]=false;
         delete state.tableWidths[state.page];
-        localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
+        saveTableWidths();
         render();
         autoFitTableColumns();
       }
@@ -1245,7 +1277,7 @@
       const key=th.dataset.column;
       const current=parseFloat(columnElements[index].style.width)||minimums[index];
       if(targetColumn&&key!==targetColumn)return current;
-      const cells=[th.querySelector(".sort-heading"),...table.querySelectorAll("tbody td[data-column]")];
+      const cells=[th.querySelector(".sort-heading"),...[...table.querySelectorAll("tbody td[data-column]")].filter(cell=>cell.dataset.column===key)];
       let desired=minimums[index];
       for(const cell of cells){
         if(!cell)continue;
@@ -1283,15 +1315,8 @@
       }
     }
     if(total()<available){
-      const expandable=columns.map((th,index)=>({key:th.dataset.column,index}))
-        .filter(item=>!dateTimeFields.has(item.key));
-      const receivers=expandable.length?expandable:columns.map((th,index)=>({key:th.dataset.column,index}));
-      let extra=available-total();
-      for(let i=0;i<receivers.length;i++){
-        const amount=i===receivers.length-1?extra:Math.floor(extra/(receivers.length-i));
-        fitted[receivers[i].index]+=amount;
-        extra-=amount;
-      }
+      const extra=distributeTableSpace(fitted,columns.map(th=>th.dataset.column),available);
+      if(extra&&actionColumn)actionColumn.style.width=(actionWidth+extra)+"px";
     }
     for(let i=0;i<columnElements.length;i++){
       const width=Math.round(fitted[i]);
@@ -1300,7 +1325,7 @@
     }
     const combined=colgroup.reduce((sum,col)=>sum+(parseFloat(col.style.width)||0),0);
     table.style.setProperty("--table-min-width",Math.ceil(combined)+"px");
-    localStorage.setItem("rustdesk.console.table-widths",JSON.stringify(state.tableWidths));
+    saveTableWidths();
   }
   let resizeColumnState=null;
   document.addEventListener("pointerdown",event=>{
@@ -1372,13 +1397,17 @@
     const rows=p.search?state.rows:state.rows.filter(row=>!state.query||JSON.stringify(row).toLowerCase().includes(state.query.toLowerCase()));
     const isBook = state.page==="addressbooks";
     const tabs = isBook?'<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"><button class="btn '+(state.bookTab==="entries"?"btn-primary":"")+'" data-action="book-entries">设备条目</button><button class="btn '+(state.bookTab==="collections"?"btn-primary":"")+'" data-action="book-collections">地址簿分类</button></div>':"";
-    const description=state.page==="accessRules"?
+    const descriptions={groups:"查看群组成员、成员设备和公共成员，管理用户的分组关系。",
+      users:"查看账户类型、设备数量和主要分组，管理账户资料与访问状态。",
+      devicegroups:"查看组内设备、近期活动和策略配置，直接添加或移除设备。",
+      oauth:"管理登录提供方、自动注册和分组分配，查看 PKCE 配置。"};
+    const description=descriptions[state.page]|| (state.page==="accessRules"?
       "可选的服务器连接访问规则。启用 hbbs 严格模式后，将按这些规则判断远程连接。未配置时保持原来的连接方式。":
       state.page==="controlRoles"?
       "为远程会话设置键盘、剪贴板、文件传输、终端等权限。未指定的操作沿用设备自身设置。":
       state.page==="controlAssignments"?
       "给设备、设备所有者或设备组分配控制角色。单台设备的设置优先级最高。":
-      state.page==="relayNodes"?"配置多个 hbbr 节点及各自优先服务的 IP 网络。hbbs 会在启用自动同步后更新中继列表，并保留节点不可用时的替代选择。":isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="trash"?"找回误删的设备条目，也可以永久删除指定条目。删除整个地址簿分类时将永久清除该分类下的记录。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于设备部署、只读查询和自动化管理。权限名称及接口请参阅 API 文档。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。";
+      state.page==="relayNodes"?"配置多个 hbbr 节点及各自优先服务的 IP 网络。hbbs 会在启用自动同步后更新中继列表，并保留节点不可用时的替代选择。":isBook?"在一个页面中管理地址簿分类及其中的设备，原有数据将继续保留。":state.page==="mygroups"?"创建和管理您拥有的群组。其他人的群组需要由其所有者或系统管理员管理。":state.page==="trash"?"找回误删的设备条目，也可以永久删除指定条目。删除整个地址簿分类时将永久清除该分类下的记录。":state.page==="apiTokens"?"创建可随时撤销的管理令牌，用于设备部署、只读查询和自动化管理。权限名称及接口请参阅 API 文档。":state.page==="policies"?"为自行管理的 RustDesk 客户端制定设备 ID 白名单、IP 白名单、WebRTC 和可信设备有效期设置。":state.page==="policyAssignments"?"选择设备并分配安全策略。支持策略读取接口的客户端可自动应用设置。":state.page.startsWith("my")&&p.readonly?"这里只显示与您本人或您名下设备有关的记录。":"查看、编辑和管理相关数据。");
     const exportKinds={loginlogs:"login_log",connections:"audit_conn",transfers:"audit_file",alarms:"audit_alarm",operations:"audit_operation"};
     const exportBtn=exportKinds[state.page]?'<button type="button" class="btn" data-action="audit-export" data-id="'+exportKinds[state.page]+'">筛选并导出 CSV</button>':
       state.page==="devices"&&canPageAction("devices","view")?
@@ -2514,6 +2543,7 @@
   function renderModal(){
     const m=state.modal;if(!m)return "";
     if(m.kind==="entity")return entityPanel(m);
+    if(m.kind==="device-group-devices")return deviceGroupDevicesModal(m);
     if(m.kind==="edit"){
       const p=pages[activeKey()],fields=(p.fields||[]).filter(f=>{
         if(state.page==="users"&&m.action==="edit"&&f[0]==="password")return false;
@@ -2760,6 +2790,92 @@
     try{await request(endpoint(activeKey())+"/delete","POST",{id:r.id,row_id:r.row_id});toast("已删除");await load();}
     catch(e){toast(e.message,true);}
   }
+  function deviceGroupDevicesModal(m){
+    const editable=canPageAction("devicegroups","edit"),candidates=m.tab==="candidates";
+    const tabs='<div class="member-tabs" role="tablist" aria-label="设备列表">'+
+      '<button class="btn '+(!candidates?'btn-primary':'')+'" role="tab" aria-selected="'+!candidates+'" data-action="device-group-tab" data-tab="members">组内设备</button>'+
+      (editable?'<button class="btn '+(candidates?'btn-primary':'')+'" role="tab" aria-selected="'+candidates+'" data-action="device-group-tab" data-tab="candidates">添加设备</button>':'')+'</div>';
+    const search='<form id="device-group-search-form" class="member-search"><label class="sr-only" for="device-group-search">搜索设备</label>'+
+      '<input id="device-group-search" type="search" value="'+esc(m.keyword)+'" placeholder="搜索设备 ID、备注、主机名、所有者或分组"><button class="btn" type="submit">搜索</button></form>';
+    const selection=editable?'<label class="member-select-all"><input type="checkbox" id="device-group-select-all" '+
+      (m.rows.length&&m.rows.every(row=>m.selected.has(row.row_id))?'checked':'')+' '+(m.loading||m.busy||!m.rows.length?'disabled':'')+'>选择本页设备</label>':'';
+    let list=m.loading?'<div class="loading-table" role="status"><span class="spinner"></span>正在读取设备…</div>':
+      m.error?'<div class="member-error" role="alert">'+esc(m.error)+'<button class="btn" data-action="device-group-retry">重新读取</button></div>':
+      !m.rows.length?'<div class="empty"><h3>'+(m.keyword?'没有匹配的设备':candidates?'没有可添加的设备':'此分组还没有设备')+'</h3><p>'+(candidates?'可尝试其他搜索条件。':editable?'选择“添加设备”即可将已有设备加入此组。':'当前分组暂无设备。')+'</p></div>':
+      '<div class="member-device-list">'+m.rows.map(row=>'<label class="member-device-row">'+
+        (editable?'<input type="checkbox" data-member-row="'+row.row_id+'" '+(m.selected.has(row.row_id)?'checked':'')+' '+(m.busy?'disabled':'')+' aria-label="选择设备 '+esc(row.alias||row.hostname||row.id)+'">':'')+
+        '<span class="member-device-identity"><strong>'+esc(row.alias||row.hostname||row.id)+'</strong><span>'+esc(row.id)+(row.alias&&row.hostname&&row.alias!==row.hostname?' · '+esc(row.hostname):'')+'</span></span>'+
+        '<span class="member-device-meta"><span>系统：'+esc(row.os||'未报告')+'</span><span>所有者：'+esc(row.owner_username||'未分配')+'</span></span>'+
+        '<span class="member-device-meta"><span>分组：'+esc(row.group_name||(row.group_id?'编号 '+row.group_id:'未分组'))+'</span><span>最后在线：'+date(row.last_online_time)+'</span></span></label>').join('')+'</div>';
+    const last=Math.max(1,Math.ceil(m.total/20));
+    const pager='<div class="member-pager"><span>共 '+m.total+' 台 · 第 '+m.page+' / '+last+' 页</span><div><button class="btn btn-sm" data-action="device-group-page" data-page="'+(m.page-1)+'" '+(m.page<=1||m.loading||m.busy?'disabled':'')+'>上一页</button><button class="btn btn-sm" data-action="device-group-page" data-page="'+(m.page+1)+'" '+(m.page>=last||m.loading||m.busy?'disabled':'')+'>下一页</button></div></div>';
+    const body=tabs+'<p class="member-help">'+(candidates?'设备加入此组后将采用此组的策略；已有分组会同时更新。':'从分组移除设备后，设备登记记录和所属账户保持不变。')+'</p>'+search+
+      '<div class="member-selection-bar">'+selection+'<span id="device-group-selected" aria-live="polite">已选择 '+m.selected.size+' 台设备</span></div>'+list+pager;
+    const footer='<button class="btn" data-action="close-modal" '+(m.busy?'disabled':'')+'>关闭</button>'+
+      (editable?'<button id="device-group-apply" class="btn '+(candidates?'btn-primary':'btn-danger')+'" data-action="device-group-apply" '+(!m.selected.size||m.loading||m.busy?'disabled':'')+'>'+
+      (m.busy?'正在保存…':candidates?'加入此组':'从此组移除')+'</button>':'');
+    return modal('管理设备',m.group.name,body,footer).replace('class="drawer"','class="drawer device-group-drawer"');
+  }
+  async function openDeviceGroupDevices(id){
+    const group=state.rows.find(row=>String(row.id)===String(id));
+    if(!group||!canPageAction("devicegroups","view"))return;
+    const m={kind:"device-group-devices",group,tab:"members",keyword:"",page:1,total:0,rows:[],selected:new Map(),loading:true,busy:false,error:"",sequence:0};
+    state.modal=m;render();await loadDeviceGroupDevices(m);
+  }
+  async function loadDeviceGroupDevices(m){
+    const sequence=++m.sequence;
+    m.loading=true;m.error="";render();
+    try{
+      const query=new URLSearchParams({group_id:m.group.id,page:m.page,page_size:20,keyword:m.keyword});
+      const result=m.tab==='candidates'?await request('/device_group/candidates?'+query):await request('/device_group/devices?'+query);
+      if(state.modal!==m||m.sequence!==sequence)return;
+      m.rows=result.list||[];m.total=Number(result.total)||0;
+      const last=Math.max(1,Math.ceil(m.total/20));
+      if(m.page>last){m.page=last;await loadDeviceGroupDevices(m);return;}
+    }catch(error){
+      if(state.modal!==m||m.sequence!==sequence)return;
+      m.rows=[];m.error=error.message;
+    }
+    if(state.modal!==m||m.sequence!==sequence)return;
+    m.loading=false;render();
+  }
+  function updateDeviceGroupSelection(){
+    const m=state.modal;if(m?.kind!=="device-group-devices")return;
+    const label=document.getElementById('device-group-selected');
+    if(label)label.textContent='已选择 '+m.selected.size+' 台设备';
+    const button=document.getElementById('device-group-apply');
+    if(button)button.disabled=!m.selected.size||m.loading||m.busy;
+    const all=document.getElementById('device-group-select-all');
+    if(all){
+      const count=m.rows.filter(row=>m.selected.has(row.row_id)).length;
+      all.checked=!!m.rows.length&&count===m.rows.length;all.indeterminate=count>0&&count<m.rows.length;
+    }
+  }
+  async function applyDeviceGroupSelection(){
+    const m=state.modal;
+    if(m?.kind!=="device-group-devices"||m.loading||m.busy||!canPageAction("devicegroups","edit"))return;
+    const rows=[...m.selected.values()];
+    if(!rows.length||rows.length>200){toast('每次请选择 1 至 200 台设备',true);return;}
+    const adding=m.tab==='candidates',moving=rows.filter(row=>row.group_id&&row.group_id!==m.group.id).length;
+    if(!window.confirm(adding?'确认将 '+rows.length+' 台设备加入“'+m.group.name+'”？'+(moving?'其中 '+moving+' 台设备将从原分组移出。':''):
+      '确认从“'+m.group.name+'”移除 '+rows.length+' 台设备？设备登记记录将保留。'))return;
+    m.busy=true;render();
+    try{
+      const result=await request('/device_group/devices/batch','POST',{group_id:m.group.id,action:adding?'add':'remove',
+        devices:rows.map(row=>({row_id:row.row_id,expected_group_id:row.group_id}))});
+      if(state.modal!==m)return;
+      m.selected.clear();m.busy=false;
+      toast('已'+(adding?'加入':'移除')+' '+Number(result.affected||0)+' 台设备');
+      await loadDeviceGroupDevices(m);await load();
+    }catch(error){
+      if(state.modal!==m)return;
+      m.busy=false;
+      if(error.apiCode===409){m.selected.clear();await loadDeviceGroupDevices(m);}
+      else{m.error=error.message;render();}
+      toast(error.message,true);
+    }
+  }
+
   async function groupMembers(id,anchor){
     const group=state.rows.find(r=>String(r.id)===String(id));
     if(!group)return;
@@ -2928,12 +3044,26 @@
       closePickerDialog();return;
     }
     if((clickTarget?.id==="modal-overlay"||clickTarget?.closest?.("#modal-overlay"))&&!clickTarget?.closest?.(".drawer")){
+      if(state.modal?.kind==="device-group-devices"&&state.modal.busy)return;
       state.modal=null;render();return;
     }
     const el=event.target.closest("[data-action],[data-view]");
     if(!el)return;
     if(el.dataset.view){view(el.dataset.view);return;}
     const a=el.dataset.action;
+    if(a==="device-group-devices"){await openDeviceGroupDevices(el.dataset.id);return;}
+    if(a==="device-group-tab"){
+      const m=state.modal;if(m?.kind!=="device-group-devices"||m.busy)return;
+      if(!["members","candidates"].includes(el.dataset.tab)||el.dataset.tab==="candidates"&&!canPageAction("devicegroups","edit"))return;
+      m.tab=el.dataset.tab;m.page=1;m.keyword="";m.selected.clear();await loadDeviceGroupDevices(m);return;
+    }
+    if(a==="device-group-page"){
+      const m=state.modal;if(m?.kind!=="device-group-devices"||m.loading||m.busy)return;
+      const page=Number(el.dataset.page);if(!Number.isSafeInteger(page)||page<1||page>Math.max(1,Math.ceil(m.total/20)))return;
+      m.page=page;await loadDeviceGroupDevices(m);return;
+    }
+    if(a==="device-group-retry"){const m=state.modal;if(m?.kind==="device-group-devices"&&!m.busy)await loadDeviceGroupDevices(m);return;}
+    if(a==="device-group-apply"){await applyDeviceGroupSelection();return;}
     if(a==="device-connect"){
       openWebClientDevice(el.dataset.deviceId,el.dataset.deviceName);
       return;
@@ -3105,6 +3235,7 @@
     }
     if(a==="table-autofit"){autoFitTableColumns();return;}
     if(a==="table-columns"){state.showAllColumns[state.page]=!state.showAllColumns[state.page];render();return;}
+    if(a==="sort-table"&&(pages[activeKey()]?.unsortable||[]).includes(el.dataset.column))return;
     if(a==="sort-table"){
       const key=el.dataset.column,order=state.sort[state.page]||{};
       if(!pages[activeKey()]?.columns?.some(([column])=>column===key))return;
@@ -3229,6 +3360,7 @@
     if(a==="theme"){state.theme=state.theme==="dark"?"light":"dark";document.documentElement.dataset.theme=state.theme;localStorage.setItem("rustdesk.console.theme",state.theme);render();return;}
     if(a==="mobile-open"||a==="mobile-close"){state.mobile=a==="mobile-open";render();return;}
     if(a==="close-modal"){
+      if(state.modal?.kind==="device-group-devices"&&state.modal.busy)return;
       if(state.modal?.previous){state.modal=state.modal.previous;render();return;}
       if(["public-reset-password","accept-invitation"].includes(state.modal?.kind))location.hash="#/overview";
       state.modal=null;render();return;
@@ -3684,6 +3816,10 @@
     }catch(e){toast(e.message,true);}
   }
   document.addEventListener("submit",async event=>{
+    if(event.target.id==="device-group-search-form"){
+      event.preventDefault();const m=state.modal;
+      if(m?.kind==="device-group-devices"&&!m.busy){m.keyword=document.getElementById("device-group-search").value.trim();m.page=1;await loadDeviceGroupDevices(m);}return;
+    }
     const f=event.target;
     const formID=f.getAttribute("id");
     if(!["login-form","edit-form","contact-form","command-form","password-form","notification-form","client-profile-form","push-channel-form","push-stream-key-form","device-transfer-form","reset-password-form","retention-form","mail-settings-form","mail-test-form","forgot-password-form","public-password-reset-form","accept-invitation-form","mfa-login-form","mfa-activate-form","mfa-confirm-form","email-verification-form"].includes(formID))return;
@@ -3921,6 +4057,13 @@
   });
   document.addEventListener("change",async event=>{
     const el=event.target;
+    if(el.dataset?.memberRow||el.id==="device-group-select-all"){
+      const m=state.modal;if(m?.kind!=="device-group-devices"||m.loading||m.busy||!canPageAction("devicegroups","edit"))return;
+      const rows=el.id==="device-group-select-all"?m.rows:m.rows.filter(row=>String(row.row_id)===el.dataset.memberRow);
+      for(const row of rows){if(el.checked)m.selected.set(row.row_id,row);else m.selected.delete(row.row_id);}
+      document.querySelectorAll("[data-member-row]").forEach(input=>input.checked=m.selected.has(Number(input.dataset.memberRow)));
+      updateDeviceGroupSelection();return;
+    }
     if(["type","source_type","target_type","scope_type"].includes(el.name)&&el.closest("#edit-form")){
       const form=el.closest("#edit-form");
       form.querySelectorAll('.entity-picker[data-picker-dep="'+el.name+'"]').forEach(picker=>{

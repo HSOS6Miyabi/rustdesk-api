@@ -146,6 +146,9 @@ func DeviceGroupBind(rg *gin.RouterGroup) {
 	aR := rg.Group("/device_group").Use(middleware.AdminPrivilege())
 	{
 		cont := &admin.DeviceGroup{}
+		aR.GET("/devices", cont.Devices)
+		aR.GET("/candidates", cont.Candidates)
+		aR.POST("/devices/batch", cont.BatchDevices)
 		aR.GET("/list", cont.List)
 		aR.GET("/detail/:id", cont.Detail)
 		aR.POST("/create", cont.Create)

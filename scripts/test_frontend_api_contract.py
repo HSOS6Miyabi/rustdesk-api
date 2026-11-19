@@ -482,6 +482,31 @@ def verify_management_crud(admin, account_id, device_id):
     changed=update("/device_group",group,{"name":"RenamedDeviceGroup "+suffix})
     check(any(x["id"]==group and x["name"]=="RenamedDeviceGroup "+suffix for x in changed),
           "Device group edits did not persist")
+    peer=next(item for item in rows("/peer") if item["id"]==device_id)
+    original_group=peer.get("group_id",0)
+    membership={"group_id":group,"action":"add","devices":[{
+        "row_id":peer["row_id"],"expected_group_id":original_group}]}
+    candidates=admin.success("GET",f"/device_group/candidates?group_id={group}&keyword={device_id}")
+    check(any(item["id"]==device_id for item in candidates["list"]),"Registered device missing from candidates")
+    admin.success("POST","/device_group/devices/batch",membership)
+    members=admin.success("GET",f"/device_group/devices?group_id={group}&keyword={device_id}")
+    check(members["total"]==1 and members["list"][0]["group_id"]==group,"Device group member assignment did not persist")
+    summaries=admin.success("GET","/device_group/list?summary=1&page_size=100")
+    summary=next(item for item in summaries["list"] if item["id"]==group)
+    check(summary["device_count"]==1,"Device group summary is inconsistent")
+    _,stale=admin.send("POST","/device_group/devices/batch",membership)
+    check(stale.get("code")==409,"Stale membership update was not rejected")
+    membership["action"]="remove"
+    membership["devices"][0]["expected_group_id"]=group
+    admin.success("POST","/device_group/devices/batch",membership)
+    after=next(item for item in rows("/peer") if item["id"]==device_id)
+    check(after["group_id"]==0 and after["user_id"]==peer["user_id"],"Removing membership changed the device owner")
+    if original_group:
+        membership.update(group_id=original_group,action="add")
+        membership["devices"][0]["expected_group_id"]=0
+        admin.success("POST","/device_group/devices/batch",membership)
+    for endpoint,field in (("/group/list?summary=1","member_count"),("/user/list?summary=1","device_count")):
+        check(all(field in item for item in admin.success("GET",endpoint)["list"]),"Console summary is missing a field")
     policy=create("/device_policy",{"name":"Policy "+suffix,"status":1,
                                     "id_whitelist":device_id})
     changed=update("/device_policy",policy,{"name":"UpdatedPolicy "+suffix,"status":1,

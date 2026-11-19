@@ -143,13 +143,13 @@ function serve(req, res) {
           map((name,i)=>({id:i+100+pageIndex*20,name,type:1})),total:23});
       }
       return answer(res,{
-        list:[{id:1,name:"系统分组",type:1,owner_user_id:0},
-          {id:2,name:"帮助台用户组",type:1,owner_user_id:0},
-          {id:3,name:"研究人员组",type:1,owner_user_id:0}],total:3
+        list:[{id:1,name:"系统分组",type:1,owner_user_id:0,member_count:18,device_count:32,anchor_count:0,created_at:"2026-11-01 08:00:00"},
+          {id:2,name:"帮助台用户组",type:1,owner_user_id:0,member_count:8,device_count:12,anchor_count:0,created_at:"2026-11-01 08:00:00"},
+          {id:3,name:"研究人员组",type:1,owner_user_id:0,member_count:24,device_count:42,anchor_count:0,created_at:"2026-11-01 08:00:00"}],total:3
       });
     }
     if(route==="/device_group/list")return answer(res,{
-      list:[{id:3,name:"实验室设备组"}],total:1
+      list:[{id:3,name:"实验室设备组",device_count:26,active_count:18,group_policy:"研究设备策略",control_role:"远程支持",last_active_at:1795065000,updated_at:"2026-11-19 09:00:00"}],total:1
     });
     if(route==="/audit_conn/list")return answer(res,{list:[
       {id:21,peer_id:"managed-desk",from_peer:"helpdesk",note:"现场支持",created_at:1710000000}
@@ -3022,4 +3022,148 @@ test("linked WebClient settings stay closed when the server configuration reques
     assert.equal(await settings.evaluate(el=>el.open),true,
       "manually opening WebClient2 should show server configuration");
   }finally{await context.close();}
+});
+
+const densityGroups=[
+  {id:1,name:"默认组",type:1,member_count:18,device_count:32,anchor_count:0,owner_user_id:0,created_at:"2026-11-01 08:00:00"},
+  {id:2,name:"共享组",type:2,member_count:12,device_count:26,anchor_count:0,owner_user_id:3,created_at:"2026-11-02 09:00:00"},
+  {id:3,name:"实验室",type:3,member_count:24,device_count:42,anchor_count:3,owner_user_id:3,created_at:"2026-11-03 10:00:00"}
+];
+const densityDeviceGroups=[
+  {id:1,name:"服务器",device_count:24,active_count:18,group_policy:"服务器访问策略",group_policy_status:1,control_role:"远程运维",last_active_at:1795065000,updated_at:"2026-11-19 11:05:00"},
+  {id:2,name:"教学机房",device_count:48,active_count:36,group_policy:"教学设备策略",group_policy_status:1,control_role:"教师协助",last_active_at:1795064950,updated_at:"2026-11-18 15:35:00"},
+  {id:3,name:"移动终端",device_count:8,active_count:5,group_policy:"",control_role:"",last_active_at:1795055000,updated_at:"2026-11-17 10:20:00"}
+];
+const densityUsers=Array.from({length:18},(_,i)=>({id:i+1,username:i===0?"root":"researcher"+(i+1),nickname:i===0?"管理员":"研究人员 "+(i+1),
+  email:"researcher"+(i+1)+"@example.test",group_id:i%3+1,is_admin:i===0,device_count:i%7+1,status:1,created_at:"2026-11-01 10:30:00",remark:i%2?"实验室研究账户":"教学与设备维护"}));
+const densityProviders=[
+  {id:1,display_name:"GitHub",op:"github",oauth_type:"github",issuer:"",auto_group_ids:"2",auto_register:false,pkce_enable:false,created_at:"2026-11-03 09:00:00"},
+  {id:2,display_name:"实验室统一账户登录",op:"laboratory",oauth_type:"oidc",issuer:"https://sso.example.test/realms/laboratory",auto_group_ids:"3",auto_register:true,pkce_enable:true,created_at:"2026-11-04 10:00:00"}
+];
+async function installDensityData(page){
+  for(const [endpoint,list] of [["group",densityGroups],["device_group",densityDeviceGroups],["user",densityUsers],["oauth",densityProviders]]){
+    await page.route('**/api/admin/'+endpoint+'/list**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({code:0,data:{list,total:list.length}})}));
+  }
+}
+
+test("resource tables balance identifiers, summaries and descriptive columns at desktop widths",async()=>{
+  for(const width of [1366,1920,2560]){
+    const {context,page}=await pageForViewport(width,1000,true);
+    try{
+      await installDensityData(page);
+      for(const key of ["groups","users","devicegroups","oauth"]){
+        await page.locator('nav.side-scroll [data-view="'+key+'"]').click();
+        await page.locator('.data-table tbody tr:not(.table-detail-row)').first().waitFor();
+        for(const autofit of [false,true]){
+          if(autofit)await page.locator('[data-action="table-autofit"]').click();
+          const geometry=await page.evaluate(()=>{
+            const table=document.querySelector('.data-table'),region=table.closest('.table-scroll');
+            const column=key=>table.querySelector('col[data-column="'+key+'"]')?.getBoundingClientRect().width;
+            const headings=[...table.querySelectorAll('th')];
+            return {id:column('id'),group:column('group_id'),region:region.clientWidth,scroll:region.scrollWidth,
+              page:document.documentElement.scrollWidth,viewport:innerWidth,
+              row:table.querySelector('tbody tr').getBoundingClientRect().height,
+              headings:headings.map(th=>th.textContent),head:document.querySelector('.page-head').getBoundingClientRect().height};
+          });
+          assert.ok(geometry.id>=80&&geometry.id<=126,key+' numeric column width: '+JSON.stringify(geometry));
+          assert.ok(geometry.scroll<=geometry.region+2,key+' table overflow: '+JSON.stringify(geometry));
+          assert.ok(geometry.page<=geometry.viewport+2,key+' page overflow');
+          assert.ok(geometry.row<=76,key+' excessive row height');
+          assert.ok(geometry.head<=100,key+' excessive heading height');
+          if(geometry.group)assert.ok(geometry.group>=175,'group names need room to remain readable');
+          if(key==='devicegroups')assert.match(await page.locator('.content').innerText(),/设备数量|近期活跃/);
+        }
+        await captureManagementScreenshot(page,'density-'+key+'-'+width+'.png');
+      }
+      if(width===1920){
+        await page.locator('[data-action="theme"]').click();
+        await captureManagementScreenshot(page,'density-oauth-dark.png');
+      }
+    }finally{await context.close();}
+  }
+});
+
+test("device group members support search, cross-page selection, transfers and removals",async()=>{
+  const {context,page}=await pageForViewport(1600,1000,true);
+  const rows=Array.from({length:45},(_,i)=>({row_id:i+1,id:'server-'+String(i+1).padStart(3,'0'),alias:'应用服务器 '+(i+1),hostname:'node-'+(i+1),os:'Linux / Debian 12',user_id:3,owner_username:'researcher',group_id:1,group_name:'服务器',last_online_time:1795065000-i}));
+  rows.push({row_id:101,id:'candidate-1',alias:'工作站',hostname:'workstation',os:'Windows 11',user_id:3,owner_username:'researcher',group_id:0,group_name:'',last_online_time:1795060000});
+  rows.push({row_id:102,id:'candidate-2',alias:'分析服务器',hostname:'analysis',os:'Linux',user_id:3,owner_username:'researcher',group_id:2,group_name:'教学机房',last_online_time:1795060000});
+  const changes=[];
+  page.on('dialog',dialog=>dialog.accept());
+  try{
+    await page.route('**/api/admin/device_group/**',async route=>{
+      const url=new URL(route.request().url()),name=url.pathname.split('/device_group/')[1];
+      let data;
+      if(name==='list')data={list:[{...densityDeviceGroups[0],device_count:rows.filter(row=>row.group_id===1).length}],total:1};
+      else if(name==='devices/batch'){
+        const body=route.request().postDataJSON();changes.push(body);
+        for(const item of body.devices){
+          const row=rows.find(row=>row.row_id===item.row_id);
+          assert.equal(item.expected_group_id,row.group_id,'client must send the observed membership');
+          row.group_id=body.action==='add'?1:0;row.group_name=row.group_id?'服务器':'';
+        }
+        data={affected:body.devices.length};
+      }else{
+        const keyword=url.searchParams.get('keyword')||'',index=Number(url.searchParams.get('page')||1);
+        const visible=rows.filter(row=>(name==='candidates'?row.group_id!==1:row.group_id===1)&&
+          [row.id,row.alias,row.hostname,row.owner_username,row.group_name].some(text=>String(text||'').includes(keyword)));
+        data={list:visible.slice((index-1)*20,index*20),total:visible.length};
+      }
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({code:0,data})});
+    });
+    await page.locator('nav.side-scroll [data-view="devicegroups"]').click();
+    await page.locator('.data-table .cell-actions [data-action="device-group-devices"]').click();
+    await page.locator('[data-member-row="1"]').waitFor();
+    assert.match(await page.locator('.device-group-drawer').innerText(),/共 45 台/);
+    await page.locator('[data-member-row="1"]').check();
+    await page.locator('[data-action="device-group-page"][data-page="2"]').click();
+    await page.locator('[data-member-row="21"]').check();
+    assert.match(await page.locator('#device-group-selected').innerText(),/2 台/);
+    await captureManagementScreenshot(page,'density-members-desktop.png');
+    await page.locator('#device-group-apply').click();
+    await page.waitForFunction(()=>document.querySelector('.member-pager')?.textContent.includes('共 43 台'));
+    assert.equal(changes[0].action,'remove');assert.deepEqual(changes[0].devices.map(row=>row.row_id),[1,21]);
+    await page.locator('[data-action="device-group-tab"][data-tab="candidates"]').click();
+    await page.locator('#device-group-search').fill('candidate');
+    await page.locator('#device-group-search-form button').click();
+    await page.locator('[data-member-row="101"]').waitFor();
+    assert.equal(await page.locator('.member-device-row').count(),2);
+    await page.locator('#device-group-select-all').check();
+    await captureManagementScreenshot(page,'density-add-members-desktop.png');
+    await page.locator('#device-group-apply').click();
+    await page.waitForFunction(()=>document.querySelector('.member-pager')?.textContent.includes('共 0 台'));
+    assert.equal(changes[1].action,'add');assert.deepEqual(changes[1].devices.map(row=>row.expected_group_id),[0,2]);
+    await page.locator('[data-action="device-group-tab"][data-tab="members"]').click();
+    await page.locator('#device-group-search').fill('candidate-2');
+    await page.locator('#device-group-search-form button').click();
+    await page.locator('[data-member-row="102"]').waitFor();
+    assert.match(await page.locator('.member-device-list').innerText(),/分析服务器/);
+    await page.setViewportSize({width:375,height:812});
+    await captureManagementScreenshot(page,'density-members-phone.png');
+    const overflow=await page.evaluate(()=>({document:document.documentElement.scrollWidth,drawer:document.querySelector('.drawer').scrollWidth,width:innerWidth}));
+    assert.ok(overflow.document<=overflow.width+2&&overflow.drawer<=overflow.width+2,JSON.stringify(overflow));
+  }finally{await context.close();}
+});
+
+test("device membership loading, errors and stale responses remain interactive",async()=>{
+  const {context,page}=await pageForViewport(1440,900,true);
+  let fail=true,release,announce;
+  const pending=new Promise(resolve=>{announce=resolve;});
+  try{
+    await installDensityData(page);
+    await page.route('**/api/admin/device_group/devices?**',async route=>{
+      if(fail){await new Promise(resolve=>{release=resolve;announce();});await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({code:101,message:'设备列表暂时不可用'})});}
+      else await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({code:0,data:{list:[],total:0}})});
+    });
+    await page.locator('nav.side-scroll [data-view="devicegroups"]').click();
+    await page.locator('.data-table .cell-actions [data-action="device-group-devices"]').first().click();
+    await page.locator('.device-group-drawer .loading-table').waitFor();
+    assert.equal(await page.locator('.device-group-drawer [data-action="close-modal"]').last().isEnabled(),true);
+    await pending;release();await page.locator('.member-error').waitFor();
+    assert.match(await page.locator('.member-error').innerText(),/暂时不可用/);
+    fail=false;await page.locator('[data-action="device-group-retry"]').click();
+    await page.getByText('此分组还没有设备',{exact:true}).waitFor();
+    await page.locator('.device-group-drawer [data-action="close-modal"]').last().click();
+    assert.equal(await page.locator('.device-group-drawer').count(),0);
+  }finally{if(release)release();await context.close();}
 });
